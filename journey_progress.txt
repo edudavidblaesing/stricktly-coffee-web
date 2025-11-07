@@ -1,0 +1,12 @@
+medellin 0.000000
+antioquia 0.000524
+brussels 0.112414
+philadelphia 0.202663
+dendermonde 0.292687
+nairobi 0.380100
+honduras 0.520435
+los_angeles 0.566460
+alaska 0.623993
+mexico 0.712172
+patagonia 0.822790
+launch 1.000000
