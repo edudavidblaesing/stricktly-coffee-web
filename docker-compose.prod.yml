@@ -6,8 +6,13 @@ services:
       - "443:443"
     restart: unless-stopped
     container_name: stricktly-coffee
+    volumes:
+      # Mount SSL certificates (update path to your certificates)
+      - ./ssl:/etc/nginx/ssl:ro
     environment:
       - VIRTUAL_HOST=stricktlycoffee.be,www.stricktlycoffee.be
+      - LETSENCRYPT_HOST=stricktlycoffee.be,www.stricktlycoffee.be
+      - LETSENCRYPT_EMAIL=admin@stricktlycoffee.be
     networks:
       - web
 

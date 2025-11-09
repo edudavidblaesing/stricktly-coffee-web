@@ -10,28 +10,64 @@ A one-page website showcasing the journey of Willemstrick through the world of s
 - Responsive design
 - Dockerized for easy deployment
 
-## Deployment with Dokploy
+## Quick Start
 
-This repository is configured for automatic deployment with Dokploy.
+### Deploy to GitHub (and optionally Docker)
 
-### Setup Instructions
+```bash
+# Push changes to GitHub
+./deploy.sh "Your commit message"
 
-1. Push this repository to GitHub
-2. In Dokploy, create a new application
-3. Connect your GitHub repository
-4. Dokploy will automatically detect the Dockerfile and deploy
-5. Your website will be live!
+# Push to GitHub AND deploy with Docker
+./deploy.sh "Your commit message" --docker
+
+# Quick deploy with auto-generated message
+./deploy.sh --docker
+```
+
+### Using Docker Compose Manually
+
+```bash
+# HTTP deployment (development/testing)
+docker-compose up -d --build
+
+# Or use the Docker-specific script
+./deploy-docker.sh http
+```
+
+Visit `http://localhost` or `http://stricktlycoffee.be` (once DNS is configured)
+
+### Production Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying with HTTPS/SSL.
+
+```bash
+# Production with SSL
+./deploy-docker.sh https
+```
 
 ### Local Development
 
-To run locally with Docker:
-
 ```bash
-docker build -t strictly-coffee .
-docker run -p 8080:80 strictly-coffee
+# Start local server
+./run-local.sh
+
+# Stop local server
+./stop-local.sh
 ```
 
-Visit `http://localhost:8080` to view the site.
+### Manual Docker Commands
+
+```bash
+# Build and run
+docker build -t strictly-coffee .
+docker run -p 8080:80 strictly-coffee
+
+# Using docker-compose
+docker-compose up -d --build
+docker-compose down
+docker-compose logs -f
+```
 
 ## Tech Stack
 
