@@ -14,8 +14,8 @@ if ! docker info &> /dev/null; then
 fi
 
 # Check if we're in the right directory
-if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ Error: docker-compose.yml not found"
+if [ ! -f "docker-compose.local.yml" ]; then
+    echo "❌ Error: docker-compose.local.yml not found"
     echo "Please run this script from the strictly-coffee-website directory"
     exit 1
 fi
@@ -24,7 +24,7 @@ echo "🛑 Stopping Docker container..."
 echo ""
 
 # Stop the container
-docker-compose down
+docker-compose -f docker-compose.local.yml down
 
 if [ $? -eq 0 ]; then
     echo ""

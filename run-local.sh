@@ -35,7 +35,7 @@ echo "📦 Building Docker image..."
 echo ""
 
 # Build the Docker image
-docker-compose build
+docker-compose -f docker-compose.local.yml build
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -50,7 +50,7 @@ echo "🚀 Starting the website..."
 echo ""
 
 # Start the container
-docker-compose up -d
+docker-compose -f docker-compose.local.yml up -d
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -73,10 +73,10 @@ echo "════════════════════════�
 echo ""
 echo "📋 Useful commands:"
 echo ""
-echo "  View logs:        docker-compose logs -f"
-echo "  Stop website:     docker-compose down"
-echo "  Restart:          docker-compose restart"
-echo "  Rebuild:          docker-compose up -d --build"
+echo "  View logs:        docker-compose -f docker-compose.local.yml logs -f"
+echo "  Stop website:     docker-compose -f docker-compose.local.yml down"
+echo "  Restart:          docker-compose -f docker-compose.local.yml restart"
+echo "  Rebuild:          docker-compose -f docker-compose.local.yml up -d --build"
 echo ""
 echo "═══════════════════════════════════════════════════════════"
 echo ""

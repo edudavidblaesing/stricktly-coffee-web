@@ -92,7 +92,7 @@ a {
 }
 #journey-map .journey-route {
     fill: none;
-    stroke-width: 7;
+    stroke-width: 5;
     stroke-linecap: round;
     stroke-linejoin: round;
     filter: url(#glow);
@@ -101,7 +101,7 @@ a {
 #journey-map .journey-route-track {
     fill: none;
     stroke: rgba(7, 80, 86, 0.4);
-    stroke-width: 9;
+    stroke-width: 7;
     stroke-linecap: round;
     stroke-linejoin: round;
     opacity: 0.35;
@@ -447,7 +447,7 @@ a {
 }
 .sticky-cta {
     position: fixed;
-    bottom: calc(clamp(20px, 6vw, 44px) + var(--cta-lift, 0px));
+    bottom: clamp(20px, 6vw, 44px);
     right: clamp(20px, 5vw, 56px);
     z-index: 5;
     display: flex;
@@ -456,13 +456,12 @@ a {
 }
 .sticky-cta .cta-button {
     pointer-events: auto;
-    background: linear-gradient(135deg, rgba(247, 198, 108, 0.95), rgba(255, 224, 153, 1));
 }
 .sticky-cta.is-hidden {
     opacity: 0;
     transform: translateY(18px);
 }
-@media (max-width: 1024px) {
+@media (max-width: 800px) {
     .map-layer {
         justify-content: center;
         padding: 0;
@@ -573,7 +572,7 @@ a {
             <path class="journey-route-track" d="M522.09 535.75 Q522.27 534.33 521.00 533.67 Q826.86 523.26 921.76 232.31 Q697.02 130.22 524.17 306.44 Q748.71 407.48 920.50 231.09 Q877.73 466.32 1084.11 587.02 Q810.64 317.68 463.97 482.44 Q433.93 360.19 308.78 346.58 Q302.44 189.35 152.53 141.49 Q171.84 381.89 404.33 446.04 Q301.09 730.43 532.97 924.78 Q969.73 714.62 921.76 232.31" />
             <path id="journey-route" class="journey-route" d="M522.09 535.75 Q522.27 534.33 521.00 533.67 Q826.86 523.26 921.76 232.31 Q697.02 130.22 524.17 306.44 Q748.71 407.48 920.50 231.09 Q877.73 466.32 1084.11 587.02 Q810.64 317.68 463.97 482.44 Q433.93 360.19 308.78 346.58 Q302.44 189.35 152.53 141.49 Q171.84 381.89 404.33 446.04 Q301.09 730.43 532.97 924.78 Q969.73 714.62 921.76 232.31" stroke="url(#route-gradient)" />
             <g class="waypoints">
-                <g class="waypoint is-active" data-waypoint="medellin">
+                <g class="waypoint" data-waypoint="medellin">
                     <circle r="12"></circle>
                     <circle r="5"></circle>
                     <title>Medellín, Colombia</title>
@@ -672,7 +671,6 @@ a {
         </g>
         </g>
     </svg>
-    <div class="map-caption" data-map-caption>Medellín, Colombia</div>
 </div>
 <div class="page-shell">
     <header class="hero">
@@ -906,7 +904,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const routeTrack = svg?.querySelector('.journey-route-track');
     const mapGroup = svg?.querySelector('[data-map-group]');
     const waypointsLayer = svg?.querySelector('.waypoints');
-    const mapCaption = document.querySelector('[data-map-caption]');
     const steps = Array.from(document.querySelectorAll('[data-step]'));
     const stickyCta = document.querySelector('[data-sticky-cta]');
     const heroSection = document.querySelector('.hero');
@@ -1019,33 +1016,41 @@ document.addEventListener('DOMContentLoaded', () => {
             routeTrack.setAttribute('d', pathString);
         }
 
+        // Force layout and get accurate total length
+        route.getBoundingClientRect();
         routeLength = route.getTotalLength();
 
-        const tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        tempPath.setAttribute('fill', 'none');
-        svg.appendChild(tempPath);
-
-        const partialCommands = [];
-
+        // Find the closest point on the path for each waypoint position
+        // This way progress is based on actual path geometry, not arbitrary divisions
         states.forEach((state, i) => {
             if (i === 0) {
-                partialCommands.push(pathCommands[0]);
-                state.length = 0;
                 state.progress = 0;
+                state.pathDistance = 0;
             } else {
-                partialCommands.push(pathCommands[i]);
-                tempPath.setAttribute('d', partialCommands.join(' '));
-                const total = tempPath.getTotalLength();
-                state.length = total;
-                state.progress = routeLength > 0 ? total / routeLength : (i / (states.length - 1));
+                // Search along the path to find where this waypoint is
+                let closestDistance = 0;
+                let minDist = Infinity;
+                const stepSize = routeLength / 500; // Sample the path
+                
+                for (let d = 0; d <= routeLength; d += stepSize) {
+                    const point = route.getPointAtLength(d);
+                    const dist = Math.hypot(point.x - state.position.x, point.y - state.position.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestDistance = d;
+                    }
+                }
+                
+                state.pathDistance = closestDistance;
+                state.progress = routeLength > 0 ? closestDistance / routeLength : (i / (states.length - 1));
             }
         });
 
-        svg.removeChild(tempPath);
-
-        const lastState = states[states.length - 1];
-        lastState.progress = 1;
-        lastState.length = routeLength;
+        // Ensure last state is exactly 1.0
+        if (states.length > 0) {
+            states[states.length - 1].progress = 1;
+            states[states.length - 1].pathDistance = routeLength;
+        }
 
         route.style.strokeDasharray = routeLength;
         route.style.strokeDashoffset = routeLength;
@@ -1054,11 +1059,8 @@ document.addEventListener('DOMContentLoaded', () => {
             routeTrack.style.strokeDashoffset = '0';
         }
 
-        if (activeState) {
-            renderProgress(activeState.progress);
-        } else {
-            renderProgress(0);
-        }
+        // Don't auto-render here - let the caller control rendering
+        // This prevents flickering during resize
     };
 
     // Visibility observer for steps
@@ -1159,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Rebuild route initially so progress markers align
     rebuildRoute();
+    renderProgress(0);
 
     // Set active state (step)
     const setActiveState = (nextState, { immediate = false } = {}) => {
@@ -1177,10 +1180,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isActive) state.step.classList.add('is-visible');
         });
 
-        if (mapCaption && nextState.label) {
-            mapCaption.textContent = nextState.label;
-        }
-
         highlightWaypoint(nextState.locationId);
         applyFocus(nextState);
         animateProgress(nextState.progress, immediate);
@@ -1190,34 +1189,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectStateFromScroll = () => {
         if (!states.length) return;
 
-        // Use center of viewport as activation point for more consistent behavior
-        const activationY = window.innerHeight * 0.5;
-        let candidate = states[0];
-        let bestDistance = Infinity;
-
-        // Find the step whose center is closest to the activation line
-        for (const state of states) {
-            const rect = state.step.getBoundingClientRect();
-            const stepCenter = rect.top + rect.height / 2;
-            const distance = Math.abs(stepCenter - activationY);
-            
-            // Prefer steps that are visible and centered
-            if (rect.bottom > 0 && rect.top < window.innerHeight) {
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    candidate = state;
-                }
-            }
-        }
-
-        // Override for last step when near bottom
-        const lastState = states[states.length - 1];
-        const lastRect = lastState.step.getBoundingClientRect();
-        if (lastRect.top < window.innerHeight * 0.75 && lastRect.bottom > window.innerHeight * 0.25) {
-            candidate = lastState;
-        }
-
-        setActiveState(candidate);
+        // Calculate total scrollable height of the journey section
+        const firstStep = states[0].step;
+        const lastStep = states[states.length - 1].step;
+        const firstRect = firstStep.getBoundingClientRect();
+        const lastRect = lastStep.getBoundingClientRect();
+        
+        // Get scroll position relative to journey section
+        const journeyTop = firstRect.top + window.scrollY;
+        const journeyBottom = lastRect.bottom + window.scrollY;
+        const journeyHeight = journeyBottom - journeyTop;
+        const currentScroll = window.scrollY + window.innerHeight * 0.5;
+        
+        // Calculate which step should be active based on equal divisions
+        const scrollProgress = Math.max(0, Math.min(1, (currentScroll - journeyTop) / journeyHeight));
+        const stepIndex = Math.min(
+            states.length - 1,
+            Math.floor(scrollProgress * states.length)
+        );
+        
+        setActiveState(states[stepIndex]);
     };
 
     // Throttle scroll handler
@@ -1244,9 +1235,15 @@ document.addEventListener('DOMContentLoaded', () => {
         rebuildScheduled = true;
         requestAnimationFrame(() => {
             rebuildScheduled = false;
+            const activeIndex = activeState ? activeState.index : 0;
             rebuildRoute();
+            // Re-activate the same step index with updated progress values
+            if (activeIndex >= 0 && activeIndex < states.length) {
+                const stateToReactivate = states[activeIndex];
+                renderProgress(stateToReactivate.progress);
+                applyFocus(stateToReactivate);
+            }
             scheduleScrollCheck();
-            if (activeState) applyFocus(activeState);
         });
     };
 
@@ -1258,47 +1255,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Sticky CTA logic
     if (stickyCta) {
-        const footerGap = 28;
-
-        const adjustLift = () => {
-            if (!footerNote) {
-                stickyCta.style.setProperty('--cta-lift', '0px');
-                return;
-            }
-            const footerRect = footerNote.getBoundingClientRect();
-            if (footerRect.top < window.innerHeight) {
-                const lift = Math.max(0, window.innerHeight - footerRect.top + footerGap);
-                stickyCta.style.setProperty('--cta-lift', `${lift}px`);
-            } else {
-                stickyCta.style.setProperty('--cta-lift', '0px');
-            }
+        const toggleVisibility = (hideWhenHeroVisible) => {
+            stickyCta.classList.toggle('is-hidden', hideWhenHeroVisible);
         };
 
-        const toggleVisibility = visible => {
-            stickyCta.classList.toggle('is-hidden', visible);
-        };
+        let heroVisible = true;
 
         if (heroSection && 'IntersectionObserver' in window) {
             const heroObserver = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
-                    if (entry.target === heroSection) {
-                        toggleVisibility(entry.isIntersecting);
-                    }
+                    heroVisible = entry.isIntersecting;
+                    toggleVisibility(heroVisible);
                 });
             }, { threshold: 0.15 });
             heroObserver.observe(heroSection);
         } else {
-            toggleVisibility(false);
+            heroVisible = false;
+            toggleVisibility(heroVisible);
         }
-
-        if (footerNote && 'IntersectionObserver' in window) {
-            const footerObserver = new IntersectionObserver(() => adjustLift());
-            footerObserver.observe(footerNote);
-        }
-
-        window.addEventListener('scroll', adjustLift, { passive: true });
-        window.addEventListener('resize', adjustLift);
-        adjustLift();
     }
 
 });
