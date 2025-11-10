@@ -7,26 +7,44 @@
 <title>Stricktly Coffee — Global Journey</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
 <style>
+@font-face {
+    font-family: "Moonlith February Sans";
+    src:
+        url("fonts/moonlith-february-sans.woff2") format("woff2"),
+        url("fonts/moonlith-february-sans.ttf") format("truetype"),
+        url("fonts/moonlith-february-sans.otf") format("opentype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
 :root {
-    color-scheme: dark;
-    --bg: #16232A;
-    --bg-gradient: radial-gradient(circle at 20% 20%, rgba(7, 80, 86, 0.2), transparent 50%), radial-gradient(circle at 80% 10%, rgba(255, 91, 4, 0.12), transparent 55%), linear-gradient(135deg, #16232A 0%, #1a2c35 50%, #16232A 100%);
-    --surface: rgba(22, 35, 42, 0.85);
-    --card: rgba(26, 44, 53, 0.9);
-    --divider: rgba(7, 80, 86, 0.25);
-    --muted: #8a9ca5;
-    --accent: #FF5B04;
-    --accent-strong: #ff7733;
-    --accent-muted: rgba(255, 91, 4, 0.25);
-    --teal: #075056;
-    --teal-muted: rgba(7, 80, 86, 0.4);
-    --sand: #E4EEF0;
-    --text: #E4EEF0;
-    --text-secondary: #b8c8ce;
-    --radius-lg: 24px;
+    color-scheme: light;
+    --primary-tan: #F2E4BD;
+    --primary-blue: #B7D8FE;
+    --primary-wine: #6B2338;
+    --primary-green: #162721;
+    --secondary-blush: #F7CFC3;
+    --secondary-coral: #E0512A;
+    --secondary-ochre: #C9BC55;
+    --secondary-espresso: #3A3328;
+    --bg: var(--primary-tan);
+    --bg-gradient: radial-gradient(circle at 18% 18%, rgba(183, 216, 254, 0.38), transparent 55%), radial-gradient(circle at 80% 0%, rgba(107, 35, 56, 0.2), transparent 60%), linear-gradient(145deg, #f6edcc 0%, #f2e4bd 36%, #f0e0b3 100%);
+    --surface: rgba(255, 255, 255, 0.65);
+    --card: rgba(247, 243, 228, 0.85);
+    --divider: rgba(58, 51, 40, 0.18);
+    --muted: rgba(58, 51, 40, 0.65);
+    --accent: var(--primary-wine);
+    --accent-strong: #872947;
+    --accent-muted: rgba(107, 35, 56, 0.18);
+    --teal: var(--primary-blue);
+    --teal-muted: rgba(183, 216, 254, 0.45);
+    --sand: var(--primary-green);
+    --text: var(--primary-green);
+    --text-secondary: rgba(22, 39, 33, 0.72);
+    --radius-lg: 26px;
     --radius-md: 18px;
-    --shadow-soft: 0 40px 90px rgba(8, 12, 15, 0.6);
-    --shadow-card: 0 25px 70px rgba(10, 16, 20, 0.5);
+    --shadow-soft: 0 34px 70px rgba(22, 39, 33, 0.22);
+    --shadow-card: 0 20px 60px rgba(22, 39, 33, 0.18);
     --step-width: clamp(280px, 38vw, 420px);
     --transition-smooth: cubic-bezier(0.33, 1, 0.68, 1);
 }
@@ -37,11 +55,11 @@
 }
 body {
     min-height: 100vh;
-    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Moonlith February Sans", "Manrope", "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
     background-image: var(--bg-gradient);
     background-attachment: fixed;
-    color: var(--sand);
+    color: var(--text);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
 }
@@ -100,11 +118,11 @@ a {
 }
 #journey-map .journey-route-track {
     fill: none;
-    stroke: rgba(7, 80, 86, 0.4);
+    stroke: rgba(58, 51, 40, 0.22);
     stroke-width: 7;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: 0.35;
+    opacity: 0.55;
     vector-effect: non-scaling-stroke;
 }
 
@@ -122,13 +140,13 @@ a {
     opacity: 1;
 }
 .pointer {
-    fill: var(--accent);
-    stroke: rgba(5, 12, 28, 0.25);
+    fill: var(--primary-blue);
+    stroke: rgba(107, 35, 56, 0.28);
     stroke-width: 6;
     vector-effect: non-scaling-stroke;
 }
 .pointer-core {
-    fill: #121c2c;
+    fill: var(--primary-wine);
 }
 .waypoints .waypoint {
     pointer-events: none;
@@ -139,15 +157,15 @@ a {
     display: none;
 }
 .waypoints .waypoint[transform] {
-    opacity: 0.55;
+    opacity: 0.7;
 }
 .waypoints .waypoint.is-active {
     opacity: 1;
-    filter: drop-shadow(0 0 28px rgba(255, 91, 4, 0.85)) drop-shadow(0 0 12px rgba(255, 91, 4, 0.95));
+    filter: drop-shadow(0 0 24px rgba(224, 81, 42, 0.9));
 }
 .waypoints circle {
-    fill: rgba(22, 35, 42, 0.9);
-    stroke: rgba(255, 91, 4, 0.75);
+    fill: rgba(242, 228, 189, 0.9);
+    stroke: rgba(224, 81, 42, 0.75);
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
     transition: stroke-width 360ms var(--transition-smooth), fill 360ms var(--transition-smooth);
@@ -156,22 +174,22 @@ a {
     stroke-width: 3;
 }
 .waypoints .waypoint.is-active circle:nth-child(1) {
-    fill: rgba(255, 91, 4, 0.2);
+    fill: rgba(224, 81, 42, 0.25);
 }
 .waypoints circle:nth-child(2) {
-    fill: var(--accent);
+    fill: var(--secondary-coral);
     stroke-width: 0;
 }
 .waypoints .waypoint.is-active circle:nth-child(2) {
-    fill: rgba(255, 91, 4, 1);
+    fill: var(--primary-wine);
 }
 .map-caption {
     position: fixed;
     bottom: clamp(20px, 6vw, 42px);
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(22, 35, 42, 0.9);
-    border: 1px solid var(--teal);
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(58, 51, 40, 0.12);
     border-radius: 999px;
     padding: 10px 22px;
     font-size: 14px;
@@ -187,10 +205,10 @@ a {
     gap: clamp(24px, 5vw, 60px);
 }
 .hero-content {
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
     border-radius: var(--radius-lg);
-    border: 1px solid var(--teal-muted);
-    background: linear-gradient(135deg, rgba(22, 35, 42, 0.95), rgba(26, 44, 53, 0.88));
+    border: 1px solid rgba(107, 35, 56, 0.16);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(247, 231, 189, 0.88));
     padding: clamp(32px, 5vw, 54px);
     box-shadow: var(--shadow-card);
 }
@@ -206,20 +224,27 @@ a {
     flex-direction: column;
     gap: clamp(20px, 3vw, 28px);
 }
+.hero-logo {
+    width: clamp(120px, 18vw, 180px);
+    height: auto;
+    filter: drop-shadow(0 8px 24px rgba(22, 39, 33, 0.12));
+    margin-bottom: clamp(12px, 1.8vw, 24px);
+}
 .hero-text .eyebrow {
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3em;
-    color: var(--muted);
+    color: var(--accent);
 }
 .hero-text h1 {
-    font-size: clamp(32px, 4vw, 52px);
-    line-height: 1.1;
+    font-size: clamp(34px, 4vw, 52px);
+    line-height: 1.08;
     letter-spacing: -0.02em;
+    color: var(--primary-green);
 }
 .hero-text p {
-    color: rgba(215, 226, 245, 0.9);
+    color: var(--text-secondary);
     max-width: 52ch;
 }
 .hero-cta {
@@ -234,8 +259,8 @@ a {
     justify-content: center;
     padding: 14px 28px;
     border-radius: 999px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    color: var(--bg);
+    background: linear-gradient(145deg, var(--primary-wine), var(--accent-strong));
+    color: #fefaf2;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -245,7 +270,7 @@ a {
 }
 .cta-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 40px rgba(255, 91, 4, 0.4);
+    box-shadow: 0 18px 40px rgba(107, 35, 56, 0.32);
 }
 .cta-button:active {
     transform: translateY(0);
@@ -286,9 +311,9 @@ a {
 }
 .floating-card {
     width: min(100%, 360px);
-    background: rgba(22, 35, 42, 0.92);
+    background: rgba(255, 255, 255, 0.78);
     border-radius: var(--radius-md);
-    border: 1px solid var(--teal-muted);
+    border: 1px solid rgba(183, 216, 254, 0.4);
     padding: 24px;
     display: flex;
     flex-direction: column;
@@ -305,7 +330,7 @@ a {
     font-size: 16px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--accent);
 }
 .floating-card strong {
     font-size: 28px;
@@ -313,7 +338,7 @@ a {
 }
 .floating-card p {
     font-size: 15px;
-    color: rgba(215, 226, 245, 0.82);
+    color: var(--text-secondary);
 }
 .section {
     display: grid;
@@ -329,15 +354,16 @@ a {
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 0.3em;
-    color: var(--muted);
+    color: var(--accent);
 }
 .section-heading h2 {
     font-size: clamp(28px, 5vw, 40px);
     line-height: 1.2;
     letter-spacing: -0.01em;
+    color: var(--primary-green);
 }
 .section-heading p {
-    color: rgba(210, 224, 244, 0.85);
+    color: var(--text-secondary);
 }
 .section-content {
     display: grid;
@@ -351,8 +377,8 @@ a {
 .principle {
     padding: 22px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--teal-muted);
-    background: var(--card);
+    border: 1px solid rgba(58, 51, 40, 0.12);
+    background: rgba(255, 255, 255, 0.78);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -361,7 +387,7 @@ a {
     font-size: 16px;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    color: var(--accent);
+    color: var(--primary-wine);
 }
 .journey {
     display: flex;
@@ -380,8 +406,8 @@ a {
     position: relative;
     padding: 24px 28px;
     border-radius: var(--radius-md);
-    background: rgba(22, 35, 42, 0.88);
-    border: 1px solid var(--teal-muted);
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(107, 35, 56, 0.16);
     opacity: 0;
     transform: translateY(24px);
     transition: opacity 280ms var(--transition-smooth), transform 280ms var(--transition-smooth), border-color 300ms ease, background 300ms ease;
@@ -406,13 +432,13 @@ a {
 }
 .journey-step.is-active {
     opacity: 1;
-    border-color: rgba(255, 91, 4, 0.6);
-    background: rgba(26, 44, 53, 0.95);
+    border-color: rgba(224, 81, 42, 0.5);
+    background: rgba(255, 255, 255, 0.94);
     transform: translateY(-4px);
-    box-shadow: 0 24px 50px rgba(10, 16, 20, 0.5);
+    box-shadow: 0 24px 50px rgba(107, 35, 56, 0.18);
 }
 .journey-step.is-active::before {
-    border-color: rgba(255, 91, 4, 0.7);
+    border-color: rgba(107, 35, 56, 0.35);
 }
 .journey-step header {
     display: flex;
@@ -424,11 +450,12 @@ a {
     font-size: 13px;
     letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--accent);
 }
 .journey-location {
     font-size: 20px;
     letter-spacing: -0.01em;
+    color: var(--primary-green);
 }
 .journey-meta {
     font-size: 14px;
@@ -437,7 +464,7 @@ a {
     color: var(--muted);
 }
 .journey-description {
-    color: rgba(216, 228, 246, 0.85);
+    color: var(--text-secondary);
     font-size: 15px;
 }
 .footer-note {
@@ -551,9 +578,9 @@ a {
         <desc id="map-desc">A world map highlighting waypoints and curved routes for the Stricktly Coffee sourcing expedition.</desc>
         <defs>
             <linearGradient id="route-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#075056" stop-opacity="0.85" />
-                <stop offset="45%" stop-color="#FF5B04" stop-opacity="0.95" />
-                <stop offset="100%" stop-color="#E4EEF0" stop-opacity="1" />
+                <stop offset="0%" stop-color="#B7D8FE" stop-opacity="0.9" />
+                <stop offset="45%" stop-color="#E0512A" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#6B2338" stop-opacity="1" />
             </linearGradient>
             <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
@@ -677,6 +704,7 @@ a {
         <div class="hero-content">
             <div class="hero-grid">
                 <div class="hero-text">
+                    <img src="logo.svg" alt="Stricktly Coffee logo" class="hero-logo" />
                     <p class="eyebrow">Origin to roast</p>
                     <h1>Mapping every bean we bring home.</h1>
                     <p>Stricktly Coffee is a roastery built on direct relationships. This live atlas traces our 2024 sourcing expedition as we audit partners, design processing experiments, and shepherd each lot toward its Antwerp release.</p>
@@ -987,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Build complete route path with curved lines
         const pathCommands = [];
+        const segmentData = [];
         states.forEach((state, i) => {
             if (i === 0) {
                 pathCommands.push(`M${state.position.x.toFixed(2)} ${state.position.y.toFixed(2)}`);
@@ -1007,6 +1036,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const controlY = midY + perpY;
 
                 pathCommands.push(`Q${controlX.toFixed(2)} ${controlY.toFixed(2)} ${state.position.x.toFixed(2)} ${state.position.y.toFixed(2)}`);
+
+                segmentData.push({
+                    start: { ...prev.position },
+                    control: { x: controlX, y: controlY },
+                    end: { ...state.position }
+                });
             }
         });
 
@@ -1016,40 +1051,48 @@ document.addEventListener('DOMContentLoaded', () => {
             routeTrack.setAttribute('d', pathString);
         }
 
-        // Force layout and get accurate total length
-        route.getBoundingClientRect();
-        routeLength = route.getTotalLength();
+        const approximateQuadraticLength = ({ start, control, end }) => {
+            const steps = 72;
+            let length = 0;
+            let prevX = start.x;
+            let prevY = start.y;
+            for (let i = 1; i <= steps; i += 1) {
+                const t = i / steps;
+                const inv = 1 - t;
+                const x = inv * inv * start.x + 2 * inv * t * control.x + t * t * end.x;
+                const y = inv * inv * start.y + 2 * inv * t * control.y + t * t * end.y;
+                length += Math.hypot(x - prevX, y - prevY);
+                prevX = x;
+                prevY = y;
+            }
+            return length;
+        };
 
-        // Find the closest point on the path for each waypoint position
-        // This way progress is based on actual path geometry, not arbitrary divisions
+        const segmentLengths = segmentData.map(approximateQuadraticLength);
+        const approxTotalLength = segmentLengths.reduce((total, current) => total + current, 0);
+
+        routeLength = approxTotalLength > 0 ? approxTotalLength : 1;
+
+        let accumulated = 0;
         states.forEach((state, i) => {
             if (i === 0) {
+                state.length = 0;
                 state.progress = 0;
-                state.pathDistance = 0;
             } else {
-                // Search along the path to find where this waypoint is
-                let closestDistance = 0;
-                let minDist = Infinity;
-                const stepSize = routeLength / 500; // Sample the path
-                
-                for (let d = 0; d <= routeLength; d += stepSize) {
-                    const point = route.getPointAtLength(d);
-                    const dist = Math.hypot(point.x - state.position.x, point.y - state.position.y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closestDistance = d;
-                    }
-                }
-                
-                state.pathDistance = closestDistance;
-                state.progress = routeLength > 0 ? closestDistance / routeLength : (i / (states.length - 1));
+                accumulated += segmentLengths[i - 1] || 0;
+                const ratio = routeLength > 0 ? accumulated / routeLength : (i / (states.length - 1));
+                state.length = accumulated;
+                state.progress = Math.min(1, Math.max(0, ratio));
             }
         });
 
-        // Ensure last state is exactly 1.0
-        if (states.length > 0) {
-            states[states.length - 1].progress = 1;
-            states[states.length - 1].pathDistance = routeLength;
+        const lastState = states[states.length - 1];
+        lastState.progress = 1;
+        lastState.length = routeLength;
+
+        route.setAttribute('pathLength', routeLength.toFixed(3));
+        if (routeTrack) {
+            routeTrack.setAttribute('pathLength', routeLength.toFixed(3));
         }
 
         route.style.strokeDasharray = routeLength;
@@ -1059,8 +1102,11 @@ document.addEventListener('DOMContentLoaded', () => {
             routeTrack.style.strokeDashoffset = '0';
         }
 
-        // Don't auto-render here - let the caller control rendering
-        // This prevents flickering during resize
+        if (activeState) {
+            renderProgress(activeState.progress);
+        } else {
+            renderProgress(0);
+        }
     };
 
     // Visibility observer for steps
@@ -1161,7 +1207,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Rebuild route initially so progress markers align
     rebuildRoute();
-    renderProgress(0);
 
     // Set active state (step)
     const setActiveState = (nextState, { immediate = false } = {}) => {
@@ -1235,15 +1280,9 @@ document.addEventListener('DOMContentLoaded', () => {
         rebuildScheduled = true;
         requestAnimationFrame(() => {
             rebuildScheduled = false;
-            const activeIndex = activeState ? activeState.index : 0;
             rebuildRoute();
-            // Re-activate the same step index with updated progress values
-            if (activeIndex >= 0 && activeIndex < states.length) {
-                const stateToReactivate = states[activeIndex];
-                renderProgress(stateToReactivate.progress);
-                applyFocus(stateToReactivate);
-            }
             scheduleScrollCheck();
+            if (activeState) applyFocus(activeState);
         });
     };
 
