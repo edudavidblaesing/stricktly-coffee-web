@@ -527,8 +527,6 @@ a {
 @media (max-width: 720px) {
     .page-shell {
         gap: 72px;
-        position: relative;
-        z-index: 1;
         padding-top: 0;
     }
     .map-layer {
@@ -563,13 +561,17 @@ a {
     }
     .hero {
         position: relative;
-        z-index: 20;
+        z-index: 110;
     }
     .section {
         position: relative;
-        z-index: 20;
+        z-index: 110;
     }
     .journey {
+        position: relative;
+        z-index: 1;
+    }
+    .journey-track {
         position: relative;
         z-index: 1;
     }
