@@ -4,6 +4,7 @@ FROM nginx:alpine
 # Copy website files to nginx html directory
 COPY index.html /usr/share/nginx/html/
 COPY logo.svg /usr/share/nginx/html/
+COPY fonts/ /usr/share/nginx/html/fonts/
 
 # Copy nginx configuration (use nginx.conf for HTTP, nginx-ssl.conf for HTTPS)
 COPY nginx.conf /etc/nginx/conf.d/default.conf

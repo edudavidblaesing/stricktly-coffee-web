@@ -6,11 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Stricktly Coffee — Global Journey</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 @font-face {
     font-family: "Moonlith February Sans";
     src:
-        url("fonts/moonlith-february-sans.woff2") format("woff2"),
         url("fonts/moonlith-february-sans.ttf") format("truetype"),
         url("fonts/moonlith-february-sans.otf") format("opentype");
     font-weight: 400;
@@ -62,6 +64,9 @@ body {
     color: var(--text);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+}
+p {
+    font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 html {
     background: var(--bg);
@@ -527,7 +532,7 @@ a {
 @media (max-width: 720px) {
     .page-shell {
         gap: 72px;
-        padding-top: 0;
+        padding-top: clamp(24px, 6vw, 48px);
     }
     .map-layer {
         position: fixed;
@@ -545,6 +550,7 @@ a {
         margin-bottom: 20px;
         opacity: 0;
         transition: opacity 600ms ease;
+        background: linear-gradient(to top, #f2e4bd 0%, #f2e4bd 60%, rgba(242, 228, 189, 0) 100%);
     }
     .map-layer.is-visible {
         opacity: 1;
@@ -557,7 +563,7 @@ a {
     }
     #journey-map [data-map-group] {
         transition: none !important;
-        transform: translate(900px, 500px) scale(1.8) translate(-624px, -500px) !important;
+        transform: translate(900px, 500px) scale(1.6) translate(-624px, -420px) !important;
     }
     .hero {
         position: relative;
@@ -620,6 +626,12 @@ a {
         justify-content: center;
         z-index: 102;
         bottom: 20px;
+    }
+    .sticky-cta .cta-button {
+        white-space: nowrap;
+        font-size: 11px;
+        padding: 12px 20px;
+        letter-spacing: 0.1em;
     }
     .sticky-cta.is-hidden {
         transform: translate(-50%, 18px);
@@ -769,27 +781,27 @@ a {
             <div class="hero-grid">
                 <div class="hero-text">
                     <img src="logo.svg" alt="Stricktly Coffee logo" class="hero-logo" />
-                    <p class="eyebrow">Origin to roast</p>
-                    <h1>Mapping every bean we bring home.</h1>
-                    <p>Stricktly Coffee is a roastery built on direct relationships. This live atlas traces our 2024 sourcing expedition as we audit partners, design processing experiments, and shepherd each lot toward its Antwerp release.</p>
+                    <p class="eyebrow">Coffee is my life</p>
+                    <h1>From that first espresso<br>to building my dream.</h1>
+                    <p>I'm Willemstrick, and at 15, I fell in love with coffee in Colombia. Seven years later—after roasting, repairing machines, teaching, and traveling across four continents—I'm finally ready to share everything I've learned. This is my journey.</p>
                     <ul class="stats">
-                        <li><span>38</span>Origin visits this year</li>
-                        <li><span>12</span>Direct-trade partners</li>
-                        <li><span>24h</span>Roast-to-ship window</li>
+                        <li><span>15</span>Years in the coffee world</li>
+                        <li><span>5</span>Continents traveled for coffee</li>
+                        <li><span>Countless</span>Farmers I call friends</li>
                     </ul>
                     <div class="hero-cta">
-                        <a class="cta-button" href="mailto:hello@stricktly.coffee?subject=Stricktly%20Coffee%20Partnership%20Inquiry">Plan a sourcing call</a>
-                        <p class="hero-cta-note">Prefer to write it out? Email <a href="mailto:hello@stricktly.coffee">hello@stricktly.coffee</a>.</p>
+                        <a class="cta-button" href="mailto:willem@stricktlycoffee.be?subject=Let's%20Talk%20Coffee">Let's talk coffee</a>
+                        <p class="hero-cta-note">Need training, equipment service, or consultancy? Email <a href="mailto:willem@stricktlycoffee.be">willem@stricktlycoffee.be</a></p>
                     </div>
                 </div>
                 <div class="hero-media">
                     <div class="floating-card">
                         <header>
-                            <h3>Next cupping</h3>
-                            <strong>03:00</strong>
+                            <h3>What I can do for you</h3>
+                            <strong>Services</strong>
                         </header>
-                        <p>Join us live from the Medellín lab as we profile new honey-process lots ahead of their European debut.</p>
-                        <p class="journey-meta">Streaming 18 July · Medellín calibration lab</p>
+                        <p>Barista training, coffee equipment maintenance and installation, roaster repair, and coffee industry consultancy. Real expertise from real experience.</p>
+                        <p class="journey-meta">Based in Brussels · Available worldwide</p>
                     </div>
                 </div>
             </div>
@@ -798,31 +810,31 @@ a {
 
     <section class="section">
         <div class="section-heading">
-            <p class="eyebrow">Why we travel</p>
+            <p class="eyebrow">What I bring</p>
             <h2>Direct trade isn’t a spreadsheet—it’s a handshake.</h2>
             <p>Every itinerary leg is an excuse to brew with the producers who trust us with their harvests. On the ground we calibrate quality protocols, troubleshoot logistics, and plan resilient futures together.</p>
         </div>
         <div class="section-content principles">
             <article class="principle">
-                <strong>Farmer-first contracts</strong>
-                <p>We commit to multi-year pricing indexed to farm costs, with shared upside when cup scores climb. The journey map keeps those promises visible for the team and our guests.</p>
+                <strong>Real relationships with farmers</strong>
+                <p>I've worked on coffee farms, traveled farm to farm by bus, and built friendships across continents. I know the people behind the beans, and I can help you connect with quality sources.</p>
             </article>
             <article class="principle">
-                <strong>Open roasting data</strong>
-                <p>Every stop feeds live metrics—moisture, density, organic certs—straight into our Antwerp roasters. Transparent logs mean buyers know exactly what changed from harvest to release.</p>
+                <strong>Technical expertise that works</strong>
+                <p>I came to Schallenberg with two left hands. I left able to repair espresso machines, refurbish roasters, and maintain any coffee equipment. If it's broken, I can fix it.</p>
             </article>
             <article class="principle">
-                <strong>Carbon-aware logistics</strong>
-                <p>We bundle lots and coordinate sailings to shrink footprint. The curved paths here mirror the multimodal routes we build to keep coffee fresh without flying every pallet.</p>
+                <strong>Teaching that actually sticks</strong>
+                <p>I've taught five-day barista courses across Europe and assisted Q-grading schools in Africa. I know how to make complex concepts simple and help your team actually improve.</p>
             </article>
         </div>
     </section>
 
     <section class="section">
         <div class="section-heading">
-            <p class="eyebrow">Roast lab</p>
-            <h2>Measure everything, repeat what sings.</h2>
-            <p>Sensor data, water activity, and cupping notes sync to the map so each waypoint becomes a tasting note. Scroll the itinerary to watch the route pulse as lots move across oceans.</p>
+            <p class="eyebrow">My Journey</p>
+            <h2>From that first espresso to building my own dream.</h2>
+            <p>At 15, I drank my first espresso in Colombia and fell in love. What followed was seven years of traveling, learning, and working across continents—from coffee farms to roasteries, from technician work to teaching. Then came a three-year road trip from Alaska to Patagonia. Now, I'm ready to share everything I've learned.</p>
         </div>
         <div class="section-content journey">
             <div class="journey-track">
@@ -831,40 +843,40 @@ a {
                         <span class="journey-index">01</span>
                         <h3 class="journey-location">Medellín, Colombia</h3>
                     </header>
-                    <p class="journey-meta">Harvest calibration</p>
-                    <p class="journey-description">We align water profiles with partner mills, lock in fermentation targets, and roast sample batches that set the sensory compass for the trip.</p>
+                    <p class="journey-meta">Age 15 · My first espresso</p>
+                    <p class="journey-description">I went to Colombia with my best friend. His mother started a specialty coffee shop, and I drank my very first espresso there. I was totally mesmerized. In the weeks that followed, we worked in the shop—I did dishes and learned about processes, filter coffee, and latte art. I was always looking for something in my life, and coffee was becoming it.</p>
                 </article>
                 <article class="journey-step" data-step data-location="jardin" data-position="530,555">
                     <header>
                         <span class="journey-index">02</span>
-                        <h3 class="journey-location">Jardín Coffee Farm</h3>
+                        <h3 class="journey-location">Coffee Farm Visit</h3>
                     </header>
-                    <p class="journey-meta">Everything changed</p>
-                    <p class="journey-description">After two weeks in the coffee shop, we visited a coffee farm. Standing on a hill with freshly squeezed mandarin juice overlooking the coffee hills, I decided: I will work in coffee for the rest of my life.</p>
+                    <p class="journey-meta">Everything changed here</p>
+                    <p class="journey-description">After two weeks in the shop, we visited a coffee farm. For me, everything changed here. I understood why we have bad coffee and good coffee. I fell in love with the coffee trees. At the top of the hill, they gave me a freshly squeezed mandarin juice—the best juice of my life—with a view over the coffee hills. From that point forward, I made a decision: I was going to work in coffee for the rest of my life.</p>
                 </article>
                 <article class="journey-step" data-step data-location="cafe_velvet" data-position="520,540">
                     <header>
                         <span class="journey-index">03</span>
-                        <h3 class="journey-location">Café Velvet, Medellín</h3>
+                        <h3 class="journey-location">Café Velvet</h3>
                     </header>
                     <p class="journey-meta">Age 18 · Learning to roast</p>
-                    <p class="journey-description">Returned to Colombia and started working in Café Velvet roastery. I learned to roast, pack coffee, and do green coffee selection—removing defects from parchment to prepare the best coffee for roasting.</p>
+                    <p class="journey-description">At 18, I went back to Colombia with my best friend. I started working in Café Velvet roastery. I learned to roast, pack coffee, and do selection of green coffee. We'd take parchment, select all defects out of the green coffee, then roast the best coffee we could.</p>
                 </article>
                 <article class="journey-step" data-step data-location="farm_work" data-position="515,560">
                     <header>
                         <span class="journey-index">04</span>
-                        <h3 class="journey-location">Coffee Farm Work</h3>
+                        <h3 class="journey-location">Working a Coffee Farm</h3>
                     </header>
-                    <p class="journey-meta">One month on the farm</p>
-                    <p class="journey-description">Worked on a coffee farm learning to harvest and process coffee. Learned washed process, drying on industrial scale and African beds, honey process, infused coffees, and much more.</p>
+                    <p class="journey-meta">One month hands-on</p>
+                    <p class="journey-description">I worked one month on a coffee farm. I learned how to harvest coffee and how to process it—washed process, drying on industrial scale and African beds, honey process, infused coffees, and much more.</p>
                 </article>
                 <article class="journey-step" data-step data-location="brussels" data-position="922,232">
                     <header>
                         <span class="journey-index">05</span>
                         <h3 class="journey-location">Brussels, Belgium</h3>
                     </header>
-                    <p class="journey-meta">Returning home</p>
-                    <p class="journey-description">After five months in Colombia working as a barista and sometimes roasting at Café Velvet, I came back to Brussels to work in their coffee shop as a barista.</p>
+                    <p class="journey-meta">Coming home</p>
+                    <p class="journey-description">After five months in Colombia—doing barista work in Café Velvet's coffee shop and sometimes roasting—I went back home to Brussels to work in their coffee shop as a barista.</p>
                 </article>
                 <article class="journey-step" data-step data-location="philadelphia" data-position="524,306">
                     <header>
@@ -872,111 +884,111 @@ a {
                         <h3 class="journey-location">Philadelphia, USA</h3>
                     </header>
                     <p class="journey-meta">Elixr Coffee</p>
-                    <p class="journey-description">Apprenticeship at Elixr Coffee, a specialty-only roastery. Here I really learned how to roast. We did production roasting with large volumes, and I started cleaning machines for the first time.</p>
+                    <p class="journey-description">I did an apprenticeship at Elixr Coffee. They only do specialty coffee. Here I really learned how to roast. We did production roasting—roasting a lot of coffee a year—and I started cleaning machines for the first time.</p>
                 </article>
                 <article class="journey-step" data-step data-location="schallenberg" data-position="930,248">
                     <header>
                         <span class="journey-index">07</span>
-                        <h3 class="journey-location">Schallenberg</h3>
+                        <h3 class="journey-location">Schallenberg, Dendermonde</h3>
                     </header>
-                    <p class="journey-meta">Becoming a technician</p>
-                    <p class="journey-description">Started apprenticeship with Schallenberg. I came with two left hands, knowing nothing about screws or nuts. Left as a coffee technician—repairing espresso machines, maintaining roasters, refurbishing equipment.</p>
+                    <p class="journey-meta">From two left hands to technician</p>
+                    <p class="journey-description">After three months at Elixr, I started a new apprenticeship with Schallenberg—a company that restores coffee roasteries. I came in with two left hands. I didn't know the difference between a screw or a nut. By the end, I was repairing espresso machines, doing maintenance on roasters, refurbishing old equipment, working on grinders. I became a coffee technician. Schallenberg gave me huge freedom to pursue my dreams.</p>
                 </article>
                 <article class="journey-step" data-step data-location="sca_course" data-position="925,240">
                     <header>
                         <span class="journey-index">08</span>
-                        <h3 class="journey-location">SCA Course</h3>
+                        <h3 class="journey-location">Andre Godina's Course</h3>
                     </header>
-                    <p class="journey-meta">Meeting Andre Godina</p>
-                    <p class="journey-description">When Andre Godina came to teach a coffee course, I was his assistant—preparing all beverages for cupping and espressos. Here I got in contact with SCA and started my first modules.</p>
+                    <p class="journey-meta">Meeting my mentor</p>
+                    <p class="journey-description">When Andre Godina came to teach a coffee course, I was his assistant—preparing all the beverages for cupping, all the espressos, and learning alongside him. This is where I got in contact with SCA and started my first modules.</p>
                 </article>
                 <article class="journey-step" data-step data-location="nairobi" data-position="1084,587">
                     <header>
                         <span class="journey-index">09</span>
                         <h3 class="journey-location">Nairobi, Kenya</h3>
                     </header>
-                    <p class="journey-meta">Q-grading course</p>
-                    <p class="journey-description">Met Mobula from Utake Coffee. I decided to travel Kenya, Tanzania, Uganda, and Rwanda for three months, assisting Q-grading courses and roasting all the coffee for them.</p>
+                    <p class="journey-meta">Q-grading school</p>
+                    <p class="journey-description">At Andre's course, I met Mobula, owner of Utake Coffee—a roastery and Q-grading school in Nairobi. I decided to go to Kenya, Tanzania, Uganda, and Rwanda for three months. I was assistant to the Q-grading course, roasting all the coffee and preparing all the beverages.</p>
                 </article>
                 <article class="journey-step" data-step data-location="africa_travel" data-position="1095,620">
                     <header>
                         <span class="journey-index">10</span>
                         <h3 class="journey-location">East Africa</h3>
                     </header>
-                    <p class="journey-meta">Farm to farm</p>
-                    <p class="journey-description">Travelled through four countries by bus, going from coffee farm to coffee farm. A wonderful time discovering new coffees and the different African coffee culture.</p>
+                    <p class="journey-meta">Farm to farm by bus</p>
+                    <p class="journey-description">I traveled around all four countries by bus, going from coffee farm to coffee farm. It was a wonderful time in my life—discovering so many new coffees and the different culture of Africa, the product and the people who work in coffee. Here I met Jean Paul, who has two drying stations in the Kivu area, and Stijn, who now has a roastery in Amsterdam.</p>
                 </article>
                 <article class="journey-step" data-step data-location="honduras" data-position="464,482">
                     <header>
                         <span class="journey-index">11</span>
                         <h3 class="journey-location">Honduras</h3>
                     </header>
-                    <p class="journey-meta">Umami Coffee</p>
-                    <p class="journey-description">Went with Andre to Honduras for a bean-to-cup coffee campus. Andre and other professionals started Umami—a 30-hectare coffee farm. I became a partner and now travel once a year to work there.</p>
+                    <p class="journey-meta">Umami Coffee Plantation</p>
+                    <p class="journey-description">After Africa, I went with Andre to Honduras. We did a coffee campus from bean to cup. There, Andre and other coffee professionals started Umami Coffee Plantation—a 30-hectare farm where we want to produce the best coffee possible. I became a partner. Once a year, I travel to Honduras to work on the farm and give coffee courses.</p>
                 </article>
                 <article class="journey-step" data-step data-location="ebs_europe" data-position="940,250">
                     <header>
                         <span class="journey-index">12</span>
                         <h3 class="journey-location">EBS Europe</h3>
                     </header>
-                    <p class="journey-meta">Teaching</p>
-                    <p class="journey-description">Became a teacher for EBS Europe, teaching five-day barista courses in five schools. Covered theoretical lessons, hands-on filter brewing, and especially espresso machines and milk steaming.</p>
+                    <p class="journey-meta">Teaching baristas</p>
+                    <p class="journey-description">I became a teacher for EBS Europe. In five schools, I taught five-day barista courses—starting with theoretical lessons about coffee, then hands-on with all the different filter coffees, but especially working on espresso machines and steaming milk for making the perfect cappuccinos and other milk beverages.</p>
                 </article>
                 <article class="journey-step" data-step data-location="covid_pause" data-position="900,500">
                     <header>
                         <span class="journey-index">13</span>
-                        <h3 class="journey-location">COVID-19 Pivot</h3>
+                        <h3 class="journey-location">COVID-19</h3>
                     </header>
-                    <p class="journey-meta">Time to change</p>
-                    <p class="journey-description">After seven years of constant travel, COVID stopped everything. I couldn't travel. This forced the decision to pursue my dream: Alaska to Patagonia.</p>
+                    <p class="journey-meta">The moment that changed everything</p>
+                    <p class="journey-description">For seven years, I traveled constantly. Half the time I was always on the road. During COVID, I couldn't travel anymore, so I needed to change plans. I always had this dream of driving from Alaska to Patagonia. COVID made me decide: I should do something now or I will never do it.</p>
                 </article>
                 <article class="journey-step" data-step data-location="los_angeles" data-position="309,347">
                     <header>
                         <span class="journey-index">14</span>
                         <h3 class="journey-location">Los Angeles, USA</h3>
                     </header>
-                    <p class="journey-meta">Finding my Subaru</p>
-                    <p class="journey-description">Flew to Los Angeles and found my trusted Subaru. This car would become my home and companion for an incredible three-year journey exploring coffee.</p>
+                    <p class="journey-meta">Finding my trusted Subaru</p>
+                    <p class="journey-description">I flew to Los Angeles, where I found my Subaru—my trusted Subaru. I drove it up to Alaska, then from Alaska down to Mexico. The idea was to be gone a year, but after working seven years so hard, I really enjoyed the freedom of having a car and just driving from place to place.</p>
                 </article>
                 <article class="journey-step" data-step data-location="alaska" data-position="153,141">
                     <header>
                         <span class="journey-index">15</span>
                         <h3 class="journey-location">Alaska, USA</h3>
                     </header>
-                    <p class="journey-meta">Journey begins</p>
-                    <p class="journey-description">Drove the Subaru up to Alaska—the starting point. What was planned as one year became three years of freedom, visiting countless coffee farms and building relationships.</p>
+                    <p class="journey-meta">The journey begins</p>
+                    <p class="journey-description">From Alaska, I drove down through North America. What was planned as one year turned into three years. I visited countless coffee farms to make contacts, improve my knowledge, but especially to have better relationships with the farmers.</p>
                 </article>
                 <article class="journey-step" data-step data-location="mexico" data-position="404,446">
                     <header>
                         <span class="journey-index">16</span>
                         <h3 class="journey-location">Mexico</h3>
                     </header>
-                    <p class="journey-meta">Coffee journey intensifies</p>
-                    <p class="journey-description">From Mexico onward, the coffee journey truly started again. Driving from place to place, visiting farms to improve my knowledge and relationships with farmers.</p>
+                    <p class="journey-meta">Coffee journey restarts</p>
+                    <p class="journey-description">From Mexico on, the coffee journey started again. Driving from place to place, farm to farm, deepening my relationships with coffee growers and learning more with each stop.</p>
                 </article>
                 <article class="journey-step" data-step data-location="central_america" data-position="480,500">
                     <header>
                         <span class="journey-index">17</span>
                         <h3 class="journey-location">Central America</h3>
                     </header>
-                    <p class="journey-meta">Building connections</p>
-                    <p class="journey-description">Through Central America, visiting countless coffee farms. Each stop deepened my understanding of coffee production and strengthened relationships.</p>
+                    <p class="journey-meta">Farm after farm</p>
+                    <p class="journey-description">Through Central America, countless coffee farms. Each visit strengthened my understanding of production and built stronger connections with the people who grow the coffee I love.</p>
                 </article>
                 <article class="journey-step" data-step data-location="patagonia" data-position="533,925">
                     <header>
                         <span class="journey-index">18</span>
                         <h3 class="journey-location">Patagonia</h3>
                     </header>
-                    <p class="journey-meta">Journey's end</p>
-                    <p class="journey-description">Reached Patagonia after three years on the road. The original one-year plan extended into an incredible adventure of freedom, learning, and connection.</p>
+                    <p class="journey-meta">Three years later</p>
+                    <p class="journey-description">Reaching Patagonia after three years on the road. The freedom, the learning, the connections—everything I dreamed of and more. Now it's time to take everything I've learned and build something of my own.</p>
                 </article>
                 <article class="journey-step" data-step data-location="strictly_coffee" data-position="922,232" data-focus="922,232,1.85">
                     <header>
                         <span class="journey-index">19</span>
                         <h3 class="journey-location">Stricktly Coffee</h3>
                     </header>
-                    <p class="journey-meta">Starting my own venture</p>
-                    <p class="journey-description">After working for others for years, it's time to start my own business. Stricktly Coffee offers barista training, equipment maintenance and installation, and consultancy across the coffee industry.</p>
+                    <p class="journey-meta">My own venture</p>
+                    <p class="journey-description">After working always for other people, I want to start my own endeavor, my own business. If you need barista training, coffee equipment maintenance or installation, or any consultancy in the coffee industry—I'm your man. Contact me whenever you want. Best regards, Willemstrick.</p>
                 </article>
             </div>
         </div>
@@ -984,7 +996,7 @@ a {
 
 </div>
 <div class="sticky-cta is-hidden" data-sticky-cta>
-    <a class="cta-button" href="mailto:hello@stricktly.coffee?subject=Stricktly%20Coffee%20Project">Start a project with Stricktly</a>
+    <a class="cta-button" href="mailto:willem@stricktlycoffee.be?subject=Stricktly%20Coffee%20Project">Start a project with Stricktly</a>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
