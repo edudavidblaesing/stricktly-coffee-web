@@ -114,7 +114,6 @@ a {
     stroke-linecap: round;
     stroke-linejoin: round;
     filter: url(#glow);
-    vector-effect: non-scaling-stroke;
 }
 #journey-map .journey-route-track {
     fill: none;
@@ -123,7 +122,6 @@ a {
     stroke-linecap: round;
     stroke-linejoin: round;
     opacity: 0.55;
-    vector-effect: non-scaling-stroke;
 }
 
 @media (min-width: 1200px) {
@@ -154,27 +152,42 @@ a {
     transition: opacity 360ms var(--transition-smooth), filter 360ms var(--transition-smooth);
 }
 .waypoints .waypoint:not([transform]) {
-    display: none;
+    display: none !important;
+}
+.waypoints .waypoint[transform="translate(0 0)"],
+.waypoints .waypoint[transform="translate(0, 0)"] {
+    display: none !important;
 }
 .waypoints .waypoint[transform] {
     opacity: 0.7;
 }
 .waypoints .waypoint.is-active {
     opacity: 1;
-    filter: drop-shadow(0 0 24px rgba(224, 81, 42, 0.9));
+    filter: drop-shadow(0 0 28px rgba(224, 81, 42, 1)) drop-shadow(0 0 12px rgba(224, 81, 42, 1));
+    animation: pulse-marker 2s ease-in-out infinite;
+}
+@keyframes pulse-marker {
+    0%, 100% {
+        filter: drop-shadow(0 0 28px rgba(224, 81, 42, 1)) drop-shadow(0 0 12px rgba(224, 81, 42, 1));
+    }
+    50% {
+        filter: drop-shadow(0 0 38px rgba(224, 81, 42, 1)) drop-shadow(0 0 18px rgba(255, 120, 60, 1));
+    }
 }
 .waypoints circle {
     fill: rgba(242, 228, 189, 0.9);
     stroke: rgba(224, 81, 42, 0.75);
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
-    transition: stroke-width 360ms var(--transition-smooth), fill 360ms var(--transition-smooth);
+    transition: stroke-width 360ms var(--transition-smooth), fill 360ms var(--transition-smooth), transform 360ms var(--transition-smooth);
 }
 .waypoints .waypoint.is-active circle {
-    stroke-width: 3;
+    stroke-width: 4;
 }
 .waypoints .waypoint.is-active circle:nth-child(1) {
-    fill: rgba(224, 81, 42, 0.25);
+    fill: rgba(224, 81, 42, 0.35);
+    stroke: rgba(224, 81, 42, 1);
+    transform: scale(1.4);
 }
 .waypoints circle:nth-child(2) {
     fill: var(--secondary-coral);
@@ -182,6 +195,7 @@ a {
 }
 .waypoints .waypoint.is-active circle:nth-child(2) {
     fill: var(--primary-wine);
+    transform: scale(1.2);
 }
 .map-caption {
     position: fixed;
@@ -513,20 +527,51 @@ a {
 @media (max-width: 720px) {
     .page-shell {
         gap: 72px;
+        position: relative;
+        z-index: 1;
+        padding-top: 0;
     }
     .map-layer {
-        align-items: flex-end;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        height: min(48vh, 450px);
+        align-items: center;
         justify-content: center;
-        padding: 0 clamp(16px, 5vw, 36px) clamp(84px, 20vw, 132px);
+        padding: 0;
+        z-index: 100;
+        display: flex;
+        pointer-events: none;
+        margin-bottom: 20px;
+        opacity: 0;
+        transition: opacity 600ms ease;
+    }
+    .map-layer.is-visible {
+        opacity: 1;
     }
     #journey-map {
-        width: clamp(360px, 92vw, 520px);
+        width: 92vw;
+        height: 100%;
+        max-width: none;
+        overflow: visible;
     }
     #journey-map [data-map-group] {
-        transition-duration: 600ms;
+        transition: none !important;
+        transform: translate(900px, 500px) scale(1.8) translate(-624px, -500px) !important;
     }
-    .waypoints .waypoint.is-active {
-        transform: scale(2.7);
+    .hero {
+        position: relative;
+        z-index: 20;
+    }
+    .section {
+        position: relative;
+        z-index: 20;
+    }
+    .journey {
+        position: relative;
+        z-index: 1;
     }
     .stats {
         flex-direction: column;
@@ -534,21 +579,36 @@ a {
     }
     .map-caption {
         font-size: 12px;
+        bottom: calc(min(48vh, 450px) + 30px);
+        z-index: 101;
+        pointer-events: none;
+    }
+    .journey {
+        padding-bottom: calc(100vh - min(48vh, 450px));
+    }
+    .footer-note {
+        display: none;
     }
     .journey-track {
-        padding-bottom: clamp(160px, 42vh, 320px);
+        padding-bottom: 0;
     }
     .journey-step {
         padding: 20px 22px;
         will-change: transform, opacity;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 -4px 20px rgba(22, 39, 33, 0.08);
+        position: relative;
+        z-index: 1;
     }
     .journey-step.is-visible.is-before {
         opacity: 0.78;
         transform: translateY(-8px);
     }
     .journey-step.is-visible.is-after {
-        opacity: 0.15;
+        opacity: 0;
         transform: translateY(0);
+        pointer-events: none;
     }
     .sticky-cta {
         left: 50%;
@@ -556,6 +616,8 @@ a {
         width: calc(100vw - clamp(48px, 16vw, 96px));
         transform: translate(-50%, 0);
         justify-content: center;
+        z-index: 102;
+        bottom: 20px;
     }
     .sticky-cta.is-hidden {
         transform: translate(-50%, 18px);
@@ -768,7 +830,7 @@ a {
                         <h3 class="journey-location">Medellín, Colombia</h3>
                     </header>
                     <p class="journey-meta">Harvest calibration</p>
-                    <p class="journey-description">Home base. We align water profiles with partner mills, lock in fermentation targets, and roast sample batches that set the sensory compass for the trip.</p>
+                    <p class="journey-description">We align water profiles with partner mills, lock in fermentation targets, and roast sample batches that set the sensory compass for the trip.</p>
                 </article>
                 <article class="journey-step" data-step data-location="jardin" data-position="530,555">
                     <header>
@@ -906,7 +968,7 @@ a {
                     <p class="journey-meta">Journey's end</p>
                     <p class="journey-description">Reached Patagonia after three years on the road. The original one-year plan extended into an incredible adventure of freedom, learning, and connection.</p>
                 </article>
-                <article class="journey-step" data-step data-location="strictly_coffee" data-position="922,232">
+                <article class="journey-step" data-step data-location="strictly_coffee" data-position="922,232" data-focus="922,232,1.85">
                     <header>
                         <span class="journey-index">19</span>
                         <h3 class="journey-location">Stricktly Coffee</h3>
@@ -918,7 +980,6 @@ a {
         </div>
     </section>
 
-    <p class="footer-note">Want to taste along the route? Subscribe to the expedition journal and we’ll cue you when the next virtual cupping goes live.</p>
 </div>
 <div class="sticky-cta is-hidden" data-sticky-cta>
     <a class="cta-button" href="mailto:hello@stricktly.coffee?subject=Stricktly%20Coffee%20Project">Start a project with Stricktly</a>
@@ -935,7 +996,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const steps = Array.from(document.querySelectorAll('[data-step]'));
     const stickyCta = document.querySelector('[data-sticky-cta]');
     const heroSection = document.querySelector('.hero');
-    const footerNote = document.querySelector('.footer-note');
+    const mapLayer = document.querySelector('.map-layer');
+    const journeySection = document.querySelector('.journey');
 
     if (!svg || !route || !mapGroup || !steps.length) {
         return;
@@ -1005,62 +1067,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!states.length) return;
 
-    let routeLength = 0;
+    const SVG_VIEWBOX_WIDTH = 1800;  // Fixed viewBox dimensions
+    const SVG_VIEWBOX_HEIGHT = 1000;
 
     const rebuildRoute = () => {
-        if (!states.length) {
-            routeLength = 0;
-            return;
-        }
+        if (!states.length) return;
 
-        // Build complete route path with curved lines
-        const pathCommands = [];
-        const segmentData = [];
-        states.forEach((state, i) => {
-            if (i === 0) {
-                pathCommands.push(`M${state.position.x.toFixed(2)} ${state.position.y.toFixed(2)}`);
+        // Step 1: Build path in viewBox coordinates (never changes)
+        let pathData = `M ${states[0].position.x} ${states[0].position.y}`;
+        
+        for (let i = 1; i < states.length; i++) {
+            const curr = states[i];
+            const prev = states[i - 1];
+            const dx = curr.position.x - prev.position.x;
+            const dy = curr.position.y - prev.position.y;
+            const distance = Math.hypot(dx, dy);
+            
+            if (distance > 0) {
+                const midX = (prev.position.x + curr.position.x) / 2;
+                const midY = (prev.position.y + curr.position.y) / 2;
+                const curve = Math.min(distance * 0.2, 40);
+                
+                const normX = -dy / distance;
+                const normY = dx / distance;
+                const ctrlX = midX + normX * curve;
+                const ctrlY = midY + normY * curve;
+                
+                pathData += ` Q${ctrlX},${ctrlY} ${curr.position.x},${curr.position.y}`;
             } else {
-                const prev = states[i - 1];
-                const dx = state.position.x - prev.position.x;
-                const dy = state.position.y - prev.position.y;
-
-                const midX = (prev.position.x + state.position.x) / 2;
-                const midY = (prev.position.y + state.position.y) / 2;
-
-                const dist = Math.hypot(dx, dy);
-                const curvature = Math.min(dist * 0.15, 30);
-                const perpX = -dy / dist * curvature;
-                const perpY = dx / dist * curvature;
-
-                const controlX = midX + perpX;
-                const controlY = midY + perpY;
-
-                pathCommands.push(`Q${controlX.toFixed(2)} ${controlY.toFixed(2)} ${state.position.x.toFixed(2)} ${state.position.y.toFixed(2)}`);
-
-                segmentData.push({
-                    start: { ...prev.position },
-                    control: { x: controlX, y: controlY },
-                    end: { ...state.position }
-                });
+                pathData += ` L ${curr.position.x} ${curr.position.y}`;
             }
-        });
-
-        const pathString = pathCommands.join(' ');
-        route.setAttribute('d', pathString);
-        if (routeTrack) {
-            routeTrack.setAttribute('d', pathString);
         }
 
-        const approximateQuadraticLength = ({ start, control, end }) => {
-            const steps = 72;
+        route.setAttribute('d', pathData);
+        if (routeTrack) {
+            routeTrack.setAttribute('d', pathData);
+        }
+
+        // Step 2: Calculate lengths purely in VIEWBOX coordinates
+        // This NEVER changes regardless of window size
+        const calculateSegmentLength = (p1, p2, cp) => {
             let length = 0;
-            let prevX = start.x;
-            let prevY = start.y;
-            for (let i = 1; i <= steps; i += 1) {
-                const t = i / steps;
-                const inv = 1 - t;
-                const x = inv * inv * start.x + 2 * inv * t * control.x + t * t * end.x;
-                const y = inv * inv * start.y + 2 * inv * t * control.y + t * t * end.y;
+            let prevX = p1.x;
+            let prevY = p1.y;
+            const samples = 50;
+            
+            for (let t = 1; t <= samples; t++) {
+                const u = t / samples;
+                const inv = 1 - u;
+                const x = inv * inv * p1.x + 2 * inv * u * cp.x + u * u * p2.x;
+                const y = inv * inv * p1.y + 2 * inv * u * cp.y + u * u * p2.y;
                 length += Math.hypot(x - prevX, y - prevY);
                 prevX = x;
                 prevY = y;
@@ -1068,44 +1124,60 @@ document.addEventListener('DOMContentLoaded', () => {
             return length;
         };
 
-        const segmentLengths = segmentData.map(approximateQuadraticLength);
-        const approxTotalLength = segmentLengths.reduce((total, current) => total + current, 0);
+        const segmentLengths = [];
+        let totalLength = 0;
+        
+        for (let i = 1; i < states.length; i++) {
+            const prev = states[i - 1].position;
+            const curr = states[i].position;
+            const dx = curr.x - prev.x;
+            const dy = curr.y - prev.y;
+            const distance = Math.hypot(dx, dy);
+            
+            let segLen = 0;
+            if (distance > 0) {
+                const midX = (prev.x + curr.x) / 2;
+                const midY = (prev.y + curr.y) / 2;
+                const curve = Math.min(distance * 0.2, 40);
+                const normX = -dy / distance;
+                const normY = dx / distance;
+                const ctrlX = midX + normX * curve;
+                const ctrlY = midY + normY * curve;
+                
+                segLen = calculateSegmentLength(prev, curr, { x: ctrlX, y: ctrlY });
+                totalLength += segLen;
+            }
+            segmentLengths.push(segLen);
+        }
 
-        routeLength = approxTotalLength > 0 ? approxTotalLength : 1;
-
-        let accumulated = 0;
+        // Step 3: Calculate progress in VIEWBOX coordinate space
+        let cumulativeLength = 0;
         states.forEach((state, i) => {
-            if (i === 0) {
-                state.length = 0;
-                state.progress = 0;
-            } else {
-                accumulated += segmentLengths[i - 1] || 0;
-                const ratio = routeLength > 0 ? accumulated / routeLength : (i / (states.length - 1));
-                state.length = accumulated;
-                state.progress = Math.min(1, Math.max(0, ratio));
+            state.progress = totalLength > 0 ? cumulativeLength / totalLength : 0;
+            if (i < segmentLengths.length) {
+                cumulativeLength += segmentLengths[i];
             }
         });
 
-        const lastState = states[states.length - 1];
-        lastState.progress = 1;
-        lastState.length = routeLength;
-
-        route.setAttribute('pathLength', routeLength.toFixed(3));
+        // Step 4: Setup animation using NORMALIZED dash values
+        // Use a fixed dash length so animation doesn't break on resize
+        const DASH_LENGTH = 10000;
+        route.setAttribute('pathLength', DASH_LENGTH);
         if (routeTrack) {
-            routeTrack.setAttribute('pathLength', routeLength.toFixed(3));
+            routeTrack.setAttribute('pathLength', DASH_LENGTH);
+        }
+        
+        route.style.strokeDasharray = DASH_LENGTH;
+        route.style.strokeDashoffset = DASH_LENGTH;
+        
+        if (routeTrack) {
+            routeTrack.style.strokeDasharray = DASH_LENGTH;
+            routeTrack.style.strokeDashoffset = 0;
         }
 
-        route.style.strokeDasharray = routeLength;
-        route.style.strokeDashoffset = routeLength;
-        if (routeTrack) {
-            routeTrack.style.strokeDasharray = routeLength;
-            routeTrack.style.strokeDashoffset = '0';
-        }
-
+        // Render initial state
         if (activeState) {
             renderProgress(activeState.progress);
-        } else {
-            renderProgress(0);
         }
     };
 
@@ -1133,10 +1205,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Apply map focus transform
     const applyFocus = state => {
+        if (narrowView.matches) {
+            // On mobile: keep map completely static and centered horizontally
+            // Balance between leftmost (Alaska 153) and rightmost (Africa 1095) markers
+            // Optimal center: (153 + 1095) / 2 = 624
+            mapGroup.style.transform = 'translate(900px, 500px) scale(1.8) translate(-624px, -500px)';
+            return;
+        }
+        
+        // Desktop only: apply focus transformations
         if (!state || !state.focus) {
             mapGroup.style.transform = 'translate(0, 0) scale(1)';
             return;
         }
+        
         const [x, y, rawScale] = state.focus;
         const scale = clampScale(rawScale);
         mapGroup.style.transform = `translate(${centerX}px, ${centerY}px) scale(${scale}) translate(${-x}px, ${-y}px)`;
@@ -1158,14 +1240,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render route progress (draws up to current step using stroke-dashoffset)
     const renderProgress = value => {
         const clamped = Math.max(0, Math.min(1, value));
-        
-        if (routeLength > 0) {
-            const travelled = clamped * routeLength;
-            const offset = routeLength - travelled;
-            route.style.strokeDashoffset = offset.toFixed(3);
-        }
-        
+        const DASH_LENGTH = 10000;
+        const offset = DASH_LENGTH * (1 - clamped);
+        route.style.strokeDashoffset = offset;
         currentProgress = clamped;
+        
+        // On mobile, fade in route based on progress
+        if (narrowView.matches) {
+            // Fade in over first 15% of progress, then stay visible
+            const fadeProgress = Math.min(clamped / 0.15, 1);
+            route.style.opacity = fadeProgress;
+        } else {
+            // On desktop, always full opacity
+            route.style.opacity = 1;
+        }
     };
 
     // Easing function
@@ -1205,8 +1293,21 @@ document.addEventListener('DOMContentLoaded', () => {
         animationHandle = requestAnimationFrame(frame);
     };
 
-    // Rebuild route initially so progress markers align
+    // Build route initially
     rebuildRoute();
+
+    // Recalculate on resize - but we DON'T need to anymore!
+    // Since we use pathLength="10000", it's viewport-independent
+    // But recalc progress just to be safe
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (activeState) {
+                renderProgress(activeState.progress);
+            }
+        }, 200);
+    }, { passive: true });
 
     // Set active state (step)
     const setActiveState = (nextState, { immediate = false } = {}) => {
@@ -1234,26 +1335,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectStateFromScroll = () => {
         if (!states.length) return;
 
-        // Calculate total scrollable height of the journey section
-        const firstStep = states[0].step;
-        const lastStep = states[states.length - 1].step;
-        const firstRect = firstStep.getBoundingClientRect();
-        const lastRect = lastStep.getBoundingClientRect();
+        // On mobile, activate when step reaches just above map (bottom 55vh)
+        // On desktop, use center of viewport
+        const activationPoint = narrowView.matches 
+            ? window.innerHeight - (window.innerHeight * 0.55) - 30
+            : window.innerHeight * 0.5;
+
+        // Find the step closest to the activation point
+        let closestState = states[0];
+        let closestDistance = Infinity;
+
+        states.forEach(state => {
+            const rect = state.step.getBoundingClientRect();
+            const stepCenter = rect.top + (rect.height / 2);
+            const distance = Math.abs(stepCenter - activationPoint);
+            
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestState = state;
+            }
+        });
         
-        // Get scroll position relative to journey section
-        const journeyTop = firstRect.top + window.scrollY;
-        const journeyBottom = lastRect.bottom + window.scrollY;
-        const journeyHeight = journeyBottom - journeyTop;
-        const currentScroll = window.scrollY + window.innerHeight * 0.5;
-        
-        // Calculate which step should be active based on equal divisions
-        const scrollProgress = Math.max(0, Math.min(1, (currentScroll - journeyTop) / journeyHeight));
-        const stepIndex = Math.min(
-            states.length - 1,
-            Math.floor(scrollProgress * states.length)
-        );
-        
-        setActiveState(states[stepIndex]);
+        // Only change if different to prevent unnecessary updates
+        if (closestState !== activeState) {
+            setActiveState(closestState);
+        }
     };
 
     // Throttle scroll handler
@@ -1290,7 +1396,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     narrowView.addEventListener?.('change', () => {
         scheduleRebuild();
+        // Re-render progress to update opacity for mobile/desktop
+        if (activeState) {
+            renderProgress(currentProgress);
+        }
     });
+
+    // Map visibility on mobile - fade in/out based on journey section visibility
+    if (mapLayer && journeySection && narrowView.matches && 'IntersectionObserver' in window) {
+        const mapVisibilityObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                mapLayer.classList.toggle('is-visible', entry.isIntersecting);
+            });
+        }, { 
+            threshold: 0.1,
+            rootMargin: '-10% 0px -10% 0px'
+        });
+        mapVisibilityObserver.observe(journeySection);
+        
+        // Re-observe on viewport change
+        narrowView.addEventListener?.('change', () => {
+            if (narrowView.matches) {
+                mapVisibilityObserver.observe(journeySection);
+            } else {
+                mapLayer.classList.add('is-visible');
+            }
+        });
+    } else if (mapLayer) {
+        // Always visible on desktop
+        mapLayer.classList.add('is-visible');
+    }
 
     // Sticky CTA logic
     if (stickyCta) {
