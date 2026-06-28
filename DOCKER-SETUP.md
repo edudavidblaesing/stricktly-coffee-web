@@ -10,7 +10,6 @@
 
 ### Nginx Configuration
 - `nginx-web.conf` / `nginx-web-ssl.conf` - Nginx configs for Strictly Coffee container (HTTP/HTTPS)
-- `nginx-warehouse.conf` / `nginx-warehouse-ssl.conf` - Nginx configs for Pesado store & warehouse container (HTTP/HTTPS)
 
 ### Deployment Scripts
 - `deploy-docker.sh` - Automated deployment script with HTTP/HTTPS/prod modes

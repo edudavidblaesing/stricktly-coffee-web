@@ -11,6 +11,67 @@ import { runQuery, getQuery, allQuery } from './db.js';
 
 dotenv.config();
 
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
+
+// Initialize S3 Client
+const s3Endpoint = process.env.S3_ENDPOINT || 'http://minio:9000';
+const s3Client = new S3Client({
+  endpoint: s3Endpoint,
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY || 'minio_admin',
+    secretAccessKey: process.env.S3_SECRET_KEY || 'minio_secure_password_local_123'
+  },
+  forcePathStyle: true
+});
+const s3BucketMedia = process.env.S3_BUCKET_MEDIA || 'media';
+
+// Auto initialize S3 buckets
+async function initS3Buckets() {
+  try {
+    const buckets = [s3BucketMedia, process.env.S3_BUCKET_BACKUPS || 'backups'];
+    for (const bucket of buckets) {
+      try {
+        await s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
+        console.log(`[S3 Storage] Bucket '${bucket}' already exists.`);
+      } catch (err) {
+        if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
+          console.log(`[S3 Storage] Bucket '${bucket}' not found. Creating it...`);
+          await s3Client.send(new CreateBucketCommand({ Bucket: bucket }));
+          
+          if (bucket === s3BucketMedia) {
+            const publicPolicy = {
+              Version: "2012-10-17",
+              Statement: [
+                {
+                  Sid: "PublicReadGetObject",
+                  Effect: "Allow",
+                  Principal: "*",
+                  Action: "s3:GetObject",
+                  Resource: `arn:aws:s3:::${bucket}/*`
+                }
+              ]
+            };
+            await s3Client.send(new PutBucketPolicyCommand({
+              Bucket: bucket,
+              Policy: JSON.stringify(publicPolicy)
+            }));
+            console.log(`[S3 Storage] Public read policy set for bucket '${bucket}'.`);
+          }
+          console.log(`[S3 Storage] Bucket '${bucket}' created successfully.`);
+        } else {
+          throw err;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[S3 Storage] Failed to initialize S3 buckets:', err.message);
+  }
+}
+
+// Fire bucket initialization
+initS3Buckets();
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -308,12 +369,23 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Return stateless user info token (using simple credentials or dynamic signature)
-    const token = Buffer.from(JSON.stringify({ email: user.email, role: user.role, time: Date.now() })).toString('base64');
-    res.json({ success: true, email: user.email, role: user.role, token });
+    const token = Buffer.from(JSON.stringify({ email: user.email, role: user.role, brand_id: user.brand_id, time: Date.now() })).toString('base64');
+    res.json({ success: true, email: user.email, role: user.role, brand_id: user.brand_id, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Upload local file to S3 media bucket
+async function uploadFileToS3(filePath, key, mimeType) {
+  const fileStream = fs.createReadStream(filePath);
+  await s3Client.send(new PutObjectCommand({
+    Bucket: s3BucketMedia,
+    Key: key,
+    Body: fileStream,
+    ContentType: mimeType
+  }));
+}
 
 // Media upload & downsizing endpoint
 app.post('/api/global/upload', upload.single('file'), async (req, res) => {
@@ -321,50 +393,57 @@ app.post('/api/global/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded.' });
   }
 
-  const fileUrl = `/uploads/${req.file.filename}`;
   const localPath = req.file.path;
-
-  // Check if file is image to downsize it
   const isImage = req.file.mimetype.startsWith('image/');
+  let targetFilename = req.file.filename;
+  let uploadPath = localPath;
+  let isResized = false;
 
-  if (isImage) {
-    try {
-      const resizedFilename = 'resized-' + req.file.filename;
-      const resizedPath = path.join(uploadDir, resizedFilename);
+  try {
+    if (isImage) {
+      try {
+        const resizedFilename = 'resized-' + req.file.filename;
+        const resizedPath = path.join(uploadDir, resizedFilename);
 
-      // Downsize image to max-width 800px using sharp
-      await sharp(localPath)
-        .resize({ width: 800, withoutEnlargement: true })
-        .toFile(resizedPath);
+        // Downsize image to max-width 800px using sharp
+        await sharp(localPath)
+          .resize({ width: 800, withoutEnlargement: true })
+          .toFile(resizedPath);
 
-      // Delete the original uploaded large image file
-      fs.unlinkSync(localPath);
-
-      return res.json({
-        success: true,
-        url: fileUrl.replace(req.file.filename, resizedFilename),
-        originalName: req.file.originalname,
-        resized: true
-      });
-    } catch (err) {
-      console.error('[Upload Resizing Error]', err);
-      // Fallback to serving the original large image if sharp fails
-      return res.json({
-        success: true,
-        url: fileUrl,
-        originalName: req.file.originalname,
-        resized: false
-      });
+        // Delete the original large file since we have the resized one
+        fs.unlinkSync(localPath);
+        uploadPath = resizedPath;
+        targetFilename = resizedFilename;
+        isResized = true;
+      } catch (err) {
+        console.error('[Upload Resizing Error]', err);
+        // Fallback to serving the original large image (uploadPath & targetFilename remain as original)
+      }
     }
-  }
 
-  // Non-image files (videos, etc.) are served as-is
-  res.json({
-    success: true,
-    url: fileUrl,
-    originalName: req.file.originalname,
-    resized: false
-  });
+    // Upload the final file to MinIO S3 media bucket
+    await uploadFileToS3(uploadPath, targetFilename, req.file.mimetype);
+
+    // Clean up local file from disk after successful upload
+    fs.unlinkSync(uploadPath);
+
+    return res.json({
+      success: true,
+      url: `/uploads/${targetFilename}`,
+      originalName: req.file.originalname,
+      resized: isResized
+    });
+  } catch (err) {
+    // Attempt local file cleanup in case of catastrophic failures
+    if (fs.existsSync(uploadPath)) {
+      try { fs.unlinkSync(uploadPath); } catch (_) {}
+    }
+    if (fs.existsSync(localPath)) {
+      try { fs.unlinkSync(localPath); } catch (_) {}
+    }
+    console.error('[S3 Upload Catastrophic Failure]', err);
+    return res.status(500).json({ error: 'Failed to upload asset to S3: ' + err.message });
+  }
 });
 
 // ----------------------------------------------------------------------------
@@ -514,8 +593,8 @@ app.post('/api/checkout', async (req, res) => {
         shipping_address_collection: {
           allowed_countries: ['US', 'CA', 'GB', 'DE', 'FR', 'BE', 'AU']
         },
-        success_url: `${req.headers.origin}/pesado/track.html?orderId=${orderId}&status=success`,
-        cancel_url: `${req.headers.origin}/pesado/index.html`
+        success_url: `${req.headers.origin}/track.html?orderId=${orderId}&status=success`,
+        cancel_url: `${req.headers.origin}/index.html`
       });
 
       // Update order with the real session ID
@@ -525,14 +604,260 @@ app.post('/api/checkout', async (req, res) => {
     } else {
       // Mock Sandbox Checkout redirect
       console.log(`[Stripe Sandbox] Brand ${req.brand.name} checkout. Returning mock checkout URL.`);
+      const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
       res.json({ 
-        url: `/pesado/checkout-mock.html?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}`
+        url: `/api/checkout-mock-page?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}&origin=${encodeURIComponent(origin)}`
       });
     }
   } catch (err) {
     console.error('[Checkout] Error initiating checkout:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Helper to escape HTML tags to prevent XSS
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag] || tag));
+}
+
+// Stripe Sandbox Mock Checkout Page HTML Renderer
+app.get('/api/checkout-mock-page', async (req, res) => {
+  const { orderId, email, name, origin } = req.query;
+
+  if (!orderId) {
+    return res.status(400).send('<h1>Missing required parameter: orderId</h1>');
+  }
+
+  // Render checkout simulation page
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Sandbox | Payment Gateway</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0d0c;
+            --card-bg: #121514;
+            --primary: #c5a059;
+            --primary-hover: #b08d47;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --accent: #1e2221;
+            --border: #232826;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .checkout-container {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .stripe-badge {
+            background-color: #635bff;
+            color: #fff;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        .order-summary {
+            background: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+            margin-top: 12px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background-color: #635bff;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary:hover {
+            background-color: #4f46e5;
+        }
+
+        .btn-cancel {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-cancel:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="checkout-container">
+        <span class="stripe-badge">Stripe Sandbox</span>
+        <h2>Stripe Payment Simulation</h2>
+        <p>You are using Sandbox Mode because no live Stripe API keys are configured in your environment.</p>
+
+        <div class="order-summary">
+            <div class="summary-row">
+                <span>Order Reference</span>
+                <span id="summary-order-id" style="font-family: monospace;">${escapeHtml(orderId)}</span>
+            </div>
+            <div class="summary-row">
+                <span>Customer Email</span>
+                <span id="summary-email">${escapeHtml(email || '')}</span>
+            </div>
+            <div class="summary-row">
+                <span>Payment Amount</span>
+                <span id="summary-total" style="font-weight: 600;">Loading...</span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="pay-btn">Authorize sandbox Payment</button>
+        <button class="btn btn-cancel" id="cancel-btn">Cancel Transaction</button>
+    </div>
+
+    <script>
+        const orderId = "${escapeHtml(orderId)}";
+        const email = "${escapeHtml(email || '')}";
+        const name = "${escapeHtml(name || '')}";
+        const origin = "${escapeHtml(origin || '')}";
+
+        // Fetch total amount from backend
+        async function fetchOrderDetails() {
+            try {
+                const res = await fetch(\`/api/order/\${orderId}\`);
+                if (res.ok) {
+                    const order = await res.json();
+                    document.getElementById('summary-total').textContent = \`€\${order.total.toFixed(2)}\`;
+                }
+            } catch (err) {
+                console.error('Failed to load summary details:', err);
+            }
+        }
+
+        fetchOrderDetails();
+
+        document.getElementById('pay-btn').addEventListener('click', async () => {
+            const payBtn = document.getElementById('pay-btn');
+            payBtn.textContent = 'Processing Payment...';
+            payBtn.disabled = true;
+
+            try {
+                // Post to payment simulation endpoint
+                const res = await fetch('/api/admin/simulate-stripe-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId,
+                        name,
+                        email
+                    })
+                });
+
+                if (res.ok) {
+                    // Redirect back to storefront origin on success
+                    window.location.href = \`\${origin}/track.html?orderId=\${orderId}&status=success\`;
+                } else {
+                    alert('Simulation payment authorization failed.');
+                    payBtn.textContent = 'Authorize sandbox Payment';
+                    payBtn.disabled = false;
+                }
+            } catch (err) {
+                alert(\`Network error: \${err.message}\`);
+                payBtn.textContent = 'Authorize sandbox Payment';
+                payBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            window.location.href = \`\${origin}/index.html\`;
+        });
+    </script>
+</body>
+</html>`);
 });
 
 // Simulated payment trigger for Sandbox
@@ -648,8 +973,17 @@ function verifyAdminToken(req, res, next) {
 
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
 app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
+  let brandId = req.brand ? req.brand.id : null;
+  if (req.user.role.toLowerCase() === 'merchant') {
+    brandId = req.user.brand_id;
+  }
+
+  if (!brandId) {
+    return res.status(400).json({ error: 'No brand context resolved.' });
+  }
+
   try {
-    const rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [req.brand.id]);
+    const rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
     const parsedRows = rows.map(row => ({
       ...row,
       items: JSON.parse(row.items),
@@ -664,9 +998,17 @@ app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
 // Mark order fulfilled
 app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
   const { orderId, trackingNumber, trackingCarrier } = req.body;
+  let brandId = req.brand ? req.brand.id : null;
+  if (req.user.role.toLowerCase() === 'merchant') {
+    brandId = req.user.brand_id;
+  }
+
+  if (!brandId) {
+    return res.status(400).json({ error: 'No brand context resolved.' });
+  }
 
   try {
-    const order = await getQuery('SELECT * FROM orders WHERE id = $1 AND brand_id = $2', [orderId, req.brand.id]);
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1 AND brand_id = $2', [orderId, brandId]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found for this brand' });
     }
@@ -689,13 +1031,17 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// SYSTEM ADMINISTRATION API (For onboarding new shops at admin.stricktlycoffee.be)
+// SYSTEM ADMINISTRATION API (For onboarding new shops at dash.stricktlycoffee.be)
 // ----------------------------------------------------------------------------
 
 // List all brands
-app.get('/api/global/brands', async (req, res) => {
+app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify FROM brands ORDER BY id ASC');
+    if (req.user.role === 'merchant') {
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon FROM brands WHERE id = $1', [req.user.brand_id]);
+      return res.json(rows);
+    }
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -703,7 +1049,10 @@ app.get('/api/global/brands', async (req, res) => {
 });
 
 // Onboard new brand
-app.post('/api/global/brands', async (req, res) => {
+app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
   const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon } = req.body;
 
   if (!id || !name || !subdomain) {
@@ -794,7 +1143,10 @@ app.post('/api/global/brands', async (req, res) => {
 });
 
 // Delete/De-onboard brand
-app.delete('/api/global/brands/:id', async (req, res) => {
+app.delete('/api/global/brands/:id', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
   const { id } = req.params;
 
   try {
@@ -818,12 +1170,31 @@ app.delete('/api/global/brands/:id', async (req, res) => {
   }
 });
 
+// List products (scoped by brand if merchant role)
+app.get('/api/global/products', verifyAdminToken, async (req, res) => {
+  try {
+    if (req.user.role === 'merchant') {
+      const rows = await allQuery('SELECT * FROM products WHERE brand_id = $1 ORDER BY title ASC', [req.user.brand_id]);
+      return res.json(rows);
+    }
+    const rows = await allQuery('SELECT * FROM products ORDER BY title ASC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Add new product to specific brand
-app.post('/api/global/products', async (req, res) => {
+app.post('/api/global/products', verifyAdminToken, async (req, res) => {
   const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility } = req.body;
 
   if (!brand_id || !title || !price) {
     return res.status(400).json({ error: 'Missing required fields: brand_id, title, price' });
+  }
+
+  // Scope validation for merchants
+  if (req.user.role === 'merchant' && req.user.brand_id !== brand_id) {
+    return res.status(403).json({ error: 'Permission denied. Cannot add product to other brands.' });
   }
 
   try {
@@ -859,13 +1230,18 @@ app.post('/api/global/products', async (req, res) => {
 });
 
 // Delete product from catalog
-app.delete('/api/global/products/:id', async (req, res) => {
+app.delete('/api/global/products/:id', verifyAdminToken, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const product = await getQuery('SELECT title FROM products WHERE id = $1', [parseInt(id, 10)]);
+    const product = await getQuery('SELECT brand_id, title FROM products WHERE id = $1', [parseInt(id, 10)]);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Scope validation for merchants
+    if (req.user.role === 'merchant' && req.user.brand_id !== product.brand_id) {
+      return res.status(403).json({ error: 'Permission denied. Cannot delete product from other brands.' });
     }
 
     await runQuery('DELETE FROM products WHERE id = $1', [parseInt(id, 10)]);
@@ -876,14 +1252,25 @@ app.delete('/api/global/products/:id', async (req, res) => {
 });
 
 // Retrieve combined orders across all stores (Consolidated Audit List)
-app.get('/api/global/orders', async (req, res) => {
+app.get('/api/global/orders', verifyAdminToken, async (req, res) => {
   try {
-    const rows = await allQuery(`
-      SELECT o.*, b.name as brand_name 
-      FROM orders o
-      LEFT JOIN brands b ON o.brand_id = b.id
-      ORDER BY o.created_at DESC
-    `);
+    let rows;
+    if (req.user.role === 'merchant') {
+      rows = await allQuery(`
+        SELECT o.*, b.name as brand_name 
+        FROM orders o
+        LEFT JOIN brands b ON o.brand_id = b.id
+        WHERE o.brand_id = $1
+        ORDER BY o.created_at DESC
+      `, [req.user.brand_id]);
+    } else {
+      rows = await allQuery(`
+        SELECT o.*, b.name as brand_name 
+        FROM orders o
+        LEFT JOIN brands b ON o.brand_id = b.id
+        ORDER BY o.created_at DESC
+      `);
+    }
     const parsedRows = rows.map(row => ({
       ...row,
       items: JSON.parse(row.items),
@@ -985,10 +1372,14 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
 }
 
 // Fetch products from Shopify or fallback to mock list
-app.get('/api/global/shopify-import', async (req, res) => {
+app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
   const { brandId } = req.query;
   if (!brandId) {
     return res.status(400).json({ error: 'Brand ID is required.' });
+  }
+
+  if (req.user.role === 'merchant' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Cannot import for other brands.' });
   }
 
   try {
@@ -1054,11 +1445,15 @@ app.get('/api/global/shopify-import', async (req, res) => {
 });
 
 // Import product from Shopify into brand catalog
-app.post('/api/global/shopify-import', async (req, res) => {
+app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
   const { brandId, title, price, image, description } = req.body;
 
   if (!brandId || !title || !price) {
     return res.status(400).json({ error: 'Brand ID, Title, and Price are required.' });
+  }
+
+  if (req.user.role === 'merchant' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Cannot import for other brands.' });
   }
 
   try {

@@ -101,8 +101,13 @@ async function initializeDatabase() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'admin',
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE SET NULL;
     `);
 
     await client.query('COMMIT');
@@ -257,6 +262,17 @@ async function seedDefaultData() {
       INSERT INTO users (email, password_hash, role)
       VALUES ($1, $2, $3)
     `, ['sc@davidblaesing.com', passwordHash, 'superadmin']);
+  }
+
+  // Seed default Merchant Operator
+  const merchantCheck = await getQuery('SELECT id FROM users WHERE email = $1', ['merchant@davidblaesing.com']);
+  if (!merchantCheck) {
+    console.log('[Database Seed] Seeding default merchant user merchant@davidblaesing.com context...');
+    const passwordHash = crypto.createHash('sha256').update('TheKey4u').digest('hex');
+    await runQuery(`
+      INSERT INTO users (email, password_hash, role, brand_id)
+      VALUES ($1, $2, $3, $4)
+    `, ['merchant@davidblaesing.com', passwordHash, 'merchant', 'pesado']);
   }
 }
 

@@ -1,7 +1,7 @@
 {
-  "name": "pesado-backend",
+  "name": "sc-backend",
   "version": "1.0.0",
-  "description": "Dropshipping backend for Pesado storefront",
+  "description": "Dropshipping core backend for Stricktly Coffee store channels",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "dev": "node index.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.500.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
