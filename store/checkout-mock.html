@@ -162,6 +162,14 @@
     </div>
 
     <script>
+        const getApiBaseUrl = () => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
+            if (hostname.includes('stricktlycoffee.be')) return 'https://api.stricktlycoffee.be';
+            return '';
+        };
+        const apiBaseUrl = getApiBaseUrl();
+
         const urlParams = new URLSearchParams(window.location.search);
         const orderId = urlParams.get('orderId');
         const email = urlParams.get('email');
@@ -173,7 +181,7 @@
         // Fetch total amount from backend
         async function fetchOrderDetails() {
             try {
-                const res = await fetch(`/api/order/${orderId}`);
+                const res = await fetch(`${apiBaseUrl}/api/order/${orderId}`);
                 if (res.ok) {
                     const order = await res.json();
                     document.getElementById('summary-total').textContent = `€${order.total.toFixed(2)}`;
@@ -194,7 +202,7 @@
 
             try {
                 // Post to payment simulation endpoint
-                const res = await fetch('/api/admin/simulate-stripe-payment', {
+                const res = await fetch(`${apiBaseUrl}/api/admin/simulate-stripe-payment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

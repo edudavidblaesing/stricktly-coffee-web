@@ -384,6 +384,9 @@
                 <table>
                     <thead>
                         <tr>
+                            <th class="checkbox-cell" style="width: 40px;">
+                                <div class="checkbox-custom" :class="{ checked: isAllProductsSelected }" @click="toggleSelectAllProducts"></div>
+                            </th>
                             <th>Product Info</th>
                             <th>Brand Shop</th>
                             <th>Retail Price</th>
@@ -395,7 +398,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="prod in searchedProducts" :key="prod.id">
+                        <tr v-for="prod in searchedProducts" :key="prod.id" :class="{ selected: selectedProductIds.includes(prod.id) }">
+                            <td class="checkbox-cell" @click.stop>
+                                <div class="checkbox-custom" :class="{ checked: selectedProductIds.includes(prod.id) }" @click="toggleSelectProduct(prod.id)"></div>
+                            </td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <img :src="prod.image || 'https://placehold.co/100'"
@@ -458,13 +464,23 @@
                             </td>
                         </tr>
                         <tr v-if="searchedProducts.length === 0">
-                            <td colspan="8"
+                            <td colspan="9"
                                 style="text-align: center; color: var(--text-muted); padding: 30px;">
                                 No products match the selected filters or search parameters.
                             </td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Floating Bulk Actions Bar -->
+        <div v-if="selectedProductIds.length > 0" class="bulk-actions-bar">
+            <span><strong>{{ selectedProductIds.length }}</strong> products selected</span>
+            <div class="btn-group">
+                <button class="bulk-btn btn-primary" @click="performBulkUpdateProductsActive(1)">Activate Selected</button>
+                <button class="bulk-btn btn-secondary" @click="performBulkUpdateProductsActive(0)">Deactivate Selected</button>
+                <button class="bulk-btn btn-danger" @click="performBulkDeleteProducts">Delete Selected</button>
             </div>
         </div>
     </div>
@@ -476,6 +492,7 @@ export default {
     inject: ['app'],
     data() {
         return {
+            selectedProductIds: [],
             showAddProductModal: false,
             selectedApiProductId: '',
             apiProducts: [],
@@ -506,6 +523,9 @@ export default {
         };
     },
     computed: {
+        isAllProductsSelected() {
+            return this.searchedProducts.length > 0 && this.searchedProducts.every(p => this.selectedProductIds.includes(p.id));
+        },
         brands() { return this.app.brands; },
         newProduct() { return this.app.newProduct; },
         uploadingMedia() { return this.app.uploadingMedia; },
@@ -545,6 +565,33 @@ export default {
         }
     },
     methods: {
+        toggleSelectProduct(id) {
+            const idx = this.selectedProductIds.indexOf(id);
+            if (idx > -1) {
+                this.selectedProductIds.splice(idx, 1);
+            } else {
+                this.selectedProductIds.push(id);
+            }
+        },
+        toggleSelectAllProducts() {
+            if (this.isAllProductsSelected) {
+                this.selectedProductIds = [];
+            } else {
+                this.selectedProductIds = this.searchedProducts.map(p => p.id);
+            }
+        },
+        async performBulkUpdateProductsActive(active) {
+            const success = await this.app.bulkUpdateProductsActive(this.selectedProductIds, active);
+            if (success) {
+                this.selectedProductIds = [];
+            }
+        },
+        async performBulkDeleteProducts() {
+            const success = await this.app.bulkDeleteProducts(this.selectedProductIds);
+            if (success) {
+                this.selectedProductIds = [];
+            }
+        },
         openAddProductModal() {
             this.showAddProductModal = true;
             if (this.activeShopFilter !== 'all') {

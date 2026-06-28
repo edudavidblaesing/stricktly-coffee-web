@@ -221,6 +221,43 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS campaign_type VARCHAR(50) DEFAULT 'manual'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS custom_url TEXT`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS translations TEXT`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT CURRENT_DATE`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS end_date DATE DEFAULT (CURRENT_DATE + INTERVAL '7 days')`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS budget_type VARCHAR(50) DEFAULT 'lifetime'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS bidding_strategy VARCHAR(50) DEFAULT 'manual'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS target_roas NUMERIC(4,2) DEFAULT 4.00`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS performance_history TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS automation_rules TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_enabled BOOLEAN DEFAULT FALSE`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campaign_creative_stats (
+        id VARCHAR(100) PRIMARY KEY,
+        campaign_id VARCHAR(100) REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        asset_url TEXT,
+        headline VARCHAR(255),
+        impressions INT DEFAULT 0,
+        clicks INT DEFAULT 0,
+        conversions INT DEFAULT 0,
+        ctr NUMERIC(5,2) DEFAULT 0.00,
+        cvr NUMERIC(5,2) DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campaign_ai_proposals (
+        id VARCHAR(100) PRIMARY KEY,
+        campaign_id VARCHAR(100) REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        original_headline TEXT,
+        original_ad_copy TEXT,
+        proposed_headline TEXT,
+        proposed_ad_copy TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`ALTER TABLE campaign_creative_stats ADD COLUMN IF NOT EXISTS tournament_status VARCHAR(50) DEFAULT 'testing'`);
 
     // Create Media Library Table
     await client.query(`
@@ -249,10 +286,38 @@ async function initializeDatabase() {
 }
 
 async function seedDefaultData() {
-  // Check if database has already been seeded in a previous boot
-  const adminCheck = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
-  if (adminCheck) {
-    console.log('[Database Seed] Database already seeded. Skipping default data recreation.');
+  const isLocal = !process.env.DB_HOST || process.env.DB_HOST === 'localhost' || process.env.DB_HOST === '127.0.0.1';
+  const shouldSeedMock = isLocal && process.env.SEED_MOCK_DATA !== 'false';
+
+  // If we shouldn't seed mock data and we are in a remote stack, let's clean up default mock data if it is present!
+  if (!shouldSeedMock) {
+    console.log('[Database Seed] Running in remote/production mode. Ensuring mock seed data is removed.');
+    try {
+      await runQuery(`DELETE FROM orders WHERE brand_id = $1`, ['pesado']);
+      await runQuery(`DELETE FROM products WHERE brand_id = $1`, ['pesado']);
+      await runQuery(`DELETE FROM users WHERE email = $1`, ['merchant@davidblaesing.com']);
+      await runQuery(`DELETE FROM brands WHERE id = $1`, ['pesado']);
+      console.log('✅ Remote mock data cleanup completed.');
+    } catch (e) {
+      console.error('Error during mock data cleanup:', e.message);
+    }
+  }
+
+  // Seed Superadmin user (always required)
+  const adminCheckUser = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
+  if (!adminCheckUser) {
+    console.log('[Database Seed] Seeding default superadmin user sc@davidblaesing.com...');
+    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'TheKey4u';
+    const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
+    await runQuery(`
+      INSERT INTO users (email, password_hash, role)
+      VALUES ($1, $2, $3)
+    `, ['sc@davidblaesing.com', passwordHash, 'superadmin']);
+  }
+
+  // If not seeding mock data, skip the rest
+  if (!shouldSeedMock) {
+    console.log('[Database Seed] Mock data seeding disabled for remote stacks.');
     return;
   }
 
@@ -381,18 +446,6 @@ async function seedDefaultData() {
       ]);
     }
     console.log('✅ Default products seeded successfully.');
-  }
-
-  // Seed Superadmin user
-  const adminCheckUser = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
-  if (!adminCheckUser) {
-    console.log('[Database Seed] Seeding default superadmin user sc@davidblaesing.com...');
-    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'TheKey4u';
-    const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
-    await runQuery(`
-      INSERT INTO users (email, password_hash, role)
-      VALUES ($1, $2, $3)
-    `, ['sc@davidblaesing.com', passwordHash, 'superadmin']);
   }
 
   // Seed default Merchant Operator

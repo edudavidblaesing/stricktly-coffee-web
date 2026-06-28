@@ -276,6 +276,14 @@
         const container = document.getElementById('orders-container');
         
         // Extract & store admin access token
+        const getApiBaseUrl = () => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
+            if (hostname.includes('stricktlycoffee.be')) return 'https://api.stricktlycoffee.be';
+            return '';
+        };
+        const apiBaseUrl = getApiBaseUrl();
+
         const urlParams = new URLSearchParams(window.location.search);
         let token = urlParams.get('token') || localStorage.getItem('sc_admin_token');
         const previewBrandId = urlParams.get('previewBrandId') || '';
@@ -289,7 +297,7 @@
                 return;
             }
             try {
-                const url = previewBrandId ? `/api/admin/orders?previewBrandId=${previewBrandId}` : '/api/admin/orders';
+                const url = previewBrandId ? `${apiBaseUrl}/api/admin/orders?previewBrandId=${previewBrandId}` : `${apiBaseUrl}/api/admin/orders`;
                 const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -438,7 +446,7 @@
             const tracking = document.getElementById(`tracking-${orderId}`).value;
 
             try {
-                const url = previewBrandId ? `/api/admin/fulfill?previewBrandId=${previewBrandId}` : '/api/admin/fulfill';
+                const url = previewBrandId ? `${apiBaseUrl}/api/admin/fulfill?previewBrandId=${previewBrandId}` : `${apiBaseUrl}/api/admin/fulfill`;
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 

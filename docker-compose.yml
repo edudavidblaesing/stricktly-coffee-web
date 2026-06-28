@@ -43,6 +43,15 @@ services:
       - uploads_data:/app/uploads
     networks:
       - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}.entrypoints=websecure"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sc-api-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=3000"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
+      - "traefik.http.routers.sc-api-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}"
     depends_on:
       - postgres-db
       - minio

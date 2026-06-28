@@ -547,6 +547,9 @@ export default {
                         this.designerBrand.facebook_link = overrides.facebook_link || theme.facebook_link || '';
                         this.designerBrand.twitter_link = overrides.twitter_link || theme.twitter_link || '';
                     }
+                    this.$nextTick(() => {
+                        this.updatePreviewStyles();
+                    });
                 }
             }
         }

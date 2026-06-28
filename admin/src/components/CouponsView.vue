@@ -248,6 +248,9 @@
                         <table class="data-table" style="width: 100%; border-collapse: collapse; text-align: left;">
                             <thead>
                                 <tr style="border-bottom: 2px solid var(--border); font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                                    <th class="checkbox-cell" style="padding: 10px; width: 40px;">
+                                        <div class="checkbox-custom" :class="{ checked: isAllCouponsSelected }" @click="toggleSelectAllCoupons"></div>
+                                    </th>
                                     <th style="padding: 10px;">Code</th>
                                     <th style="padding: 10px;">Discount</th>
                                     <th style="padding: 10px;">Rules</th>
@@ -257,7 +260,10 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="coupon in coupons" :key="coupon.id" style="border-bottom: 1px solid var(--border); font-size: 0.82rem;">
+                                <tr v-for="coupon in coupons" :key="coupon.id" :class="{ selected: selectedCouponIds.includes(coupon.id) }" style="border-bottom: 1px solid var(--border); font-size: 0.82rem;">
+                                    <td class="checkbox-cell" @click.stop style="padding: 10px;">
+                                        <div class="checkbox-custom" :class="{ checked: selectedCouponIds.includes(coupon.id) }" @click="toggleSelectCoupon(coupon.id)"></div>
+                                    </td>
                                     <td style="padding: 10px; font-weight: 700; color: var(--text-main);">
                                         {{ coupon.code }}
                                     </td>
@@ -282,10 +288,18 @@
                                     </td>
                                 </tr>
                                 <tr v-if="coupons.length === 0">
-                                    <td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">No coupon codes registered.</td>
+                                    <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">No coupon codes registered.</td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Floating Bulk Actions Bar -->
+                <div v-if="selectedCouponIds.length > 0" class="bulk-actions-bar">
+                    <span><strong>{{ selectedCouponIds.length }}</strong> coupons selected</span>
+                    <div class="btn-group">
+                        <button class="bulk-btn btn-danger" @click="performBulkVoidCoupons">Void Selected</button>
                     </div>
                 </div>
             </div>
@@ -393,10 +407,14 @@ export default {
             savingRules: false,
             creatingCoupon: false,
             sendingPending: false,
-            productDropdownOpen: false
+            productDropdownOpen: false,
+            selectedCouponIds: []
         };
     },
     computed: {
+        isAllCouponsSelected() {
+            return this.coupons.length > 0 && this.coupons.every(c => this.selectedCouponIds.includes(c.id));
+        },
         activeBrandName() {
             if (this.app.activeShopFilter === 'all') return 'None';
             const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);
@@ -441,6 +459,31 @@ export default {
         window.removeEventListener('click', this.handleOutsideClick);
     },
     methods: {
+        toggleSelectCoupon(id) {
+            const idx = this.selectedCouponIds.indexOf(id);
+            if (idx > -1) {
+                this.selectedCouponIds.splice(idx, 1);
+            } else {
+                this.selectedCouponIds.push(id);
+            }
+        },
+        toggleSelectAllCoupons() {
+            if (this.isAllCouponsSelected) {
+                this.selectedCouponIds = [];
+            } else {
+                this.selectedCouponIds = this.coupons.map(c => c.id);
+            }
+        },
+        async performBulkVoidCoupons() {
+            if (!confirm(`Are you sure you want to void these ${this.selectedCouponIds.length} coupon(s)? This action cannot be undone.`)) {
+                return;
+            }
+            const success = await this.app.bulkVoidCoupons(this.selectedCouponIds);
+            if (success) {
+                this.selectedCouponIds = [];
+                await this.loadCampaignData();
+            }
+        },
         handleOutsideClick(e) {
             if (!this.$el.querySelector('.custom-multiselect-container')?.contains(e.target)) {
                 this.productDropdownOpen = false;

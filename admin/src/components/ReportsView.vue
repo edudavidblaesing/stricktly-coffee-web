@@ -176,7 +176,7 @@
                             <tr v-for="ch in channelBreakdown" :key="ch.name">
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-main);">{{ ch.name }}</div>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">{{ ch.subdomain }}.stricktlycoffee.be</span>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">{{ app.getBrandSubdomain(ch) }}</span>
                                 </td>
                                 <td style="text-align: center; font-weight: 600;">{{ ch.ordersCount }}</td>
                                 <td style="text-align: right; font-weight: 700; color: var(--success);">

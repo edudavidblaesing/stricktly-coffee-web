@@ -65,7 +65,7 @@
                             style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-top: 4px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                             {{ activeWorkspaceName }}</div>
                     </div>
-                    <span style="color: var(--text-muted); font-size: 0.65rem;" v-if="userRole.toLowerCase() === 'superadmin'">▼</span>
+                    <span class="profile-selector-arrow" style="color: var(--text-muted); font-size: 0.65rem;" v-if="userRole.toLowerCase() === 'superadmin'">▼</span>
                 </div>
 
                 <!-- Custom Workspace switcher dropdown list -->
@@ -90,7 +90,7 @@
                         </div>
                         <div class="workspace-dropdown-text">
                             <strong>{{ b.name }}</strong>
-                            <span>{{ b.subdomain }}.stricktlycoffee.be</span>
+                            <span>{{ getBrandSubdomain(b) }}</span>
                         </div>
                     </div>
                     <div class="workspace-dropdown-divider"></div>
@@ -333,13 +333,11 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn" @click="switchView('settings')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'settings' }" @click="switchView('settings')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="3"></circle>
-                                <path
-                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
-                                </path>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
                             System Settings
                         </button>
@@ -1186,7 +1184,7 @@ export default {
                             this.currentEnv === 'dev' ? '⚙️ Dev Stack' : '💻 Local Dev';
                     }
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
-                    return brand ? `${brand.subdomain}.stricktlycoffee.be` : 'Custom Workspace';
+                    return brand ? this.getBrandSubdomain(brand) : 'Custom Workspace';
                 },
                 filteredProducts() {
                     if (!Array.isArray(this.products)) return [];
@@ -1256,32 +1254,16 @@ export default {
                     if (this.currentEnv === 'local') {
                         return `/store/${this.previewActiveBrandId}`;
                     } else {
-                        const hostPrefix = brand.subdomain.split('.')[0];
-                        const domain = brand.custom_domain ? brand.custom_domain : `${hostPrefix}.stricktlycoffee.be`;
+                        const domain = this.getBrandSubdomain(brand);
                         return `https://${domain}`;
                     }
                 },
                 envConfigs() {
-                    const hostname = window.location.hostname;
-                    if (hostname.includes('dev-dash.') || hostname.includes('dash.dev.')) {
-                        return {
-                            local: 'http://localhost:8082',
-                            dev: '',
-                            prod: 'https://stricktlycoffee.be'
-                        };
-                    } else if (hostname.includes('dash.stricktlycoffee.be')) {
-                        return {
-                            local: 'http://localhost:8082',
-                            dev: 'https://dev.stricktlycoffee.be',
-                            prod: ''
-                        };
-                    } else {
-                        return {
-                            local: '',
-                            dev: 'https://dev.stricktlycoffee.be',
-                            prod: 'https://stricktlycoffee.be'
-                        };
-                    }
+                    return {
+                        local: 'http://localhost:3000',
+                        dev: 'https://api.dev.stricktlycoffee.be',
+                        prod: 'https://api.stricktlycoffee.be'
+                    };
                 },
                 apiBaseUrl() {
                     return this.envConfigs[this.currentEnv];
@@ -1538,6 +1520,12 @@ export default {
                 window.removeEventListener('beforeunload', this.handleBeforeUnload);
             },
             methods: {
+                getBrandSubdomain(brand) {
+                    if (!brand) return '';
+                    if (brand.custom_domain) return brand.custom_domain;
+                    const prefix = (brand.subdomain || '').split('.')[0];
+                    return `${prefix}.${this.baseBrandDomain}`;
+                },
                 async loadUsers() {
                     try {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/users`, {
@@ -1831,6 +1819,110 @@ export default {
                     }
                     return false;
                 },
+                async bulkUpdateProductsActive(ids, active) {
+                    if (!ids || ids.length === 0) return false;
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/products/bulk-active`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids, active })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully updated status for ${ids.length} product(s).`);
+                            this.fetchProducts(); // Refresh catalog
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
+                },
+                async bulkDeleteProducts(ids) {
+                    if (!ids || ids.length === 0) return false;
+                    if (!confirm(`Are you sure you want to permanently delete these ${ids.length} product(s)? This action cannot be undone.`)) {
+                        return false;
+                    }
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/products/bulk-delete`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully deleted ${ids.length} product(s).`);
+                            this.fetchProducts(); // Refresh catalog
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
+                },
+                async bulkVoidCoupons(ids) {
+                    if (!ids || ids.length === 0) return false;
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/coupons/bulk-void`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully voided ${ids.length} coupon(s).`);
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
+                },
+                async bulkDeleteCampaigns(ids) {
+                    if (!ids || ids.length === 0) return false;
+                    if (!confirm(`Are you sure you want to permanently delete these ${ids.length} campaign(s)? This action cannot be undone.`)) {
+                        return false;
+                    }
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/campaigns/bulk-delete`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully deleted ${ids.length} campaign(s).`);
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
+                },
                 getCompatibility(prod) {
                     if (!prod || !prod.compatibility) return 'All Espresso Machines';
                     if (Array.isArray(prod.compatibility)) return prod.compatibility.join(', ');
@@ -1917,6 +2009,7 @@ export default {
                     if (this.activeView === 'brands' && this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) {
                         const confirmExit = confirm("Are you sure you want to exit the setup wizard? Unsaved brand shop details may be lost.");
                         if (!confirmExit) return;
+                        this.$refs.brandsView.isCreatingBrand = false;
                     }
                     this.activeView = viewId;
                     this.mobileSidebarOpen = false;
@@ -2568,7 +2661,7 @@ export default {
                     if (this.currentEnv === 'local') {
                         targetUrl = `http://localhost/warehouse.html?previewBrandId=${brand.id}&token=${token}`;
                     } else {
-                        const domain = brand.custom_domain ? brand.custom_domain : `${brand.subdomain}.stricktlycoffee.be`;
+                        const domain = this.getBrandSubdomain(brand);
                         targetUrl = `https://${domain}/warehouse.html?token=${token}`;
                     }
 

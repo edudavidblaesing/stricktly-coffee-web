@@ -501,7 +501,7 @@
                             <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px;">
                                 <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">💰 Global Price Markup:</span>
                                 <input type="number" min="0" step="1" v-model="globalMarkupPercent" @input="applyGlobalMarkup" placeholder="0"
-                                       style="width: 60px; height: 26px; padding: 4px 6px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); text-align: center; font-weight: bold; margin: 0;">
+                                       style="width: 60px; height: 26px; padding: 4px 6px; line-height: normal; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); text-align: center; font-weight: bold; margin: 0;">
                                 <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">%</span>
                             </div>
                         </div>
@@ -701,8 +701,8 @@
                                     </td>
                                     <td style="padding: 12px;">
                                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                            <a :href="'http://' + b.subdomain" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500;">
-                                                🔗 {{ b.subdomain }}
+                                            <a :href="'https://' + app.getBrandSubdomain(b)" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500;">
+                                                🔗 {{ app.getBrandSubdomain(b) }}
                                             </a>
                                             <template v-if="userRole.toLowerCase() === 'superadmin'">
                                                 <span v-if="dnsStatuses[b.id] && dnsStatuses[b.id].verified" style="color: #10b981; font-size: 0.72rem; font-weight: bold; background: rgba(16,185,129,0.1); padding: 2px 6px; border-radius: 4px;">✅ DNS Live</span>
@@ -745,7 +745,7 @@
                                         </div>
                                     </td>
                                     <td style="padding: 12px; color: var(--text-muted);">
-                                        🔗 {{ b.subdomain }}/promo-offer
+                                        🔗 {{ app.getBrandSubdomain(b) }}/promo-offer
                                     </td>
                                     <td style="padding: 12px;">
                                         <span v-if="hasLandingPage(b)" style="background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800;">Active</span>
@@ -784,7 +784,7 @@
                                                 Disconnect
                                             </button>
                                             <button v-else class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #3b82f6; border-color: #3b82f6; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" @click="connectMockSocial('Instagram', b)">
-                                                <span v-html="getChannelLogoSvg('instagram', 12)"></span>
+                                                <span v-html="getChannelLogoSvg('instagram', 12, '#ffffff')"></span>
                                                 <span>Connect</span>
                                             </button>
                                         </div>
@@ -817,7 +817,7 @@
                                                 Disconnect
                                             </button>
                                             <button v-else class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #3b82f6; border-color: #3b82f6; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" @click="connectMockSocial('Facebook', b)">
-                                                <span v-html="getChannelLogoSvg('facebook', 12)"></span>
+                                                <span v-html="getChannelLogoSvg('facebook', 12, '#ffffff')"></span>
                                                 <span>Connect</span>
                                             </button>
                                         </div>
@@ -850,7 +850,7 @@
                                                 Disconnect
                                             </button>
                                             <button v-else class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #3b82f6; border-color: #3b82f6; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" @click="connectMockSocial('X / Twitter', b)">
-                                                <span v-html="getChannelLogoSvg('twitter', 12)"></span>
+                                                <span v-html="getChannelLogoSvg('twitter', 12, '#ffffff')"></span>
                                                 <span>Connect</span>
                                             </button>
                                         </div>
@@ -2231,25 +2231,33 @@ export default {
             }
             return '';
         },
-        getStripeLogoSvg(size = 16) {
-            return `<svg viewBox="0 0 60 25" width="36" height="15" fill="#635BFF" style="vertical-align: middle; display: inline-block; margin-left: 2px;"><path d="M59.64 14.28c0-2.6-1.6-3.9-4.2-3.9-1.4 0-2.5.3-3 .6v-1.6c0-1.3-.9-2.1-2.5-2.1-1.4 0-2.6.4-3.4.8l-1-2.3c1.2-.7 3-1.1 4.9-1.1 3.5 0 5.6 1.8 5.6 5.1v7.6c-1 .4-2.4.7-3.8.7-3.6.1-7.1-1.3-7.1-3.9 0-.8.6-1.3 1.6-1.3 1 0 1.8-.2 2.2-.5v-2.3c-.5-.2-1.3-.4-2-.4-1.1 0-1.8.6-1.8 1.9 0 .8.6 1.3 1.6 1.3 1 0 1.8-.2 2.2-.5v-2.3c-.5-.2-1.3-.4-2-.4-1.1 0-1.8.6-1.8 1.9 0 2.2 1.5 3.5 3.9 3.5 1 .4 2.4.7 3.8.7 3.5-.1 5.3-1.8 5.3-5.1zm-13.6-6.7h-3.4v6c0 .7.4 1 1 1h2.4v2.5h-2.9c-2.4 0-3.9-1.2-3.9-3.5v-6h-1.8v-2.7h1.8v-3l3.4-1v4h3.4zm-9.1 2.3c.3-.1.7-.1 1.1-.1v3.2c-.4 0-.8 0-1.1.1v6.7h-3.5v-10h3.5zm-5.7-3.5c0-1 .8-1.8 1.8-1.8s1.8.8 1.8 1.8-.8 1.8-1.8 1.8-1.8-.8-1.8-1.8zm-1.8 6.2h3.5v10.1h-3.5zm-9.3-6.2c1 .4 2.2.7 3.4.7 2.9 0 4.9-1.5 4.9-4.6s-2-4.6-4.9-4.6c-1.2 0-2.4.3-3.4.7zm1.1 6.3h-1.1v-12.7c.7-.3 1.8-.5 2.8-.5 2.9 0 4.3 1.4 4.3 3.9s-1.4 3.9-4.3 3.9c-.6 0-1.2-.1-1.7-.3zm-10.4 6.7c0-2.4-1.5-3.7-3.9-3.7-1.1 0-2.2.3-2.9.6V15c.6-.3 1.5-.5 2.4-.5 1.4 0 2 .5 2 1.3 0 .8-.8 1.1-2.2 1.5-2.2.6-3.9 1.4-3.9 3.9 0 2.4 1.8 3.7 4.1 3.7 1.3 0 2.5-.3 3.2-.8v.6h3.3v-9.5z"/></svg>`;
+        getStripeLogoSvg(size = 15, color = '#635BFF') {
+            const width = size * 2.4;
+            return `<svg viewBox="54 36 360.02 149.84" width="${width}" height="${size}" fill="${color}" style="vertical-align: middle; display: inline-block; margin-left: 2px;"><g><path d="M414,113.4c0-25.6-12.4-45.8-36.1-45.8c-23.8,0-38.2,20.2-38.2,45.6c0,30.1,17,45.3,41.4,45.3c11.9,0,20.9-2.7,27.7-6.5v-20c-6.8,3.4-14.6,5.5-24.5,5.5c-9.7,0-18.3-3.4-19.4-15.2h48.9C413.8,121,414,115.8,414,113.4z M364.6,103.9c0-11.3,6.9-16,13.2-16c6.1,0,12.6,4.7,12.6,16H364.6z"></path><path d="M301.1,67.6c-9.8,0-16.1,4.6-19.6,7.8l-1.3-6.2h-22v116.6l25-5.3l0.1-28.3c3.6,2.6,8.9,6.3,17.7,6.3c17.9,0,34.2-14.4,34.2-46.1C335.1,83.4,318.6,67.6,301.1,67.6z M295.1,136.5c-5.9,0-9.4-2.1-11.8-4.7l-0.1-37.1c2.6-2.9,6.2-4.9,11.9-4.9c9.1,0,15.4,10.2,15.4,23.3C310.5,126.5,304.3,136.5,295.1,136.5z"></path><polygon points="223.8,61.7 248.9,56.3 248.9,36 223.8,41.3"></polygon><rect x="223.8" y="69.3" width="25.1" height="87.5"></rect><path d="M196.9,76.7l-1.6-7.4h-21.6v87.5h25V97.5c5.9-7.7,15.9-6.3,19-5.2v-23C214.5,68.1,202.8,65.9,196.9,76.7z"></path><path d="M146.9,47.6l-24.4,5.2l-0.1,80.1c0,14.8,11.1,25.7,25.9,25.7c8.2,0,14.2-1.5,17.5-3.3V135c-3.2,1.3-19,5.9-19-8.9V90.6h19V69.3h-19L146.9,47.6z"></path><path d="M79.3,94.7c0-3.9,3.2-5.4,8.5-5.4c7.6,0,17.2,2.3,24.8,6.4V72.2c-8.3-3.3-16.5-4.6-24.8-4.6C67.5,67.6,54,78.2,54,95.9c0,27.6,38,23.2,38,35.1c0,4.6-4,6.1-9.6,6.1c-8.3,0-18.9-3.4-27.3-8v23.8c9.3,4,18.7,5.7,27.3,5.7c20.8,0,35.1-10.3,35.1-28.2C117.4,100.6,79.3,105.9,79.3,94.7z"></path></g></svg>`;
         },
-        getChannelLogoSvg(channel, size = 16) {
+        getChannelLogoSvg(channel, size = 16, color = null) {
             const lower = channel.toLowerCase();
             if (lower === 'storefront') {
-                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
+                const strokeColor = color || 'var(--accent)';
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
             }
             if (lower === 'landingpage') {
-                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>`;
+                const strokeColor = color || 'var(--accent)';
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>`;
             }
             if (lower === 'instagram') {
+                if (color) {
+                    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`;
+                }
                 return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="url(#ig-grad-brands)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><defs><linearGradient id="ig-grad-brands" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#fdf497" /><stop offset="5%" stop-color="#fdf497" /><stop offset="45%" stop-color="#fd5949" /><stop offset="60%" stop-color="#d6249f" /><stop offset="90%" stop-color="#285AEB" /></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`;
             }
             if (lower === 'facebook') {
-                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="#1877F2" style="vertical-align: middle; display: inline-block;"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
+                const fillColor = color || '#1877F2';
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fillColor}" style="vertical-align: middle; display: inline-block;"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
             }
             if (lower === 'twitter' || lower === 'x') {
-                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="#FFFFFF" style="vertical-align: middle; display: inline-block; background: #000; border-radius: 4px; padding: 2px;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+                const fillColor = color || 'currentColor';
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fillColor}" style="vertical-align: middle; display: inline-block;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
             }
             return '';
         },

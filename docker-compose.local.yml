@@ -17,6 +17,8 @@ services:
       dockerfile: Dockerfile.backend
     restart: unless-stopped
     container_name: backend-core-local
+    ports:
+      - "3000:3000"
     command: node --watch index.js
     volumes:
       - ./server:/app

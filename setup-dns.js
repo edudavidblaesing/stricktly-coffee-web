@@ -40,11 +40,13 @@ const targetRecords = [
   { name: `www.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `dash.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `s3.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
+  { name: `api.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   
   { name: `dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `www.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `dash.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
   { name: `s3.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
+  { name: `api.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
   
   { name: `*.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
   { name: `*.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false }

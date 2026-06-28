@@ -454,7 +454,14 @@
         </div>
     </footer>
 
-    <script>
+        const getApiBaseUrl = () => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
+            if (hostname.includes('stricktlycoffee.be')) return 'https://api.stricktlycoffee.be';
+            return '';
+        };
+        const apiBaseUrl = getApiBaseUrl();
+
         const urlParams = new URLSearchParams(window.location.search);
         
         // Resolve previewBrandId from URL query parameter or sessionStorage
@@ -741,7 +748,7 @@
         // Load configs from API on page load
         async function fetchBrandConfig() {
             try {
-                const url = previewBrandId ? `/api/brand?previewBrandId=${previewBrandId}` : '/api/brand';
+                const url = previewBrandId ? `${apiBaseUrl}/api/brand?previewBrandId=${previewBrandId}` : `${apiBaseUrl}/api/brand`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error();
                 const brand = await response.json();
@@ -869,7 +876,7 @@
             trackBtn.disabled = true;
 
             try {
-                const res = await fetch(`/api/order/${id}`);
+                const res = await fetch(`${apiBaseUrl}/api/order/${id}`);
                 if (!res.ok) {
                     throw new Error('Order not found. Check the ID and try again.');
                 }
