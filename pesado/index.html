@@ -1088,10 +1088,14 @@
             }
         ];
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const previewBrandId = urlParams.get('previewBrandId');
+
         // Fetch and load brand configs dynamically
         async function fetchBrandConfig() {
             try {
-                const response = await fetch('/api/brand');
+                const url = previewBrandId ? `/api/brand?previewBrandId=${previewBrandId}` : '/api/brand';
+                const response = await fetch(url);
                 if (!response.ok) throw new Error();
                 const brand = await response.json();
                 
@@ -1100,11 +1104,25 @@
                 }
                 
                 document.title = `${brand.name} | Coffee Equipment & Tools | Barista Accessories`;
+
+                if (brand.favicon) {
+                    let link = document.querySelector("link[rel*='icon']");
+                    if (!link) {
+                        link = document.createElement('link');
+                        link.rel = 'shortcut icon';
+                        document.getElementsByTagName('head')[0].appendChild(link);
+                    }
+                    link.href = brand.favicon;
+                }
                 
                 const logoEl = document.querySelector('.logo');
-                if (logoEl && brand.name) {
-                    const parts = brand.name.split(' ');
-                    logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
+                if (logoEl) {
+                    if (brand.logo) {
+                        logoEl.innerHTML = `<img src="${brand.logo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;">`;
+                    } else if (brand.name) {
+                        const parts = brand.name.split(' ');
+                        logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
+                    }
                 }
 
                 const footerSpan = document.querySelector('footer span');
@@ -1121,7 +1139,8 @@
             await fetchBrandConfig();
 
             try {
-                const response = await fetch('/api/products');
+                const url = previewBrandId ? `/api/products?previewBrandId=${previewBrandId}` : '/api/products';
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('API request failed');
                 storeProducts = await response.json();
             } catch (err) {

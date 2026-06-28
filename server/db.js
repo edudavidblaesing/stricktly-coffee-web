@@ -47,6 +47,10 @@ async function initializeDatabase() {
     await client.query(`
       ALTER TABLE brands ADD COLUMN IF NOT EXISTS cloudflare_dns_record_id VARCHAR(255)
     `);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS favicon TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS cloudflare_custom_domain_dns_record_id VARCHAR(255)`);
 
     // 2. Create Products Table
     await client.query(`

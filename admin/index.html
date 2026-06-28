@@ -1609,8 +1609,20 @@
                                 <input type="text" v-model="newBrand.primary_color" placeholder="#c5a059">
                             </div>
                             <div class="form-group">
-                                <label>Shopify Shop Name (for Warehouse connect)</label>
-                                <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado-warehouse-dest.myshopify.com">
+                                <label>Manual Custom Domain (Optional)</label>
+                                <input type="text" v-model="newBrand.custom_domain" placeholder="coffee-brandsite.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Favicon Icon URL (Auto-scraped on Shopify sync)</label>
+                                <input type="text" v-model="newBrand.favicon" placeholder="https://pesado585.com/favicon.ico">
+                            </div>
+                            <div class="form-group">
+                                <label>Logo Image URL (Auto-scraped on Shopify sync)</label>
+                                <input type="text" v-model="newBrand.logo" placeholder="https://pesado585.com/logo.png">
+                            </div>
+                            <div class="form-group form-full">
+                                <label>Shopify Shop Name (for automatic asset scraping & sync)</label>
+                                <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.com">
                             </div>
                             <div class="form-group form-full">
                                 <label>Shopify Admin API Access Token</label>
@@ -1639,7 +1651,7 @@
                                 <tr>
                                     <th>Shop ID</th>
                                     <th>Display Name</th>
-                                    <th>Target Subdomain</th>
+                                    <th>Target Domains</th>
                                     <th>Shopify Shop Name</th>
                                     <th>Stripe Live</th>
                                     <th>Contact Email</th>
@@ -1650,7 +1662,16 @@
                                 <tr v-for="b in brands" :key="b.id">
                                     <td><strong>{{ b.id }}</strong></td>
                                     <td>{{ b.name }}</td>
-                                    <td><a :href="'http://' + b.subdomain" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 600;">{{ b.subdomain }}</a></td>
+                                    <td>
+                                        <div style="font-weight: 600;">
+                                            <a :href="'http://' + b.subdomain" target="_blank" style="color: var(--text-main); text-decoration: none;">
+                                                🔗 {{ b.subdomain }}
+                                            </a>
+                                        </div>
+                                        <div style="font-size: 0.72rem; color: var(--accent); font-weight: 700; margin-top: 4px;" v-if="b.custom_domain">
+                                            🌐 {{ b.custom_domain }}
+                                        </div>
+                                    </td>
                                     <td>{{ b.shopify_shop_name || 'Mocked (Sandbox)' }}</td>
                                     <td>{{ b.stripe_secret_key ? '✅ Live' : '🚧 Mocked (Sandbox)' }}</td>
                                     <td>{{ b.contact_email || '-' }}</td>
@@ -1665,6 +1686,27 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                <!-- Live Storefront Sandbox Preview -->
+                <div class="panel" style="margin-top: 24px;" v-if="brands.length > 0">
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            Live Storefront Sandbox Preview
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        </h3>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <select v-model="previewActiveBrandId" style="width: 180px; font-weight: 600; border-radius: 8px; margin: 0;">
+                                <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                        Interactive preview of how the consumer storefront looks and operates for the selected brand shop. Click items, scroll, and test layout directly.
+                    </div>
+                    
+                    <div style="position: relative; width: 100%; height: 500px; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--workspace-bg);">
+                        <iframe :src="previewIframeSrc" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
             </div>
@@ -1988,7 +2030,19 @@
                                 <input type="text" v-model="settingsBrand.primary_color" required>
                             </div>
                             <div class="form-group">
-                                <label>Shopify Store URL</label>
+                                <label>Manual Custom Domain (Optional)</label>
+                                <input type="text" v-model="settingsBrand.custom_domain" placeholder="coffee-brandsite.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Favicon Icon URL (Optional)</label>
+                                <input type="text" v-model="settingsBrand.favicon" placeholder="https://pesado585.com/favicon.ico">
+                            </div>
+                            <div class="form-group">
+                                <label>Logo Image URL (Optional)</label>
+                                <input type="text" v-model="settingsBrand.logo" placeholder="https://pesado585.com/logo.png">
+                            </div>
+                            <div class="form-group form-full">
+                                <label>Shopify Store URL (for asset scraping & sync)</label>
                                 <input type="text" v-model="settingsBrand.shopify_shop_name">
                             </div>
                             <div class="form-group form-full">
@@ -2121,7 +2175,10 @@
                         shopify_shop_name: '',
                         shopify_access_token: '',
                         stripe_secret_key: '',
-                        stripe_webhook_secret: ''
+                        stripe_webhook_secret: '',
+                        custom_domain: '',
+                        logo: '',
+                        favicon: ''
                     },
                     newProduct: {
                         brand_id: '',
@@ -2144,7 +2201,10 @@
                         shopify_shop_name: '',
                         shopify_access_token: '',
                         stripe_secret_key: '',
-                        stripe_webhook_secret: ''
+                        stripe_webhook_secret: '',
+                        custom_domain: '',
+                        logo: '',
+                        favicon: ''
                     },
                     
                     // Shopify Importer
@@ -2154,6 +2214,7 @@
                     
                     // Warehouse Simulator Launcher select
                     simBrandId: '',
+                    previewActiveBrandId: '',
                     
                     // Search modal state (⌘ K)
                     searchModalOpen: false,
@@ -2209,6 +2270,17 @@
                         (p.description && p.description.toLowerCase().includes(q)) || 
                         p.brand_id.toLowerCase().includes(q)
                     );
+                },
+                previewIframeSrc() {
+                    if (!this.previewActiveBrandId) return '';
+                    if (this.currentEnv === 'local') {
+                        return `http://localhost:8081/pesado/index.html?previewBrandId=${this.previewActiveBrandId}`;
+                    } else {
+                        const brand = this.brands.find(b => b.id === this.previewActiveBrandId);
+                        if (!brand) return '';
+                        const domain = brand.custom_domain ? brand.custom_domain : `${brand.subdomain}.stricktlycoffee.be`;
+                        return `https://${domain}`;
+                    }
                 },
                 apiBaseUrl() {
                     return envConfigs[this.currentEnv];
@@ -2472,6 +2544,7 @@
                             if (!this.newProduct.brand_id) this.newProduct.brand_id = this.brands[0].id;
                             if (!this.shopifyImportBrandId) this.shopifyImportBrandId = this.brands[0].id;
                             if (!this.simBrandId) this.simBrandId = this.brands[0].id;
+                            if (!this.previewActiveBrandId) this.previewActiveBrandId = this.brands[0].id;
                         }
                     } catch (err) {
                         console.error('Failed to load brands:', err);
@@ -2506,7 +2579,8 @@
 
                         if (response.ok) {
                             this.showNotification(`Shop ${this.newBrand.name} onboarded successfully!`);
-                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', shopify_shop_name: '', shopify_access_token: '', stripe_secret_key: '', stripe_webhook_secret: '' };
+                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', shopify_shop_name: '', shopify_access_token: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '' };
+                            await this.loadBrands();
                             this.switchView('overview');
                         } else {
                             const err = await response.json();

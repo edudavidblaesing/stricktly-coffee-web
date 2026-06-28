@@ -79,6 +79,111 @@ async function createCloudflareSubdomain(subdomain) {
   }
 }
 
+// Cloudflare DNS Record helper for manual custom domains
+async function createCloudflareCustomDomain(customDomain) {
+  const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+  const cfZoneId = process.env.CLOUDFLARE_ZONE_ID;
+  const baseDomain = process.env.CLOUDFLARE_DOMAIN || 'stricktlycoffee.be';
+
+  if (!cfToken || !cfZoneId || !customDomain) {
+    console.log('[Cloudflare] Missing tokens or custom domain. Skipping custom domain DNS registration.');
+    return null;
+  }
+
+  const targetDomain = customDomain.replace(/^https?:\/\//i, '').trim();
+  console.log(`[Cloudflare] Registering custom CNAME record for ${targetDomain} pointing to ${baseDomain}...`);
+
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cfToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'CNAME',
+        name: targetDomain,
+        content: baseDomain,
+        ttl: 1, // automatic
+        proxied: true
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      console.error('[Cloudflare] Custom domain DNS creation failed:', result);
+      return null;
+    }
+
+    console.log(`[Cloudflare] Successfully created custom domain DNS record ID: ${result.result.id}`);
+    return result.result.id;
+  } catch (err) {
+    console.error('[Cloudflare] Custom domain DNS creation error:', err.message);
+    return null;
+  }
+}
+
+// Scrape styles, favicon, and logo from a public Shopify store URL
+async function scrapeShopifyBranding(shopUrl) {
+  try {
+    let url = shopUrl;
+    if (!url.startsWith('http')) {
+      url = `https://${url}`;
+    }
+    
+    console.log(`[Branding Scraper] Fetching homepage elements from: ${url}`);
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    
+    const html = await res.text();
+    
+    // 1. Extract favicon link
+    let faviconUrl = null;
+    const faviconMatch = html.match(/<link[^>]+(?:rel=["'](?:shortcut )?icon["'])[^>]+href=["']([^"']+)["']/i) ||
+                         html.match(/<link[^>]+href=["']([^"']+)["']/i);
+    if (faviconMatch) {
+      faviconUrl = faviconMatch[1];
+      if (faviconUrl.startsWith('//')) {
+        faviconUrl = `https:${faviconUrl}`;
+      } else if (faviconUrl.startsWith('/') && !faviconUrl.startsWith('//')) {
+        const parsed = new URL(url);
+        faviconUrl = `${parsed.origin}${faviconUrl}`;
+      }
+    }
+    
+    // 2. Extract logo image
+    let logoUrl = null;
+    const logoMatch = html.match(/<img[^>]+src=["']([^"']+)["'][^>]+alt=["'][^"']*(?:logo|brand)[^"']*["']/i) ||
+                      html.match(/<img[^>]+alt=["'][^"']*(?:logo|brand)[^"']*["'][^>]+src=["']([^"']+)["']/i) ||
+                      html.match(/class=["'][^"']*(?:logo|brand)[^"']*["'][^>]*src=["']([^"']+)["']/i);
+    if (logoMatch) {
+      logoUrl = logoMatch[1];
+      if (logoUrl.startsWith('//')) {
+        logoUrl = `https:${logoUrl}`;
+      } else if (logoUrl.startsWith('/') && !logoUrl.startsWith('//')) {
+        const parsed = new URL(url);
+        logoUrl = `${parsed.origin}${logoUrl}`;
+      }
+    }
+    
+    // 3. Extract primary accent color
+    let primaryColor = '#c5a059';
+    const colorMatch = html.match(/--color-accent:\s*(#[0-9a-fA-F]{3,6})/i) ||
+                       html.match(/--color-primary:\s*(#[0-9a-fA-F]{3,6})/i) ||
+                       html.match(/primary-color:\s*(#[0-9a-fA-F]{3,6})/i);
+    if (colorMatch) {
+      primaryColor = colorMatch[1];
+    }
+    
+    console.log(`[Branding Scraper] Extracted assets: favicon=${faviconUrl}, logo=${logoUrl}, color=${primaryColor}`);
+    return { favicon: faviconUrl, logo: logoUrl, primary_color: primaryColor };
+  } catch (e) {
+    console.error('[Branding Scraper] Failed to fetch storefront branding:', e.message);
+    return { favicon: null, logo: null, primary_color: '#c5a059' };
+  }
+}
+
+
 async function deleteCloudflareSubdomain(recordId) {
   const cfToken = process.env.CLOUDFLARE_API_TOKEN;
   const cfZoneId = process.env.CLOUDFLARE_ZONE_ID;
@@ -273,10 +378,20 @@ app.use(async (req, res, next) => {
 
   const host = req.headers.host || '';
   const hostname = host.split(':')[0]; // strip port in local dev (e.g. :8081)
+  const previewBrandId = req.query.previewBrandId;
 
   try {
-    // 1. Direct subdomain lookup (e.g. pesado.stricktlycoffee.be)
-    let brand = await getQuery('SELECT * FROM brands WHERE subdomain = $1', [hostname]);
+    let brand = null;
+
+    // 0. Preview override resolver
+    if (previewBrandId) {
+      brand = await getQuery('SELECT * FROM brands WHERE id = $1', [previewBrandId]);
+    }
+
+    // 1. Direct subdomain or custom domain lookup (e.g. resolved.stricktlycoffee.be or brand-custom.com)
+    if (!brand) {
+      brand = await getQuery('SELECT * FROM brands WHERE subdomain = $1 OR custom_domain = $1', [hostname]);
+    }
 
     // 2. Fallback matching for local dev or alternative domains containing brand ID
     if (!brand) {
@@ -308,8 +423,8 @@ app.use(async (req, res, next) => {
 
 // Get resolved brand config (public safe properties)
 app.get('/api/brand', (req, res) => {
-  const { id, name, subdomain, contact_email, primary_color } = req.brand;
-  res.json({ id, name, subdomain, contact_email, primary_color });
+  const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain } = req.brand;
+  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain });
 });
 
 // Get Products for the active brand
@@ -589,7 +704,7 @@ app.get('/api/global/brands', async (req, res) => {
 
 // Onboard new brand
 app.post('/api/global/brands', async (req, res) => {
-  const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color } = req.body;
+  const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon } = req.body;
 
   if (!id || !name || !subdomain) {
     return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -598,23 +713,48 @@ app.post('/api/global/brands', async (req, res) => {
   const brandId = id.trim().toLowerCase();
 
   try {
-    // Check if brand already exists to see if subdomain changed
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id FROM brands WHERE id = $1', [brandId]);
+    // Check if brand already exists to see if subdomain/custom domain changed
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id FROM brands WHERE id = $1', [brandId]);
     
     let dnsRecordId = existing ? existing.cloudflare_dns_record_id : null;
+    let customDnsRecordId = existing ? existing.cloudflare_custom_domain_dns_record_id : null;
 
+    // 1. Handle default subdomain CNAME record
     if (!existing || existing.subdomain !== subdomain) {
-      // If subdomain changed, delete the old DNS record first
       if (existing && existing.cloudflare_dns_record_id) {
         await deleteCloudflareSubdomain(existing.cloudflare_dns_record_id);
       }
-      // Create new DNS record
       dnsRecordId = await createCloudflareSubdomain(subdomain);
     }
 
+    // 2. Handle manual custom domain CNAME record
+    if (custom_domain && (!existing || existing.custom_domain !== custom_domain)) {
+      if (existing && existing.cloudflare_custom_domain_dns_record_id) {
+        await deleteCloudflareSubdomain(existing.cloudflare_custom_domain_dns_record_id);
+      }
+      customDnsRecordId = await createCloudflareCustomDomain(custom_domain);
+    } else if (!custom_domain && existing && existing.cloudflare_custom_domain_dns_record_id) {
+      // If custom domain was cleared, remove the DNS record
+      await deleteCloudflareSubdomain(existing.cloudflare_custom_domain_dns_record_id);
+      customDnsRecordId = null;
+    }
+
+    // 3. Auto-scrape styles, favicon, and logo from Shopify store url if not explicitly provided
+    let finalColor = primary_color || '#c5a059';
+    let finalLogo = logo || null;
+    let finalFavicon = favicon || null;
+
+    if (shopify_shop_name && (!logo || !favicon || !primary_color)) {
+      const targetUrl = shopify_shop_name.includes('.') ? shopify_shop_name : `${shopify_shop_name}.myshopify.com`;
+      const scraped = await scrapeShopifyBranding(targetUrl);
+      if (!primary_color && scraped.primary_color) finalColor = scraped.primary_color;
+      if (!logo && scraped.logo) finalLogo = scraped.logo;
+      if (!favicon && scraped.favicon) finalFavicon = scraped.favicon;
+    }
+
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -625,6 +765,10 @@ app.post('/api/global/brands', async (req, res) => {
         contact_email = EXCLUDED.contact_email,
         primary_color = EXCLUDED.primary_color,
         cloudflare_dns_record_id = COALESCE(EXCLUDED.cloudflare_dns_record_id, brands.cloudflare_dns_record_id),
+        custom_domain = EXCLUDED.custom_domain,
+        cloudflare_custom_domain_dns_record_id = COALESCE(EXCLUDED.cloudflare_custom_domain_dns_record_id, brands.cloudflare_custom_domain_dns_record_id),
+        logo = EXCLUDED.logo,
+        favicon = EXCLUDED.favicon,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -635,8 +779,12 @@ app.post('/api/global/brands', async (req, res) => {
       stripe_secret_key || null,
       stripe_webhook_secret || null,
       contact_email || null,
-      primary_color || '#c5a059',
-      dnsRecordId
+      finalColor,
+      dnsRecordId,
+      custom_domain || null,
+      customDnsRecordId,
+      finalLogo,
+      finalFavicon
     ]);
 
     res.json({ success: true, brandId });
