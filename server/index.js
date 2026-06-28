@@ -710,6 +710,23 @@ app.post('/api/global/products', async (req, res) => {
   }
 });
 
+// Delete product from catalog
+app.delete('/api/global/products/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const product = await getQuery('SELECT title FROM products WHERE id = $1', [parseInt(id, 10)]);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    await runQuery('DELETE FROM products WHERE id = $1', [parseInt(id, 10)]);
+    res.json({ success: true, message: `Product ${product.title} has been successfully deleted.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Retrieve combined orders across all stores (Consolidated Audit List)
 app.get('/api/global/orders', async (req, res) => {
   try {
