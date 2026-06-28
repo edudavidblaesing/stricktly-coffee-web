@@ -593,6 +593,20 @@
             <CustomerSupportView ref="customerSupportView" />
             <CouponsView ref="couponsView" />
             <MediaView ref="mediaView" />
+
+            <!-- NOT-FOUND VIEW -->
+            <div class="admin-view" :class="{ active: activeView === 'not-found' }" style="justify-content: center; align-items: center; min-height: 60vh; text-align: center;">
+                <div class="panel" style="max-width: 480px; padding: 48px; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; align-items: center; gap: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                    <div style="font-size: 5rem; line-height: 1; font-weight: 800; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">404</div>
+                    <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0; font-family: 'Outfit', sans-serif;">Page Not Found</h2>
+                    <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.5; margin: 0; font-family: 'Outfit', sans-serif;">
+                        The page you are looking for doesn't exist or has been moved. Use the sidebar menu to navigate.
+                    </p>
+                    <button @click="switchView('overview')" class="btn btn-accent" style="margin-top: 8px; font-weight: 700; padding: 10px 24px;">
+                        Go Back to Overview
+                    </button>
+                </div>
+            </div>
         </main>
 
         <!-- LIVE SEARCH OVERLAY MODAL (⌘ K) -->
@@ -1959,11 +1973,13 @@ export default {
                     const primary = pathSegments[0];
                     const sub = pathSegments[1];
                     
-                    let viewId = 'overview';
+                    let viewId = 'not-found';
                     if (primary === 'channels') {
                         viewId = 'brands';
                     } else if (primary === 'integrations') {
                         viewId = 'settings';
+                    } else if (primary === 'index.html' || primary === 'admin') {
+                        viewId = 'overview';
                     } else {
                         const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
                         if (validViews.includes(primary)) {
