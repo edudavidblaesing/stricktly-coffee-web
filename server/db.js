@@ -1,5 +1,6 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -86,6 +87,17 @@ async function initializeDatabase() {
         tracking_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 4. Create Users Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'admin',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -229,6 +241,18 @@ async function seedDefaultData() {
       ]);
     }
     console.log('✅ Default products seeded successfully.');
+  }
+
+  // Seed Superadmin user
+  const adminCheck = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
+  if (!adminCheck) {
+    console.log('[Database Seed] Seeding default superadmin user sc@davidblaesing.com...');
+    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'TheKey4u';
+    const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
+    await runQuery(`
+      INSERT INTO users (email, password_hash, role)
+      VALUES ($1, $2, $3)
+    `, ['sc@davidblaesing.com', passwordHash, 'superadmin']);
   }
 }
 

@@ -2,6 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import stripeLib from 'stripe';
+import crypto from 'crypto';
+import multer from 'multer';
+import sharp from 'sharp';
+import path from 'path';
+import fs from 'fs';
 import { runQuery, getQuery, allQuery } from './db.js';
 
 dotenv.config();
@@ -157,12 +162,112 @@ app.post('/api/webhook/stripe/:brandId', express.raw({ type: 'application/json' 
 // JSON body parser for all other routes
 app.use(express.json());
 
+// Multer configuration for file uploads
+const uploadDir = 'uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage });
+
+// Serve static uploaded files
+app.use('/uploads', express.static('uploads'));
+
+// User Auth endpoint
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  try {
+    const user = await getQuery('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+    if (inputHash !== user.password_hash) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Return stateless user info token (using simple credentials or dynamic signature)
+    const token = Buffer.from(JSON.stringify({ email: user.email, role: user.role, time: Date.now() })).toString('base64');
+    res.json({ success: true, email: user.email, role: user.role, token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Media upload & downsizing endpoint
+app.post('/api/global/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded.' });
+  }
+
+  const fileUrl = `/uploads/${req.file.filename}`;
+  const localPath = req.file.path;
+
+  // Check if file is image to downsize it
+  const isImage = req.file.mimetype.startsWith('image/');
+
+  if (isImage) {
+    try {
+      const resizedFilename = 'resized-' + req.file.filename;
+      const resizedPath = path.join(uploadDir, resizedFilename);
+
+      // Downsize image to max-width 800px using sharp
+      await sharp(localPath)
+        .resize({ width: 800, withoutEnlargement: true })
+        .toFile(resizedPath);
+
+      // Delete the original uploaded large image file
+      fs.unlinkSync(localPath);
+
+      return res.json({
+        success: true,
+        url: fileUrl.replace(req.file.filename, resizedFilename),
+        originalName: req.file.originalname,
+        resized: true
+      });
+    } catch (err) {
+      console.error('[Upload Resizing Error]', err);
+      // Fallback to serving the original large image if sharp fails
+      return res.json({
+        success: true,
+        url: fileUrl,
+        originalName: req.file.originalname,
+        resized: false
+      });
+    }
+  }
+
+  // Non-image files (videos, etc.) are served as-is
+  res.json({
+    success: true,
+    url: fileUrl,
+    originalName: req.file.originalname,
+    resized: false
+  });
+});
+
 // ----------------------------------------------------------------------------
 // MULTI-TENANT BRAND HOST RESOLUTION MIDDLEWARE
 // ----------------------------------------------------------------------------
 app.use(async (req, res, next) => {
-  // Skip brand resolution for global endpoints and Stripe webhook parameters
-  if (req.path.startsWith('/api/global/') || req.path.startsWith('/api/webhook/stripe/')) {
+  // Skip brand resolution for global endpoints, auth, and Stripe webhook parameters
+  if (req.path.startsWith('/api/global/') || req.path.startsWith('/api/webhook/stripe/') || req.path.startsWith('/api/auth/')) {
     return next();
   }
 
