@@ -243,6 +243,93 @@
                             <input type="text" v-model="designerBrand.twitter_link" :disabled="inheritStyles" placeholder="https://x.com/pesado585" style="width: 100%;">
                         </div>
                     </div>
+                    <!-- Storefront Text & Translations Editor Section -->
+                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px; margin-bottom: 12px;">
+                        <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; margin-bottom: 12px; text-transform: uppercase;">✍️ Storefront Content & Translations</div>
+                        
+                        <!-- Language switcher tab bar -->
+                        <div style="display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
+                            <button type="button" 
+                                v-for="lang in availableLanguages" 
+                                :key="lang"
+                                @click="translationActiveLang = lang"
+                                :style="{
+                                    background: translationActiveLang === lang ? 'var(--accent)' : 'transparent',
+                                    color: translationActiveLang === lang ? '#ffffff' : 'var(--text-muted)',
+                                    border: 'none',
+                                    padding: '4px 10px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    textTransform: 'uppercase',
+                                    whiteSpace: 'nowrap'
+                                }"
+                            >
+                                {{ getLanguageLabel(lang) }}
+                            </button>
+                        </div>
+
+                        <!-- English / Default Editor (active lang is 'en') -->
+                        <div v-if="translationActiveLang === 'en'" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Hero Headline</label>
+                                <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual with {brandName}" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Hero Subheadline</label>
+                                <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop the latest precision-engineered coffee tools directly from {brandName}." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Hero Button Text</label>
+                                <input type="text" v-model="designerBrand.text_hero_cta" placeholder="SHOP COLLECTION" style="width: 100%;">
+                            </div>
+                            <div class="form-group" style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px;">
+                                <label>404 Page Headline</label>
+                                <input type="text" v-model="designerBrand.text_404_headline" placeholder="Page Not Found" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>404 Page Subheadline</label>
+                                <textarea v-model="designerBrand.text_404_subheadline" rows="2" placeholder="The page you are looking for doesn't exist." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>404 Page Button Text</label>
+                                <input type="text" v-model="designerBrand.text_404_cta" placeholder="Back to Shop" style="width: 100%;">
+                            </div>
+                        </div>
+
+                        <!-- Translation Editor (active lang is not 'en') -->
+                        <div v-else style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Hero Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_headline" placeholder="Headline Translation..." style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Hero Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
+                                <textarea v-model="getTranslationRef(translationActiveLang).text_hero_subheadline" rows="3" placeholder="Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Hero Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_cta" placeholder="Button Translation..." style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Announcement Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                <input type="text" v-model="getTranslationRef(translationActiveLang).announcement_text" placeholder="Announcement Translation..." style="width: 100%;">
+                            </div>
+                            <div class="form-group" style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px;">
+                                <label>404 Page Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_headline" placeholder="404 Headline Translation..." style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>404 Page Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
+                                <textarea v-model="getTranslationRef(translationActiveLang).text_404_subheadline" rows="2" placeholder="404 Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>404 Page Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_cta" placeholder="404 Button Translation..." style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label>Custom CSS Override</label>
@@ -576,6 +663,34 @@ export default {
         }
     },
     methods: {
+        getLanguageLabel(code) {
+            const labels = {
+                en: '🇺🇸 EN',
+                de: '🇩🇪 DE',
+                fr: '🇫🇷 FR',
+                nl: '🇳🇱 NL',
+                es: '🇪🇸 ES',
+                it: '🇮🇹 IT'
+            };
+            return labels[code] || code.toUpperCase();
+        },
+        getTranslationRef(lang) {
+            if (!this.designerBrand.content_translations) {
+                this.designerBrand.content_translations = {};
+            }
+            if (!this.designerBrand.content_translations[lang]) {
+                this.designerBrand.content_translations[lang] = {
+                    text_hero_headline: '',
+                    text_hero_subheadline: '',
+                    text_hero_cta: '',
+                    announcement_text: '',
+                    text_404_headline: '',
+                    text_404_subheadline: '',
+                    text_404_cta: ''
+                };
+            }
+            return this.designerBrand.content_translations[lang];
+        },
         applyPreset(name) {
             this.inheritStyles = false;
             if (name === 'obsidian') {
@@ -649,7 +764,14 @@ export default {
                             line_height_scale: theme.line_height_scale || 'comfortable',
                             instagram_link: theme.instagram_link || '',
                             facebook_link: theme.facebook_link || '',
-                            twitter_link: theme.twitter_link || ''
+                            twitter_link: theme.twitter_link || '',
+                            text_hero_headline: theme.text_hero_headline || overrides.text_hero_headline || '',
+                            text_hero_subheadline: theme.text_hero_subheadline || overrides.text_hero_subheadline || '',
+                            text_hero_cta: theme.text_hero_cta || overrides.text_hero_cta || 'SHOP COLLECTION',
+                            text_404_headline: theme.text_404_headline || overrides.text_404_headline || 'Page Not Found',
+                            text_404_subheadline: theme.text_404_subheadline || overrides.text_404_subheadline || 'The page you are looking for doesn\'t exist or has been moved.',
+                            text_404_cta: theme.text_404_cta || overrides.text_404_cta || 'Back to Shop',
+                            content_translations: theme.content_translations || overrides.content_translations || {}
                         };
                     } else {
                         this.designerBrand = {
@@ -677,7 +799,14 @@ export default {
                             line_height_scale: overrides.line_height_scale || theme.line_height_scale || 'comfortable',
                             instagram_link: overrides.instagram_link || theme.instagram_link || '',
                             facebook_link: overrides.facebook_link || theme.facebook_link || '',
-                            twitter_link: overrides.twitter_link || theme.twitter_link || ''
+                            twitter_link: overrides.twitter_link || theme.twitter_link || '',
+                            text_hero_headline: overrides.text_hero_headline || theme.text_hero_headline || '',
+                            text_hero_subheadline: overrides.text_hero_subheadline || theme.text_hero_subheadline || '',
+                            text_hero_cta: overrides.text_hero_cta || theme.text_hero_cta || 'SHOP COLLECTION',
+                            text_404_headline: overrides.text_404_headline || theme.text_404_headline || 'Page Not Found',
+                            text_404_subheadline: overrides.text_404_subheadline || theme.text_404_subheadline || 'The page you are looking for doesn\'t exist or has been moved.',
+                            text_404_cta: overrides.text_404_cta || theme.text_404_cta || 'Back to Shop',
+                            content_translations: overrides.content_translations || theme.content_translations || {}
                         };
                     }
                 }
@@ -714,12 +843,26 @@ export default {
                 line_height_scale: this.designerBrand.line_height_scale,
                 instagram_link: this.designerBrand.instagram_link,
                 facebook_link: this.designerBrand.facebook_link,
-                twitter_link: this.designerBrand.twitter_link
+                twitter_link: this.designerBrand.twitter_link,
+                text_hero_headline: this.designerBrand.text_hero_headline,
+                text_hero_subheadline: this.designerBrand.text_hero_subheadline,
+                text_hero_cta: this.designerBrand.text_hero_cta,
+                text_404_headline: this.designerBrand.text_404_headline,
+                text_404_subheadline: this.designerBrand.text_404_subheadline,
+                text_404_cta: this.designerBrand.text_404_cta,
+                content_translations: this.designerBrand.content_translations
             };
 
             this.designerBrand.theme_settings = JSON.stringify({
                 ...existingTheme,
                 inherit: this.inheritStyles,
+                text_hero_headline: this.designerBrand.text_hero_headline,
+                text_hero_subheadline: this.designerBrand.text_hero_subheadline,
+                text_hero_cta: this.designerBrand.text_hero_cta,
+                text_404_headline: this.designerBrand.text_404_headline,
+                text_404_subheadline: this.designerBrand.text_404_subheadline,
+                text_404_cta: this.designerBrand.text_404_cta,
+                content_translations: this.designerBrand.content_translations,
                 storefront: storefrontOverrides
             });
             try {
@@ -880,7 +1023,14 @@ export default {
                         line_height_scale: this.designerBrand.line_height_scale,
                         instagram_link: this.designerBrand.instagram_link,
                         facebook_link: this.designerBrand.facebook_link,
-                        twitter_link: this.designerBrand.twitter_link
+                        twitter_link: this.designerBrand.twitter_link,
+                        text_hero_headline: this.designerBrand.text_hero_headline,
+                        text_hero_subheadline: this.designerBrand.text_hero_subheadline,
+                        text_hero_cta: this.designerBrand.text_hero_cta,
+                        text_404_headline: this.designerBrand.text_404_headline,
+                        text_404_subheadline: this.designerBrand.text_404_subheadline,
+                        text_404_cta: this.designerBrand.text_404_cta,
+                        content_translations: this.designerBrand.content_translations
                     };
                     console.log('[DesignerView] Posting styles to iframe:', styles);
                     iframe.contentWindow.postMessage(styles, '*');

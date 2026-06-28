@@ -55,6 +55,12 @@
             overflow-x: hidden;
             font-size: var(--font-scale-base, 16px);
             line-height: var(--line-height-scale, 1.6);
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+
+        body.theme-loaded {
+            opacity: 1;
         }
 
         /* Utility classes */
@@ -1591,6 +1597,19 @@
             console.log('[Storefront] Received message:', event.data);
             if (event.data && event.data.type === 'UPDATE_PREVIEW_STYLES') {
                 window.previewStylesOverride = event.data;
+                
+                window.brandSettings = {
+                    ...window.brandSettings,
+                    text_hero_headline: event.data.text_hero_headline,
+                    text_hero_subheadline: event.data.text_hero_subheadline,
+                    text_hero_cta: event.data.text_hero_cta,
+                    text_404_headline: event.data.text_404_headline,
+                    text_404_subheadline: event.data.text_404_subheadline,
+                    text_404_cta: event.data.text_404_cta,
+                    content_translations: event.data.content_translations,
+                    announcement_text: event.data.announcement_text
+                };
+
                 const activeSlug = pathSegmentsName[pathSegmentsName.length - 1];
                 const matchedPage = window.landingPages ? window.landingPages.find(p => p.id === activeSlug) : null;
                 if (matchedPage) {
@@ -1599,6 +1618,11 @@
                     renderLandingPage(window.previewLandingPageOverride);
                 } else {
                     applyThemeSettings(event.data);
+                    if (window.applyStorefrontTexts) window.applyStorefrontTexts();
+                    const store404 = document.getElementById('store-404-container');
+                    if (store404 && store404.style.display === 'flex' && window.renderBranded404) {
+                        window.renderBranded404();
+                    }
                 }
             } else if (event.data && event.data.type === 'UPDATE_PREVIEW_LANDING_PAGE') {
                 window.previewLandingPageOverride = event.data;
@@ -1884,8 +1908,64 @@
                 if (footerSpan) {
                     footerSpan.textContent = brand.name;
                 }
+
+                function applyStorefrontTexts() {
+                    window.applyStorefrontTexts = applyStorefrontTexts;
+                    const activeLang = localStorage.getItem('store_lang') || 'en';
+                    const settings = window.brandSettings || {};
+                    const sf = settings.storefront || {};
+
+                    let headline = `Elevate Your Coffee Ritual with <span>${brand.name}</span>`;
+                    let subheadline = `Shop the latest precision-engineered coffee tools and custom storefront accessories directly from ${brand.name}.`;
+                    let cta = 'Shop Collection';
+                    let announcementText = '⚡ Free shipping on all orders over €75!';
+
+                    const textSource = settings.text_hero_headline ? settings : (sf.text_hero_headline ? sf : null);
+                    if (textSource) {
+                        if (activeLang === 'en') {
+                            if (textSource.text_hero_headline) headline = textSource.text_hero_headline;
+                            if (textSource.text_hero_subheadline) subheadline = textSource.text_hero_subheadline;
+                            if (textSource.text_hero_cta) cta = textSource.text_hero_cta;
+                            
+                            const announceSource = settings.announcement_text ? settings : (sf.announcement_text ? sf : null);
+                            if (announceSource && announceSource.announcement_text) {
+                                announcementText = announceSource.announcement_text;
+                            }
+                        } else if (textSource.content_translations && textSource.content_translations[activeLang]) {
+                            const tr = textSource.content_translations[activeLang];
+                            if (tr.text_hero_headline) headline = tr.text_hero_headline;
+                            if (tr.text_hero_subheadline) subheadline = tr.text_hero_subheadline;
+                            if (tr.text_hero_cta) cta = tr.text_hero_cta;
+                            if (tr.announcement_text) announcementText = tr.announcement_text;
+                        }
+                    }
+
+                    const heroH1 = document.querySelector('.hero-content h1');
+                    if (heroH1) {
+                        const cleanHeadline = headline.replace(/{brandName}/g, brand.name).replace(/\[brandName\]/g, brand.name);
+                        heroH1.innerHTML = cleanHeadline;
+                    }
+                    const heroP = document.querySelector('.hero-content p');
+                    if (heroP) {
+                        const cleanSubheadline = subheadline.replace(/{brandName}/g, brand.name).replace(/\[brandName\]/g, brand.name);
+                        heroP.textContent = cleanSubheadline;
+                    }
+                    const heroBtn = document.querySelector('.hero-actions a.btn');
+                    if (heroBtn) {
+                        heroBtn.textContent = cta;
+                    }
+                    const announceSpan = document.getElementById('announcement-text-span');
+                    if (announceSpan) {
+                        announceSpan.textContent = announcementText;
+                    }
+                }
+
+                applyStorefrontTexts();
             } catch (err) {
                 console.warn('Could not load brand configurations from host API. Using Pesado defaults.');
+                applyThemeSettings(window.storefrontConfig);
+            } finally {
+                document.body.classList.add('theme-loaded');
             }
         }
 
@@ -2208,6 +2288,7 @@
         }
 
         function renderBranded404() {
+            window.renderBranded404 = renderBranded404;
             const header = document.querySelector('header');
             const heroSec = document.querySelector('.hero');
             const prodSec = document.querySelector('.products-section');
@@ -2522,7 +2603,26 @@
 
         openCartBtn.addEventListener('click', toggleCart);
         closeCartBtn.addEventListener('click', toggleCart);
-        cartOverlay.addEventListener('click', toggleCart);
+        cartOverlay.addEventListener('click', () => {
+            const detailModal = document.getElementById('product-detail-modal');
+            const customerModal = document.getElementById('customer-modal');
+            const successModal = document.getElementById('checkout-modal');
+            
+            if (detailModal && detailModal.classList.contains('open')) {
+                detailModal.classList.remove('open');
+                cartOverlay.classList.remove('show');
+            } else if (customerModal && customerModal.classList.contains('open')) {
+                customerModal.classList.remove('open');
+                cartOverlay.classList.remove('show');
+            } else if (successModal && successModal.classList.contains('open')) {
+                successModal.classList.remove('open');
+                cartOverlay.classList.remove('show');
+            } else {
+                if (cartDrawer.classList.contains('open')) {
+                    toggleCart();
+                }
+            }
+        });
 
         function addToCart(id, selectedOptions = {}) {
             const prod = storeProducts.find(p => p.id === id);

@@ -35,6 +35,12 @@
             flex-direction: column;
             font-size: var(--font-scale-base, 16px);
             line-height: var(--line-height-scale, 1.6);
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+
+        body.theme-loaded {
+            opacity: 1;
         }
 
         header {
@@ -866,6 +872,9 @@
                 }
             } catch (err) {
                 console.warn('Could not load brand configurations from host API.');
+                applyThemeSettings({});
+            } finally {
+                document.body.classList.add('theme-loaded');
             }
         }
 
