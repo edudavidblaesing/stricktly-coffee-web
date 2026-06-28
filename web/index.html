@@ -622,15 +622,16 @@ a {
         box-shadow: 0 -4px 20px rgba(22, 39, 33, 0.08);
         position: relative;
         z-index: 1;
+        opacity: 1;
+        transform: translateY(0);
     }
     .journey-step.is-visible.is-before {
-        opacity: 0.78;
-        transform: translateY(-8px);
+        opacity: 1;
+        transform: translateY(0);
     }
     .journey-step.is-visible.is-after {
-        opacity: 0;
+        opacity: 1;
         transform: translateY(0);
-        pointer-events: none;
     }
     .sticky-cta {
         left: 50%;

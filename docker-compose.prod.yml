@@ -10,9 +10,26 @@ services:
       # Mount SSL certificates (update path to your certificates)
       - ./ssl:/etc/nginx/ssl:ro
     environment:
-      - VIRTUAL_HOST=stricktlycoffee.be,www.stricktlycoffee.be
-      - LETSENCRYPT_HOST=stricktlycoffee.be,www.stricktlycoffee.be
+      - VIRTUAL_HOST=stricktlycoffee.be,www.stricktlycoffee.be,pesado.stricktlycoffee.be
+      - LETSENCRYPT_HOST=stricktlycoffee.be,www.stricktlycoffee.be,pesado.stricktlycoffee.be
       - LETSENCRYPT_EMAIL=admin@stricktlycoffee.be
+    networks:
+      - web
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    container_name: stricktly-coffee-backend-prod
+    environment:
+      - PORT=3000
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - SHOPIFY_SHOP_NAME=${SHOPIFY_SHOP_NAME}
+      - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
     networks:
       - web
 

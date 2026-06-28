@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Sandbox | Pesado 58.5 Payment Gateway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0d0c;
+            --card-bg: #121514;
+            --primary: #c5a059;
+            --primary-hover: #b08d47;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --accent: #1e2221;
+            --border: #232826;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .checkout-container {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .stripe-badge {
+            background-color: #635bff;
+            color: #fff;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        .order-summary {
+            background: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+            margin-top: 12px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background-color: #635bff;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary:hover {
+            background-color: #4f46e5;
+        }
+
+        .btn-cancel {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-cancel:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="checkout-container">
+        <span class="stripe-badge">Stripe Sandbox</span>
+        <h2>Stripe Payment Simulation</h2>
+        <p>You are using Sandbox Mode because no live Stripe API keys are configured in your environment.</p>
+
+        <div class="order-summary">
+            <div class="summary-row">
+                <span>Order Reference</span>
+                <span id="summary-order-id" style="font-family: monospace;">-</span>
+            </div>
+            <div class="summary-row">
+                <span>Customer Email</span>
+                <span id="summary-email">-</span>
+            </div>
+            <div class="summary-row">
+                <span>Payment Amount</span>
+                <span id="summary-total" style="font-weight: 600;">€0.00</span>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="pay-btn">Authorize sandbox Payment</button>
+        <button class="btn btn-cancel" id="cancel-btn">Cancel Transaction</button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('orderId');
+        const email = urlParams.get('email');
+        const name = urlParams.get('name');
+
+        document.getElementById('summary-order-id').textContent = orderId;
+        document.getElementById('summary-email').textContent = email;
+
+        // Fetch total amount from backend
+        async function fetchOrderDetails() {
+            try {
+                const res = await fetch(`/api/order/${orderId}`);
+                if (res.ok) {
+                    const order = await res.json();
+                    document.getElementById('summary-total').textContent = `€${order.total.toFixed(2)}`;
+                }
+            } catch (err) {
+                console.error('Failed to load summary details:', err);
+            }
+        }
+
+        if (orderId) {
+            fetchOrderDetails();
+        }
+
+        document.getElementById('pay-btn').addEventListener('click', async () => {
+            const payBtn = document.getElementById('pay-btn');
+            payBtn.textContent = 'Processing Payment...';
+            payBtn.disabled = true;
+
+            try {
+                // Post to payment simulation endpoint
+                const res = await fetch('/api/admin/simulate-stripe-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId,
+                        name,
+                        email
+                    })
+                });
+
+                if (res.ok) {
+                    // Redirect back to shop with success state, which will automatically show success modal
+                    window.location.href = `index.html?orderId=${orderId}&status=success`;
+                } else {
+                    alert('Simulation payment authorization failed.');
+                    payBtn.textContent = 'Authorize sandbox Payment';
+                    payBtn.disabled = false;
+                }
+            } catch (err) {
+                alert(`Network error: ${err.message}`);
+                payBtn.textContent = 'Authorize sandbox Payment';
+                payBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

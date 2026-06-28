@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# compose_up
+# Script to build and start the local environment with hot-reloading
+
+set -euo pipefail
+
+echo "☕ Strictly Coffee - Local Hot-Reload Boot"
+echo "═════════════════════════════════════════════"
+echo ""
+
+# Check Docker status
+if ! command -v docker >/dev/null 2>&1; then
+  echo "❌ Error: Docker is not installed." >&2
+  exit 1
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "❌ Error: Docker daemon is not running." >&2
+  echo "Please start Docker Desktop and run this script again." >&2
+  exit 1
+fi
+
+# Build and start services
+echo "🚀 Building and starting containers in hot-reload mode..."
+docker-compose -f docker-compose.local.yml down --remove-orphans 2>/dev/null || true
+docker-compose -f docker-compose.local.yml up -d --build
+
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "✅ SUCCESS! Hot-reloading local environment is active!"
+echo "═══════════════════════════════════════════════════════════"
+echo ""
+echo "🌐 Storefront: http://localhost/pesado/"
+echo "📦 Warehouse:  http://localhost/pesado/warehouse.html"
+echo "🔍 Tracker:    http://localhost/pesado/track.html"
+echo ""
+echo "💡 Hot-reloading is ACTIVE:"
+echo "   - Frontend: Edits in ./web and ./pesado reflect instantly."
+echo "   - Backend: Edits in ./server trigger auto-restart (node --watch)."
+echo ""
+echo "📋 Logs:       docker-compose -f docker-compose.local.yml logs -f"
+echo "🛑 Stop:       docker-compose -f docker-compose.local.yml down"
+echo "═══════════════════════════════════════════════════════════"
+echo ""

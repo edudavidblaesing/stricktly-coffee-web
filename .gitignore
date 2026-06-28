@@ -47,6 +47,9 @@ yarn-error.log*
 
 # Environment variables
 .env
+.env.dev
+.env.prod
+.env.production
 .env.local
 .env.*.local
 

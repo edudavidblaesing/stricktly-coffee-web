@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Order | Pesado 58.5 Store</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0d0c;
+            --card-bg: #121514;
+            --primary: #c5a059;
+            --primary-hover: #b08d47;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --accent: #1e2221;
+            --border: #232826;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            height: 80px;
+            background: rgba(11, 13, 12, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 24px;
+            width: 100%;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-main);
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--primary);
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 400;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: var(--transition);
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        main {
+            flex-grow: 1;
+            padding: 80px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tracker-box {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        input {
+            flex-grow: 1;
+            padding: 14px 18px;
+            background: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--bg-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Order Details Output styling */
+        .order-details-card {
+            display: none;
+            border-top: 1px solid var(--border);
+            padding-top: 32px;
+        }
+
+        .order-details-card.active {
+            display: block;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            font-weight: 600;
+        }
+
+        /* Tracking Timeline status */
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 40px 0;
+            padding: 0 10px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--border);
+            z-index: 1;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 12px;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background-color: var(--primary);
+            z-index: 2;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .timeline-step {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .step-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            transition: var(--transition);
+        }
+
+        .timeline-step.active .step-dot {
+            background-color: var(--bg-color);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .timeline-step.completed .step-dot {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: var(--bg-color);
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .timeline-step.active .step-label {
+            color: var(--text-main);
+        }
+
+        .tracking-info-box {
+            background-color: rgba(197, 160, 89, 0.05);
+            border: 1px solid rgba(197, 160, 89, 0.2);
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tracking-header {
+            font-family: var(--font-display);
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        .tracking-link {
+            color: var(--text-main);
+            text-decoration: underline;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .tracking-link:hover {
+            color: var(--primary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 32px 0;
+            background-color: #070808;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        footer span {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-container">
+            <a href="index.html" class="logo">
+                PESADO<span>58.5</span>
+            </a>
+            <nav>
+                <a href="index.html">Back to Shop</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="tracker-box">
+                <h1>Track Your Shipment</h1>
+                <p class="subtitle">Check the current dispatch status of your luxury Pesado barista tools.</p>
+
+                <div class="input-group">
+                    <input type="text" id="order-id-input" placeholder="Enter Order ID (e.g. PES_171954...)" required>
+                    <button class="btn btn-primary" id="track-btn">Track</button>
+                </div>
+
+                <div class="order-details-card" id="details-card">
+                    <div class="info-row">
+                        <span class="info-label">Customer Name</span>
+                        <span class="info-value" id="customer-name">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Order Reference</span>
+                        <span class="info-value" id="order-ref" style="font-family: monospace;">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Order Total</span>
+                        <span class="info-value" id="order-total">€0.00</span>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="timeline">
+                        <div class="timeline-progress" id="timeline-progress-bar"></div>
+                        
+                        <div class="timeline-step" id="step-placed">
+                            <div class="step-dot">1</div>
+                            <span class="step-label">Placed</span>
+                        </div>
+                        <div class="timeline-step" id="step-paid">
+                            <div class="step-dot">2</div>
+                            <span class="step-label">Paid</span>
+                        </div>
+                        <div class="timeline-step" id="step-warehouse">
+                            <div class="step-dot">3</div>
+                            <span class="step-label">Warehouse</span>
+                        </div>
+                        <div class="timeline-step" id="step-shipped">
+                            <div class="step-dot">4</div>
+                            <span class="step-label">Shipped</span>
+                        </div>
+                    </div>
+
+                    <!-- Shipped/Tracking box -->
+                    <div class="tracking-info-box" id="tracking-info-box" style="display: none;">
+                        <span class="tracking-header">Delivery Tracking Info</span>
+                        <span style="font-size: 0.95rem;">Carrier: <strong id="carrier-val">-</strong></span>
+                        <span style="font-size: 0.95rem;">Waybill code: <a href="#" target="_blank" class="tracking-link" id="tracking-code-link">-</a></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>© 2026 <span>Strictly Coffee</span> | Pesado Dropshipping Center. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoOrderId = urlParams.get('orderId');
+        
+        const orderInput = document.getElementById('order-id-input');
+        const trackBtn = document.getElementById('track-btn');
+        const detailsCard = document.getElementById('details-card');
+
+        if (autoOrderId) {
+            orderInput.value = autoOrderId;
+            trackOrder(autoOrderId);
+        }
+
+        trackBtn.addEventListener('click', () => {
+            const val = orderInput.value.trim();
+            if (!val) {
+                alert('Please enter a valid Order ID');
+                return;
+            }
+            trackOrder(val);
+        });
+
+        orderInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const val = orderInput.value.trim();
+                if (val) trackOrder(val);
+            }
+        });
+
+        async function trackOrder(id) {
+            trackBtn.textContent = 'Searching...';
+            trackBtn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/order/${id}`);
+                if (!res.ok) {
+                    throw new Error('Order not found. Check the ID and try again.');
+                }
+                
+                const order = await res.json();
+                renderOrderDetails(order);
+            } catch (err) {
+                alert(err.message);
+                detailsCard.classList.remove('active');
+            } finally {
+                trackBtn.textContent = 'Track';
+                trackBtn.disabled = false;
+            }
+        }
+
+        function renderOrderDetails(order) {
+            document.getElementById('customer-name').textContent = order.customer_name;
+            document.getElementById('order-ref').textContent = order.id;
+            document.getElementById('order-total').textContent = `€${order.total.toFixed(2)}`;
+
+            // Reset step statuses
+            const steps = ['placed', 'paid', 'warehouse', 'shipped'];
+            steps.forEach(s => {
+                const el = document.getElementById(`step-${s}`);
+                el.className = 'timeline-step';
+            });
+
+            const progressBar = document.getElementById('timeline-progress-bar');
+            const trackingBox = document.getElementById('tracking-info-box');
+            
+            trackingBox.style.display = 'none';
+
+            // Determine status step mapping
+            // statuses: pending_payment, paid, sent_to_warehouse, shipped
+            let progressPercent = 0;
+            
+            const placedEl = document.getElementById('step-placed');
+            const paidEl = document.getElementById('step-paid');
+            const warehouseEl = document.getElementById('step-warehouse');
+            const shippedEl = document.getElementById('step-shipped');
+
+            placedEl.classList.add('completed');
+
+            if (order.status === 'pending_payment') {
+                placedEl.classList.add('active');
+                progressPercent = 0;
+            } else if (order.status === 'paid') {
+                placedEl.classList.add('completed');
+                paidEl.classList.add('active');
+                progressPercent = 33;
+            } else if (order.status === 'sent_to_warehouse') {
+                placedEl.classList.add('completed');
+                paidEl.classList.add('completed');
+                warehouseEl.classList.add('active');
+                progressPercent = 66;
+            } else if (order.status === 'shipped') {
+                placedEl.classList.add('completed');
+                paidEl.classList.add('completed');
+                warehouseEl.classList.add('completed');
+                shippedEl.classList.add('completed');
+                progressPercent = 100;
+
+                // Show Tracking Info
+                trackingBox.style.display = 'flex';
+                document.getElementById('carrier-val').textContent = order.tracking_carrier || 'DHL Express';
+                
+                const link = document.getElementById('tracking-code-link');
+                link.textContent = order.tracking_number;
+                link.href = order.tracking_url || '#';
+            }
+
+            progressBar.style.width = `${progressPercent}%`;
+            detailsCard.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -5,3 +5,25 @@ services:
     container_name: stricktly-coffee-local
     ports:
       - "80:80"
+    volumes:
+      - ./web:/usr/share/nginx/html/web:ro
+      - ./pesado:/usr/share/nginx/html/pesado:ro
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    container_name: stricktly-coffee-backend-local
+    command: node --watch index.js
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - PORT=3000
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - SHOPIFY_SHOP_NAME=${SHOPIFY_SHOP_NAME}
+      - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}

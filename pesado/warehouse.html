@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Warehouse Simulation Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0f0e;
+            --card-bg: #131716;
+            --primary: #ef4444; /* Warehouse specific warning color */
+            --primary-hover: #dc2626;
+            --success: #10b981;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --accent: #1e2221;
+            --border: #232826;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            margin: 0;
+            padding: 40px 24px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        .badge-simulation {
+            background-color: var(--primary);
+            color: #fff;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .description {
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            font-size: 1rem;
+        }
+
+        .orders-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .order-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 30px;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+
+        .order-id {
+            font-family: monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .shopify-ref {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 2px;
+        }
+
+        .status-pending { background-color: #f59e0b; color: #000; }
+        .status-paid { background-color: #3b82f6; color: #fff; }
+        .status-processing { background-color: #8b5cf6; color: #fff; }
+        .status-shipped { background-color: var(--success); color: #fff; }
+
+        .order-body {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 32px;
+        }
+
+        @media(max-width: 768px) {
+            .order-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .order-items h4, .order-shipping h4, .fulfillment-form h4 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .items-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            font-size: 0.95rem;
+        }
+
+        .item-qty {
+            color: var(--primary);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        .address-box {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: var(--text-main);
+        }
+
+        .fulfillment-form {
+            background-color: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-field {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        input, select {
+            padding: 10px 14px;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: var(--bg-color);
+        }
+
+        .btn-success:hover {
+            background-color: #059669;
+        }
+
+        .no-orders {
+            text-align: center;
+            padding: 80px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-muted);
+        }
+
+        .back-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            color: var(--text-main);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div>
+                <h1>Shopify Warehouse Integration</h1>
+                <div style="margin-top: 4px;">
+                    <a href="index.html" class="back-link">← Return to Storefront</a>
+                </div>
+            </div>
+            <span class="badge-simulation">Simulation Panel</span>
+        </header>
+
+        <p class="description">
+            This dashboard simulates the backend dropshipping system of a Shopify-partnered fulfillment center. 
+            Once a customer pays, their order is transmitted here. Click <strong>Dispatch Order</strong> 
+            to simulate the warehouse reporting back with a shipping status and tracking code callback.
+        </p>
+
+        <div class="orders-grid" id="orders-container">
+            <div class="no-orders">Loading orders...</div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('orders-container');
+
+        async function fetchOrders() {
+            try {
+                const res = await fetch('/api/admin/orders');
+                if (!res.ok) throw new Error('Failed to fetch orders');
+                const orders = await res.json();
+                renderOrders(orders);
+            } catch (err) {
+                container.innerHTML = `<div class="no-orders">Failed to load orders: ${err.message}</div>`;
+            }
+        }
+
+        function renderOrders(orders) {
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="no-orders">No orders recorded in the system yet. Place an order on the storefront first.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            orders.forEach(order => {
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                
+                // Format items HTML
+                const itemsHtml = order.items.map(item => `
+                    <li class="item-row">
+                        <span><span class="item-qty">${item.quantity}x</span>${item.title}</span>
+                        <span style="color: var(--text-muted);">€${(item.price * item.quantity).toFixed(2)}</span>
+                    </li>
+                `).join('');
+
+                // Format address HTML
+                let addressHtml = 'No shipping address provided.';
+                if (order.shipping_address) {
+                    const addr = order.shipping_address;
+                    // address schema can vary depending on stripe session details
+                    const line1 = addr.address?.line1 || addr.line1 || '';
+                    const line2 = addr.address?.line2 || addr.line2 || '';
+                    const city = addr.address?.city || addr.city || '';
+                    const zip = addr.address?.postal_code || addr.postal_code || '';
+                    const country = addr.address?.country || addr.country || '';
+                    
+                    addressHtml = `
+                        <strong>${order.customer_name}</strong><br>
+                        ${line1}${line2 ? ', ' + line2 : ''}<br>
+                        ${zip} ${city}<br>
+                        ${country}
+                    `;
+                }
+
+                // Resolve status badge class
+                let statusClass = 'status-pending';
+                let statusLabel = order.status;
+                if (order.status === 'paid') {
+                    statusClass = 'status-paid';
+                    statusLabel = 'Paid';
+                } else if (order.status === 'sent_to_warehouse') {
+                    statusClass = 'status-processing';
+                    statusLabel = 'Processing';
+                } else if (order.status === 'shipped') {
+                    statusClass = 'status-shipped';
+                    statusLabel = 'Shipped';
+                } else if (order.status === 'pending_payment') {
+                    statusClass = 'status-pending';
+                    statusLabel = 'Unpaid';
+                }
+
+                // Determine form visual state
+                const isShipped = order.status === 'shipped';
+
+                card.innerHTML = `
+                    <div class="order-header">
+                        <div>
+                            <span class="order-id">Order ID: ${order.id}</span>
+                            <div class="shopify-ref">Shopify Order ID: ${order.shopify_order_id || 'Not sent'}</div>
+                        </div>
+                        <span class="status-badge ${statusClass}">${statusLabel}</span>
+                    </div>
+                    <div class="order-body">
+                        <div>
+                            <div class="order-items" style="margin-bottom: 24px;">
+                                <h4>Ordered Products</h4>
+                                <ul class="items-list">
+                                    ${itemsHtml}
+                                </ul>
+                            </div>
+                            <div class="order-shipping">
+                                <h4>Shipping Destination</h4>
+                                <div class="address-box">
+                                    ${addressHtml}
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="fulfillment-form">
+                                <h4>Fulfillment Dispatch</h4>
+                                ${isShipped ? `
+                                    <div style="color: var(--success); font-weight: 600; font-size: 0.95rem; display: flex; flex-direction: column; gap: 8px;">
+                                        <span>✓ Order has been dispatched</span>
+                                        <span style="font-size: 0.85rem; color: var(--text-muted);">Carrier: ${order.tracking_carrier}</span>
+                                        <span style="font-size: 0.85rem; color: var(--text-muted);">Code: ${order.tracking_number}</span>
+                                    </div>
+                                ` : `
+                                    <form onsubmit="fulfillOrder(event, '${order.id}')">
+                                        <div class="input-row" style="margin-bottom: 16px;">
+                                            <div class="input-field">
+                                                <label>Carrier</label>
+                                                <select id="carrier-${order.id}">
+                                                    <option value="DHL Express">DHL Express</option>
+                                                    <option value="FedEx Premium">FedEx Premium</option>
+                                                    <option value="UPS Ground">UPS Ground</option>
+                                                </select>
+                                            </div>
+                                            <div class="input-field">
+                                                <label>Tracking Code</label>
+                                                <input type="text" id="tracking-${order.id}" required placeholder="e.g. AWB87192">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-success" style="width: 100%;" ${order.status === 'pending_payment' ? 'disabled title="Cannot fulfill unpaid orders"' : ''}>Dispatch Order</button>
+                                    </form>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function fulfillOrder(e, orderId) {
+            e.preventDefault();
+            const carrier = document.getElementById(`carrier-${orderId}`).value;
+            const tracking = document.getElementById(`tracking-${orderId}`).value;
+
+            try {
+                const res = await fetch('/api/admin/fulfill', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId,
+                        trackingNumber: tracking,
+                        trackingCarrier: carrier
+                    })
+                });
+
+                if (res.ok) {
+                    fetchOrders();
+                } else {
+                    const err = await res.json();
+                    alert(`Fulfillment simulation failed: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Network error: ${err.message}`);
+            }
+        }
+
+        // Load initially
+        fetchOrders();
+    </script>
+</body>
+</html>

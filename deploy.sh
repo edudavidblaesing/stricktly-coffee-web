@@ -20,7 +20,7 @@ set -euo pipefail
 ACCOUNT="edudavidblaesing"
 REPO_NAME="stricktly-coffee-web"
 REPO_URL="https://github.com/${ACCOUNT}/${REPO_NAME}.git"
-BRANCH_NAME="main"
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
 DEFAULT_MESSAGE="Update site - $(date '+%Y-%m-%d %H:%M')"
 
 # Parse arguments
@@ -55,12 +55,11 @@ fi
 printf '\n📦 DEPLOYMENT STARTING\n'
 printf '═══════════════════════════════════════\n\n'
 
-# Ensure we're on the main branch
-current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
-if [[ "${current_branch}" != "${BRANCH_NAME}" ]]; then
-  printf '📌 Switching to branch "%s"...\n' "${BRANCH_NAME}"
-  git checkout "${BRANCH_NAME}" 2>/dev/null || git checkout -b "${BRANCH_NAME}"
+# Deploying on current active branch
+if [[ -z "${BRANCH_NAME}" ]]; then
+  BRANCH_NAME="main"
 fi
+printf '📌 Deploying on branch: "%s"\n' "${BRANCH_NAME}"
 
 # Check if remote exists, add if not
 if ! git remote | grep -q "^origin$"; then
