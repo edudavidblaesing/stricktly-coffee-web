@@ -58,10 +58,16 @@
                             {{ filteredMedia.length }} assets
                         </span>
                     </h3>
-                    <div style="position: relative; width: 300px;">
-                        <input type="text" v-model="searchQuery" placeholder="Search assets..." 
-                            style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px 12px 6px 30px; font-size: 0.82rem; height: 32px;">
-                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.82rem;">🔍</span>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted);">
+                            <div class="checkbox-custom" :class="{ checked: isAllMediaSelected }" @click="toggleSelectAllMedia" style="width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; display: inline-block;"></div>
+                            <span style="user-select: none; cursor: pointer; font-weight: 600;" @click="toggleSelectAllMedia">Select All</span>
+                        </div>
+                        <div style="position: relative; width: 220px;">
+                            <input type="text" v-model="searchQuery" placeholder="Search assets..." 
+                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px 12px 6px 30px; font-size: 0.82rem; height: 32px;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.82rem;">🔍</span>
+                        </div>
                     </div>
                 </div>
 
@@ -251,6 +257,9 @@ export default {
                 );
             }
             return items;
+        },
+        isAllMediaSelected() {
+            return this.filteredMedia.length > 0 && this.filteredMedia.every(item => this.selectedItems.includes(item.id));
         }
     },
     watch: {
@@ -270,6 +279,13 @@ export default {
         }
     },
     methods: {
+        toggleSelectAllMedia() {
+            if (this.isAllMediaSelected) {
+                this.selectedItems = [];
+            } else {
+                this.selectedItems = this.filteredMedia.map(item => item.id);
+            }
+        },
         isVideo(url) {
             if (!url) return false;
             const ext = url.split('.').pop().toLowerCase();

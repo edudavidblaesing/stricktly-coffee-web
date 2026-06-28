@@ -350,6 +350,22 @@ export default {
             } catch(e) {
                 return this.iframeCurrentUrl;
             }
+        },
+        editState() {
+            return {
+                id: this.edit_slug,
+                type: this.edit_type,
+                product_id: this.edit_product_id,
+                headline: this.edit_headline,
+                subheadline: this.edit_subheadline,
+                cta: this.edit_cta,
+                hero_img: this.edit_hero_img,
+                features: this.edit_features,
+                coupon_code: this.edit_coupon_code,
+                inherit: this.edit_inherit,
+                primary_color: this.edit_primary_color,
+                translations: this.edit_translations
+            };
         }
     },
     watch: {
@@ -369,6 +385,12 @@ export default {
                         }
                     });
                 }
+            }
+        },
+        editState: {
+            deep: true,
+            handler() {
+                this.updatePreviewLandingPage();
             }
         }
     },
@@ -610,6 +632,31 @@ export default {
                 const iframe = this.$refs.previewIframe;
                 if (iframe && iframe.contentWindow) {
                     this.iframeCurrentUrl = iframe.contentWindow.location.href;
+                    this.updatePreviewLandingPage();
+                }
+            } catch(e) {}
+        },
+        updatePreviewLandingPage() {
+            try {
+                const iframe = this.$refs.previewIframe;
+                if (iframe && iframe.contentWindow && this.editingPage) {
+                    const styles = {
+                        type: 'UPDATE_PREVIEW_LANDING_PAGE',
+                        id: this.edit_slug,
+                        type_mode: this.edit_type,
+                        type: this.edit_type,
+                        product_id: this.edit_product_id,
+                        headline: this.edit_headline,
+                        subheadline: this.edit_subheadline,
+                        cta: this.edit_cta,
+                        hero_img: this.edit_hero_img,
+                        features: this.edit_features,
+                        coupon_code: this.edit_coupon_code,
+                        inherit: this.edit_inherit,
+                        primary_color: this.edit_inherit ? null : this.edit_primary_color,
+                        translations: this.edit_translations
+                    };
+                    iframe.contentWindow.postMessage(styles, '*');
                 }
             } catch(e) {}
         },

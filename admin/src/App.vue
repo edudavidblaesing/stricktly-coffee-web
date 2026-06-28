@@ -353,12 +353,17 @@
                     <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
                 </div>
                 <div class="profile-dropdown-divider"></div>
-                <button class="profile-dropdown-item" @click.stop="toggleDemoRole">
-                    🔄 Switch Role (Current: {{ userRole }})
+                
+                <!-- If acting as merchant, show switch back -->
+                <button v-if="userRole.toLowerCase() === 'merchant'" class="profile-dropdown-item" @click.stop="toggleDemoRole">
+                    🔄 Switch back to Super Admin
                 </button>
+                
+                <!-- If superadmin and a specific brand is selected, allow acting as brand admin -->
                 <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
-                    👤 Act as Store Admin (Merchant)
+                    👤 Act as {{ activeWorkspaceName }} Admin
                 </button>
+                
                 <div class="profile-dropdown-divider"></div>
                 <button class="profile-dropdown-item logout" @click.stop="handleLogout">
                     🚪 Log Out
@@ -368,7 +373,8 @@
             <!-- Footer Profile Container -->
             <div class="footer-profile" @click.stop="profileDropdownOpen = !profileDropdownOpen" style="cursor: pointer;">
                 <div class="footer-profile-avatar">
-                    <img v-if="operatorAvatarSrc" :src="operatorAvatarSrc" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img v-if="userRole.toLowerCase() === 'merchant' && activeWorkspaceFavicon" :src="activeWorkspaceFavicon" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img v-else-if="operatorAvatarSrc" :src="operatorAvatarSrc" style="width: 100%; height: 100%; object-fit: cover;" />
                     <div v-else class="footer-profile-avatar-placeholder">{{ operatorInitials }}</div>
                 </div>
                 <div class="footer-profile-meta">
@@ -964,7 +970,6 @@ export default {
                     operatorAvatarSrc: localStorage.getItem('sc_operator_avatar') || operatorAvatar,
                     operatorFirstName: localStorage.getItem('sc_operator_first_name') || 'Salung',
                     operatorLastName: localStorage.getItem('sc_operator_last_name') || 'Prastyo',
-                    operatorRole: 'Sales Operator',
                     profileDropdownOpen: false,
                     appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
@@ -1113,6 +1118,16 @@ export default {
                 };
             },
             computed: {
+                operatorRole() {
+                    if (!this.isLoggedIn) return 'Guest';
+                    if (this.userRole && this.userRole.toLowerCase() === 'superadmin') {
+                        return 'Super Admin';
+                    }
+                    if (this.userRole && this.userRole.toLowerCase() === 'merchant') {
+                        return 'Merchant';
+                    }
+                    return this.userRole || 'Sales Operator';
+                },
                 pageHeader() {
                     switch (this.activeView) {
                         case 'overview':
@@ -1584,6 +1599,33 @@ export default {
                         }
                     }
                 },
+                async bulkDeleteUsers(userIds) {
+                    if (confirm(`Are you sure you want to remove the ${userIds.length} selected operator accounts?`)) {
+                        try {
+                            const response = await fetch(`${this.apiBaseUrl}/api/global/users/bulk-delete`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                                },
+                                body: JSON.stringify({ ids: userIds })
+                            });
+                            if (response.ok) {
+                                this.showNotification('Selected operator accounts removed.');
+                                await this.loadUsers();
+                                return true;
+                            } else {
+                                const err = await response.json();
+                                alert(`Error removing operators: ${err.error}`);
+                                return false;
+                            }
+                        } catch (err) {
+                            alert(`Error: ${err.message}`);
+                            return false;
+                        }
+                    }
+                    return false;
+                },
                  handleGlobalKeydowns(e) {
                     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
                         e.preventDefault();
@@ -1621,11 +1663,13 @@ export default {
                 },
                 toggleDemoRole() {
                     this.userRole = this.userRole.toLowerCase() === 'superadmin' ? 'Merchant' : 'Superadmin';
+                    localStorage.setItem('sc_admin_role', this.userRole);
                     this.showNotification(`Switched role context to ${this.userRole}`);
                     this.profileDropdownOpen = false;
                 },
                 assumeStoreAdmin() {
                     this.userRole = 'Merchant';
+                    localStorage.setItem('sc_admin_role', this.userRole);
                     this.showNotification(`Assumed role as Store Administrator for ${this.activeWorkspaceName}`);
                     this.profileDropdownOpen = false;
                 },
@@ -2205,6 +2249,7 @@ export default {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/brands`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
+                        if (!response.ok) throw new Error(`API error: ${response.status}`);
                         this.brands = await response.json();
                         this.updateSettingsContext();
 

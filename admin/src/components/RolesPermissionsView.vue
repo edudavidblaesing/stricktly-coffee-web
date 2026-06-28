@@ -11,6 +11,9 @@
                     <table>
                         <thead>
                             <tr>
+                                <th class="checkbox-cell" style="width: 40px;">
+                                    <div class="checkbox-custom" :class="{ checked: isAllUsersSelected }" @click="toggleSelectAllUsers"></div>
+                                </th>
                                 <th>Portal User</th>
                                 <th>Role Classification</th>
                                 <th>Scoped Brand Shop Boundaries</th>
@@ -18,7 +21,11 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="u in app.users" :key="u.id">
+                            <tr v-for="u in app.users" :key="u.id" :class="{ selected: selectedUserIds.includes(u.id) }">
+                                <td class="checkbox-cell" @click.stop>
+                                    <div v-if="u.email !== app.userEmail" class="checkbox-custom" :class="{ checked: selectedUserIds.includes(u.id) }" @click="toggleSelectUser(u.id)"></div>
+                                    <div v-else style="width: 16px; height: 16px; opacity: 0.15; cursor: not-allowed; border: 1px solid var(--border); border-radius: 4px;"></div>
+                                </td>
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-main);">
                                         {{ u.email === app.userEmail ? 'You (' + u.email + ')' : u.email }}
@@ -90,6 +97,14 @@
             </div>
         </div>
 
+        <!-- Floating Bulk Actions Bar -->
+        <div v-if="selectedUserIds.length > 0" class="bulk-actions-bar">
+            <span><strong>{{ selectedUserIds.length }}</strong> operator accounts selected</span>
+            <div class="btn-group">
+                <button class="bulk-btn btn-danger" @click="performBulkDelete">Delete Selected</button>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -99,13 +114,18 @@ export default {
     inject: ['app'],
     data() {
         return {
+            selectedUserIds: [],
             inviteEmail: '',
             inviteRole: 'merchant',
             inviteBrandId: ''
         };
     },
     computed: {
-        brands() { return this.app.brands || []; }
+        brands() { return this.app.brands || []; },
+        isAllUsersSelected() {
+            const selectableUsers = (this.app.users || []).filter(u => u.email !== this.app.userEmail);
+            return selectableUsers.length > 0 && selectableUsers.every(u => this.selectedUserIds.includes(u.id));
+        }
     },
     mounted() {
         this.resetForm();
@@ -136,6 +156,28 @@ export default {
             const success = await this.app.inviteUser(this.inviteEmail, this.inviteRole, this.inviteBrandId);
             if (success) {
                 this.resetForm();
+            }
+        },
+        toggleSelectUser(id) {
+            const idx = this.selectedUserIds.indexOf(id);
+            if (idx > -1) {
+                this.selectedUserIds.splice(idx, 1);
+            } else {
+                this.selectedUserIds.push(id);
+            }
+        },
+        toggleSelectAllUsers() {
+            if (this.isAllUsersSelected) {
+                this.selectedUserIds = [];
+            } else {
+                const selectableUsers = (this.app.users || []).filter(u => u.email !== this.app.userEmail);
+                this.selectedUserIds = selectableUsers.map(u => u.id);
+            }
+        },
+        async performBulkDelete() {
+            const success = await this.app.bulkDeleteUsers(this.selectedUserIds);
+            if (success) {
+                this.selectedUserIds = [];
             }
         }
     }

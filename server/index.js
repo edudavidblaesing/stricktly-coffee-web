@@ -565,7 +565,7 @@ async function scrapeShopifyBranding(shopUrl) {
                       html.match(/font-family:\s*([^;!}]+)/i);
     if (fontMatch) {
       let font = fontMatch[1].split(',')[0].replace(/['"]/g, '').trim();
-      if (font) fontFamily = font;
+      if (font && !font.includes('var(')) fontFamily = font;
     }
     
     // Detect active languages using hreflang alternates
@@ -2130,6 +2130,113 @@ app.put('/api/global/brands/:id/status', verifyAdminToken, async (req, res) => {
     }
 
     res.json({ success: true, message: `Brand ${brand.name} status updated to ${status}.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List portal users
+app.get('/api/global/users', verifyAdminToken, async (req, res) => {
+  try {
+    let rows;
+    if (req.user.role.toLowerCase() === 'merchant') {
+      rows = await allQuery('SELECT id, email, role, brand_id, created_at FROM users WHERE brand_id = $1 ORDER BY email ASC', [req.user.brand_id]);
+    } else {
+      rows = await allQuery('SELECT id, email, role, brand_id, created_at FROM users ORDER BY email ASC');
+    }
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Invite / create portal user
+app.post('/api/global/users/invite', verifyAdminToken, async (req, res) => {
+  const { email, role, brand_id } = req.body;
+  if (!email || !role) {
+    return res.status(400).json({ error: 'Email and role are required.' });
+  }
+
+  // Merchants can only invite users to their own brand
+  let targetBrandId = brand_id;
+  if (req.user.role.toLowerCase() === 'merchant') {
+    targetBrandId = req.user.brand_id;
+  }
+
+  try {
+    const existing = await getQuery('SELECT id FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    if (existing) {
+      return res.status(400).json({ error: 'User with this email already exists.' });
+    }
+
+    const defaultPassword = 'TheKey4u';
+    const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
+
+    await runQuery(`
+      INSERT INTO users (email, password_hash, role, brand_id)
+      VALUES ($1, $2, $3, $4)
+    `, [email.trim().toLowerCase(), passwordHash, role.toLowerCase(), targetBrandId || null]);
+
+    addAuditLog("Operator Invite", "success", `Invited/Created account for ${email} with role ${role} (Brand: ${targetBrandId || 'All'}).`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete portal user
+app.delete('/api/global/users/:id', verifyAdminToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const userToDelete = await getQuery('SELECT email, role, brand_id FROM users WHERE id = $1', [id]);
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (userToDelete.email === req.user.email) {
+      return res.status(400).json({ error: 'Cannot remove your own active account.' });
+    }
+
+    // Merchants can only delete users of the same brand
+    if (req.user.role.toLowerCase() === 'merchant' && userToDelete.brand_id !== req.user.brand_id) {
+      return res.status(403).json({ error: 'Access Denied. You can only remove operators within your own brand.' });
+    }
+
+    await runQuery('DELETE FROM users WHERE id = $1', [id]);
+    addAuditLog("Operator Removed", "success", `Removed user account: ${userToDelete.email}.`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk delete portal users
+app.delete('/api/global/users/bulk-delete', verifyAdminToken, async (req, res) => {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids)) {
+    return res.status(400).json({ error: 'Invalid or missing user IDs.' });
+  }
+
+  try {
+    let query = 'SELECT id, email, role, brand_id FROM users WHERE id = ANY($1)';
+    const usersToDelete = await allQuery(query, [ids]);
+
+    const validIds = [];
+    const emails = [];
+
+    for (const u of usersToDelete) {
+      if (u.email === req.user.email) continue; // cannot delete self
+      if (req.user.role.toLowerCase() === 'merchant' && u.brand_id !== req.user.brand_id) continue;
+      validIds.push(u.id);
+      emails.push(u.email);
+    }
+
+    if (validIds.length > 0) {
+      await runQuery('DELETE FROM users WHERE id = ANY($1)', [validIds]);
+      addAuditLog("Operator Bulk Removed", "success", `Removed ${validIds.length} users: ${emails.join(', ')}.`);
+    }
+
+    res.json({ success: true, count: validIds.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

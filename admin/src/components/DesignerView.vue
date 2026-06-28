@@ -843,6 +843,7 @@ export default {
                         bg_color: this.designerBrand.bg_color,
                         text_color: this.designerBrand.text_color,
                         button_radius: this.designerBrand.button_radius,
+                        button_text_color: this.designerBrand.button_text_color,
                         header_bg_color: this.designerBrand.header_bg_color,
                         font_family: this.designerBrand.font_family,
                         custom_css: this.designerBrand.custom_css,

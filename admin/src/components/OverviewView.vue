@@ -290,7 +290,7 @@
                     <thead>
                         <tr>
                             <th class="checkbox-cell" style="width: 40px; text-align: center;">
-                                <div class="checkbox-custom"
+                                <div class="checkbox-custom" :class="{ checked: isAllOrdersSelected }" @click="toggleSelectAllOrders"
                                     style="width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; display: inline-block;">
                                 </div>
                             </th>
@@ -321,9 +321,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="order in searchedOrders" :key="order.id">
-                            <td class="checkbox-cell" style="text-align: center;">
-                                <div class="checkbox-custom"
+                        <tr v-for="order in searchedOrders" :key="order.id" :class="{ selected: selectedOrderIds.includes(order.id) }">
+                            <td class="checkbox-cell" style="text-align: center;" @click.stop>
+                                <div class="checkbox-custom" :class="{ checked: selectedOrderIds.includes(order.id) }" @click="toggleSelectOrder(order.id)"
                                     style="width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; display: inline-block;">
                                 </div>
                             </td>
@@ -367,6 +367,16 @@
                 </table>
             </div>
         </div>
+
+        <!-- Floating Bulk Actions Bar -->
+        <div v-if="selectedOrderIds.length > 0" class="bulk-actions-bar">
+            <span><strong>{{ selectedOrderIds.length }}</strong> transactions selected</span>
+            <div class="btn-group">
+                <button class="bulk-btn" @click="performBulkStatus('paid')">Mark Paid</button>
+                <button class="bulk-btn" @click="performBulkStatus('refunded')">Mark Refunded</button>
+                <button class="bulk-btn btn-danger" @click="performBulkDelete">Delete</button>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -376,6 +386,7 @@ export default {
     inject: ['app'],
     data() {
         return {
+            selectedOrderIds: [],
             activeDropdown: null
         };
     },
@@ -388,6 +399,9 @@ export default {
         ordersSearchQuery: {
             get() { return this.app.ordersSearchQuery; },
             set(val) { this.app.ordersSearchQuery = val; }
+        },
+        isAllOrdersSelected() {
+            return this.searchedOrders.length > 0 && this.searchedOrders.every(o => this.selectedOrderIds.includes(o.id));
         }
     },
     methods: {
@@ -397,6 +411,33 @@ export default {
         getOrderQty(order) { return this.app.getOrderQty(order); },
         getOrderUnitPrice(order) { return this.app.getOrderUnitPrice(order); },
         parseFloat(val) { return parseFloat(val); },
+        toggleSelectOrder(id) {
+            const idx = this.selectedOrderIds.indexOf(id);
+            if (idx > -1) {
+                this.selectedOrderIds.splice(idx, 1);
+            } else {
+                this.selectedOrderIds.push(id);
+            }
+        },
+        toggleSelectAllOrders() {
+            if (this.isAllOrdersSelected) {
+                this.selectedOrderIds = [];
+            } else {
+                this.selectedOrderIds = this.searchedOrders.map(o => o.id);
+            }
+        },
+        async performBulkStatus(status) {
+            const success = await this.app.bulkUpdateOrderStatus(this.selectedOrderIds, status);
+            if (success) {
+                this.selectedOrderIds = [];
+            }
+        },
+        async performBulkDelete() {
+            const success = await this.app.bulkDeleteOrders(this.selectedOrderIds);
+            if (success) {
+                this.selectedOrderIds = [];
+            }
+        },
 
         setAnalyticsTimeframe(val) {
             this.app.analyticsTimeframe = val;

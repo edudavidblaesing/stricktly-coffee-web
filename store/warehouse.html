@@ -278,7 +278,7 @@
         // Extract & store admin access token
         const getApiBaseUrl = () => {
             const hostname = window.location.hostname;
-            if (hostname.includes('dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
+            if (hostname.includes('dev.stricktlycoffee.be') || hostname.includes('-dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
             if (hostname.includes('stricktlycoffee.be')) return 'https://api.stricktlycoffee.be';
             return '';
         };

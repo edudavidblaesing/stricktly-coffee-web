@@ -65,7 +65,7 @@
         </div>
 
         <!-- CREATE CAMPAIGN MODAL -->
-        <div class="upcoming-modal" v-if="showCreateCampaignModal" @click.self="closeCreateCampaignModal">
+        <div class="upcoming-modal" v-if="showCreateCampaignModal" @click="handleCreateCampaignBackdropClick">
             <div class="upcoming-card" @click.stop style="max-width: 1200px; width: 100%; height: 85vh; max-height: 780px; text-align: left; padding: 24px; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); border: 1px solid var(--border); background: var(--card-bg);">
                 <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
                     <span>🚀 Launch New Marketing Campaign</span>
@@ -1651,6 +1651,11 @@ export default {
         },
         closeCreateCampaignModal() {
             this.showCreateCampaignModal = false;
+        },
+        handleCreateCampaignBackdropClick(e) {
+            if (!document.contains(e.target)) return;
+            if (e.target.closest('.upcoming-card')) return;
+            this.closeCreateCampaignModal();
         },
         async saveCampaign() {
             try {
