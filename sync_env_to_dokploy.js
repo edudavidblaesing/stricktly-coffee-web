@@ -13,7 +13,7 @@ if (branch === 'main' || branch === 'master' || branch.includes('prod')) {
 } else if (branch === 'dev' || branch.includes('dev')) {
     envFile = '.env.dev';
 } else {
-    console.log(`[Dokploy Sync] Branch '${branch}' is not a target deployment branch (main/dev). Skipping env sync.`);
+    console.log(`[Dokploy Sync] Branch '${branch}' is not a target deployment branch (main/dev). Skipping env sync and deploy.`);
     process.exit(0);
 }
 const envPath = path.join(__dirname, envFile);
@@ -42,29 +42,22 @@ envContent.split('\n').forEach(line => {
 
 const apiKey = envVars['DOKPLOY_API_KEY'];
 const dokployUrl = envVars['DOKPLOY_URL'] || 'https://dokploy.dyve.dev';
+const composeId = envVars['DOKPLOY_COMPOSE_ID'];
 
 if (!apiKey) {
     console.error('[Dokploy Sync] Error: DOKPLOY_API_KEY not found in environment file.');
     process.exit(1);
 }
 
-// Find all compose IDs starting with DOKPLOY_COMPOSE_ID_
-const composeIds = Object.keys(envVars)
-    .filter(key => key.startsWith('DOKPLOY_COMPOSE_ID_'))
-    .map(key => envVars[key])
-    .filter(Boolean);
-
-if (composeIds.length === 0) {
-    console.warn('[Dokploy Sync] Warning: No compose IDs found starting with DOKPLOY_COMPOSE_ID_');
-    process.exit(0);
+if (!composeId) {
+    console.error('[Dokploy Sync] Error: DOKPLOY_COMPOSE_ID not found in environment file.');
+    process.exit(1);
 }
 
-console.log(`[Dokploy Sync] Found ${composeIds.length} compose stack(s) to synchronize.`);
-
-// Helper function to make request for a specific compose ID
-function syncComposeEnv(composeId) {
+// Function to update env variables
+function syncComposeEnv() {
     return new Promise((resolve) => {
-        console.log(`[Dokploy Sync] Syncing to Compose ID: ${composeId}...`);
+        console.log(`[Dokploy Sync] Syncing env variables to Compose ID: ${composeId}...`);
         
         const payload = JSON.stringify({
             json: {
@@ -86,10 +79,10 @@ function syncComposeEnv(composeId) {
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
                 if (res.statusCode === 200) {
-                    console.log(`[Dokploy Sync] ✅ Success for Compose ID: ${composeId}`);
+                    console.log(`[Dokploy Sync] ✅ Environment variables synced successfully.`);
                     resolve(true);
                 } else {
-                    console.error(`[Dokploy Sync] ❌ Failed for Compose ID: ${composeId}. Status: ${res.statusCode}`);
+                    console.error(`[Dokploy Sync] ❌ Failed to sync environment variables. Status: ${res.statusCode}`);
                     console.error(`[Dokploy Sync] Response:`, body);
                     resolve(false);
                 }
@@ -97,7 +90,7 @@ function syncComposeEnv(composeId) {
         });
 
         req.on('error', (err) => {
-            console.error(`[Dokploy Sync] ❌ Error requesting Compose ID: ${composeId}: ${err.message}`);
+            console.error(`[Dokploy Sync] ❌ Error syncing environment variables: ${err.message}`);
             resolve(false);
         });
 
@@ -106,23 +99,63 @@ function syncComposeEnv(composeId) {
     });
 }
 
-// Execute sync for all compose IDs sequentially
+// Function to trigger deployment
+function triggerDeploy() {
+    return new Promise((resolve) => {
+        console.log(`[Dokploy Sync] Triggering deployment for Compose ID: ${composeId} via tRPC API...`);
+        
+        const payload = JSON.stringify({
+            json: {
+                composeId
+            }
+        });
+
+        const req = https.request(`${dokployUrl}/api/trpc/compose.deploy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': payload.length,
+                'Authorization': `Bearer ${apiKey}`,
+                'x-api-key': apiKey
+            }
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    console.log(`[Dokploy Sync] ✅ Deployment triggered successfully!`);
+                    resolve(true);
+                } else {
+                    console.error(`[Dokploy Sync] ❌ Failed to trigger deployment. Status: ${res.statusCode}`);
+                    console.error(`[Dokploy Sync] Response:`, body);
+                    resolve(false);
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            console.error(`[Dokploy Sync] ❌ Error triggering deployment: ${err.message}`);
+            resolve(false);
+        });
+
+        req.write(payload);
+        req.end();
+    });
+}
+
 async function run() {
-    let allSuccess = true;
-    for (const composeId of composeIds) {
-        const success = await syncComposeEnv(composeId);
-        if (!success) {
-            allSuccess = false;
-        }
-    }
-    
-    if (allSuccess) {
-        console.log('✅ [Dokploy Sync] All environment variables synchronized successfully!');
-        process.exit(0);
-    } else {
-        console.error('❌ [Dokploy Sync] Some or all environment variables failed to synchronize.');
+    const syncSuccess = await syncComposeEnv();
+    if (!syncSuccess) {
         process.exit(1);
     }
+    
+    const deploySuccess = await triggerDeploy();
+    if (!deploySuccess) {
+        process.exit(1);
+    }
+    
+    console.log('🎉 [Dokploy Sync & Deploy] All tasks completed successfully!');
+    process.exit(0);
 }
 
 run();
