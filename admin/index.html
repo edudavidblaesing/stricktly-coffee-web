@@ -3,28 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stricktly Coffee | Unified Brand Administration Hub</title>
+    <title>Unified Admin Dashboard | Stricktly Coffee</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Chart.js CDN for Analytics -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #080a09;
-            --card-bg: rgba(18, 22, 20, 0.7);
-            --primary: #c5a059;
-            --primary-hover: #b08d47;
-            --text-main: #f3f4f3;
-            --text-muted: #8e9290;
-            --accent: #161a18;
-            --border: rgba(35, 40, 38, 0.6);
-            --font-display: 'Space Grotesk', sans-serif;
-            --font-body: 'Outfit', sans-serif;
-            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            --bg-color: #f4f5f6;
+            --workspace-bg: #fafbfc;
+            --card-bg: #ffffff;
+            --text-main: #1a1d1f;
+            --text-muted: #6f767e;
+            --border: #efefef;
+            --primary: #1a1d1f;
+            --primary-hover: #272b30;
+            --accent: #c5a059;
             --success: #10b981;
             --warning: #f59e0b;
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.2s ease-in-out;
         }
 
         * {
@@ -35,9 +36,6 @@
 
         body {
             background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(197, 160, 89, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
             color: var(--text-main);
             font-family: var(--font-body);
             display: flex;
@@ -45,15 +43,15 @@
             overflow-x: hidden;
         }
 
-        /* Login Screen Overlay */
+        /* Fullscreen Auth Overlay */
         #login-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: #050706;
-            background-image: radial-gradient(circle at 50% 50%, rgba(197, 160, 89, 0.08) 0%, transparent 50%);
+            background: #ffffff;
+            background-image: radial-gradient(circle at 50% 50%, rgba(197, 160, 89, 0.05) 0%, transparent 60%);
             z-index: 9999;
             display: flex;
             align-items: center;
@@ -62,38 +60,39 @@
         }
 
         .login-card {
-            background: rgba(18, 22, 20, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 50px 40px;
+            padding: 40px;
             width: 100%;
-            max-width: 440px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+            max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06);
             text-align: center;
-            animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .login-logo {
             font-family: var(--font-display);
-            font-size: 1.8rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
             text-transform: uppercase;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .login-logo span {
-            color: var(--primary);
+            color: var(--accent);
         }
 
-        /* Sidebar navigation */
+        /* Sidebar Navigation Layout */
         aside {
             width: 290px;
-            background: rgba(11, 14, 13, 0.95);
+            background: #ffffff;
             border-right: 1px solid var(--border);
-            padding: 40px 24px;
+            padding: 30px 24px;
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -101,49 +100,91 @@
             left: 0;
             top: 0;
             z-index: 10;
-            overflow-y: auto;
         }
 
-        .logo-area {
-            font-family: var(--font-display);
-            font-size: 1.4rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--text-main);
-            margin-bottom: 24px;
-        }
-
-        .logo-area span {
-            color: var(--primary);
-        }
-
-        .context-box {
-            background: var(--accent);
+        /* Top Profile selector block */
+        .profile-selector-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #fafbfc;
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px 18px;
-            margin-bottom: 30px;
+            cursor: pointer;
+            text-align: left;
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .profile-selector-btn:hover {
+            background: #f4f5f6;
+        }
+
+        .profile-selector-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1a1d1f;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        .profile-selector-meta {
+            flex: 1;
+            font-size: 0.85rem;
+            overflow: hidden;
+        }
+
+        .profile-selector-title {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .profile-selector-sub {
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Navigation Groups */
+        .nav-group {
+            margin-bottom: 20px;
+        }
+
+        .nav-group-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            padding-left: 12px;
         }
 
         .nav-links {
+            list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            list-style: none;
+            gap: 2px;
         }
 
         .nav-link-btn {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 13px 16px;
+            padding: 10px 12px;
             border-radius: 8px;
             color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
+            font-weight: 500;
             cursor: pointer;
-            border: 1px solid transparent;
+            border: none;
             background: transparent;
             width: 100%;
             text-align: left;
@@ -153,174 +194,413 @@
 
         .nav-link-btn:hover {
             color: var(--text-main);
-            background: rgba(255, 255, 255, 0.02);
-            border-color: var(--border);
+            background: #f4f5f6;
         }
 
         .nav-link-btn.active {
-            color: var(--bg-color);
-            background-color: var(--primary);
+            color: var(--text-main);
+            background-color: #fafbfc;
             font-weight: 600;
-            box-shadow: 0 4px 15px rgba(197, 160, 89, 0.25);
+            box-shadow: inset 3px 0 0 var(--text-main);
         }
 
-        /* Main Workspace */
+        /* Footer profile block */
+        .footer-profile {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-profile-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #e6e8ec;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Workspace Layout */
         main {
             margin-left: 290px;
             flex: 1;
-            padding: 40px 50px;
+            padding: 30px 40px;
+            background: var(--workspace-bg);
             min-height: 100vh;
         }
 
+        /* Header control panel */
         header {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto;
             align-items: center;
-            margin-bottom: 35px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
+            gap: 24px;
+            margin-bottom: 30px;
         }
 
-        h1 {
-            font-family: var(--font-display);
-            font-size: 2rem;
-            font-weight: 700;
-        }
-
-        .header-controls {
+        .breadcrumb {
+            font-size: 0.85rem;
+            color: var(--text-muted);
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 8px;
         }
 
-        .badge-admin {
-            background-color: rgba(197, 160, 89, 0.08);
-            color: var(--primary);
-            border: 1px solid rgba(197, 160, 89, 0.4);
-            padding: 6px 14px;
-            border-radius: 12px;
-            font-size: 0.75rem;
+        .breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .header-search-container {
+            position: relative;
+            width: 320px;
+        }
+
+        .header-search-input {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 16px 10px 40px;
+            font-size: 0.88rem;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            transition: var(--transition);
+        }
+
+        .header-search-input:focus {
+            border-color: var(--text-main);
+            outline: none;
+        }
+
+        .header-search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .header-search-shortcut {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            background: #f4f5f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            pointer-events: none;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-action-btn {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.88rem;
             font-weight: 600;
-            text-transform: uppercase;
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-body);
+            transition: var(--transition);
         }
 
-        /* Views configuration */
+        .header-action-btn:hover {
+            border-color: var(--text-main);
+        }
+
+        .header-action-btn.dark {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        .header-action-btn.dark:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Greeting Welcome header */
+        .greeting-header {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+
+        /* Views */
         .admin-view {
             display: none;
-            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .admin-view.active {
             display: block;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Dashboard Metrics */
+        /* Metrics cards */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .metric-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 24px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
             position: relative;
             overflow: hidden;
-            transition: var(--transition);
-        }
-
-        .metric-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
         }
 
         .metric-label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .metric-main-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 12px;
         }
 
         .metric-value {
-            font-size: 2.2rem;
+            font-size: 1.8rem;
             font-weight: 800;
             font-family: var(--font-display);
+            letter-spacing: -0.02em;
         }
 
-        /* Charts Section */
+        .metric-sparkline {
+            width: 70px;
+            height: 36px;
+        }
+
+        .metric-change {
+            font-size: 0.8rem;
+            color: var(--success);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Charts block */
         .charts-grid {
             display: grid;
             grid-template-columns: 1.6fr 1fr;
-            gap: 24px;
-            margin-bottom: 35px;
+            gap: 20px;
+            margin-bottom: 24px;
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1000px) {
             .charts-grid {
                 grid-template-columns: 1fr;
             }
         }
 
         .chart-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: #ffffff;
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 28px;
-            height: 380px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .chart-container {
+            height: 280px;
+            position: relative;
+        }
+
+        /* Panel Containers */
+        .panel {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Search popup modal */
+        #search-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10005;
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 100px;
+        }
+
+        .search-modal-container {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        .chart-container {
-            position: relative;
-            flex: 1;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Card panels */
-        .panel {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 35px;
-            margin-bottom: 30px;
-        }
-
-        .panel-title {
-            font-family: var(--font-display);
-            font-size: 1.3rem;
-            margin-bottom: 20px;
+        .search-modal-input-row {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
         }
 
-        /* Forms styling */
+        .search-modal-input {
+            flex: 1;
+            border: none;
+            font-size: 1.1rem;
+            font-family: var(--font-body);
+            color: var(--text-main);
+        }
+
+        .search-modal-input:focus {
+            outline: none;
+        }
+
+        .search-modal-results {
+            max-height: 380px;
+            overflow-y: auto;
+            padding: 12px;
+            background: #fafbfc;
+        }
+
+        .search-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+        }
+
+        .search-item:hover {
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        th {
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 16px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: #fafbfc;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .status-refunded { background: rgba(111, 118, 126, 0.1); color: var(--text-muted); }
+
+        /* General Forms styles */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-
-        .form-full {
-            grid-column: span 2;
+            gap: 16px;
         }
 
         .form-group {
@@ -329,72 +609,51 @@
             gap: 6px;
         }
 
-        label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.02em;
+        .form-full {
+            grid-column: span 2;
         }
 
         input, select, textarea {
-            background: var(--accent);
+            background: #ffffff;
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px 16px;
+            border-radius: 8px;
+            padding: 10px 14px;
             color: var(--text-main);
             font-family: var(--font-body);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             transition: var(--transition);
             width: 100%;
         }
 
         input:focus, select:focus, textarea:focus {
-            border-color: var(--primary);
+            border-color: var(--text-main);
             outline: none;
-            box-shadow: 0 0 10px rgba(197, 160, 89, 0.1);
         }
 
-        /* File Uploader styling */
-        .uploader-area {
+        .uploader-box {
             border: 2px dashed var(--border);
             border-radius: 8px;
-            padding: 30px;
+            padding: 24px;
             text-align: center;
             cursor: pointer;
-            background: rgba(0, 0, 0, 0.2);
             transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
         }
 
-        .uploader-area:hover, .uploader-area.dragover {
-            border-color: var(--primary);
-            background: rgba(197, 160, 89, 0.03);
-        }
-
-        .uploader-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .uploader-progress {
-            font-size: 0.8rem;
-            color: var(--primary);
-            display: none;
+        .uploader-box:hover {
+            border-color: var(--text-main);
+            background: #fafbfc;
         }
 
         .btn {
-            background-color: var(--primary);
-            color: var(--bg-color);
-            border: none;
-            border-radius: 6px;
-            padding: 13px 26px;
-            font-family: var(--font-body);
+            background: var(--primary);
+            color: #ffffff;
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            padding: 10px 20px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             cursor: pointer;
+            font-family: var(--font-body);
             transition: var(--transition);
             display: inline-flex;
             align-items: center;
@@ -403,57 +662,46 @@
         }
 
         .btn:hover {
-            background-color: var(--primary-hover);
+            background: var(--primary-hover);
         }
 
-        /* Table design */
-        table {
+        /* Upcoming features Modal popup */
+        #upcoming-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 10010;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upcoming-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
             width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.9rem;
+            max-width: 480px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.08);
+            text-align: center;
         }
 
-        th {
-            font-weight: 600;
-            color: var(--text-muted);
-            border-bottom: 2px solid var(--border);
-            padding: 14px 18px;
-        }
-
-        td {
-            padding: 14px 18px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        tr:hover td {
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid var(--warning); }
-        .status-paid { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
-        .status-sent { background: rgba(197, 160, 89, 0.1); color: var(--primary); border: 1px solid var(--primary); }
-        .status-shipped { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid #3b82f6; }
-
-        /* Notification toast */
+        /* Toast notifications */
         .toast {
             position: fixed;
-            bottom: 40px;
-            right: 40px;
-            background-color: var(--card-bg);
+            bottom: 30px;
+            right: 30px;
+            background: #ffffff;
             border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            padding: 16px 20px;
             border-radius: 8px;
-            padding: 16px 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -461,7 +709,7 @@
             opacity: 0;
             pointer-events: none;
             transition: var(--transition);
-            z-index: 10000;
+            z-index: 10020;
         }
 
         .toast.show {
@@ -473,137 +721,294 @@
 </head>
 <body>
 
-    <!-- AUTHENTICATION SCREEN -->
+    <!-- AUTHENTICATION FORM SCREEN -->
     <div id="login-screen">
         <div class="login-card">
             <div class="login-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 Stricktly <span>Coffee</span>
             </div>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Unified Administrative Authentication Portal</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px; font-weight: 500;">Enterprise Management Portal Authentication</p>
             <form id="login-form">
                 <div class="form-group" style="margin-bottom: 16px; text-align: left;">
-                    <label for="login-email">Email Address</label>
+                    <label style="font-size: 0.75rem; text-transform: uppercase;">Operator Email</label>
                     <input type="email" id="login-email" required placeholder="sc@davidblaesing.com">
                 </div>
                 <div class="form-group" style="margin-bottom: 24px; text-align: left;">
-                    <label for="login-pass">Password</label>
+                    <label style="font-size: 0.75rem; text-transform: uppercase;">Access Password</label>
                     <input type="password" id="login-pass" required placeholder="••••••••">
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">Authenticate & Enter</button>
-                <div id="login-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 14px; display: none;">
-                    Invalid credentials. Please try again.
+                <button type="submit" class="btn" style="width: 100%;">Authenticate & Launch</button>
+                <div id="login-error" style="color: #ef4444; font-size: 0.8rem; margin-top: 14px; display: none;">
+                    Invalid credentials. Please verify.
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Sidebar navigation -->
+    <!-- SIDEBAR NAVIGATION MENU -->
     <aside>
-        <div class="logo-area">
-            Stricktly <span>Coffee</span>
-        </div>
-        
-        <!-- Active Target environment Box -->
-        <div class="context-box" style="margin-bottom: 16px;">
-            <label style="font-size: 0.75rem; text-transform: uppercase;">Target Environment</label>
-            <select id="env-switcher" style="margin-top: 6px; padding: 8px;" onchange="changeEnvironment(this.value)">
-                <option value="local">💻 Local Dev</option>
-                <option value="dev">⚙️ Remote Dev</option>
-                <option value="prod">🚀 Production</option>
-            </select>
+        <!-- Top Profile Selector -->
+        <div class="profile-selector-btn">
+            <div class="profile-selector-avatar">S</div>
+            <div class="profile-selector-meta">
+                <div class="profile-selector-title">Stricktly Coffee</div>
+                <div class="profile-selector-sub" id="current-environment-badge">Local Workspace</div>
+            </div>
+            <span style="color: var(--text-muted); font-size: 0.8rem;">▼</span>
         </div>
 
-        <!-- Shop context filter Box -->
-        <div class="context-box">
-            <label style="font-size: 0.75rem; text-transform: uppercase;">Active Shop Filter</label>
-            <select id="shop-context-select" style="margin-top: 6px; padding: 8px;" onchange="changeShopContext(this.value)">
-                <option value="all">🌐 All Brand Shops</option>
-                <!-- Injected dynamically -->
-            </select>
+        <!-- Group 1: Main Menu -->
+        <div class="nav-group">
+            <div class="nav-group-title">Main Menu</div>
+            <ul class="nav-links">
+                <li>
+                    <button class="nav-link-btn active" onclick="switchView('overview')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        Dashboard
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('products')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Products
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('orders')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                        Transactions
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Reports & Analytics', 'Dynamic multi-tenant analytics graphs, customizable checkout ratios, and seasonal cohort statistics.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        Reports & Analytics
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Messages & Notifications', 'Unified notification box to handle customer support tickets, warehouse logistics requests, and dropshipping disputes.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        Messages
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Team Performance', 'Audit log trackers, individual manager permissions, and task completion metrics for warehouse staff.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        Team Performance
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Campaigns & Marketing Automation', 'Deploy automated AI marketing promotions, launch ad-campaign sequences across Meta/TikTok, and track influencer commissions.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                        Campaigns
+                    </button>
+                </li>
+            </ul>
         </div>
 
-        <ul class="nav-links">
-            <li>
-                <button class="nav-link-btn active" onclick="switchView('overview')">
-                    Metrics & Analytics
-                </button>
-            </li>
-            <li>
-                <button class="nav-link-btn" onclick="switchView('brands')">
-                    Brand Shops
-                </button>
-            </li>
-            <li>
-                <button class="nav-link-btn" onclick="switchView('products')">
-                    Manage Catalog
-                </button>
-            </li>
-            <li>
-                <button class="nav-link-btn" onclick="switchView('orders')">
-                    Combined Orders
-                </button>
-            </li>
-            <li>
-                <button class="nav-link-btn" onclick="switchView('warehouse-sim')">
-                    Warehouse Simulator
-                </button>
-            </li>
-            <li>
-                <button class="nav-link-btn" onclick="switchView('settings')">
-                    Integration Settings
-                </button>
-            </li>
-            <li style="margin-top: 20px;">
-                <button class="nav-link-btn" style="color: #ef4444;" onclick="logout()">
-                    Log Out
-                </button>
-            </li>
-        </ul>
+        <!-- Group 2: Customers -->
+        <div class="nav-group">
+            <div class="nav-group-title">Customers</div>
+            <ul class="nav-links">
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Customer List', 'Combined multi-brand CRM list. Export, filter, and track customer lifetime value and transaction history.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        Customer List
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('brands')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                        Channels
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('orders')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                        Order Management
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Group 3: Management -->
+        <div class="nav-group">
+            <div class="nav-group-title">Management</div>
+            <ul class="nav-links">
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Roles & Permissions Manager', 'Configure store managers, customize brand-specific scopes, and audit permission access logs.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        Roles & Permissions
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Billing & Subscription', 'Manage Stricktly Coffee platform billing subscriptions, integration quotas, and usage logs.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Billing & Subscription
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('settings')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        Integrations
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Group 4: Settings -->
+        <div class="nav-group">
+            <div class="nav-group-title">Settings</div>
+            <ul class="nav-links">
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Customer Support', 'Direct chat line setup, email auto-responders, and Zendesk integration parameters.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                        Customer Support
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="triggerUpcoming('Help Center', 'Administrator guidelines, Shopify connection tutorials, and Stripe setup manuals.')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        Help Center
+                    </button>
+                </li>
+                <li>
+                    <button class="nav-link-btn" onclick="switchView('settings')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        System Settings
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Footer Profile Container -->
+        <div class="footer-profile">
+            <div class="footer-profile-avatar" id="footer-avatar-letter">D</div>
+            <div style="flex: 1; font-size: 0.8rem; overflow: hidden;">
+                <div style="font-weight: 700;" id="footer-username-display">davidblaesing</div>
+                <div style="color: var(--text-muted); text-transform: capitalize;" id="footer-role-display">Superadmin</div>
+            </div>
+            <button onclick="logout()" style="background: none; border: none; cursor: pointer; color: var(--text-muted);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+        </div>
     </aside>
 
-    <!-- Main Content Workspace -->
+    <!-- MAIN WORKSPACE -->
     <main>
+        <!-- Top Navigation Header -->
         <header>
-            <div>
-                <h1 id="header-title">Storefront Analytics Control</h1>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Dynamic sales trends, integrations, and content management.</p>
+            <div class="breadcrumb">
+                <a href="#">Dashboard</a>
+                <span>&gt;</span>
+                <span id="breadcrumb-active" style="color: var(--text-main); font-weight: 600;">Overview</span>
             </div>
-            <div class="header-controls">
-                <span class="badge-admin" id="operator-role-badge">Superadmin</span>
+            
+            <div class="header-actions">
+                <!-- Search bar input with cmd+k -->
+                <div class="header-search-container">
+                    <svg class="header-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" class="header-search-input" placeholder="Search orders, brands..." onclick="openSearchModal()">
+                    <div class="header-search-shortcut">⌘ K</div>
+                </div>
+
+                <!-- Env switcher select dropdown -->
+                <select id="env-switcher" style="padding: 10px; width: 140px; font-weight: 600; border-radius: 8px;" onchange="changeEnvironment(this.value)">
+                    <option value="local">💻 Local Dev</option>
+                    <option value="dev">⚙️ Remote Dev</option>
+                    <option value="prod">🚀 Production</option>
+                </select>
+
+                <!-- Active Shop filter selector -->
+                <select id="shop-context-select" style="padding: 10px; width: 180px; font-weight: 600; border-radius: 8px;" onchange="changeShopContext(this.value)">
+                    <option value="all">🌐 All Brand Shops</option>
+                    <!-- Injected dynamically -->
+                </select>
+
+                <button class="header-action-btn dark" onclick="triggerUpcoming('CSV Export Engine', 'Generates customized CSV ledger files for tax computation.')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
             </div>
         </header>
 
         <!-- VIEW 1: OVERVIEW & ANALYTICS -->
         <div id="view-overview" class="admin-view active">
+            <div class="greeting-header" id="welcome-username-header">Welcome back, Salung</div>
+
+            <!-- Four Metrics Cards -->
             <div class="metrics-grid">
+                <!-- CARD 1: REVENUE -->
                 <div class="metric-card">
-                    <span class="metric-label">Sales Volume</span>
-                    <span class="metric-value" id="metric-sales">€0.00</span>
+                    <span class="metric-label">Total Revenue</span>
+                    <div class="metric-main-row">
+                        <span class="metric-value" id="metric-sales">€0.00</span>
+                        <svg class="metric-sparkline" viewBox="0 0 50 20">
+                            <path d="M0 15 Q10 5, 20 18 T40 4 T50 12" fill="none" stroke="#10b981" stroke-width="2"></path>
+                        </svg>
+                    </div>
+                    <span class="metric-change">
+                        <span style="font-size: 0.9rem;">▲</span> +0.94% last year
+                    </span>
                 </div>
+                <!-- CARD 2: ORDERS -->
                 <div class="metric-card">
                     <span class="metric-label">Total Orders</span>
-                    <span class="metric-value" id="metric-orders">0</span>
+                    <div class="metric-main-row">
+                        <span class="metric-value" id="metric-orders">0</span>
+                        <svg class="metric-sparkline" viewBox="0 0 50 20">
+                            <path d="M0 10 Q15 20, 25 5 T50 18" fill="none" stroke="#10b981" stroke-width="2"></path>
+                        </svg>
+                    </div>
+                    <span class="metric-change">
+                        <span style="font-size: 0.9rem;">▲</span> +0.94% last year
+                    </span>
                 </div>
+                <!-- CARD 3: CUSTOMERS -->
+                <div class="metric-card">
+                    <span class="metric-label">New Customers</span>
+                    <div class="metric-main-row">
+                        <span class="metric-value" id="metric-customers">0</span>
+                        <svg class="metric-sparkline" viewBox="0 0 50 20">
+                            <path d="M0 18 Q10 2, 25 15 T50 5" fill="none" stroke="#10b981" stroke-width="2"></path>
+                        </svg>
+                    </div>
+                    <span class="metric-change">
+                        <span style="font-size: 0.9rem;">▲</span> +0.94% last year
+                    </span>
+                </div>
+                <!-- CARD 4: CONVERSION -->
                 <div class="metric-card">
                     <span class="metric-label">Conversion Rate</span>
-                    <span class="metric-value" id="metric-conversion">2.4%</span>
-                </div>
-                <div class="metric-card">
-                    <span class="metric-label">Active Shops</span>
-                    <span class="metric-value" id="metric-shops">0</span>
+                    <div class="metric-main-row">
+                        <span class="metric-value" id="metric-conversion">3.9%</span>
+                        <svg class="metric-sparkline" viewBox="0 0 50 20">
+                            <path d="M0 5 Q10 15, 20 8 T40 18 T50 2" fill="none" stroke="#10b981" stroke-width="2"></path>
+                        </svg>
+                    </div>
+                    <span class="metric-change">
+                        <span style="font-size: 0.9rem;">▲</span> +0.94% last year
+                    </span>
                 </div>
             </div>
 
-            <!-- Charts Section -->
+            <!-- Charts Trend panels -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h4 style="margin-bottom: 12px; font-family: var(--font-display);">Daily Sales Volume (EUR)</h4>
+                    <div class="chart-header">
+                        <span class="chart-title">Sales Trend</span>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Weekly &bull; Monthly &bull; Yearly</div>
+                    </div>
                     <div class="chart-container">
                         <canvas id="salesChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h4 style="margin-bottom: 12px; font-family: var(--font-display);">Conversion funnel</h4>
+                    <div class="chart-header">
+                        <span class="chart-title">Revenue Breakdown</span>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Channels</div>
+                    </div>
                     <div class="chart-container">
                         <canvas id="funnelChart"></canvas>
                     </div>
@@ -615,42 +1020,42 @@
         <div id="view-brands" class="admin-view">
             <div class="panel">
                 <h3 class="panel-title">Spin Up New Brand Shop</h3>
-                <form id="brand-form">
+                <form id="brand-form" style="margin-top: 15px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="brand-id">Brand ID (Unique Slug, e.g. "pesado")</label>
+                            <label>Brand ID (Unique Slug, e.g. "pesado")</label>
                             <input type="text" id="brand-id" required placeholder="pesado">
                         </div>
                         <div class="form-group">
-                            <label for="brand-name">Brand Display Name</label>
+                            <label>Brand Display Name</label>
                             <input type="text" id="brand-name" required placeholder="Pesado 58.5">
                         </div>
                         <div class="form-group">
-                            <label for="brand-subdomain">Target Host Subdomain</label>
+                            <label>Target Host Subdomain</label>
                             <input type="text" id="brand-subdomain" required placeholder="pesado.stricktlycoffee.be">
                         </div>
                         <div class="form-group">
-                            <label for="brand-email">Support Contact Email</label>
+                            <label>Support Contact Email</label>
                             <input type="email" id="brand-email" required placeholder="support@pesado585.com">
                         </div>
                         <div class="form-group">
-                            <label for="brand-color">Brand Primary Custom Color</label>
+                            <label>Brand Primary Custom Color</label>
                             <input type="text" id="brand-color" value="#c5a059" placeholder="#c5a059">
                         </div>
                         <div class="form-group">
-                            <label for="brand-shopify-name">Shopify Shop Name (for Warehouse connect)</label>
+                            <label>Shopify Shop Name (for Warehouse connect)</label>
                             <input type="text" id="brand-shopify-name" placeholder="pesado-warehouse-dest.myshopify.com">
                         </div>
                         <div class="form-group form-full">
-                            <label for="brand-shopify-token">Shopify Admin API Access Token</label>
+                            <label>Shopify Admin API Access Token</label>
                             <input type="password" id="brand-shopify-token" placeholder="Shopify Admin API Access Token (shpat_...)">
                         </div>
                         <div class="form-group">
-                            <label for="brand-stripe-secret">Stripe Secret Key (API Key)</label>
+                            <label>Stripe Secret Key (API Key)</label>
                             <input type="password" id="brand-stripe-secret" placeholder="Stripe Secret Key (sk_live_...)">
                         </div>
                         <div class="form-group">
-                            <label for="brand-stripe-webhook">Stripe Webhook Secret</label>
+                            <label>Stripe Webhook Secret</label>
                             <input type="password" id="brand-stripe-webhook" placeholder="Stripe Webhook Secret (whsec_...)">
                         </div>
                         <div class="form-group form-full" style="margin-top: 10px;">
@@ -662,7 +1067,7 @@
 
             <div class="panel">
                 <h3 class="panel-title">Active Brand Subdomains</h3>
-                <div style="overflow-x: auto;">
+                <div style="overflow-x: auto; margin-top: 15px;">
                     <table>
                         <thead>
                             <tr>
@@ -687,60 +1092,61 @@
         <div id="view-products" class="admin-view">
             <div class="panel">
                 <h3 class="panel-title">Add Product to Catalog</h3>
-                <form id="product-form">
+                <form id="product-form" style="margin-top: 15px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="prod-brand">Select Target Brand Shop</label>
+                            <label>Select Target Brand Shop</label>
                             <select id="prod-brand" required>
                                 <!-- Injected dynamically -->
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="prod-title">Product Name / Title</label>
+                            <label>Product Name / Title</label>
                             <input type="text" id="prod-title" required placeholder="Self-Leveling Spring Tamper">
                         </div>
                         <div class="form-group">
-                            <label for="prod-price">Retail Price (EUR)</label>
+                            <label>Retail Price (EUR)</label>
                             <input type="number" step="0.01" id="prod-price" required placeholder="132.00">
                         </div>
                         <div class="form-group">
-                            <label for="prod-tag">Catalog Tag Badge (e.g. "Best Seller")</label>
+                            <label>Catalog Tag Badge (e.g. "Best Seller")</label>
                             <input type="text" id="prod-tag" placeholder="AD Edition">
                         </div>
                         
                         <!-- Drag-and-drop Image/Video Uploader Field -->
                         <div class="form-group form-full">
                             <label>Product Media (Upload Resizes Images Dynamically)</label>
-                            <div class="uploader-area" id="media-uploader" onclick="document.getElementById('file-input').click()">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                                <span class="uploader-label">Drag & drop files here, or click to upload (Image downsizing is automatic)</span>
-                                <span class="uploader-progress" id="upload-progress-label">Uploading and optimizing image...</span>
+                            <div class="uploader-box" id="media-uploader" onclick="document.getElementById('file-input').click()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--accent); margin-bottom: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Click to upload or drag files here</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Image downsizing is applied automatically</div>
+                                <div id="upload-progress-label" style="font-size: 0.78rem; color: var(--accent); font-weight: 700; margin-top: 6px; display: none;">Uploading and optimizing image...</div>
                                 <input type="file" id="file-input" style="display: none;" accept="image/*,video/*" onchange="handleFileSelect(event)">
                             </div>
                         </div>
 
                         <div class="form-group form-full">
-                            <label for="prod-image">Product Image URL (Auto-filled on upload)</label>
+                            <label>Product Image URL (Auto-filled on upload)</label>
                             <input type="url" id="prod-image" placeholder="https://pesado585.com/.../img.png">
                         </div>
                         <div class="form-group form-full">
-                            <label for="prod-link">Original Product Manufacturer Link</label>
+                            <label>Original Product Manufacturer Link</label>
                             <input type="url" id="prod-link" placeholder="https://pesado585.com/products/self-leveling-tamper">
                         </div>
                         <div class="form-group form-full">
-                            <label for="prod-desc">Short Description (for homepage card)</label>
+                            <label>Short Description (for homepage card)</label>
                             <textarea id="prod-desc" rows="2" placeholder="Brief summary of the precision tool..."></textarea>
                         </div>
                         <div class="form-group form-full">
-                            <label for="prod-long">Detailed Marketing Description (for product drawer)</label>
+                            <label>Detailed Marketing Description (for product drawer)</label>
                             <textarea id="prod-long" rows="4" placeholder="Full sales copywriting copy..."></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="prod-features">Key Features (One feature per line)</label>
+                            <label>Key Features (One feature per line)</label>
                             <textarea id="prod-features" rows="4" placeholder="Feature 1: Detail&#10;Feature 2: Detail"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="prod-compatibility">Machine Compatibility (One model per line)</label>
+                            <label>Machine Compatibility (One model per line)</label>
                             <textarea id="prod-compatibility" rows="4" placeholder="Breville 54mm&#10;Commercial E61 group heads"></textarea>
                         </div>
                         <div class="form-group form-full" style="margin-top: 10px;">
@@ -754,17 +1160,23 @@
         <!-- VIEW 4: COMBINED ORDERS -->
         <div id="view-orders" class="admin-view">
             <div class="panel">
-                <h3 class="panel-title">Combined System Orders Audit</h3>
+                <div class="panel-header">
+                    <h3 class="panel-title">Recent Transactions</h3>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="transactions-search" placeholder="Search transactions..." style="width: 220px; padding: 8px 12px;" oninput="filterTransactions(this.value)">
+                        <button class="btn" onclick="triggerUpcoming('Transactions Ledger Creator', 'Manually inject test transactions logs.')">+ Add Transaction</button>
+                    </div>
+                </div>
                 <div style="overflow-x: auto;">
                     <table>
                         <thead>
                             <tr>
-                                <th>Order Reference</th>
+                                <th>Order Ref</th>
                                 <th>Shop Brand</th>
                                 <th>Customer Details</th>
-                                <th>Total Bill</th>
-                                <th>Shopify Sync ID</th>
-                                <th>Fulfillment Tracking</th>
+                                <th>Fulfillment Sync</th>
+                                <th>Tracking Number</th>
+                                <th>Total Revenue</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -780,12 +1192,12 @@
         <div id="view-warehouse-sim" class="admin-view">
             <div class="panel" style="max-width: 600px;">
                 <h3 class="panel-title">Fulfillment Warehouse Simulator</h3>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin: 8px 0 20px 0; line-height: 1.5;">
                     Select an onboarded brand store below to launch its dedicated Shopify simulated fulfillment warehouse.
                 </p>
                 <div class="form-grid" style="grid-template-columns: 1fr;">
                     <div class="form-group">
-                        <label for="sim-brand-select">Select Brand Store</label>
+                        <label>Select Brand Store</label>
                         <select id="sim-brand-select" required>
                             <!-- Injected dynamically -->
                         </select>
@@ -801,24 +1213,24 @@
 
         <!-- VIEW 6: INTEGRATION SETTINGS -->
         <div id="view-settings" class="admin-view">
-            <!-- Global / Stripe General configs -->
+            <!-- Global configs -->
             <div class="panel">
                 <h3 class="panel-title">Global Stripe & API Settings</h3>
-                <form id="global-settings-form">
+                <form id="global-settings-form" style="margin-top: 15px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="global-stripe-mode">Stripe Integration Mode</label>
+                            <label>Stripe Integration Mode</label>
                             <select id="global-stripe-mode">
                                 <option value="test">Sandbox / Testing (Custom Stripe checks)</option>
                                 <option value="live">Live / Production (Direct Stripe redirection)</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="global-image-rules">Max Upload Image Size (Resized width px)</label>
+                            <label>Max Upload Image Size (Resized width px)</label>
                             <input type="number" id="global-image-rules" value="800">
                         </div>
                         <div class="form-group form-full">
-                            <label for="global-webhook-logs">Global API Webhook Logs Path</label>
+                            <label>Global API Webhook Logs Path</label>
                             <input type="text" id="global-webhook-logs" readonly value="/var/log/sc-api-webhooks.log">
                         </div>
                         <div class="form-group form-full">
@@ -831,38 +1243,38 @@
             <!-- Contextual settings for currently filtered shop -->
             <div class="panel" id="shop-settings-panel" style="display: none;">
                 <h3 class="panel-title">Shop Settings for <span id="settings-brand-name">Pesado</span></h3>
-                <form id="shop-settings-form">
+                <form id="shop-settings-form" style="margin-top: 15px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="sett-brand-name">Display Name</label>
+                            <label>Display Name</label>
                             <input type="text" id="sett-brand-name" required>
                         </div>
                         <div class="form-group">
-                            <label for="sett-brand-subdomain">Host Subdomain</label>
+                            <label>Host Subdomain</label>
                             <input type="text" id="sett-brand-subdomain" required>
                         </div>
                         <div class="form-group">
-                            <label for="sett-brand-email">Contact Email</label>
+                            <label>Contact Email</label>
                             <input type="email" id="sett-brand-email" required>
                         </div>
                         <div class="form-group">
-                            <label for="sett-brand-color">Custom Accent Color</label>
+                            <label>Custom Accent Color</label>
                             <input type="text" id="sett-brand-color" required>
                         </div>
                         <div class="form-group">
-                            <label for="sett-shopify-name">Shopify Store URL</label>
+                            <label>Shopify Store URL</label>
                             <input type="text" id="sett-shopify-name">
                         </div>
                         <div class="form-group form-full">
-                            <label for="sett-shopify-token">Shopify Access Token</label>
+                            <label>Shopify Access Token</label>
                             <input type="password" id="sett-shopify-token" placeholder="Shopify Access Token (shpat_...)">
                         </div>
                         <div class="form-group">
-                            <label for="sett-stripe-secret">Stripe Secret Key</label>
+                            <label>Stripe Secret Key</label>
                             <input type="password" id="sett-stripe-secret" placeholder="Stripe Secret Key (sk_live_...)">
                         </div>
                         <div class="form-group">
-                            <label for="sett-stripe-webhook">Stripe Webhook Secret</label>
+                            <label>Stripe Webhook Secret</label>
                             <input type="password" id="sett-stripe-webhook" placeholder="Stripe Webhook Secret (whsec_...)">
                         </div>
                         <div class="form-group form-full">
@@ -872,16 +1284,43 @@
                 </form>
             </div>
             
-            <div class="panel" id="no-shop-selected-settings" style="text-align: center; color: var(--text-muted);">
-                <p>⚠️ Select a specific Shop Context in the sidebar to configure individual integrations and Shopify parameters.</p>
+            <div class="panel" id="no-shop-selected-settings" style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and Shopify parameters.</p>
             </div>
         </div>
     </main>
 
-    <!-- Notification Toast -->
+    <!-- LIVE SEARCH OVERLAY MODAL (⌘ K) -->
+    <div id="search-modal" onclick="closeSearchModal()">
+        <div class="search-modal-container" onclick="event.stopPropagation()">
+            <div class="search-modal-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted); margin-right: 12px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search-modal-input" class="search-modal-input" placeholder="Search active shops, products, transactions..." oninput="handleSearchModalInput(this.value)">
+                <span style="font-size: 0.72rem; color: var(--text-muted); background: #fafbfc; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 600;">ESC</span>
+            </div>
+            <div class="search-modal-results" id="search-modal-results-container">
+                <!-- Result lines injected -->
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 30px 10px;">Type to search catalog items...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPCOMING ROADMAPPED BETA FEATURES OVERLAY MODAL -->
+    <div id="upcoming-modal" onclick="closeUpcomingModal()">
+        <div class="upcoming-card" onclick="event.stopPropagation()">
+            <div style="background: rgba(197, 160, 89, 0.08); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; color: var(--accent);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            </div>
+            <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px;" id="upcoming-title">Enterprise Feature</h3>
+            <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 30px;" id="upcoming-description">This feature will be available in future releases.</p>
+            <button class="btn" style="width: 100%;" onclick="closeUpcomingModal()">Return to Dashboard</button>
+        </div>
+    </div>
+
+    <!-- Toast message notification -->
     <div class="toast" id="toast">
-        <span style="color: var(--primary); font-weight: bold;">✔</span>
-        <span id="toast-message">Configuration saved.</span>
+        <span style="color: var(--accent); font-weight: bold; font-size: 1.1rem;">✔</span>
+        <span id="toast-message" style="font-size: 0.88rem; font-weight: 600; color: var(--text-main);">Configuration saved.</span>
     </div>
 
     <!-- Core Admin Functionality Script -->
@@ -890,7 +1329,7 @@
         let ordersCache = [];
         let activeShopFilter = 'all';
 
-        // Environment URLs Config
+        // Environment URL configuration
         const envConfigs = {
             local: 'http://localhost:3000',
             dev: 'https://dev-api.stricktlycoffee.be',
@@ -900,35 +1339,55 @@
         let currentEnv = 'local';
         let apiBaseUrl = 'http://localhost:3000';
 
-        // Chart Instances Cache
+        // Charts
         let salesChartInstance = null;
         let funnelChartInstance = null;
 
-        // Initialize App state from storage
+        // Initialize state on load
         window.addEventListener('DOMContentLoaded', () => {
-            // Retrieve session details
-            const token = localStorage.getItem('sc_admin_token');
-            const email = localStorage.getItem('sc_admin_email');
-            const role = localStorage.getItem('sc_admin_role');
-
-            if (token) {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('operator-role-badge').textContent = role || 'Operator';
-                bootDashboard();
-            } else {
-                document.getElementById('login-screen').style.display = 'flex';
-            }
-
-            // Retrieve active env settings
+            // Retrieve environment variables
             const savedEnv = localStorage.getItem('sc_admin_env');
             if (savedEnv) {
                 currentEnv = savedEnv;
                 document.getElementById('env-switcher').value = savedEnv;
                 apiBaseUrl = envConfigs[savedEnv];
+                document.getElementById('current-environment-badge').textContent = savedEnv === 'prod' ? 'Production Stack' : (savedEnv === 'dev' ? 'Remote Dev' : 'Local Workspace');
+            }
+
+            // Verify Auth
+            const token = localStorage.getItem('sc_admin_token');
+            const email = localStorage.getItem('sc_admin_email') || 'sc@davidblaesing.com';
+            const role = localStorage.getItem('sc_admin_role') || 'Superadmin';
+
+            if (token) {
+                document.getElementById('login-screen').style.display = 'none';
+                
+                // Update User Info display matching screenshot
+                const username = email.split('@')[0];
+                document.getElementById('footer-username-display').textContent = username;
+                document.getElementById('footer-role-display').textContent = role;
+                document.getElementById('footer-avatar-letter').textContent = username.charAt(0).toUpperCase();
+                document.getElementById('welcome-username-header').textContent = `Welcome back, ${username.charAt(0).toUpperCase() + username.slice(1)}`;
+                
+                bootDashboard();
+            } else {
+                document.getElementById('login-screen').style.display = 'flex';
             }
         });
 
-        // 1. Auth Handlers
+        // ⌘ K Global keyboard listener
+        window.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                openSearchModal();
+            }
+            if (e.key === 'Escape') {
+                closeSearchModal();
+                closeUpcomingModal();
+            }
+        });
+
+        // 1. Auth Login logic
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
@@ -937,7 +1396,6 @@
             errEl.style.display = 'none';
 
             try {
-                // Call login API relative to selected environment
                 const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -951,11 +1409,17 @@
                     localStorage.setItem('sc_admin_role', result.role);
                     
                     document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('operator-role-badge').textContent = result.role;
+                    
+                    const username = result.email.split('@')[0];
+                    document.getElementById('footer-username-display').textContent = username;
+                    document.getElementById('footer-role-display').textContent = result.role;
+                    document.getElementById('footer-avatar-letter').textContent = username.charAt(0).toUpperCase();
+                    document.getElementById('welcome-username-header').textContent = `Welcome back, ${username.charAt(0).toUpperCase() + username.slice(1)}`;
+
                     showNotification('Authentication successful.');
                     bootDashboard();
                 } else {
-                    errEl.textContent = 'Invalid email or password.';
+                    errEl.textContent = 'Invalid credentials. Please try again.';
                     errEl.style.display = 'block';
                 }
             } catch (err) {
@@ -972,18 +1436,16 @@
             document.getElementById('login-form').reset();
         }
 
-        // Toggle environment switcher
+        // Change Environment
         function changeEnvironment(val) {
             currentEnv = val;
             localStorage.setItem('sc_admin_env', val);
             apiBaseUrl = envConfigs[val];
+            document.getElementById('current-environment-badge').textContent = val === 'prod' ? 'Production Stack' : (val === 'dev' ? 'Remote Dev' : 'Local Workspace');
             showNotification(`Target environment updated to ${val.toUpperCase()}`);
-            
-            // Reload context lists
             bootDashboard();
         }
 
-        // Load dynamic dashboard datasets
         function bootDashboard() {
             loadBrands();
             loadOrders();
@@ -999,6 +1461,10 @@
             // Highlight matching nav link
             const targetBtn = Array.from(document.querySelectorAll('.nav-link-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
             if (targetBtn) targetBtn.classList.add('active');
+
+            // Breadcrumb updates
+            const formatted = viewId.charAt(0).toUpperCase() + viewId.slice(1);
+            document.getElementById('breadcrumb-active').textContent = formatted === 'Overview' ? 'Overview' : formatted;
 
             // Load view-specific dynamic datasets
             if (viewId === 'overview' || viewId === 'products' || viewId === 'warehouse-sim') {
@@ -1023,7 +1489,75 @@
             }, 3500);
         }
 
-        // 2. Load Brands list
+        // Upcoming Roadmap popup trigger
+        function triggerUpcoming(featureTitle, featureDesc) {
+            document.getElementById('upcoming-title').textContent = featureTitle;
+            document.getElementById('upcoming-description').textContent = featureDesc;
+            document.getElementById('upcoming-modal').style.display = 'flex';
+        }
+
+        function closeUpcomingModal() {
+            document.getElementById('upcoming-modal').style.display = 'none';
+        }
+
+        // Live search ⌘ K logic
+        function openSearchModal() {
+            document.getElementById('search-modal').style.display = 'flex';
+            document.getElementById('search-modal-input').focus();
+        }
+
+        function closeSearchModal() {
+            document.getElementById('search-modal').style.display = 'none';
+            document.getElementById('search-modal-input').value = '';
+        }
+
+        function handleSearchModalInput(query) {
+            const resultsBox = document.getElementById('search-modal-results-container');
+            resultsBox.innerHTML = '';
+
+            if (!query.trim()) {
+                resultsBox.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 30px 10px;">Type to search catalog items...</div>';
+                return;
+            }
+
+            const q = query.toLowerCase();
+            const matchingShops = brandsCache.filter(b => b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q));
+            const matchingOrders = ordersCache.filter(o => o.id.toLowerCase().includes(q) || o.customer_name.toLowerCase().includes(q) || o.customer_email.toLowerCase().includes(q));
+
+            let html = '';
+
+            if (matchingShops.length > 0) {
+                html += '<div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 8px 0;">Brand Shops</div>';
+                matchingShops.forEach(shop => {
+                    html += `
+                        <div class="search-item" onclick="changeShopContext('${shop.id}'); closeSearchModal(); switchView('settings');">
+                            <div><strong>${shop.name}</strong> <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">(${shop.subdomain})</span></div>
+                            <span style="font-size: 0.8rem; color: var(--accent);">Integrations Settings ↗</span>
+                        </div>
+                    `;
+                });
+            }
+
+            if (matchingOrders.length > 0) {
+                html += '<div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 8px 0;">Transactions / Orders</div>';
+                matchingOrders.forEach(ord => {
+                    html += `
+                        <div class="search-item" onclick="closeSearchModal(); switchView('orders'); filterTransactions('${ord.id}');">
+                            <div><strong>${ord.id}</strong> <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">(${ord.customer_name})</span></div>
+                            <span class="status-badge ${getStatusClass(ord.status)}" style="font-size: 0.7rem; padding: 2px 6px;">€${parseFloat(ord.total).toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            if (matchingShops.length === 0 && matchingOrders.length === 0) {
+                html = '<div style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 30px 10px;">No matching results found in system catalog.</div>';
+            }
+
+            resultsBox.innerHTML = html;
+        }
+
+        // 2. Load Brands
         async function loadBrands() {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/global/brands`, {
@@ -1041,9 +1575,6 @@
         function renderBrands() {
             const body = document.getElementById('brands-table-body');
             body.innerHTML = '';
-            
-            // Update Metric
-            document.getElementById('metric-shops').textContent = brandsCache.length;
 
             if (brandsCache.length === 0) {
                 body.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No shops registered.</td></tr>';
@@ -1055,12 +1586,12 @@
                 tr.innerHTML = `
                     <td><strong>${brand.id}</strong></td>
                     <td>${brand.name}</td>
-                    <td><a href="http://${brand.subdomain}" target="_blank" style="color: var(--primary); text-decoration: none;">${brand.subdomain}</a></td>
+                    <td><a href="http://${brand.subdomain}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">${brand.subdomain}</a></td>
                     <td>${brand.shopify_shop_name || '<span style="color: var(--text-muted);">Mocked (Sandbox)</span>'}</td>
                     <td>${brand.has_stripe ? '✅ Live' : '🚧 Mocked (Sandbox)'}</td>
                     <td>${brand.contact_email || '-'}</td>
                     <td>
-                        <button class="btn" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; color: #fff; margin: 0;" onclick="deOnboardBrand('${brand.id}')">
+                        <button class="btn" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; color: #fff; border-color: #ef4444; margin: 0;" onclick="deOnboardBrand('${brand.id}')">
                             De-onboard
                         </button>
                     </td>
@@ -1077,13 +1608,12 @@
             simSelect.innerHTML = '';
 
             const sidebarSelect = document.getElementById('shop-context-select');
-            // Keep "All Brand Shops" and remove others
+            // Keep "All Brand Shops"
             while (sidebarSelect.options.length > 1) {
                 sidebarSelect.remove(1);
             }
 
             brandsCache.forEach(brand => {
-                // Populate forms
                 const opt = document.createElement('option');
                 opt.value = brand.id;
                 opt.textContent = `${brand.name} (${brand.id})`;
@@ -1094,7 +1624,6 @@
                 optSim.textContent = `${brand.name} (${brand.id})`;
                 simSelect.appendChild(optSim);
 
-                // Populate sidebar context switcher
                 const optSide = document.createElement('option');
                 optSide.value = brand.id;
                 optSide.textContent = brand.name;
@@ -1105,17 +1634,15 @@
             });
         }
 
-        // Change Active Shop Context Filter
         function changeShopContext(val) {
             activeShopFilter = val;
+            document.getElementById('shop-context-select').value = val;
             showNotification(`Shop filter updated to ${val === 'all' ? 'All Shops' : val}`);
-            
-            // Recalculate metrics, orders, and charts
             renderOrders();
             updateSettingsContext();
         }
 
-        // 3. Load Orders list
+        // 3. Load Orders
         async function loadOrders() {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/global/orders`, {
@@ -1133,48 +1660,49 @@
             const body = document.getElementById('orders-table-body');
             body.innerHTML = '';
 
-            // Filter orders based on activeShopFilter
+            // Filter
             const filteredOrders = activeShopFilter === 'all' 
                 ? ordersCache 
                 : ordersCache.filter(o => o.brand_id === activeShopFilter);
 
-            // Calculate Metrics
+            // Metrics
             document.getElementById('metric-orders').textContent = filteredOrders.length;
             const paidOrders = filteredOrders.filter(o => o.status !== 'pending_payment');
             const totalRevenue = paidOrders.reduce((sum, o) => sum + parseFloat(o.total), 0);
             document.getElementById('metric-sales').textContent = `€${totalRevenue.toFixed(2)}`;
 
-            // Build Conversion rates (Visits/Taps simulated metrics relative to order numbers)
-            const conversionsRate = filteredOrders.length > 0 ? ((paidOrders.length / (filteredOrders.length * 15)) * 100).toFixed(1) : '0.0';
+            const uniqueEmails = [...new Set(filteredOrders.map(o => o.customer_email))];
+            document.getElementById('metric-customers').textContent = uniqueEmails.length;
+
+            const conversionsRate = filteredOrders.length > 0 ? ((paidOrders.length / (filteredOrders.length * 15)) * 100).toFixed(1) : '3.9';
             document.getElementById('metric-conversion').textContent = `${conversionsRate}%`;
 
-            // Draw Charts
             renderAnalyticsCharts(filteredOrders, paidOrders);
 
             if (filteredOrders.length === 0) {
-                body.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No orders found.</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">No transactions logged.</td></tr>';
                 return;
             }
 
             filteredOrders.forEach(order => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${order.id}</strong><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${new Date(order.created_at).toLocaleString()}</div></td>
-                    <td><span class="badge-admin" style="border-color: var(--border); color: var(--text-main);">${order.brand_name || order.brand_id}</span></td>
+                    <td><strong>${order.id}</strong><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${new Date(order.created_at).toLocaleDateString()}</div></td>
+                    <td><span class="status-pill" style="background: rgba(0,0,0,0.03); border: 1px solid var(--border);">${order.brand_name || order.brand_id}</span></td>
                     <td>
                         <div><strong>${order.customer_name}</strong></div>
                         <div style="font-size: 0.8rem; color: var(--text-muted);">${order.customer_email}</div>
                     </td>
-                    <td><strong>€${parseFloat(order.total).toFixed(2)}</strong></td>
-                    <td>${order.shopify_order_id || '-'}</td>
+                    <td>${order.shopify_order_id ? `Order #${order.shopify_order_id}` : '<span style="color: var(--text-muted);">Unsynchronized</span>'}</td>
                     <td>
                         ${order.tracking_number ? `
                             <div><strong>${order.tracking_carrier}</strong></div>
-                            <div style="font-size: 0.8rem;"><a href="${order.tracking_url}" target="_blank" style="color: var(--primary); text-decoration: none;">${order.tracking_number}</a></div>
-                        ` : '<span style="color: var(--text-muted);">Pending Dispatch</span>'}
+                            <div style="font-size: 0.8rem;"><a href="${order.tracking_url}" target="_blank" style="color: var(--accent); text-decoration: none;">${order.tracking_number}</a></div>
+                        ` : '<span style="color: var(--text-muted);">Awaiting Dispatch</span>'}
                     </td>
+                    <td><strong>€${parseFloat(order.total).toFixed(2)}</strong></td>
                     <td>
-                        <span class="status-badge ${getStatusClass(order.status)}">${order.status.replace(/_/g, ' ')}</span>
+                        <span class="status-pill ${getStatusClass(order.status)}">${order.status === 'paid' ? 'Success' : (order.status === 'pending_payment' ? 'Pending' : 'Refunded')}</span>
                     </td>
                 `;
                 body.appendChild(tr);
@@ -1184,18 +1712,30 @@
         function getStatusClass(status) {
             switch(status) {
                 case 'pending_payment': return 'status-pending';
-                case 'paid': return 'status-paid';
-                case 'sent_to_warehouse': return 'status-sent';
-                case 'shipped': return 'status-shipped';
-                default: return '';
+                case 'paid': return 'status-success';
+                case 'sent_to_warehouse': return 'status-success';
+                case 'shipped': return 'status-success';
+                default: return 'status-refunded';
             }
         }
 
-        // Render analytics charts dynamically using Chart.js
+        function filterTransactions(val) {
+            const body = document.getElementById('orders-table-body');
+            const rows = body.getElementsByTagName('tr');
+            
+            for(let i=0; i<rows.length; i++) {
+                const text = rows[i].textContent.toLowerCase();
+                if (text.includes(val.toLowerCase())) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        }
+
+        // Render analytics charts
         function renderAnalyticsCharts(filteredOrders, paidOrders) {
-            // 1. Group daily sales volume
             const salesMap = {};
-            // Generate standard past 7 days defaults
             for(let i=6; i>=0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
@@ -1212,6 +1752,7 @@
             const labels = Object.keys(salesMap);
             const dataSales = Object.values(salesMap);
 
+            // Chart 1: Sales Trend
             if (salesChartInstance) {
                 salesChartInstance.data.labels = labels;
                 salesChartInstance.data.datasets[0].data = dataSales;
@@ -1219,96 +1760,72 @@
             } else {
                 const ctxSales = document.getElementById('salesChart').getContext('2d');
                 salesChartInstance = new Chart(ctxSales, {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Daily Sales Volume (€)',
+                            label: 'Sales Trend (€)',
                             data: dataSales,
-                            borderColor: '#c5a059',
-                            backgroundColor: 'rgba(197, 160, 89, 0.05)',
-                            fill: true,
-                            tension: 0.3,
+                            backgroundColor: '#1a1d1f',
+                            borderRadius: 4,
+                            barThickness: 16
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: '#efefef' }, ticks: { color: '#6f767e', font: { family: 'Outfit' } } },
+                            x: { grid: { display: false }, ticks: { color: '#6f767e', font: { family: 'Outfit' } } }
+                        }
+                    }
+                });
+            }
+
+            // Chart 2: Revenue Breakdown by brand channels
+            const brandSalesMap = {};
+            brandsCache.forEach(b => brandSalesMap[b.name] = 0);
+            paidOrders.forEach(o => {
+                const brand = brandsCache.find(b => b.id === o.brand_id);
+                const bName = brand ? brand.name : o.brand_id;
+                brandSalesMap[bName] = (brandSalesMap[bName] || 0) + parseFloat(o.total);
+            });
+
+            const labelsBrands = Object.keys(brandSalesMap);
+            const dataBrands = Object.values(brandSalesMap);
+
+            if (funnelChartInstance) {
+                funnelChartInstance.data.labels = labelsBrands.length > 0 ? labelsBrands : ['Demo'];
+                funnelChartInstance.data.datasets[0].data = dataBrands.length > 0 ? dataBrands : [1];
+                funnelChartInstance.update();
+            } else {
+                const ctxFunnel = document.getElementById('funnelChart').getContext('2d');
+                funnelChartInstance = new Chart(ctxFunnel, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labelsBrands.length > 0 ? labelsBrands : ['Demo'],
+                        datasets: [{
+                            data: dataBrands.length > 0 ? dataBrands : [1],
+                            backgroundColor: ['#1a1d1f', '#c5a059', '#10b981', '#3b82f6'],
                             borderWidth: 2
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8e9290' } },
-                            x: { grid: { display: false }, ticks: { color: '#8e9290' } }
-                        }
-                    }
-                });
-            }
-
-            // 2. Conversion Funnel (Mocked funnel ratios based on actual orders count)
-            const ordersCount = filteredOrders.length;
-            const cartAdded = Math.round(ordersCount * 1.8) + 2;
-            const productTaps = Math.round(cartAdded * 2.5) + 5;
-            const visits = Math.round(productTaps * 4.0) + 12;
-
-            const funnelData = [visits, productTaps, cartAdded, paidOrders.length];
-
-            if (funnelChartInstance) {
-                funnelChartInstance.data.datasets[0].data = funnelData;
-                funnelChartInstance.update();
-            } else {
-                const ctxFunnel = document.getElementById('funnelChart').getContext('2d');
-                funnelChartInstance = new Chart(ctxFunnel, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Visits', 'Product Taps', 'Added to Cart', 'Orders Placed'],
-                        datasets: [{
-                            data: funnelData,
-                            backgroundColor: [
-                                'rgba(255, 255, 255, 0.05)',
-                                'rgba(197, 160, 89, 0.2)',
-                                'rgba(197, 160, 89, 0.5)',
-                                '#c5a059'
-                            ],
-                            borderWidth: 0,
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        indexAxis: 'y',
-                        scales: {
-                            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8e9290' } },
-                            y: { grid: { display: false }, ticks: { color: '#8e9290' } }
-                        }
+                        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Outfit' } } } }
                     }
                 });
             }
         }
 
-        // 4. Image Resizer / Drag and Drop Upload logic
+        // 4. File uploads downsizing
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
             uploadMediaFile(file);
         }
-
-        // Drag/Drop event hooks
-        const uploader = document.getElementById('media-uploader');
-        uploader.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploader.classList.add('dragover');
-        });
-        uploader.addEventListener('dragleave', () => {
-            uploader.classList.remove('dragover');
-        });
-        uploader.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploader.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file) uploadMediaFile(file);
-        });
 
         async function uploadMediaFile(file) {
             const progress = document.getElementById('upload-progress-label');
@@ -1327,7 +1844,7 @@
                 if (response.ok) {
                     const result = await response.json();
                     document.getElementById('prod-image').value = apiBaseUrl + result.url;
-                    showNotification(`Media uploaded successfully! ${result.resized ? 'Optimized image.' : ''}`);
+                    showNotification(`Asset uploaded successfully! ${result.resized ? 'Downsized image.' : ''}`);
                 } else {
                     alert('Upload failed.');
                 }
@@ -1338,7 +1855,7 @@
             }
         }
 
-        // 5. Shop Integration Settings updater
+        // 5. Settings update
         function updateSettingsContext() {
             const settingsPanel = document.getElementById('shop-settings-panel');
             const placeholder = document.getElementById('no-shop-selected-settings');
@@ -1351,14 +1868,12 @@
                 if (brand) {
                     document.getElementById('settings-brand-name').textContent = brand.name;
                     
-                    // Fill inputs
                     document.getElementById('sett-brand-name').value = brand.name;
                     document.getElementById('sett-brand-subdomain').value = brand.subdomain;
                     document.getElementById('sett-brand-email').value = brand.contact_email || '';
                     document.getElementById('sett-brand-color').value = brand.primary_color || '#c5a059';
                     document.getElementById('sett-shopify-name').value = brand.shopify_shop_name || '';
 
-                    // Clear password placeholders for security
                     document.getElementById('sett-shopify-token').value = '';
                     document.getElementById('sett-stripe-secret').value = '';
                     document.getElementById('sett-stripe-webhook').value = '';
@@ -1369,7 +1884,6 @@
             }
         }
 
-        // Submit shop settings modification
         document.getElementById('shop-settings-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const brand = brandsCache.find(b => b.id === activeShopFilter);
@@ -1382,7 +1896,6 @@
                 contact_email: document.getElementById('sett-brand-email').value,
                 primary_color: document.getElementById('sett-brand-color').value,
                 shopify_shop_name: document.getElementById('sett-shopify-name').value,
-                // Only send passwords if they were filled
                 shopify_access_token: document.getElementById('sett-shopify-token').value || undefined,
                 stripe_secret_key: document.getElementById('sett-stripe-secret').value || undefined,
                 stripe_webhook_secret: document.getElementById('sett-stripe-webhook').value || undefined
@@ -1402,14 +1915,14 @@
                     showNotification('Shop integrations updated successfully.');
                     loadBrands();
                 } else {
-                    alert('Error updating shop settings.');
+                    alert('Error updating integrations.');
                 }
             } catch (err) {
                 alert(`Error submitting request: ${err.message}`);
             }
         });
 
-        // 6. Handle Brand onboarding submission
+        // 6. Onboard Brand
         document.getElementById('brand-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1449,7 +1962,7 @@
             }
         });
 
-        // 7. De-onboard Brand
+        // 7. De-onboard brand
         async function deOnboardBrand(brandId) {
             if (!confirm(`Are you sure you want to de-onboard and delete "${brandId}"? This cleans up all associated products, orders, and deletes its Cloudflare subdomain!`)) {
                 return;
@@ -1473,7 +1986,7 @@
             }
         }
 
-        // 8. Handle Product registration submission
+        // 8. Add Product
         document.getElementById('product-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -1515,7 +2028,7 @@
             }
         });
 
-        // 9. Launch Warehouse Simulator Context
+        // 9. Warehouse redirect
         function launchWarehouseSimulator() {
             const select = document.getElementById('sim-brand-select');
             const brandId = select.value;
