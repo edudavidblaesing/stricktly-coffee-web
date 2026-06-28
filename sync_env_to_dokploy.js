@@ -42,20 +42,21 @@ envContent.split('\n').forEach(line => {
 
 const apiKey = envVars['DOKPLOY_API_KEY'];
 const dokployUrl = envVars['DOKPLOY_URL'] || 'https://dokploy.dyve.dev';
-const composeId = envVars['DOKPLOY_COMPOSE_ID'];
+const mainComposeId = envVars['DOKPLOY_COMPOSE_ID'] || envVars['DOKPLOY_COMPOSE_ID_SC'];
+const s3ComposeId = envVars['DOKPLOY_COMPOSE_ID_S3'];
 
 if (!apiKey) {
     console.error('[Dokploy Sync] Error: DOKPLOY_API_KEY not found in environment file.');
     process.exit(1);
 }
 
-if (!composeId) {
-    console.error('[Dokploy Sync] Error: DOKPLOY_COMPOSE_ID not found in environment file.');
+if (!mainComposeId && !s3ComposeId) {
+    console.error('[Dokploy Sync] Error: Neither DOKPLOY_COMPOSE_ID nor DOKPLOY_COMPOSE_ID_S3 found in environment file.');
     process.exit(1);
 }
 
 // Function to update env variables
-function syncComposeEnv() {
+function syncComposeEnv(composeId) {
     return new Promise((resolve) => {
         console.log(`[Dokploy Sync] Syncing env variables to Compose ID: ${composeId}...`);
         
@@ -100,7 +101,7 @@ function syncComposeEnv() {
 }
 
 // Function to trigger deployment
-function triggerDeploy() {
+function triggerDeploy(composeId) {
     return new Promise((resolve) => {
         console.log(`[Dokploy Sync] Triggering deployment for Compose ID: ${composeId} via tRPC API...`);
         
@@ -144,17 +145,25 @@ function triggerDeploy() {
 }
 
 async function run() {
-    const syncSuccess = await syncComposeEnv();
-    if (!syncSuccess) {
-        process.exit(1);
+    if (mainComposeId) {
+        console.log(`\n[Dokploy Sync] Deploying Main Compose App (${mainComposeId})...`);
+        const syncSuccess = await syncComposeEnv(mainComposeId);
+        if (!syncSuccess) process.exit(1);
+        
+        const deploySuccess = await triggerDeploy(mainComposeId);
+        if (!deploySuccess) process.exit(1);
     }
     
-    const deploySuccess = await triggerDeploy();
-    if (!deploySuccess) {
-        process.exit(1);
+    if (s3ComposeId) {
+        console.log(`\n[Dokploy Sync] Deploying S3/Backup Compose App (${s3ComposeId})...`);
+        const syncSuccess = await syncComposeEnv(s3ComposeId);
+        if (!syncSuccess) process.exit(1);
+        
+        const deploySuccess = await triggerDeploy(s3ComposeId);
+        if (!deploySuccess) process.exit(1);
     }
     
-    console.log('🎉 [Dokploy Sync & Deploy] All tasks completed successfully!');
+    console.log('\n🎉 [Dokploy Sync & Deploy] All tasks completed successfully!');
     process.exit(0);
 }
 
