@@ -885,6 +885,14 @@
         <span id="announcement-text-span">⚡ Free shipping on all orders over €75!</span>
     </div>
 
+    <!-- Branded 404 Page Container -->
+    <div id="store-404-container" style="display: none; min-height: 80vh; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 24px; font-family: var(--font-body); background-color: var(--bg-color); color: var(--text-main);">
+        <div style="font-family: var(--font-display); font-size: clamp(6rem, 15vw, 10rem); font-weight: 700; color: var(--primary); line-height: 1; margin-bottom: 20px;">404</div>
+        <h2 id="store-404-headline" style="font-size: 2rem; font-weight: 700; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em;">Page Not Found</h2>
+        <p id="store-404-subheadline" style="font-size: 1rem; color: var(--text-muted); max-width: 480px; line-height: 1.6; margin-bottom: 32px;">The page you are looking for doesn't exist or has been moved.</p>
+        <a id="store-404-home-btn" href="#" class="btn btn-primary" style="text-decoration: none; padding: 12px 28px; border-radius: var(--button-radius, 4px); font-weight: 700;">Back to Shop</a>
+    </div>
+
     <!-- Landing Page Section (Promo Offer) -->
     <div id="landing-page-container" style="display: none; min-height: 100vh; background-color: var(--bg-color); color: var(--text-main); font-family: var(--font-body); flex-direction: column; justify-content: center; align-items: center; padding: 60px 24px; position: relative;">
         <!-- Top Branding / Logo -->
@@ -1673,6 +1681,7 @@
                                 settings = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
                             } catch(e) {}
                         }
+                        window.brandSettings = settings;
 
                         // Populate custom landing pages if configured
                         if (settings.landing_pages && Array.isArray(settings.landing_pages)) {

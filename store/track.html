@@ -840,11 +840,23 @@
                 
                 const logoEls = document.querySelectorAll('.logo');
                 logoEls.forEach(logoEl => {
+                    const firstLetter = brand.name ? brand.name.charAt(0).toUpperCase() : 'S';
+                    const faviconUrl = activeFavicon || activeLogo || '';
+                    const faviconImg = faviconUrl 
+                        ? `<img src="${faviconUrl}" alt="${brand.name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
+                        : `<span style="background: var(--primary); color: var(--btn-text-color, var(--bg-color)); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">${firstLetter}</span>`;
+                        
                     if (activeLogo) {
-                        logoEl.innerHTML = `<img src="${activeLogo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;">`;
+                        logoEl.innerHTML = `
+                            <span class="logo-full-wrapper"><img src="${activeLogo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
+                            <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
+                        `;
                     } else if (brand.name) {
                         const parts = brand.name.split(' ');
-                        logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
+                        logoEl.innerHTML = `
+                            <span class="logo-full-wrapper">${parts[0]} <span>${parts.slice(1).join(' ')}</span></span>
+                            <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
+                        `;
                     }
                 });
 
