@@ -51,8 +51,52 @@ services:
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - SHOPIFY_SHOP_NAME=${SHOPIFY_SHOP_NAME}
       - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     networks:
       - web
+    depends_on:
+      - postgres-db
+
+  postgres-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    container_name: postgres-db-prod
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - web
+
+  web-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    ports:
+      - "8082:80"
+      - "8444:443"
+    restart: unless-stopped
+    container_name: web-admin-prod
+    volumes:
+      # Mount SSL certificates (update path to your certificates)
+      - ./ssl:/etc/nginx/ssl:ro
+    environment:
+      - VIRTUAL_HOST=${ADMIN_DOMAIN}
+      - LETSENCRYPT_HOST=${ADMIN_DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    networks:
+      - web
+    depends_on:
+      - backend-core
+
+volumes:
+  postgres_data_prod:
 
 networks:
   web:

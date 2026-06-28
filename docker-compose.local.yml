@@ -39,3 +39,39 @@ services:
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - SHOPIFY_SHOP_NAME=${SHOPIFY_SHOP_NAME}
       - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - postgres-db
+
+  postgres-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    container_name: postgres-db-local
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+
+  web-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    restart: unless-stopped
+    container_name: web-admin-local
+    ports:
+      - "8082:80"
+    volumes:
+      - ./admin:/usr/share/nginx/html/admin:ro
+    depends_on:
+      - backend-core
+
+volumes:
+  postgres_data_local:

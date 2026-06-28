@@ -9,102 +9,135 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Dynamic configuration status logging
-const hasStripe = !!process.env.STRIPE_SECRET_KEY;
-const hasShopify = !!process.env.SHOPIFY_SHOP_NAME && !!process.env.SHOPIFY_ACCESS_TOKEN;
-
-console.log(`Backend Mode: Stripe API is ${hasStripe ? 'ACTIVE' : 'MOCKED (Sandbox)'}`);
-console.log(`Backend Mode: Shopify API is ${hasShopify ? 'ACTIVE' : 'MOCKED (Sandbox)'}`);
-
-const stripe = hasStripe ? new stripeLib(process.env.STRIPE_SECRET_KEY) : null;
-
-// Products Data Catalog
-const products = [
-  {
-    id: 1,
-    title: "High Diffusion Espresso Shower Screen",
-    price: 60.50,
-    currency: "EUR",
-    image: "https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591",
-    description: "Introducing the Pesado High Diffusion Shower Screen. This HD espresso shower screen is designed for precision, ensuring consistency in every shot. Fits E61, La Marzocco, and standard 58mm group heads.",
-    tag: "Best Seller"
-  },
-  {
-    id: 2,
-    title: "Magnetic Espresso Dosing Ring",
-    price: 24.75,
-    currency: "EUR",
-    image: "https://pesado585.com/cdn/shop/files/Pesado54mmMagneticDosingRing.png?v=1740032571",
-    description: "Upgrade your coffee game with our Magnetic Espresso Dosing Ring. It's the efficient and effective way to dose for maximum preparation, preventing messy spills and ensuring all grounds end up in the portafilter.",
-    tag: "Essential"
-  },
-  {
-    id: 3,
-    title: "Spring-Loaded Self-Leveling Tamper",
-    price: 132.00,
-    currency: "EUR",
-    image: "https://pesado585.com/cdn/shop/files/ADTamperFrontOpen.png?v=1734500064",
-    description: "In collaboration with 2022 World Barista Champion Anthony Douglas, we created a self-leveling spring-loaded tamper worthy of barista championships. Perfect consistency and level every single time.",
-    tag: "AD Edition"
-  },
-  {
-    id: 4,
-    title: "High Diffusion Espresso Shower Screen - Breville",
-    price: 55.00,
-    currency: "EUR",
-    image: "https://pesado585.com/cdn/shop/files/BREVILLEHIGHDIFFUSION_79fa8dc9-5393-490c-86b4-a8726e133756.jpg?v=1774927374",
-    description: "Precision Coffee tools for all barista levels. Designed specifically for Breville/Sage 54mm group heads to ensure perfect water distribution and prevent channeling.",
-    tag: "New Release"
-  }
-];
-
-// Helper to resolve product
-const getProductById = (id) => products.find(p => p.id === parseInt(id));
-
 // CORS Enablement
 app.use(cors());
 
-// Stripe Webhook Endpoint (needs raw body)
-app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+// Stripe Instances Cache per brand
+const stripeInstances = {};
+function getStripeInstance(brand) {
+  if (!brand.stripe_secret_key) return null;
+  if (!stripeInstances[brand.id]) {
+    stripeInstances[brand.id] = new stripeLib(brand.stripe_secret_key);
+  }
+  return stripeInstances[brand.id];
+}
+
+// ----------------------------------------------------------------------------
+// STRIPE WEBHOOK (Needs raw body parser)
+// ----------------------------------------------------------------------------
+app.post('/api/webhook/stripe/:brandId', express.raw({ type: 'application/json' }), async (req, res) => {
+  const { brandId } = req.params;
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event;
-
-  if (hasStripe && sig && endpointSecret) {
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    } catch (err) {
-      console.error(`Webhook Error: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).send(`Brand ${brandId} not found`);
     }
-  } else {
-    // If not in live mode, webhooks are simulated via simulated routes
-    return res.status(400).send('Stripe webhook keys missing; webhooks are simulated.');
-  }
 
-  // Handle checkout.session.completed event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    await handleSuccessfulPayment(session.client_reference_id, {
-      name: session.customer_details?.name || 'Customer',
-      email: session.customer_details?.email,
-      address: session.shipping_details || session.customer_details?.address
-    }, session.payment_intent);
-  }
+    const stripe = getStripeInstance(brand);
+    const endpointSecret = brand.stripe_webhook_secret;
 
-  res.json({ received: true });
+    let event;
+
+    if (stripe && sig && endpointSecret) {
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      } catch (err) {
+        console.error(`[Webhook Stripe] Signature verification failed for brand ${brandId}: ${err.message}`);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+      }
+
+      // Handle checkout.session.completed event
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        await handleSuccessfulPayment(session.client_reference_id, {
+          name: session.customer_details?.name || 'Customer',
+          email: session.customer_details?.email,
+          address: session.shipping_details || session.customer_details?.address
+        }, session.payment_intent, brand);
+      }
+    } else {
+      return res.status(400).send('Stripe credentials or webhook signature missing.');
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error(`[Webhook Stripe] Error processing webhook:`, err);
+    res.status(500).send(err.message);
+  }
 });
 
-// JSON parser for all other routes
+// JSON body parser for all other routes
 app.use(express.json());
 
-// Get Products
-app.get('/api/products', (req, res) => {
-  res.json(products);
+// ----------------------------------------------------------------------------
+// MULTI-TENANT BRAND HOST RESOLUTION MIDDLEWARE
+// ----------------------------------------------------------------------------
+app.use(async (req, res, next) => {
+  // Skip brand resolution for global endpoints and Stripe webhook parameters
+  if (req.path.startsWith('/api/global/') || req.path.startsWith('/api/webhook/stripe/')) {
+    return next();
+  }
+
+  const host = req.headers.host || '';
+  const hostname = host.split(':')[0]; // strip port in local dev (e.g. :8081)
+
+  try {
+    // 1. Direct subdomain lookup (e.g. pesado.stricktlycoffee.be)
+    let brand = await getQuery('SELECT * FROM brands WHERE subdomain = $1', [hostname]);
+
+    // 2. Fallback matching for local dev or alternative domains containing brand ID
+    if (!brand) {
+      // Look for a brand whose ID is contained in the hostname (e.g. dev-pesado.stricktlycoffee.be)
+      const allBrands = await allQuery('SELECT * FROM brands');
+      brand = allBrands.find(b => hostname.includes(b.id));
+
+      // 3. Absolute fallback: use the first brand in the DB if none match (usually 'pesado')
+      if (!brand && allBrands.length > 0) {
+        brand = allBrands[0];
+      }
+    }
+
+    if (!brand) {
+      return res.status(404).json({ error: 'Shop tenant brand not found for host ' + hostname });
+    }
+
+    req.brand = brand;
+    next();
+  } catch (err) {
+    console.error('[Middleware] Tenant resolution error:', err);
+    res.status(500).json({ error: 'Internal server error resolving tenant' });
+  }
 });
 
-// Create Checkout Session
+// ----------------------------------------------------------------------------
+// BRAND TENANT API ENDPOINTS
+// ----------------------------------------------------------------------------
+
+// Get resolved brand config (public safe properties)
+app.get('/api/brand', (req, res) => {
+  const { id, name, subdomain, contact_email, primary_color } = req.brand;
+  res.json({ id, name, subdomain, contact_email, primary_color });
+});
+
+// Get Products for the active brand
+app.get('/api/products', async (req, res) => {
+  try {
+    const rows = await allQuery('SELECT * FROM products WHERE brand_id = $1 ORDER BY id ASC', [req.brand.id]);
+    // Parse json columns
+    const parsedRows = rows.map(row => ({
+      ...row,
+      features: row.features ? JSON.parse(row.features) : [],
+      compatibility: row.compatibility ? JSON.parse(row.compatibility) : []
+    }));
+    res.json(parsedRows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create Checkout Session for the active brand
 app.post('/api/checkout', async (req, res) => {
   try {
     const { items, customerName, customerEmail } = req.body;
@@ -113,35 +146,37 @@ app.post('/api/checkout', async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
 
-    // Calculate details and validate items
     let subtotal = 0;
     const validatedItems = [];
     
     for (const cartItem of items) {
-      const prod = getProductById(cartItem.id);
+      // Find product belonging to this brand
+      const prod = await getQuery('SELECT * FROM products WHERE id = $1 AND brand_id = $2', [cartItem.id, req.brand.id]);
       if (!prod) {
-        return res.status(400).json({ error: `Invalid product ID: ${cartItem.id}` });
+        return res.status(400).json({ error: `Invalid product ID for this brand: ${cartItem.id}` });
       }
-      subtotal += prod.price * cartItem.quantity;
+      subtotal += parseFloat(prod.price) * cartItem.quantity;
       validatedItems.push({
         id: prod.id,
         title: prod.title,
-        price: prod.price,
+        price: parseFloat(prod.price),
         quantity: cartItem.quantity,
         image: prod.image
       });
     }
 
-    const total = subtotal; // Simplicity: no shipping/tax logic added here
-    const orderId = `PES_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const total = subtotal;
+    const orderPrefix = req.brand.id.toUpperCase().substring(0, 3);
+    const orderId = `${orderPrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     // Create Order in pending state
     await runQuery(`
-      INSERT INTO orders (id, stripe_session_id, customer_name, customer_email, items, subtotal, total, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO orders (id, brand_id, stripe_session_id, customer_name, customer_email, items, subtotal, total, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `, [
       orderId,
-      orderId, // In mock mode, stripe session is the order ID
+      req.brand.id,
+      orderId, // Temp session ID for mock tracking
       customerName || 'Anonymous User',
       customerEmail || 'no-email@example.com',
       JSON.stringify(validatedItems),
@@ -150,8 +185,8 @@ app.post('/api/checkout', async (req, res) => {
       'pending_payment'
     ]);
 
-    if (hasStripe) {
-      // Create actual Stripe Checkout Session
+    const stripe = getStripeInstance(req.brand);
+    if (stripe) {
       const lineItems = validatedItems.map(item => ({
         price_data: {
           currency: 'eur',
@@ -178,36 +213,39 @@ app.post('/api/checkout', async (req, res) => {
       });
 
       // Update order with the real session ID
-      await runQuery(`
-        UPDATE orders SET stripe_session_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-      `, [session.id, orderId]);
+      await runQuery('UPDATE orders SET stripe_session_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [session.id, orderId]);
 
       res.json({ url: session.url });
     } else {
-      // Return simulation url for sandbox
-      console.log(`[Stripe Sandbox] Order ${orderId} created. Returning mock checkout URL.`);
+      // Mock Sandbox Checkout redirect
+      console.log(`[Stripe Sandbox] Brand ${req.brand.name} checkout. Returning mock checkout URL.`);
       res.json({ 
         url: `/pesado/checkout-mock.html?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}`
       });
     }
   } catch (err) {
-    console.error('Checkout error:', err);
+    console.error('[Checkout] Error initiating checkout:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Simulated checkout confirmation (Sandbox Webhook alternative)
+// Simulated payment trigger for Sandbox
 app.post('/api/admin/simulate-stripe-payment', async (req, res) => {
   const { orderId, name, email, shipping } = req.body;
 
   try {
-    const order = await getQuery('SELECT * FROM orders WHERE id = ?', [orderId]);
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
     if (order.status !== 'pending_payment') {
       return res.status(400).json({ error: 'Order has already been processed' });
+    }
+
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [order.brand_id]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Order brand not found' });
     }
 
     const defaultAddress = {
@@ -223,7 +261,7 @@ app.post('/api/admin/simulate-stripe-payment', async (req, res) => {
       name: name || order.customer_name,
       email: email || order.customer_email,
       address: shipping || defaultAddress
-    }, 'MOCK_PAY_INTENT_' + Date.now());
+    }, 'MOCK_PAY_INTENT_' + Date.now(), brand);
 
     res.json({ success: true, orderId });
   } catch (err) {
@@ -234,9 +272,8 @@ app.post('/api/admin/simulate-stripe-payment', async (req, res) => {
 
 // Shopify fulfillment status webhook callback
 app.post('/api/webhook/shopify', async (req, res) => {
-  // Webhook received from Shopify when an order is updated/fulfilled
   const payload = req.body;
-  const shopifyOrderId = payload.order_id || payload.id;
+  const shopifyOrderId = (payload.order_id || payload.id)?.toString();
   const fulfillment = payload.fulfillment || (payload.fulfillments ? payload.fulfillments[0] : null);
 
   if (fulfillment && shopifyOrderId) {
@@ -245,15 +282,15 @@ app.post('/api/webhook/shopify', async (req, res) => {
     const trackingUrl = fulfillment.tracking_url || `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
 
     try {
-      const order = await getQuery('SELECT * FROM orders WHERE shopify_order_id = ?', [shopifyOrderId]);
+      const order = await getQuery('SELECT * FROM orders WHERE shopify_order_id = $1', [shopifyOrderId]);
       if (order) {
         await runQuery(`
           UPDATE orders 
-          SET status = 'shipped', tracking_number = ?, tracking_carrier = ?, tracking_url = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
+          SET status = 'shipped', tracking_number = $1, tracking_carrier = $2, tracking_url = $3, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $4
         `, [trackingNumber, trackingCarrier, trackingUrl, order.id]);
         
-        console.log(`[Webhook Shopify] Order ${order.id} updated with tracking: ${trackingNumber} via ${trackingCarrier}`);
+        console.log(`[Webhook Shopify] Order ${order.id} marked shipped. Tracking: ${trackingNumber}`);
       }
     } catch (err) {
       console.error('Shopify webhook processing failed:', err);
@@ -263,30 +300,28 @@ app.post('/api/webhook/shopify', async (req, res) => {
   res.status(200).send('OK');
 });
 
-// Retrieve Order tracking details
+// Retrieve single order tracking details
 app.get('/api/order/:id', async (req, res) => {
   try {
-    const order = await getQuery('SELECT * FROM orders WHERE id = ? OR stripe_session_id = ?', [req.params.id, req.params.id]);
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1 OR stripe_session_id = $2', [req.params.id, req.params.id]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Convert items back to object
-    order.items = JSON.parse(order.items);
-    if (order.shipping_address) {
-      order.shipping_address = JSON.parse(order.shipping_address);
-    }
-
-    res.json(order);
+    res.json({
+      ...order,
+      items: JSON.parse(order.items),
+      shipping_address: order.shipping_address ? JSON.parse(order.shipping_address) : null
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Retrieve list of all orders (for Admin / Mock Warehouse Dashboard)
+// Retrieve orders for the active tenant brand (Warehouse dashboard context)
 app.get('/api/admin/orders', async (req, res) => {
   try {
-    const rows = await allQuery('SELECT * FROM orders ORDER BY created_at DESC');
+    const rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [req.brand.id]);
     const parsedRows = rows.map(row => ({
       ...row,
       items: JSON.parse(row.items),
@@ -298,14 +333,14 @@ app.get('/api/admin/orders', async (req, res) => {
   }
 });
 
-// Simulate shopify warehouse dispatch fulfillment
+// Mark order fulfilled
 app.post('/api/admin/fulfill', async (req, res) => {
   const { orderId, trackingNumber, trackingCarrier } = req.body;
 
   try {
-    const order = await getQuery('SELECT * FROM orders WHERE id = ?', [orderId]);
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1 AND brand_id = $2', [orderId, req.brand.id]);
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found for this brand' });
     }
 
     const tNumber = trackingNumber || `TRACK${Math.floor(100000 + Math.random() * 900000)}`;
@@ -314,27 +349,142 @@ app.post('/api/admin/fulfill', async (req, res) => {
 
     await runQuery(`
       UPDATE orders 
-      SET status = 'shipped', tracking_number = ?, tracking_carrier = ?, tracking_url = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      SET status = 'shipped', tracking_number = $1, tracking_carrier = $2, tracking_url = $3, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
     `, [tNumber, tCarrier, tUrl, orderId]);
 
-    console.log(`[Warehouse Simulation] Fulfilling order ${orderId} with tracking code: ${tNumber}`);
+    console.log(`[Warehouse Simulation] Fulfilling order ${orderId} with tracking: ${tNumber}`);
     res.json({ success: true, trackingNumber: tNumber, trackingCarrier: tCarrier });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Process successful payment and dispatch to Shopify
-async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId) {
+// ----------------------------------------------------------------------------
+// SYSTEM ADMINISTRATION API (For onboarding new shops at admin.stricktlycoffee.be)
+// ----------------------------------------------------------------------------
+
+// List all brands
+app.get('/api/global/brands', async (req, res) => {
   try {
-    console.log(`💳 Payment confirmed for order: ${orderId}`);
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify FROM brands ORDER BY id ASC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Onboard new brand
+app.post('/api/global/brands', async (req, res) => {
+  const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color } = req.body;
+
+  if (!id || !name || !subdomain) {
+    return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
+  }
+
+  try {
+    await runQuery(`
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (id) DO UPDATE SET 
+        name = EXCLUDED.name,
+        subdomain = EXCLUDED.subdomain,
+        shopify_shop_name = EXCLUDED.shopify_shop_name,
+        shopify_access_token = EXCLUDED.shopify_access_token,
+        stripe_secret_key = EXCLUDED.stripe_secret_key,
+        stripe_webhook_secret = EXCLUDED.stripe_webhook_secret,
+        contact_email = EXCLUDED.contact_email,
+        primary_color = EXCLUDED.primary_color,
+        updated_at = CURRENT_TIMESTAMP
+    `, [
+      id.trim().toLowerCase(),
+      name,
+      subdomain,
+      shopify_shop_name || null,
+      shopify_access_token || null,
+      stripe_secret_key || null,
+      stripe_webhook_secret || null,
+      contact_email || null,
+      primary_color || '#c5a059'
+    ]);
+
+    res.json({ success: true, brandId: id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add new product to specific brand
+app.post('/api/global/products', async (req, res) => {
+  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility } = req.body;
+
+  if (!brand_id || !title || !price) {
+    return res.status(400).json({ error: 'Missing required fields: brand_id, title, price' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT id FROM brands WHERE id = $1', [brand_id]);
+    if (!brand) {
+      return res.status(400).json({ error: `Brand ${brand_id} does not exist.` });
+    }
+
+    const featuresJson = Array.isArray(features) ? JSON.stringify(features) : features || '[]';
+    const compatibilityJson = Array.isArray(compatibility) ? JSON.stringify(compatibility) : compatibility || '[]';
+
+    await runQuery(`
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `, [
+      brand_id,
+      title,
+      price,
+      currency || 'EUR',
+      image || null,
+      description || null,
+      tag || null,
+      original_link || null,
+      long_description || null,
+      featuresJson,
+      compatibilityJson
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve combined orders across all stores (Consolidated Audit List)
+app.get('/api/global/orders', async (req, res) => {
+  try {
+    const rows = await allQuery(`
+      SELECT o.*, b.name as brand_name 
+      FROM orders o
+      LEFT JOIN brands b ON o.brand_id = b.id
+      ORDER BY o.created_at DESC
+    `);
+    const parsedRows = rows.map(row => ({
+      ...row,
+      items: JSON.parse(row.items),
+      shipping_address: row.shipping_address ? JSON.parse(row.shipping_address) : null
+    }));
+    res.json(parsedRows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// HANDLERS
+// ----------------------------------------------------------------------------
+async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, brand) {
+  try {
+    console.log(`💳 Payment confirmed for order ${orderId} on brand ${brand.name}`);
     
-    // Update local database to Paid
     await runQuery(`
       UPDATE orders 
-      SET status = 'paid', customer_name = ?, customer_email = ?, shipping_address = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      SET status = 'paid', customer_name = $1, customer_email = $2, shipping_address = $3, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
     `, [
       customerInfo.name, 
       customerInfo.email, 
@@ -342,15 +492,14 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId) {
       orderId
     ]);
 
-    const order = await getQuery('SELECT * FROM orders WHERE id = ?', [orderId]);
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!order) return;
 
-    // Send order to Shopify warehouse (dropshipping destination)
+    const hasShopify = !!brand.shopify_shop_name && !!brand.shopify_access_token;
     if (hasShopify) {
-      console.log(`🚚 Transmitting order ${orderId} to Shopify warehouse...`);
+      console.log(`🚚 Transmitting order ${orderId} to Shopify warehouse (${brand.shopify_shop_name})...`);
       const items = JSON.parse(order.items);
       
-      // Structure Shopify JSON request payload
       const shopifyOrderPayload = {
         order: {
           line_items: items.map(item => ({
@@ -374,43 +523,43 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId) {
             country: customerInfo.address?.address?.country || customerInfo.address?.country || 'US'
           },
           financial_status: 'paid',
-          note: `Dropshipped order via Stricktly Coffee Pesado Webshop. Local order Ref: ${orderId}`
+          note: `Dropshipped order via Stricktly Coffee Storefront. Local Ref: ${orderId}`
         }
       };
 
-      const response = await fetch(`https://${process.env.SHOPIFY_SHOP_NAME}/admin/api/2024-04/orders.json`, {
+      const response = await fetch(`https://${brand.shopify_shop_name}/admin/api/2024-04/orders.json`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN
+          'X-Shopify-Access-Token': brand.shopify_access_token
         },
         body: JSON.stringify(shopifyOrderPayload)
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ Order successfully logged in Shopify: ${data.order.id}`);
+        console.log(`✅ Order logged in Shopify: ${data.order.id}`);
         await runQuery(`
           UPDATE orders 
-          SET shopify_order_id = ?, status = 'sent_to_warehouse', updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
+          SET shopify_order_id = $1, status = 'sent_to_warehouse', updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
         `, [data.order.id.toString(), orderId]);
       } else {
         const errorText = await response.text();
         console.error(`❌ Failed to push order to Shopify:`, errorText);
       }
     } else {
-      // Mock shopify integration
+      // Mock Sandbox Shopify fulfillment
       const mockShopifyOrderId = `MOCK_SHOPIFY_${Math.floor(100000 + Math.random() * 900000)}`;
-      console.log(`🚚 [Shopify Sandbox] Creating order in Shopify. Generated mock ID: ${mockShopifyOrderId}`);
+      console.log(`🚚 [Shopify Sandbox] Generating mock shopify ID: ${mockShopifyOrderId}`);
       await runQuery(`
         UPDATE orders 
-        SET shopify_order_id = ?, status = 'sent_to_warehouse', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        SET shopify_order_id = $1, status = 'sent_to_warehouse', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
       `, [mockShopifyOrderId, orderId]);
     }
   } catch (err) {
-    console.error('Error handling successful payment:', err);
+    console.error('Error handling payment completion:', err);
   }
 }
 

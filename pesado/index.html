@@ -659,6 +659,111 @@
             margin-bottom: 28px;
         }
 
+        /* Product Detail Modal styles */
+        .close-modal-x {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .close-modal-x:hover {
+            color: var(--text-main);
+        }
+        .product-detail-container {
+            display: flex;
+            gap: 32px;
+            text-align: left;
+        }
+        .product-detail-media {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            max-height: 380px;
+        }
+        .product-detail-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .product-detail-content {
+            flex: 1.2;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+            gap: 16px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            padding: 8px 0;
+            cursor: pointer;
+            position: relative;
+            transition: var(--transition);
+        }
+        .tab-btn.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--primary);
+        }
+        .tab-content {
+            display: none;
+            min-height: 120px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-content ul {
+            list-style-type: none;
+        }
+        .tab-content li {
+            position: relative;
+            padding-left: 18px;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .tab-content li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-size: 1.2rem;
+            line-height: 1;
+            top: -2px;
+        }
+        
+        @media (max-width: 768px) {
+            .product-detail-container {
+                flex-direction: column;
+            }
+            .product-detail-media {
+                max-height: 260px;
+            }
+        }
+
         /* Footer */
         footer {
             border-top: 1px solid var(--border);
@@ -838,7 +943,46 @@
         <p>Thank you for choosing Pesado precision tools. A verification and tracking email has been sent to you.</p>
         <button class="btn btn-primary" style="width: 100%;" id="close-modal-btn">Continue Shopping</button>
     </div>
-
+    <!-- Product Detail Modal -->
+    <div class="modal" id="product-detail-modal" style="max-width: 650px; padding: 40px 32px 32px 32px;">
+        <button class="close-modal-x" id="close-detail-modal-btn" aria-label="Close details">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <div class="product-detail-container">
+            <div class="product-detail-media">
+                <img id="detail-image" src="" alt="">
+            </div>
+            <div class="product-detail-content">
+                <span class="product-badge" id="detail-badge" style="display: inline-block; margin-bottom: 8px;"></span>
+                <h3 id="detail-title" class="product-title" style="font-size: 1.6rem; margin-bottom: 8px; font-family: var(--font-display);"></h3>
+                <span id="detail-price" class="product-price" style="font-size: 1.4rem; display: block; margin-bottom: 12px; color: var(--primary);"></span>
+                <p id="detail-desc" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;"></p>
+                
+                <div class="detail-tabs">
+                    <button class="tab-btn active" id="tab-features-btn">Features</button>
+                    <button class="tab-btn" id="tab-compatibility-btn">Compatibility</button>
+                </div>
+                
+                <div id="tab-features" class="tab-content active">
+                    <ul id="detail-features" style="padding-left: 0; font-size: 0.85rem; color: var(--text-muted);"></ul>
+                </div>
+                <div id="tab-compatibility" class="tab-content">
+                    <ul id="detail-compatibility" style="padding-left: 0; font-size: 0.85rem; color: var(--text-muted);"></ul>
+                </div>
+                
+                <div style="margin-top: 24px; display: flex; gap: 12px; flex-direction: column;">
+                    <a id="detail-orig-link" href="" target="_blank" class="btn btn-secondary" style="margin: 0; width: 100%; text-align: center; font-size: 0.85rem; justify-content: center; display: flex; align-items: center; text-decoration: none;">View Original Product Page</a>
+                    <button id="detail-add-btn" class="btn btn-primary" style="margin: 0; width: 100%; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Add to Shopping Bag
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Cart Logic JavaScript -->
     <script>
         // Products cache for mapping fallback and cart totals
@@ -868,7 +1012,20 @@
                 price: 60.50,
                 image: "https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591",
                 description: "Introducing the Pesado High Diffusion Shower Screen. This HD espresso shower screen is designed for precision, ensuring consistency in every shot. Fits E61, La Marzocco, and standard 58mm group heads.",
-                tag: "Best Seller"
+                tag: "Best Seller",
+                original_link: "https://pesado585.com/collections/best-sellers/products/pesado-hd-high-diffusion-shower-screen",
+                long_description: "The Pesado HD (High Diffusion) Shower Screen is a precision-engineered upgrade designed to optimize water distribution across the coffee puck, eliminating weak spots and preventing channeling.",
+                features: [
+                    "18 Targeted Channels: Precisely cut channels deliver a balanced and uniform flow.",
+                    "Edge-to-Edge Coverage: Saturation extends to the very edges of the basket.",
+                    "High-Quality 304 Stainless Steel: Offers durability and easy maintenance.",
+                    "E61 and LM Variants available for all standard commercial-style machines."
+                ],
+                compatibility: [
+                    "La Marzocco (Linea Mini, GS3, Strada)",
+                    "Synesso Machines",
+                    "E61 Group Heads (Lelit Bianca, Ascaso Steel)"
+                ]
             },
             {
                 id: 2,
@@ -876,7 +1033,19 @@
                 price: 24.75,
                 image: "https://pesado585.com/cdn/shop/files/Pesado54mmMagneticDosingRing.png?v=1740032571",
                 description: "Upgrade your coffee game with our Magnetic Espresso Dosing Ring. It's the efficient and effective way to dose for maximum preparation, preventing messy spills and ensuring grounds end up in the basket.",
-                tag: "Essential"
+                tag: "Essential",
+                original_link: "https://pesado585.com/collections/best-sellers/products/dosing-ring",
+                long_description: "The Pesado Dosing Ring is a premium accessory designed to prevent coffee waste and spills during the grinding and distribution phases of espresso puck prep.",
+                features: [
+                    "Magnetic Snap-On Base: Securely locks to your portafilter basket.",
+                    "Adjustable Collar Height: Unique adjustable depth ensures a flush fit with any grinder.",
+                    "Sleek Anodized Finish: Durable, aesthetic design in standard black and white gloss.",
+                    "Perfect for WDT: Acts as a containment barrier for intensive distribution techniques."
+                ],
+                compatibility: [
+                    "Standard 58mm Portafilters",
+                    "54mm Portafilters (Breville, Sage, etc.)"
+                ]
             },
             {
                 id: 3,
@@ -884,7 +1053,19 @@
                 price: 132.00,
                 image: "https://pesado585.com/cdn/shop/files/ADTamperFrontOpen.png?v=1734500064",
                 description: "In collaboration with 2022 World Barista Champion Anthony Douglas, we created a self-leveling spring-loaded tamper worthy of barista championships. Perfect consistency and level tamps.",
-                tag: "AD Edition"
+                tag: "AD Edition",
+                original_link: "https://pesado585.com/collections/tamper/products/self-leveling-spring-tamper",
+                long_description: "Crafted in partnership with 2022 World Barista Champion Anthony Douglas, this spring-loaded self-leveling tamper ensures consistent, level, and flat tamping pressure to eliminate human error.",
+                features: [
+                    "Self-Leveling Mechanism: Aligns automatically flat against the basket rim.",
+                    "Spring-Loaded Consistency: Deliver the exact calibrated pressure with every press.",
+                    "58.5mm Precision Base: Sharp 90-degree edge prevents residual coffee rings.",
+                    "Champion-Class Ergonomics: Handle contoured for the palm, thumb, and forefinger."
+                ],
+                compatibility: [
+                    "E61 and commercial 58mm filter baskets",
+                    "Precision baskets (IMS, VST, Pesado)"
+                ]
             },
             {
                 id: 4,
@@ -892,12 +1073,54 @@
                 price: 55.00,
                 image: "https://pesado585.com/cdn/shop/files/BREVILLEHIGHDIFFUSION_79fa8dc9-5393-490c-86b4-a8726e133756.jpg?v=1774927374",
                 description: "Precision Coffee tools for all barista levels. Designed specifically for Breville/Sage 54mm group heads to ensure perfect water distribution and prevent channeling.",
-                tag: "New Release"
+                tag: "New Release",
+                original_link: "https://pesado585.com/products/high-diffusion-espresso-shower-screen-breville",
+                long_description: "The Pesado High Diffusion (HD) Espresso Shower Screen for Breville/Sage is specifically designed to bring commercial-grade water distribution and extraction uniformity to home espresso machines.",
+                features: [
+                    "18 Custom Machined Channels: Distributes water evenly across the entire puck.",
+                    "Wall-to-Wall Coverage: Prevents dry spots or under-extracted borders.",
+                    "Drier Puck Discard: Stabilizes pressure for clean, solid coffee puck removal.",
+                    "Grade 304 Stainless Steel: Durable, rust-resistant, and easily cleaned."
+                ],
+                compatibility: [
+                    "Breville/Sage 54mm (Bambino, Bambino Plus, Barista Pro, Barista Touch)",
+                    "Breville/Sage 58mm Dual Boiler/Oracle (with included MV-HD set replacement plate)"
+                ]
             }
         ];
 
+        // Fetch and load brand configs dynamically
+        async function fetchBrandConfig() {
+            try {
+                const response = await fetch('/api/brand');
+                if (!response.ok) throw new Error();
+                const brand = await response.json();
+                
+                if (brand.primary_color) {
+                    document.documentElement.style.setProperty('--primary', brand.primary_color);
+                }
+                
+                document.title = `${brand.name} | Coffee Equipment & Tools | Barista Accessories`;
+                
+                const logoEl = document.querySelector('.logo');
+                if (logoEl && brand.name) {
+                    const parts = brand.name.split(' ');
+                    logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
+                }
+
+                const footerSpan = document.querySelector('footer span');
+                if (footerSpan) {
+                    footerSpan.textContent = brand.name;
+                }
+            } catch (err) {
+                console.warn('Could not load brand configurations from host API. Using Pesado defaults.');
+            }
+        }
+
         // Fetch and load products from API
         async function loadProducts() {
+            await fetchBrandConfig();
+
             try {
                 const response = await fetch('/api/products');
                 if (!response.ok) throw new Error('API request failed');
@@ -914,6 +1137,11 @@
             storeProducts.forEach(prod => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
+                card.style.cursor = 'pointer';
+                card.onclick = (e) => {
+                    if (e.target.closest('.add-to-cart-btn')) return;
+                    openProductDetails(prod.id);
+                };
                 card.innerHTML = `
                     ${prod.tag ? `<span class="product-badge">${prod.tag}</span>` : ''}
                     <div class="product-image-wrapper">
@@ -933,6 +1161,109 @@
                 `;
                 productsGrid.appendChild(card);
             });
+        }
+
+        // Details Modal Controllers
+        const detailModal = document.getElementById('product-detail-modal');
+        const closeDetailModalBtn = document.getElementById('close-detail-modal-btn');
+        const tabFeaturesBtn = document.getElementById('tab-features-btn');
+        const tabCompatibilityBtn = document.getElementById('tab-compatibility-btn');
+
+        closeDetailModalBtn.addEventListener('click', () => {
+            detailModal.classList.remove('open');
+            cartOverlay.classList.remove('show');
+        });
+
+        tabFeaturesBtn.addEventListener('click', (e) => switchDetailTab(e, 'tab-features'));
+        tabCompatibilityBtn.addEventListener('click', (e) => switchDetailTab(e, 'tab-compatibility'));
+
+        function openProductDetails(id) {
+            const prod = storeProducts.find(p => p.id === id);
+            if (!prod) return;
+
+            document.getElementById('detail-image').src = prod.image;
+            document.getElementById('detail-image').alt = prod.title;
+            
+            const badgeEl = document.getElementById('detail-badge');
+            if (prod.tag) {
+                badgeEl.textContent = prod.tag;
+                badgeEl.style.display = 'inline-block';
+            } else {
+                badgeEl.style.display = 'none';
+            }
+
+            document.getElementById('detail-title').textContent = prod.title;
+            document.getElementById('detail-price').textContent = `€${prod.price.toFixed(2)}`;
+            document.getElementById('detail-desc').textContent = prod.long_description || prod.description;
+
+            // Render features list
+            const featuresList = document.getElementById('detail-features');
+            featuresList.innerHTML = '';
+            const features = Array.isArray(prod.features) ? prod.features : [];
+            if (features.length > 0) {
+                features.forEach(feat => {
+                    const li = document.createElement('li');
+                    li.textContent = feat;
+                    featuresList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = "High precision manufacturing from top-grade materials.";
+                featuresList.appendChild(li);
+            }
+
+            // Render compatibility list
+            const compList = document.getElementById('detail-compatibility');
+            compList.innerHTML = '';
+            const compatibility = Array.isArray(prod.compatibility) ? prod.compatibility : [];
+            if (compatibility.length > 0) {
+                compatibility.forEach(comp => {
+                    const li = document.createElement('li');
+                    li.textContent = comp;
+                    compList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = "Compatible with most standard commercial 58mm espresso group heads.";
+                compList.appendChild(li);
+            }
+
+            // Set original link
+            const origLink = document.getElementById('detail-orig-link');
+            if (prod.original_link) {
+                origLink.href = prod.original_link;
+                origLink.style.display = 'flex';
+            } else {
+                origLink.style.display = 'none';
+            }
+
+            // Setup add to cart button inside modal
+            const addBtn = document.getElementById('detail-add-btn');
+            addBtn.onclick = () => {
+                addToCart(prod.id);
+                detailModal.classList.remove('open');
+                cartOverlay.classList.remove('show');
+            };
+
+            // Switch to features tab by default
+            switchDetailTab({ currentTarget: tabFeaturesBtn }, 'tab-features');
+
+            // Open Modal
+            detailModal.classList.add('open');
+            cartOverlay.classList.add('show');
+        }
+
+        function switchDetailTab(event, tabId) {
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(c => c.classList.remove('active'));
+
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(b => b.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
         }
 
         // Toggle Cart Drawer

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stricktly Coffee | Unified Brand Administration Hub</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080a09;
+            --card-bg: rgba(18, 22, 20, 0.7);
+            --primary: #c5a059;
+            --primary-hover: #b08d47;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --accent: #161a18;
+            --border: rgba(35, 40, 38, 0.6);
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(197, 160, 89, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar navigation */
+        aside {
+            width: 280px;
+            background: rgba(11, 14, 13, 0.9);
+            border-right: 1px solid var(--border);
+            padding: 40px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo-area {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-main);
+        }
+
+        .logo-area span {
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .nav-link-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: var(--font-body);
+            transition: var(--transition);
+        }
+
+        .nav-link-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.02);
+            border-color: var(--border);
+        }
+
+        .nav-link-btn.active {
+            color: var(--bg-color);
+            background-color: var(--primary);
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(197, 160, 89, 0.3);
+        }
+
+        /* Main Workspace */
+        main {
+            margin-left: 280px;
+            flex: 1;
+            padding: 50px 60px;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .badge-admin {
+            background-color: rgba(197, 160, 89, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Views configuration */
+        .admin-view {
+            display: none;
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .admin-view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            font-family: var(--font-display);
+        }
+
+        /* Card panels */
+        .panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .panel-title {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 14px;
+        }
+
+        /* Forms styling */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .form-full {
+            grid-column: span 2;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        input, select, textarea {
+            background: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 18px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            transition: var(--transition);
+            width: 100%;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 10px rgba(197, 160, 89, 0.1);
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 6px;
+            padding: 15px 30px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Table design */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 2px solid var(--border);
+            padding: 16px 20px;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid var(--warning); }
+        .status-paid { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
+        .status-sent { background: rgba(197, 160, 89, 0.1); color: var(--primary); border: 1px solid var(--primary); }
+        .status-shipped { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid #3b82f6; }
+
+        /* Notification toast */
+        .toast {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px 28px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(100px);
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition);
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar navigation -->
+    <aside>
+        <div class="logo-area">
+            Stricktly <span>Coffee</span>
+        </div>
+        <ul class="nav-links">
+            <li>
+                <button class="nav-link-btn active" onclick="switchView('overview')">
+                    Dashboard Overview
+                </button>
+            </li>
+            <li>
+                <button class="nav-link-btn" onclick="switchView('onboard')">
+                    Onboard Brand Shop
+                </button>
+            </li>
+            <li>
+                <button class="nav-link-btn" onclick="switchView('products')">
+                    Manage Products
+                </button>
+            </li>
+            <li>
+                <button class="nav-link-btn" onclick="switchView('orders')">
+                    Combined Orders Audit
+                </button>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content Workspace -->
+    <main>
+        <header>
+            <div>
+                <h1>Storefront Control Hub</h1>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">Manage multi-tenant dropshipping shops and Shopify connections.</p>
+            </div>
+            <span class="badge-admin">Admin Operator</span>
+        </header>
+
+        <!-- VIEW 1: OVERVIEW -->
+        <div id="view-overview" class="admin-view active">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">Active Sub-Shops</span>
+                    <span class="metric-value" id="metric-shops">0</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Total Orders Logged</span>
+                    <span class="metric-value" id="metric-orders">0</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Total Sales Volume</span>
+                    <span class="metric-value" id="metric-sales">€0.00</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">Active Brand Subdomains</h3>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Shop ID</th>
+                                <th>Display Name</th>
+                                <th>Target Subdomain</th>
+                                <th>Shopify Shop Name</th>
+                                <th>Stripe Live</th>
+                                <th>Contact Email</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brands-table-body">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: ONBOARD BRAND -->
+        <div id="view-onboard" class="admin-view">
+            <div class="panel">
+                <h3 class="panel-title">Spin Up New Brand Shop</h3>
+                <form id="brand-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="brand-id">Brand ID (Unique Slug, e.g. "pesado")</label>
+                            <input type="text" id="brand-id" required placeholder="pesado">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-name">Brand Display Name</label>
+                            <input type="text" id="brand-name" required placeholder="Pesado 58.5">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-subdomain">Target Host Subdomain</label>
+                            <input type="text" id="brand-subdomain" required placeholder="pesado.stricktlycoffee.be">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-email">Support Contact Email</label>
+                            <input type="email" id="brand-email" required placeholder="support@pesado585.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-color">Brand Primary Custom Color</label>
+                            <input type="text" id="brand-color" value="#c5a059" placeholder="#c5a059">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-shopify-name">Shopify Shop Name (for Warehouse connect)</label>
+                            <input type="text" id="brand-shopify-name" placeholder="pesado-warehouse-dest.myshopify.com">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="brand-shopify-token">Shopify Admin API Access Token</label>
+                            <input type="password" id="brand-shopify-token" placeholder="Shopify Admin API Access Token (shpat_...)">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-stripe-secret">Stripe Secret Key (API Key)</label>
+                            <input type="password" id="brand-stripe-secret" placeholder="Stripe Secret Key (sk_live_...)">
+                        </div>
+                        <div class="form-group">
+                            <label for="brand-stripe-webhook">Stripe Webhook Secret</label>
+                            <input type="password" id="brand-stripe-webhook" placeholder="Stripe Webhook Secret (whsec_...)">
+                        </div>
+                        <div class="form-group form-full" style="margin-top: 10px;">
+                            <button type="submit" class="btn">Onboard & Save Configuration</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW 3: MANAGE PRODUCTS -->
+        <div id="view-products" class="admin-view">
+            <div class="panel">
+                <h3 class="panel-title">Add Product to Brand Catalog</h3>
+                <form id="product-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="prod-brand">Select Target Brand Shop</label>
+                            <select id="prod-brand" required>
+                                <!-- Injected dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-title">Product Name / Title</label>
+                            <input type="text" id="prod-title" required placeholder="Self-Leveling Spring Tamper">
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-price">Retail Price (EUR)</label>
+                            <input type="number" step="0.01" id="prod-price" required placeholder="132.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-tag">Catalog Tag Badge (e.g. "Best Seller")</label>
+                            <input type="text" id="prod-tag" placeholder="AD Edition">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="prod-image">Product Image URL</label>
+                            <input type="url" id="prod-image" placeholder="https://pesado585.com/.../img.png">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="prod-link">Original Product Manufacturer Link</label>
+                            <input type="url" id="prod-link" placeholder="https://pesado585.com/products/self-leveling-tamper">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="prod-desc">Short Description (for homepage card)</label>
+                            <textarea id="prod-desc" rows="2" placeholder="Brief summary of the precision tool..."></textarea>
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="prod-long">Detailed Marketing Description (for product drawer)</label>
+                            <textarea id="prod-long" rows="4" placeholder="Full sales copywriting copy..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-features">Key Features (One feature per line)</label>
+                            <textarea id="prod-features" rows="4" placeholder="Feature 1: Detail&#10;Feature 2: Detail"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-compatibility">Machine Compatibility (One model per line)</label>
+                            <textarea id="prod-compatibility" rows="4" placeholder="Breville 54mm&#10;Commercial E61 group heads"></textarea>
+                        </div>
+                        <div class="form-group form-full" style="margin-top: 10px;">
+                            <button type="submit" class="btn">Add Product to Catalog</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW 4: ORDERS AUDIT -->
+        <div id="view-orders" class="admin-view">
+            <div class="panel">
+                <h3 class="panel-title">Combined System Orders Audit</h3>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order Reference</th>
+                                <th>Shop Brand</th>
+                                <th>Customer Details</th>
+                                <th>Total Bill</th>
+                                <th>Shopify Sync ID</th>
+                                <th>Fulfillment Tracking</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <span style="color: var(--primary); font-weight: bold;">✔</span>
+        <span id="toast-message">Configuration saved.</span>
+    </div>
+
+    <!-- Core Admin Functionality Script -->
+    <script>
+        let brandsCache = [];
+        let ordersCache = [];
+
+        // View Router Switching
+        function switchView(viewId) {
+            document.querySelectorAll('.admin-view').forEach(view => view.classList.remove('active'));
+            document.querySelectorAll('.nav-link-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            
+            // Highlight matching nav link
+            const targetBtn = Array.from(document.querySelectorAll('.nav-link-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
+            if (targetBtn) targetBtn.classList.add('active');
+
+            // Load view-specific dynamic datasets
+            if (viewId === 'overview' || viewId === 'products') {
+                loadBrands();
+            }
+            if (viewId === 'orders' || viewId === 'overview') {
+                loadOrders();
+            }
+        }
+
+        // Notification Helper
+        function showNotification(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3500);
+        }
+
+        // 1. Load Brands list
+        async function loadBrands() {
+            try {
+                const response = await fetch('/api/global/brands');
+                if (!response.ok) throw new Error();
+                brandsCache = await response.json();
+                renderBrands();
+                populateBrandSelectors();
+            } catch (err) {
+                console.error('Failed to load brands:', err);
+            }
+        }
+
+        function renderBrands() {
+            const body = document.getElementById('brands-table-body');
+            body.innerHTML = '';
+            
+            // Update Metric
+            document.getElementById('metric-shops').textContent = brandsCache.length;
+
+            if (brandsCache.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No shops registered.</td></tr>';
+                return;
+            }
+
+            brandsCache.forEach(brand => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${brand.id}</strong></td>
+                    <td>${brand.name}</td>
+                    <td><a href="http://${brand.subdomain}" target="_blank" style="color: var(--primary); text-decoration: none;">${brand.subdomain}</a></td>
+                    <td>${brand.shopify_shop_name || '<span style="color: var(--text-muted);">Mocked (Sandbox)</span>'}</td>
+                    <td>${brand.has_stripe ? '✅ Live' : '🚧 Mocked (Sandbox)'}</td>
+                    <td>${brand.contact_email || '-'}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function populateBrandSelectors() {
+            const select = document.getElementById('prod-brand');
+            select.innerHTML = '';
+            brandsCache.forEach(brand => {
+                const opt = document.createElement('option');
+                opt.value = brand.id;
+                opt.textContent = `${brand.name} (${brand.id})`;
+                select.appendChild(opt);
+            });
+        }
+
+        // 2. Load Orders list
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/global/orders');
+                if (!response.ok) throw new Error();
+                ordersCache = await response.json();
+                renderOrders();
+            } catch (err) {
+                console.error('Failed to load orders:', err);
+            }
+        }
+
+        function renderOrders() {
+            const body = document.getElementById('orders-table-body');
+            body.innerHTML = '';
+
+            // Calculate Metrics
+            document.getElementById('metric-orders').textContent = ordersCache.length;
+            const paidOrders = ordersCache.filter(o => o.status !== 'pending_payment');
+            const totalRevenue = paidOrders.reduce((sum, o) => sum + parseFloat(o.total), 0);
+            document.getElementById('metric-sales').textContent = `€${totalRevenue.toFixed(2)}`;
+
+            if (ordersCache.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No orders found in the system.</td></tr>';
+                return;
+            }
+
+            ordersCache.forEach(order => {
+                const tr = document.createElement('tr');
+                
+                // Construct items list preview
+                const itemsText = order.items.map(item => `${item.title} (x${item.quantity})`).join(', ');
+
+                tr.innerHTML = `
+                    <td><strong>${order.id}</strong><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${new Date(order.created_at).toLocaleString()}</div></td>
+                    <td><span class="badge-admin" style="border-color: var(--border); color: var(--text-main);">${order.brand_name || order.brand_id}</span></td>
+                    <td>
+                        <div><strong>${order.customer_name}</strong></div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">${order.customer_email}</div>
+                    </td>
+                    <td><strong>€${parseFloat(order.total).toFixed(2)}</strong></td>
+                    <td>${order.shopify_order_id || '-'}</td>
+                    <td>
+                        ${order.tracking_number ? `
+                            <div><strong>${order.tracking_carrier}</strong></div>
+                            <div style="font-size: 0.8rem;"><a href="${order.tracking_url}" target="_blank" style="color: var(--primary); text-decoration: none;">${order.tracking_number}</a></div>
+                        ` : '<span style="color: var(--text-muted);">Pending Dispatch</span>'}
+                    </td>
+                    <td>
+                        <span class="status-badge ${getStatusClass(order.status)}">${order.status.replace(/_/g, ' ')}</span>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'pending_payment': return 'status-pending';
+                case 'paid': return 'status-paid';
+                case 'sent_to_warehouse': return 'status-sent';
+                case 'shipped': return 'status-shipped';
+                default: return '';
+            }
+        }
+
+        // 3. Handle Brand onboarding submission
+        document.getElementById('brand-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const payload = {
+                id: document.getElementById('brand-id').value,
+                name: document.getElementById('brand-name').value,
+                subdomain: document.getElementById('brand-subdomain').value,
+                contact_email: document.getElementById('brand-email').value,
+                primary_color: document.getElementById('brand-color').value,
+                shopify_shop_name: document.getElementById('brand-shopify-name').value,
+                shopify_access_token: document.getElementById('brand-shopify-token').value,
+                stripe_secret_key: document.getElementById('brand-stripe-secret').value,
+                stripe_webhook_secret: document.getElementById('brand-stripe-webhook').value
+            };
+
+            try {
+                const response = await fetch('/api/global/brands', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showNotification(`Shop ${payload.name} onboarded successfully!`);
+                    document.getElementById('brand-form').reset();
+                    document.getElementById('brand-color').value = '#c5a059';
+                    switchView('overview');
+                } else {
+                    const err = await response.json();
+                    alert(`Error onboarding shop: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error submitting request: ${err.message}`);
+            }
+        });
+
+        // 4. Handle Product registration submission
+        document.getElementById('product-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Split multiline features / compatibility lists
+            const features = document.getElementById('prod-features').value.split('\n').filter(l => l.trim() !== '');
+            const compatibility = document.getElementById('prod-compatibility').value.split('\n').filter(l => l.trim() !== '');
+
+            const payload = {
+                brand_id: document.getElementById('prod-brand').value,
+                title: document.getElementById('prod-title').value,
+                price: parseFloat(document.getElementById('prod-price').value),
+                tag: document.getElementById('prod-tag').value,
+                image: document.getElementById('prod-image').value,
+                original_link: document.getElementById('prod-link').value,
+                description: document.getElementById('prod-desc').value,
+                long_description: document.getElementById('prod-long').value,
+                features: features,
+                compatibility: compatibility
+            };
+
+            try {
+                const response = await fetch('/api/global/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showNotification(`Product added to brand catalog successfully.`);
+                    document.getElementById('product-form').reset();
+                } else {
+                    const err = await response.json();
+                    alert(`Error adding product: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error submitting request: ${err.message}`);
+            }
+        });
+
+        // Initial Boot Setup
+        loadBrands();
+    </script>
+</body>
+</html>
