@@ -457,8 +457,9 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">📝 Ad Copy Details ({{ campaignContentLang.toUpperCase() }} variant)</span>
                             <!-- Translate button if not default 'en' -->
-                            <button v-if="campaignContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateCampaignWithAI(campaignContentLang)" :disabled="translatingCampaign">
+                            <button v-if="campaignContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="triggerCampaignTranslation(campaignContentLang)" :disabled="translatingCampaign">
                                 <span v-if="translatingCampaign" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <span v-else-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate</span>
                                 <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                             </button>
                         </div>
@@ -476,6 +477,7 @@
                             </div>
                             <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="btn btn-primary" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
                                 <span v-if="generatingAICopy" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <span v-else-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
                                 <span v-else>Write Copy [Gemini 2.5 Flash] [~$0.0004]</span>
                             </button>
                         </div>
@@ -925,6 +927,31 @@
                                 <button type="button" @click="removeAutomationRule(c, rule.id)" style="background: transparent; border: none; color: var(--danger); font-size: 0.75rem; cursor: pointer; font-weight: bold;">Remove</button>
                             </div>
                         </div>
+
+                        <!-- Dynamic Funnel Optimization Toggle -->
+                        <div style="border-top: 1px dashed var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <h5 style="margin: 0; font-size: 0.8rem; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                        <span>🔄 Dynamic Funnel Swapping & Optimization</span>
+                                        <span v-if="c.dynamic_optimization_enabled" style="background: rgba(197, 160, 89, 0.15); color: var(--accent); font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Active</span>
+                                    </h5>
+                                    <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
+                                        Monitor dropoff rates. Swaps copy variants and visual landing assets automatically using top playbook permutations from the strategy manuscript when dropoffs exceed 40%.
+                                    </p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; position: relative;">
+                                    <span v-if="!app.isFeatureAllowed('allow_dynamic_optimization')" style="font-size: 0.75rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border);">
+                                        🔒 Locked
+                                    </span>
+                                    <input v-else
+                                           type="checkbox" 
+                                           :checked="c.dynamic_optimization_enabled" 
+                                           @change="toggleDynamicOptimization(c)" 
+                                           style="width: 34px; height: 18px; cursor: pointer; accent-color: var(--accent);" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -1062,8 +1089,9 @@
                                             ✓ Healthy CTR
                                         </span>
 
-                                        <button type="button" @click="autoOptimizeCreativeCopy(c.id, stat)" class="btn btn-secondary" style="font-size: 0.65rem; height: auto; padding: 4px 8px; font-weight: 700; color: var(--accent);">
-                                            ✨ Optimize Copy
+                                        <button type="button" @click="triggerCreativeOptimization(c.id, stat)" class="btn btn-secondary" style="font-size: 0.65rem; height: auto; padding: 4px 8px; font-weight: 700; color: var(--accent);">
+                                            <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Optimize Copy</span>
+                                            <span v-else>✨ Optimize Copy</span>
                                         </button>
                                     </div>
                                 </div>
@@ -2379,6 +2407,47 @@ export default {
                 }
             } catch (err) {
                 console.error('Error loading media library inside campaigns builder:', err);
+            }
+        },
+        triggerCampaignTranslation(lang) {
+            if (!this.app.isFeatureAllowed('allow_translator')) {
+                alert('🔒 Feature Locked: Please upgrade your subscription to Professional or Enterprise Tier to unlock the Multilingual AI Translator.');
+                return;
+            }
+            this.translateCampaignWithAI(lang);
+        },
+        triggerCreativeOptimization(campaignId, stat) {
+            if (!this.app.isFeatureAllowed('allow_copywriter')) {
+                alert('🔒 Feature Locked: Please upgrade your subscription to unlock the AI Copywriter Studio.');
+                return;
+            }
+            this.autoOptimizeCreativeCopy(campaignId, stat);
+        },
+        async toggleDynamicOptimization(campaign) {
+            if (!this.app.isFeatureAllowed('allow_dynamic_optimization')) {
+                alert('🔒 Feature Locked: Please upgrade to Enterprise Tier to unlock Dynamic Funnel Swapping & Dropoff Optimization.');
+                return;
+            }
+            const nextState = !campaign.dynamic_optimization_enabled;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/marketing-campaigns/${campaign.id}/toggle-dynamic-optimization`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ enabled: nextState })
+                });
+                if (response.ok) {
+                    campaign.dynamic_optimization_enabled = nextState;
+                    this.app.showNotification(nextState ? '🔄 Dynamic Funnel Swapping enabled!' : 'Funnel optimization paused.');
+                    this.loadCampaigns();
+                } else {
+                    const err = await response.json();
+                    alert('Error toggling dynamic optimization: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
             }
         },
         async translateCampaignWithAI(targetLang) {

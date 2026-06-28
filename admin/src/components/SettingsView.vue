@@ -250,6 +250,83 @@
             </div>
         </div>
 
+        <!-- Google AI Studio Rate Limits & Usage Monitor (superadmin only) -->
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="panel-title">🛡️ Google AI Studio Real-time Rate Limits Monitor</h3>
+                <span style="font-size: 0.65rem; font-weight: 800; background: rgba(96, 165, 250, 0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;">
+                    Live API Analytics
+                </span>
+            </div>
+            <div style="padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div style="font-size: 0.82rem; color: var(--text-muted); max-width: 70%;">
+                        Peak usage tracking metrics compared directly against AI Studio limits. Select a scope to view global account-wide metrics or filter down to a single brand.
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">Scope:</span>
+                        <select v-model="realtimeLimitsBrandFilter" style="height: 32px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.78rem; padding: 0 10px; cursor: pointer;">
+                            <option value="">🌎 All Brands (Global)</option>
+                            <option v-for="b in app.brands" :key="b.id" :value="b.id">🏢 {{ b.name }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div v-if="isLoadingRealtimeLimits" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    ⏳ Analyzing request traffic logs...
+                </div>
+                <div v-else style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                    <div v-for="m in realtimeLimits" :key="m.model" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                            <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent);">{{ m.model }}</strong>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Quota Limits</span>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
+                            <!-- RPM Progress -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                                    <span style="color: var(--text-muted);">Requests / Min (RPM)</span>
+                                    <strong style="color: var(--text-main);">{{ m.rpm }} / {{ m.limit_rpm }}</strong>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                    <div :style="{ width: Math.min((m.rpm / m.limit_rpm) * 100, 100) + '%', backgroundColor: (m.rpm / m.limit_rpm) >= 0.85 ? '#ef4444' : ((m.rpm / m.limit_rpm) >= 0.60 ? '#f59e0b' : '#10b981') }" 
+                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TPM Progress -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                                    <span style="color: var(--text-muted);">Tokens / Min (TPM)</span>
+                                    <strong style="color: var(--text-main);">{{ formatTokens(m.tpm) }} / {{ formatTokens(m.limit_tpm) }}</strong>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                    <div :style="{ width: Math.min((m.tpm / m.limit_tpm) * 100, 100) + '%', backgroundColor: (m.tpm / m.limit_tpm) >= 0.85 ? '#ef4444' : ((m.tpm / m.limit_tpm) >= 0.60 ? '#f59e0b' : '#10b981') }" 
+                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RPD Progress -->
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                                    <span style="color: var(--text-muted);">Requests / Day (RPD)</span>
+                                    <strong style="color: var(--text-main);">{{ m.rpd }} / {{ m.limit_rpd }}</strong>
+                                </div>
+                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                    <div :style="{ width: Math.min((m.rpd / m.limit_rpd) * 100, 100) + '%', backgroundColor: (m.rpd / m.limit_rpd) >= 0.85 ? '#ef4444' : ((m.rpd / m.limit_rpd) >= 0.60 ? '#f59e0b' : '#10b981') }" 
+                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Contextual settings for currently filtered shop -->
         <div class="panel" id="shop-settings-panel" v-if="activeShopFilter !== 'all'">
             <div class="panel-header">
@@ -530,6 +607,9 @@
                         <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">❌</span>
                         <strong style="color: #ef4444;">AI Generation Failed or Rate Limited!</strong><br>
                         The backend hit a throttle limit (Deep Research has just 1 RPM limit) or an error occurred. We suggest switching to <strong>Professional Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!
+                        <div v-if="settingsBrand.protocol_error" style="margin-top: 10px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); padding: 8px 12px; border-radius: 6px; text-align: left; font-family: monospace; font-size: 0.76rem; color: #f87171; white-space: pre-wrap; overflow-x: auto; word-break: break-all;">
+                            <strong>Error Context:</strong> {{ settingsBrand.protocol_error }}
+                        </div>
                     </div>
 
                     <!-- Method Selector Toggle -->
@@ -876,6 +956,9 @@ export default {
             globalPricing: [],
             superadminAiUsageSummary: [],
             isLoadingSuperadminAiUsage: false,
+            realtimeLimits: [],
+            isLoadingRealtimeLimits: false,
+            realtimeLimitsBrandFilter: '',
             generationMethod: 'auto',
             compiledPrompt: '',
             savingTierFeatures: false,
@@ -902,6 +985,7 @@ export default {
             this.dnsMissing = false;
             this.dnsCreating = false;
             this.loadAiUsage();
+            this.loadRealtimeLimits();
             this.startProtocolPolling();
         },
         'app.activeView'(newView) {
@@ -909,10 +993,14 @@ export default {
                 this.loadAiUsage();
                 this.loadGlobalPricing();
                 this.loadSuperadminAiUsage();
+                this.loadRealtimeLimits();
                 this.startProtocolPolling();
             } else {
                 this.stopProtocolPolling();
             }
+        },
+        realtimeLimitsBrandFilter() {
+            this.loadRealtimeLimits();
         }
     },
     computed: {
@@ -976,6 +1064,7 @@ export default {
             this.loadAiUsage();
             this.loadGlobalPricing();
             this.loadSuperadminAiUsage();
+            this.loadRealtimeLimits();
             this.startProtocolPolling();
         }
     },
@@ -1410,6 +1499,31 @@ export default {
                 this.isLoadingSuperadminAiUsage = false;
             }
         },
+        async loadRealtimeLimits() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            this.isLoadingRealtimeLimits = true;
+            try {
+                let url = `${this.app.apiBaseUrl}/api/global/superadmin/realtime-limits`;
+                if (this.realtimeLimitsBrandFilter) {
+                    url += `?brandId=${this.realtimeLimitsBrandFilter}`;
+                }
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.realtimeLimits = data.usage;
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading realtime AI limits data:', err);
+            } finally {
+                this.isLoadingRealtimeLimits = false;
+            }
+        },
         getPlatformLogoSvg(platform, size = 16) {
             if (platform === 'shopify') {
                 return `<svg viewBox="0 0 152 172" width="${size}" height="${size}" style="vertical-align: middle; display: inline-block;"><path d="m 130.7,32.605 c -0.1,-0.9 -0.9,-1.3 -1.5,-1.4 -0.6,-0.1 -12.6,-0.2 -12.6,-0.2 0,0 -10.1,-9.8 -11.1,-10.8 -1,-1 -2.9,-0.7 -3.7,-0.5 0,0 -1.9,0.6 -5.1,1.6 -0.5,-1.7 -1.3,-3.8 -2.4,-5.9 C 90.7,8.505 85.5,4.905 79.1,4.905 c -0.4,0 -0.9,0 -1.3,0.1 -0.2,-0.2 -0.4,-0.4 -0.6,-0.7 -2.8,-3 -6.3,-4.4 -10.5,-4.3 -8.2,0.2 -16.3,6.1 -23,16.7 -4.7,7.4 -8.2,16.7 -9.2,23.9 -9.4,2.9 -16,4.9 -16.1,5 -4.7,1.5 -4.9,1.6 -5.5,6.1 C 12.4,55.005 0,151.105 0,151.105 l 104.1,18 45.1,-11.2 c 0,0 -18.4,-124.5 -18.5,-125.3 z M 91.5,22.905 c -2.4,0.7 -5.1,1.6 -8.1,2.5 -0.1,-4.1 -0.6,-9.9 -2.5,-14.9 6.3,1.2 9.3,8.2 10.6,12.4 z M 78,27.105 c -5.5,1.7 -11.4,3.5 -17.4,5.4 1.7,-6.4 4.9,-12.8 8.8,-17 1.5,-1.6 3.5,-3.3 5.9,-4.3 2.3,4.7 2.7,11.4 2.7,15.9 z M 66.8,5.505 c 1.9,0 3.5,0.4 4.9,1.3 -2.2,1.1 -4.4,2.8 -6.4,5 -5.2,5.6 -9.2,14.2 -10.8,22.6 -5,1.5 -9.8,3 -14.3,4.4 3,-13.2 14,-32.9 26.6,-33.3 z" fill="#95BF47"/><path d="m 129.2,31.205 c -0.6,-0.1 -12.6,-0.2 -12.6,-0.2 0,0 -10.1,-9.8 -11.1,-10.8 -0.4,-0.4 -0.9,-0.6 -1.4,-0.6 V 169.105 l 45.1,-11.2 c 0,0 -18.4,-124.4 -18.5,-125.3 -0.2,-0.9 -0.9,-1.3 -1.5,-1.4 z" fill="#5E8E3E"/><path d="m 79.1,54.405 -5.2,19.6 c 0,0 -5.8,-2.7 -12.8,-2.2 -10.2,0.6 -10.3,7 -10.2,8.7 0.6,8.8 23.6,10.7 24.9,31.2 1,16.2 -8.6,27.2 -22.4,28.1 -16.6,1 -25.7,-8.7 -25.7,-8.7 l 3.5,-14.9 c 0,0 9.2,6.9 16.5,6.5 4.8,-0.3 6.5,-4.2 6.3,-7 -0.7,-11.4 -19.5,-10.8 -20.7,-29.5 -1,-15.8 9.4,-31.8 32.3,-33.3 9,-0.8 13.5,1.5 13.5,1.5 z" fill="#FFFFFF"/></svg>`;
@@ -1419,8 +1533,9 @@ export default {
             }
             return '';
         },
-        getStripeLogoSvg(size = 16) {
-            return `<svg viewBox="0 0 60 25" width="36" height="15" fill="#635BFF" style="vertical-align: middle; display: inline-block; margin-left: 2px;"><path d="M59.64 14.28c0-2.6-1.6-3.9-4.2-3.9-1.4 0-2.5.3-3 .6v-1.6c0-1.3-.9-2.1-2.5-2.1-1.4 0-2.6.4-3.4.8l-1-2.3c1.2-.7 3-1.1 4.9-1.1 3.5 0 5.6 1.8 5.6 5.1v7.6c-1 .4-2.4.7-3.8.7-3.6.1-7.1-1.3-7.1-3.9 0-.8.6-1.3 1.6-1.3 1 0 1.8-.2 2.2-.5v-2.3c-.5-.2-1.3-.4-2-.4-1.1 0-1.8.6-1.8 1.9 0 .8.6 1.3 1.6 1.3 1 0 1.8-.2 2.2-.5v-2.3c-.5-.2-1.3-.4-2-.4-1.1 0-1.8.6-1.8 1.9 0 2.2 1.5 3.5 3.9 3.5 1 .4 2.4.7 3.8.7 3.5-.1 5.3-1.8 5.3-5.1zm-13.6-6.7h-3.4v6c0 .7.4 1 1 1h2.4v2.5h-2.9c-2.4 0-3.9-1.2-3.9-3.5v-6h-1.8v-2.7h1.8v-3l3.4-1v4h3.4zm-9.1 2.3c.3-.1.7-.1 1.1-.1v3.2c-.4 0-.8 0-1.1.1v6.7h-3.5v-10h3.5zm-5.7-3.5c0-1 .8-1.8 1.8-1.8s1.8.8 1.8 1.8-.8 1.8-1.8 1.8-1.8-.8-1.8-1.8zm-1.8 6.2h3.5v10.1h-3.5zm-9.3-6.2c1 .4 2.2.7 3.4.7 2.9 0 4.9-1.5 4.9-4.6s-2-4.6-4.9-4.6c-1.2 0-2.4.3-3.4.7zm1.1 6.3h-1.1v-12.7c.7-.3 1.8-.5 2.8-.5 2.9 0 4.3 1.4 4.3 3.9s-1.4 3.9-4.3 3.9c-.6 0-1.2-.1-1.7-.3zm-10.4 6.7c0-2.4-1.5-3.7-3.9-3.7-1.1 0-2.2.3-2.9.6V15c.6-.3 1.5-.5 2.4-.5 1.4 0 2 .5 2 1.3 0 .8-.8 1.1-2.2 1.5-2.2.6-3.9 1.4-3.9 3.9 0 2.4 1.8 3.7 4.1 3.7 1.3 0 2.5-.3 3.2-.8v.6h3.3v-9.5z"/></svg>`;
+        getStripeLogoSvg(size = 15, color = '#635BFF') {
+            const width = size * 2.4;
+            return `<svg viewBox="54 36 360.02 149.84" width="${width}" height="${size}" fill="${color}" style="vertical-align: middle; display: inline-block; margin-left: 2px;"><g><path d="M414,113.4c0-25.6-12.4-45.8-36.1-45.8c-23.8,0-38.2,20.2-38.2,45.6c0,30.1,17,45.3,41.4,45.3c11.9,0,20.9-2.7,27.7-6.5v-20c-6.8,3.4-14.6,5.5-24.5,5.5c-9.7,0-18.3-3.4-19.4-15.2h48.9C413.8,121,414,115.8,414,113.4z M364.6,103.9c0-11.3,6.9-16,13.2-16c6.1,0,12.6,4.7,12.6,16H364.6z"></path><path d="M301.1,67.6c-9.8,0-16.1,4.6-19.6,7.8l-1.3-6.2h-22v116.6l25-5.3l0.1-28.3c3.6,2.6,8.9,6.3,17.7,6.3c17.9,0,34.2-14.4,34.2-46.1C335.1,83.4,318.6,67.6,301.1,67.6z M295.1,136.5c-5.9,0-9.4-2.1-11.8-4.7l-0.1-37.1c2.6-2.9,6.2-4.9,11.9-4.9c9.1,0,15.4,10.2,15.4,23.3C310.5,126.5,304.3,136.5,295.1,136.5z"></path><polygon points="223.8,61.7 248.9,56.3 248.9,36 223.8,41.3"></polygon><rect x="223.8" y="69.3" width="25.1" height="87.5"></rect><path d="M196.9,76.7l-1.6-7.4h-21.6v87.5h25V97.5c5.9-7.7,15.9-6.3,19-5.2v-23C214.5,68.1,202.8,65.9,196.9,76.7z"></path><path d="M146.9,47.6l-24.4,5.2l-0.1,80.1c0,14.8,11.1,25.7,25.9,25.7c8.2,0,14.2-1.5,17.5-3.3V135c-3.2,1.3-19,5.9-19-8.9V90.6h19V69.3h-19L146.9,47.6z"></path><path d="M79.3,94.7c0-3.9,3.2-5.4,8.5-5.4c7.6,0,17.2,2.3,24.8,6.4V72.2c-8.3-3.3-16.5-4.6-24.8-4.6C67.5,67.6,54,78.2,54,95.9c0,27.6,38,23.2,38,35.1c0,4.6-4,6.1-9.6,6.1c-8.3,0-18.9-3.4-27.3-8v23.8c9.3,4,18.7,5.7,27.3,5.7c20.8,0,35.1-10.3,35.1-28.2C117.4,100.6,79.3,105.9,79.3,94.7z"></path></g></svg>`;
         }
     }
 }

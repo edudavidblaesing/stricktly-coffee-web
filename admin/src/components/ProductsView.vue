@@ -138,7 +138,8 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="generateAiSeo('new')" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-                                        ✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]
+                                        <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
+                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
                                 </div>
                                 <textarea v-model="newProduct.description" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
@@ -316,7 +317,8 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="generateAiSeo('edit')" :disabled="editingProduct.details_source === 'external'" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-                                        ✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]
+                                        <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
+                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
                                 </div>
                                 <textarea v-model="editingProduct.description" :disabled="editingProduct.details_source === 'external'" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
@@ -849,6 +851,10 @@ export default {
             };
         },
         async generateAiSeo(mode) {
+            if (!this.app.isFeatureAllowed('allow_seo')) {
+                alert('🔒 Feature Locked: Please upgrade your subscription to Professional or Enterprise Tier to unlock the AI Catalog SEO Pitcher.');
+                return;
+            }
             const prod = mode === 'new' ? this.newProduct : this.editingProduct;
             if (!prod.title) {
                 alert('Please enter a product title first to generate SEO content.');

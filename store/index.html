@@ -1701,6 +1701,11 @@
         // Notify parent that storefront preview is loaded and ready to receive real-time style updates
         if (window.parent && window.parent !== window) {
             console.log('[Storefront] Sending STOREFRONT_READY to parent');
+            fetch('/api/preview-debug-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'STOREFRONT_READY_SENT' })
+            }).catch(() => {});
             window.parent.postMessage({ type: 'STOREFRONT_READY' }, '*');
         }
 

@@ -1190,13 +1190,14 @@ export default {
                         text_404_cta: this.designerBrand.text_404_cta,
                         content_translations: this.designerBrand.content_translations
                     };
-                    console.log('[DesignerView] Posting styles to iframe:', styles);
+                    const cleanStyles = JSON.parse(JSON.stringify(styles));
+                    console.log('[DesignerView] Posting styles to iframe:', cleanStyles);
                     fetch('/api/preview-debug-log', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'DASHBOARD_MSG_SENT', styles })
+                        body: JSON.stringify({ type: 'DASHBOARD_MSG_SENT', styles: cleanStyles })
                     }).catch(() => {});
-                    iframe.contentWindow.postMessage(styles, '*');
+                    iframe.contentWindow.postMessage(cleanStyles, '*');
                 } else {
                     fetch('/api/preview-debug-log', {
                         method: 'POST',

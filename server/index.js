@@ -350,12 +350,41 @@ async function scrapeShopifyBranding(shopUrl) {
       }
     }
     
-    // 1. Extract favicon link
+    // 1. Extract favicon link (prefer apple-touch-icon or high-res square formats first)
     let faviconUrl = null;
-    const faviconMatch = html.match(/<link[^>]+(?:rel=["'](?:shortcut )?icon["'])[^>]+href=["']([^"']+)["']/i) ||
-                         html.match(/<link[^>]+href=["']([^"']+)["']/i);
-    if (faviconMatch) {
-      faviconUrl = faviconMatch[1];
+    const appleTouchMatch = html.match(/<link[^>]+(?:rel=["']apple-touch-icon["'])[^>]+href=["']([^"']+)["']/i) ||
+                            html.match(/<link[^>]+href=["']([^"']+)["'][^>]+(?:rel=["']apple-touch-icon["'])/i);
+    if (appleTouchMatch) {
+      faviconUrl = appleTouchMatch[1];
+    } else {
+      const iconMatches = [...html.matchAll(/<link[^>]+(?:rel=["'](?:shortcut )?icon["'])[^>]+/gi)];
+      let bestIcon = null;
+      let maxDim = 0;
+      for (const m of iconMatches) {
+        const tag = m[0];
+        const hrefM = tag.match(/href=["']([^"']+)["']/i);
+        const sizesM = tag.match(/sizes=["'](\d+)x\d+["']/i);
+        if (hrefM) {
+          const href = hrefM[1];
+          const dim = sizesM ? parseInt(sizesM[1], 10) : 16;
+          if (bestIcon === null || dim > maxDim) {
+            maxDim = dim;
+            bestIcon = href;
+          }
+        }
+      }
+      if (bestIcon) {
+        faviconUrl = bestIcon;
+      } else {
+        const faviconMatch = html.match(/<link[^>]+(?:rel=["'](?:shortcut )?icon["'])[^>]+href=["']([^"']+)["']/i) ||
+                             html.match(/<link[^>]+href=["']([^"']+)["']/i);
+        if (faviconMatch) {
+          faviconUrl = faviconMatch[1];
+        }
+      }
+    }
+
+    if (faviconUrl) {
       if (faviconUrl.startsWith('//')) {
         faviconUrl = `https:${faviconUrl}`;
       } else if (faviconUrl.startsWith('/') && !faviconUrl.startsWith('//')) {
@@ -2059,10 +2088,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, protocol_status, protocol_error FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, protocol_status, protocol_error FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2331,8 +2360,8 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
       return res.status(404).json({ error: 'Brand not found.' });
     }
 
-    // Set status to generating immediately
-    await runQuery("UPDATE brands SET protocol_status = 'generating' WHERE id = $1", [brandId]);
+    // Set status to generating immediately and reset error
+    await runQuery("UPDATE brands SET protocol_status = 'generating', protocol_error = NULL WHERE id = $1", [brandId]);
 
     // Send immediate response
     res.json({ success: true, message: 'Brand protocol generation started in the background.' });
@@ -2496,11 +2525,11 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
 * **Body**: Thank you for choosing premium brewing gears. Use code WELCOME10 for 10% off your first order!`;
         }
 
-        await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed' WHERE id = $2", [generatedProtocol, brandId]);
+        await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed', protocol_error = NULL WHERE id = $2", [generatedProtocol, brandId]);
         addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
       } catch (backgroundErr) {
         console.error('[AI Protocol Generator] Background generation failed:', backgroundErr.message);
-        await runQuery("UPDATE brands SET protocol_status = 'failed' WHERE id = $1", [brandId]);
+        await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = $1 WHERE id = $2", [backgroundErr.message, brandId]);
         addAuditLog("Marketing Protocol Generation Failed", "failed", `Error: ${backgroundErr.message}`);
       }
     })();
@@ -2920,6 +2949,66 @@ app.get('/api/global/superadmin/ai-usage', verifyAdminToken, async (req, res) =>
         total_cost_usd: parseFloat(parseFloat(row.total_cost_usd).toFixed(6))
       }))
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Realtime AI Studio rate limit usage (superadmin only)
+app.get('/api/global/superadmin/realtime-limits', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
+
+  const { brandId } = req.query;
+  const brandFilter = brandId ? 'AND brand_id = $1' : '';
+  const params = brandId ? [brandId] : [];
+
+  try {
+    const lastMinuteUsage = await allQuery(`
+      SELECT 
+        model, 
+        COUNT(id) as rpm, 
+        COALESCE(SUM(total_tokens), 0) as tpm
+      FROM ai_usage_logs
+      WHERE created_at >= NOW() - INTERVAL '1 minute' ${brandFilter}
+      GROUP BY model
+    `, params);
+
+    const lastDayUsage = await allQuery(`
+      SELECT 
+        model, 
+        COUNT(id) as rpd
+      FROM ai_usage_logs
+      WHERE created_at >= NOW() - INTERVAL '24 hours' ${brandFilter}
+      GROUP BY model
+    `, params);
+
+    const limits = {
+      'gemini-2.5-flash': { rpm: 1000, tpm: 1000000, rpd: 10000 },
+      'gemini-1.5-flash': { rpm: 15, tpm: 1000000, rpd: 1500 },
+      'gemini-3.1-pro': { rpm: 25, tpm: 2000000, rpd: 32000 },
+      'gemini-1.5-pro': { rpm: 360, tpm: 2000000, rpd: 32000 },
+      'deep-research-pro-preview': { rpm: 1, tpm: 500000, rpd: 100 }
+    };
+
+    const modelsData = Object.keys(limits).map(model => {
+      const minData = lastMinuteUsage.find(u => u.model === model) || { rpm: 0, tpm: 0 };
+      const dayData = lastDayUsage.find(u => u.model === model) || { rpd: 0 };
+      const modelLimits = limits[model];
+
+      return {
+        model,
+        rpm: parseInt(minData.rpm, 10),
+        tpm: parseInt(minData.tpm, 10),
+        rpd: parseInt(dayData.rpd, 10),
+        limit_rpm: modelLimits.rpm,
+        limit_tpm: modelLimits.tpm,
+        limit_rpd: modelLimits.rpd
+      };
+    });
+
+    res.json({ success: true, usage: modelsData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
