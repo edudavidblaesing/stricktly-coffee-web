@@ -71,6 +71,7 @@ temp/
 # Backup files
 *.bak
 *.backup
+!Dockerfile.backup
 *~
 
 # OS generated files
