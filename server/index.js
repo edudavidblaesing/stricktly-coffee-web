@@ -136,6 +136,23 @@ function getStripeInstance(brand) {
   return stripeInstances[brand.id];
 }
 
+function getCloudflareDnsRecordName(subdomain) {
+  const baseDomain = process.env.CLOUDFLARE_DOMAIN || 'stricktlycoffee.be';
+  let prefix = subdomain.replace(`.${baseDomain}`, '').trim();
+  
+  if (prefix.endsWith('.dev')) {
+    prefix = prefix.replace('.dev', '');
+  }
+  
+  if (process.env.DOMAIN && process.env.DOMAIN.includes('dev.stricktlycoffee.be')) {
+    if (!prefix.endsWith('-dev')) {
+      prefix = `${prefix}-dev`;
+    }
+  }
+  
+  return `${prefix}.${baseDomain}`;
+}
+
 // Cloudflare DNS Record helper
 async function createCloudflareSubdomain(subdomain) {
   const cfToken = process.env.CLOUDFLARE_API_TOKEN;
@@ -147,8 +164,8 @@ async function createCloudflareSubdomain(subdomain) {
     return null;
   }
 
-  // Extract prefix from subdomain
-  const prefix = subdomain.replace(`.${baseDomain}`, '').trim();
+  const dnsName = getCloudflareDnsRecordName(subdomain);
+  const prefix = dnsName.replace(`.${baseDomain}`, '').trim();
 
   // If the subdomain is just the baseDomain itself, or they input something invalid, skip
   if (prefix === baseDomain || !prefix) {
@@ -923,9 +940,12 @@ app.use(async (req, res, next) => {
 
     // 2. Fallback matching for local dev or alternative domains containing brand ID
     if (!brand) {
-      // Look for a brand whose ID is contained in the hostname (e.g. dev-pesado.stricktlycoffee.be)
+      // Look for a brand whose ID or subdomain prefix is contained in the hostname (e.g. dev-pesado.stricktlycoffee.be or pesado-dev.stricktlycoffee.be)
       const allBrands = await allQuery('SELECT * FROM brands');
-      brand = allBrands.find(b => hostname.includes(b.id));
+      brand = allBrands.find(b => {
+        const prefix = (b.subdomain || '').split('.')[0];
+        return (prefix && hostname.includes(prefix)) || hostname.includes(b.id);
+      });
 
       // 3. Absolute fallback: use the first brand in the DB if none match (usually 'pesado')
       if (!brand && allBrands.length > 0) {
@@ -1804,7 +1824,8 @@ app.get('/api/global/brands/verify-dns', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const cfUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records?name=${encodeURIComponent(subdomain)}`;
+    const dnsRecordName = getCloudflareDnsRecordName(subdomain);
+    const cfUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records?name=${encodeURIComponent(dnsRecordName)}`;
     const response = await fetch(cfUrl, {
       headers: {
         'Authorization': `Bearer ${cfToken}`,
@@ -1816,11 +1837,11 @@ app.get('/api/global/brands/verify-dns', verifyAdminToken, async (req, res) => {
       return res.status(400).json({ error: data.errors?.[0]?.message || 'Cloudflare API query failed.' });
     }
 
-    const found = data.result.find(r => r.name.toLowerCase() === subdomain.toLowerCase());
+    const found = data.result.find(r => r.name.toLowerCase() === dnsRecordName.toLowerCase());
     if (found) {
       res.json({ success: true });
     } else {
-      res.json({ success: false, isMissing: true, error: `DNS record for ${subdomain} not registered on Cloudflare.` });
+      res.json({ success: false, isMissing: true, error: `DNS record for ${dnsRecordName} not registered on Cloudflare.` });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });

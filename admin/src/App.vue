@@ -1524,6 +1524,9 @@ export default {
                     if (!brand) return '';
                     if (brand.custom_domain) return brand.custom_domain;
                     const prefix = (brand.subdomain || '').split('.')[0];
+                    if (this.currentEnv === 'dev') {
+                        return `${prefix}-dev.stricktlycoffee.be`;
+                    }
                     return `${prefix}.${this.baseBrandDomain}`;
                 },
                 async loadUsers() {
