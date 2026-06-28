@@ -459,14 +459,14 @@
                             <!-- Translate button if not default 'en' -->
                             <button v-if="campaignContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateCampaignWithAI(campaignContentLang)" :disabled="translatingCampaign">
                                 <span v-if="translatingCampaign" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else>✨ AI Translate from EN (via Gemini 2.5 Flash)</span>
+                                <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                             </button>
                         </div>
 
                         <!-- AI Copywriter Studio Panel (Only visible on English variant) -->
                         <div v-if="campaignContentLang === 'en'" style="background: rgba(96,165,250,0.03); border: 1px solid rgba(96,165,250,0.15); border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">AD TONE:</span>
+                                <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main);">🤖 AI Tone:</span>
                                 <select v-model="selectedTone" style="font-size: 0.72rem; padding: 4px 20px 4px 8px !important; border-radius: 6px; height: 28px; width: 120px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
                                     <option value="friendly">☕ Friendly</option>
                                     <option value="bold">🔥 Bold & Urgent</option>
@@ -476,7 +476,7 @@
                             </div>
                             <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="btn btn-primary" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
                                 <span v-if="generatingAICopy" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else>🤖 AI Copywriter Studio (via Gemini 2.5 Flash)</span>
+                                <span v-else>Write Copy [Gemini 2.5 Flash] [~$0.0004]</span>
                             </button>
                         </div>
 
@@ -803,7 +803,12 @@
                                         </div>
                                     </td>
                                     <td @click="selectCampaign(c)">{{ c.format }}</td>
-                                    <td @click="selectCampaign(c)" style="text-align: center; font-weight: 600;">€{{ parseFloat(c.budget).toFixed(2) }}</td>
+                                    <td @click="selectCampaign(c)" style="text-align: center; font-weight: 600;">
+                                        <div>€{{ parseFloat(c.budget).toFixed(2) }}</div>
+                                        <div style="font-size: 0.65rem; color: var(--accent); font-weight: 700; margin-top: 3px;">
+                                            🤖 Cost: ${{ parseFloat(c.ai_cost || 0).toFixed(4) }}
+                                        </div>
+                                    </td>
                                     <td @click="selectCampaign(c)" style="text-align: right;">
                                         <span class="status-badge" :class="c.status === 'active' ? 'status-success' : 'status-warning'" style="font-size: 0.72rem;">
                                             {{ c.status === 'active' ? 'Active' : 'Paused' }}
@@ -1331,7 +1336,8 @@ export default {
                 target_roas: 4.0,
                 headlines: ['', ''],
                 warmup_days: 3,
-                warmup_budget_percent: 15
+                warmup_budget_percent: 15,
+                ai_cost: 0.0
             }
         };
     },
@@ -1715,7 +1721,8 @@ export default {
                         end_date: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
                         budget_type: 'lifetime',
                         bidding_strategy: 'manual',
-                        target_roas: 4.0
+                        target_roas: 4.0,
+                        ai_cost: 0.0
                     };
                     this.campaignContentLang = 'en';
                     this.showCreateCampaignModal = false;
@@ -2020,6 +2027,7 @@ export default {
                     const data = await response.json();
                     this.newCampaign.headline = data.headline;
                     this.newCampaign.ad_copy = data.ad_copy;
+                    this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + (parseFloat(data.estimated_cost) || 0);
                     
                     if (data.benefits && data.benefits.length > 0) {
                         this.newCampaign.carousel_cards = data.benefits.map((b, idx) => ({

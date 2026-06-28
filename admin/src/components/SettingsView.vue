@@ -38,23 +38,214 @@
             </div>
             <div style="padding: 15px;">
                 <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px;">
-                    Control the estimated cost tracking metrics shown to merchants. Changes reload the pricing calculator dynamically without server re-deployment.
+                    Estimated cost tracking metrics shown to merchants. These rates are defined on the server/database.
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <div v-for="item in globalPricing" :key="item.model" style="display: grid; grid-template-columns: 2fr 1fr 1fr 80px; gap: 12px; align-items: center; background: rgba(0,0,0,0.1); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--border);">
+                    <div v-for="item in globalPricing" :key="item.model" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: center; background: rgba(0,0,0,0.1); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--border);">
                         <strong style="font-size: 0.85rem; font-family: monospace; color: var(--text-main);">{{ item.model }}</strong>
                         <div>
                             <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Prompt / 1M</label>
-                            <input type="number" step="0.001" v-model="item.prompt_rate_per_million" style="margin: 0; height: 32px; font-size: 0.8rem; background: var(--workspace-bg); border-radius: 6px; border: 1px solid var(--border); color: var(--text-main); padding: 0 8px; width: 100%;">
+                            <span style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); font-weight: 700;">${{ parseFloat(item.prompt_rate_per_million).toFixed(4) }}</span>
                         </div>
                         <div>
                             <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Completion / 1M</label>
-                            <input type="number" step="0.001" v-model="item.completion_rate_per_million" style="margin: 0; height: 32px; font-size: 0.8rem; background: var(--workspace-bg); border-radius: 6px; border: 1px solid var(--border); color: var(--text-main); padding: 0 8px; width: 100%;">
+                            <span style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); font-weight: 700;">${{ parseFloat(item.completion_rate_per_million).toFixed(4) }}</span>
                         </div>
-                        <button type="button" class="btn btn-accent" style="margin: 0; height: 32px; font-size: 0.75rem; font-weight: 700; width: 100%;" @click="saveModelPricing(item)">
-                            Update
-                        </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Tier Feature Authorization Matrix -->
+        <div class="panel" style="margin-top: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <h3 class="panel-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    🛡️ AI Tier Feature Authorization Matrix
+                </h3>
+                <button v-if="userRole.toLowerCase() === 'superadmin'" 
+                        type="button" 
+                        class="btn btn-accent" 
+                        style="margin: 0; height: 32px; font-size: 0.78rem; font-weight: 700; padding: 0 16px;" 
+                        :disabled="savingTierFeatures" 
+                        @click="saveTierFeatures">
+                    {{ savingTierFeatures ? 'Saving Matrix...' : 'Save Feature Matrix' }}
+                </button>
+            </div>
+            <div style="padding: 15px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.45;">
+                    Configure which AI capabilities are authorized for each subscription tier. Standard merchants will have locked indicators on tools disabled for their active tier.
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700;">
+                                <th style="padding: 12px 10px; width: 40%;">AI Capability Feature</th>
+                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Standard</th>
+                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Professional</th>
+                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Enterprise</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">Strategy Manuscript Crawler</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Scrapes site, builds playbooks & manuscripts</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">AI Copywriter Studio</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Generates high-converting variant copy</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">Multilingual AI Translator</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Translates storefront & campaigns instantly</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">AI Catalog SEO Pitcher</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Auto-writes conversion-tuned descriptions</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">AI Look-Alike Storefront Designer</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Matches visual theme/color presets to manuscript</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">AI Campaign Landing Page Builder</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Generates page structures & full marketing copies</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong style="display: block;">Dynamic Funnel Swapping & Optimization</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Swaps headlines & images in real-time based on dropoffs</span>
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.standard.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.professional.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Brand AI Cost & Spend Overview (superadmin only) -->
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+            <div class="panel-header">
+                <h3 class="panel-title">📊 Global Brand AI Cost & Spend Overview</h3>
+            </div>
+            <div style="padding: 15px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px;">
+                    Summary of AI compute resource consumption and projected pricing costs aggregated across all brand shops.
+                </div>
+                <div v-if="isLoadingSuperadminAiUsage" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                    ⏳ Loading global AI usage data...
+                </div>
+                <div v-else-if="superadminAiUsageSummary.length === 0" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                    No AI usage records found.
+                </div>
+                <div v-else style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700;">
+                                <th style="padding: 10px 8px;">Brand Shop</th>
+                                <th style="padding: 10px 8px;">AI Tier</th>
+                                <th style="padding: 10px 8px; text-align: center;">Billing Mode</th>
+                                <th style="padding: 10px 8px; text-align: right;">API Calls</th>
+                                <th style="padding: 10px 8px; text-align: right;">Total Tokens</th>
+                                <th style="padding: 10px 8px; text-align: right; color: var(--accent);">Est. Spend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in superadminAiUsageSummary" :key="row.brand_id" style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 10px 8px; font-weight: 700;">{{ row.brand_name }} <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; font-family: monospace;">({{ row.brand_id }})</span></td>
+                                <td style="padding: 10px 8px;">
+                                    <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); text-transform: uppercase;">
+                                        {{ row.ai_tier }}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 8px; text-align: center;">
+                                    <span v-if="row.ai_free_tier" style="font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                        FREE
+                                    </span>
+                                    <span v-else style="font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-muted);">
+                                        PAID / METERED
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 8px; text-align: right; font-family: monospace;">{{ row.total_calls }}</td>
+                                <td style="padding: 10px 8px; text-align: right; font-family: monospace;">{{ formatTokens(row.total_tokens) }}</td>
+                                <td style="padding: 10px 8px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 700;">${{ formatCost(row.total_cost_usd) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -77,11 +268,18 @@
 
                     <div class="form-group">
                         <label>AI Operation Tier (Limits & Capabilities)</label>
-                        <select v-model="settingsBrand.ai_tier" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        <select v-model="settingsBrand.ai_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                             <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
                             <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
                             <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
                         </select>
+                    </div>
+
+                    <div class="form-group" v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.ai_free_tier" style="display: flex; align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-top: 15px;">
+                            <input type="checkbox" v-model="settingsBrand.ai_free_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                            <span style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">🎁 Grant Free AI Access (Superadmin Toggle)</span>
+                        </label>
                     </div>
 
                     <!-- Unified storefront domain row with suffix dropdown -->
@@ -302,7 +500,20 @@
                 <h4 style="color: var(--accent); margin-bottom: 12px; font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
                     🤖 AI Brand & Performance Marketing Manuscript
                 </h4>
-                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px; position: relative;">
+                    <!-- Locked Overlay -->
+                    <div v-if="!app.isFeatureAllowed('allow_manuscript')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,15,17,0.92); border-radius: 8px; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; box-sizing: border-box; text-align: center;">
+                        <div>
+                            <span style="font-size: 2.2rem; display: block; margin-bottom: 12px;">🔒</span>
+                            <span style="font-size: 0.85rem; font-weight: 800; color: var(--accent); background: rgba(197,160,89,0.15); padding: 4px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase; border: 1px solid rgba(197,160,89,0.3);">
+                                Locked on Active Plan
+                            </span>
+                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; max-width: 320px; line-height: 1.45;">
+                                Upgrade your brand's AI Performance subscription tier to unlock strategy crawls & manuscript builders.
+                            </div>
+                        </div>
+                    </div>
+
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.5;">
                         Generate and manage your Brand Strategy Manuscript. The AI crawls your homepage, analyzes your catalog, and compiles a playbook covering positioning, customer personas, approved brand voice guidelines, competitor comparisons, high-converting ad hooks, and email copywriting campaigns. This playbook is utilized directly in the AI Campaign Creator.
                     </div>
@@ -363,7 +574,7 @@
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;" v-if="settingsBrand.protocol_status !== 'generating'">
                         <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
                             <span v-if="isGeneratingProtocol">⏳ Crawling & Generating (via {{ activeManuscriptModelName }})...</span>
-                            <span v-else>✨ Generate Brand Manuscript (via {{ activeManuscriptModelName }})</span>
+                            <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
                         </button>
 
                         <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
@@ -420,6 +631,39 @@
                 <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
                         Track real-time token usage, api call frequencies, and estimated platform API expenses for this brand across all AI systems.
+                    </div>
+
+                    <!-- AI Billing & Invoicing Summary Card -->
+                    <div style="background: rgba(197, 160, 89, 0.03); border: 1px solid rgba(197, 160, 89, 0.15); border-radius: 8px; padding: 18px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                        <div style="flex: 1; min-width: 250px; text-align: left;">
+                            <h5 style="margin: 0 0 6px 0; font-size: 0.9rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 6px;">
+                                💳 AI Billing & Invoicing Summary
+                            </h5>
+                            <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; margin: 0;">
+                                AI costs are calculated as a combination of your subscription tier and actual platform token consumption. This total is consolidated and deducted from your monthly payouts or added to your end-of-month invoice.
+                            </div>
+                        </div>
+                        <div style="background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 18px; text-align: right; min-width: 200px; box-sizing: border-box;">
+                            <div v-if="settingsBrand.ai_free_tier" style="text-align: center;">
+                                <div style="font-size: 0.65rem; text-transform: uppercase; color: #10b981; font-weight: 800; margin-bottom: 2px;">🎁 Free AI Access Plan</div>
+                                <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;">€0.00</div>
+                                <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Superadmin waiver applied</div>
+                            </div>
+                            <div v-else>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
+                                    <span>Flat Subscription:</span>
+                                    <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(getTierSubscriptionCost()) }}</strong>
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; gap: 15px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+                                    <span>Usage Expense:</span>
+                                    <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(aiUsageSummary.total_cost_usd * 0.92) }}</strong>
+                                </div>
+                                <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: flex; justify-content: space-between; gap: 15px;">
+                                    <span>Est. Invoice:</span>
+                                    <strong style="color: var(--accent); font-family: monospace; font-size: 0.95rem;">€{{ formatBillingCost(getTierSubscriptionCost() + (aiUsageSummary.total_cost_usd * 0.92)) }}</strong>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- KPI Grid -->
@@ -630,13 +874,27 @@ export default {
             aiUsageBreakdown: [],
             aiUsageLogs: [],
             globalPricing: [],
+            superadminAiUsageSummary: [],
+            isLoadingSuperadminAiUsage: false,
             generationMethod: 'auto',
             compiledPrompt: '',
-            isCompilingPrompt: false,
+            savingTierFeatures: false,
+            localFeatures: {
+                standard: { allow_manuscript: true, allow_copywriter: true, allow_translator: false, allow_seo: true, allow_designer: false, allow_page_builder: false, allow_dynamic_optimization: false },
+                professional: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: false },
+                enterprise: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: true }
+            },
             protocolPollInterval: null
         }
     },
     watch: {
+        'app.tierFeaturesList': {
+            immediate: true,
+            deep: true,
+            handler() {
+                this.syncLocalFeatures();
+            }
+        },
         activeShopFilter() {
             this.dnsVerified = false;
             this.dnsVerifying = false;
@@ -650,6 +908,7 @@ export default {
             if (newView === 'settings') {
                 this.loadAiUsage();
                 this.loadGlobalPricing();
+                this.loadSuperadminAiUsage();
                 this.startProtocolPolling();
             } else {
                 this.stopProtocolPolling();
@@ -703,12 +962,20 @@ export default {
                 const slug = val.trim().toLowerCase();
                 this.settingsBrand.subdomain = slug ? `${slug}.${this.app.baseBrandDomain}` : '';
             }
+        },
+        activeManuscriptModelEstCost() {
+            if (!this.settingsBrand) return '$0.0288';
+            const tier = this.settingsBrand.ai_tier || 'professional';
+            if (tier === 'standard') return '$0.0017';
+            if (tier === 'enterprise') return '$0.4100';
+            return '$0.0288';
         }
     },
     created() {
         if (this.app.activeView === 'settings') {
             this.loadAiUsage();
             this.loadGlobalPricing();
+            this.loadSuperadminAiUsage();
             this.startProtocolPolling();
         }
     },
@@ -824,6 +1091,61 @@ export default {
             } catch (err) {
                 console.error('Error loading AI usage data:', err);
             }
+        },
+        syncLocalFeatures() {
+            const defaults = {
+                standard: { allow_manuscript: true, allow_copywriter: true, allow_translator: false, allow_seo: true, allow_designer: false, allow_page_builder: false, allow_dynamic_optimization: false },
+                professional: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: false },
+                enterprise: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: true }
+            };
+            if (this.app.tierFeaturesList && this.app.tierFeaturesList.length > 0) {
+                this.app.tierFeaturesList.forEach(item => {
+                    if (defaults[item.tier]) {
+                        defaults[item.tier] = { ...item };
+                    }
+                });
+            }
+            this.localFeatures = defaults;
+        },
+        async saveTierFeatures() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            this.savingTierFeatures = true;
+            try {
+                const payload = Object.keys(this.localFeatures).map(tier => ({
+                    tier,
+                    ...this.localFeatures[tier]
+                }));
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/ai-tier-features`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ config: payload })
+                });
+                if (response.ok) {
+                    this.app.showNotification('✨ AI Tier Features Matrix updated successfully!');
+                    await this.app.loadTierFeatures();
+                } else {
+                    const err = await response.json();
+                    alert('Error saving tier features: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error saving features matrix: ' + err.message);
+            } finally {
+                this.savingTierFeatures = false;
+            }
+        },
+        formatBillingCost(val) {
+            if (val === undefined || val === null) return '0.00';
+            return parseFloat(val).toFixed(2);
+        },
+        getTierSubscriptionCost() {
+            if (!this.settingsBrand) return 45;
+            const tier = this.settingsBrand.ai_tier || 'professional';
+            if (tier === 'standard') return 15;
+            if (tier === 'enterprise') return 150;
+            return 45;
         },
         formatCost(val) {
             if (val === undefined || val === null) return '0.000000';
@@ -1065,6 +1387,27 @@ export default {
                 this.showNotification(`Error fetching styles: ${err.message}`);
             } finally {
                 this.isScraping = false;
+            }
+        },
+        async loadSuperadminAiUsage() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            this.isLoadingSuperadminAiUsage = true;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/superadmin/ai-usage`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.superadminAiUsageSummary = data.summary;
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading superadmin global AI usage:', err);
+            } finally {
+                this.isLoadingSuperadminAiUsage = false;
             }
         },
         getPlatformLogoSvg(platform, size = 16) {

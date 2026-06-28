@@ -59,8 +59,17 @@
                     </div>
                     <div class="profile-selector-meta">
                         <div
-                            style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; line-height: 1;">
-                            {{ activeWorkspaceRoleLabel }}</div>
+                            style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; line-height: 1; display: flex; align-items: center; gap: 6px;">
+                            <span>{{ activeWorkspaceRoleLabel }}</span>
+                            <span v-if="activeWorkspaceTier" 
+                                  style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); letter-spacing: 0;">
+                                {{ activeWorkspaceTier }}
+                            </span>
+                            <span v-if="activeWorkspaceFreeTier"
+                                  style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; letter-spacing: 0;">
+                                FREE
+                            </span>
+                        </div>
                         <div class="profile-selector-title"
                             style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-top: 4px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                             {{ activeWorkspaceName }}</div>
@@ -89,7 +98,15 @@
                             <span v-else>{{ b.name.charAt(0) }}</span>
                         </div>
                         <div class="workspace-dropdown-text">
-                            <strong>{{ b.name }}</strong>
+                            <strong style="display: flex; align-items: center; gap: 6px;">
+                                <span>{{ b.name }}</span>
+                                <span style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); text-transform: uppercase;">
+                                    {{ b.ai_tier || 'professional' }}
+                                </span>
+                                <span v-if="b.ai_free_tier" style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; text-transform: uppercase;">
+                                    FREE
+                                </span>
+                            </strong>
                             <span>{{ getBrandSubdomain(b) }}</span>
                         </div>
                     </div>
@@ -996,6 +1013,7 @@ export default {
 
                     // Datasets
                     brands: [],
+                    tierFeaturesList: [],
                     orders: [],
                     products: [],
                     activityLogs: [],
@@ -1186,6 +1204,16 @@ export default {
                     if (this.activeShopFilter === 'all') return null;
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.favicon : null;
+                },
+                activeWorkspaceTier() {
+                    if (this.activeShopFilter === 'all') return null;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    return brand ? (brand.ai_tier || 'professional') : null;
+                },
+                activeWorkspaceFreeTier() {
+                    if (this.activeShopFilter === 'all') return false;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    return brand ? !!brand.ai_free_tier : false;
                 },
                 activeWorkspaceName() {
                     if (this.activeShopFilter === 'all') return 'Stricktly Coffee';
@@ -2047,6 +2075,7 @@ export default {
                 },
                 bootDashboard() {
                     this.loadBrands();
+                    this.loadTierFeatures();
                     this.loadOrders();
                     this.loadProducts();
                     this.loadUsers();
@@ -2241,6 +2270,31 @@ export default {
                 selectSearchAction(view) {
                     this.closeSearchModal();
                     this.switchView(view);
+                },
+                async loadTierFeatures() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/ai-tier-features`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && Array.isArray(data.features)) {
+                                this.tierFeaturesList = data.features;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error loading tier features:', err);
+                    }
+                },
+                isFeatureAllowed(featureName) {
+                    if (this.activeShopFilter === 'all') return true;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    if (!brand) return true;
+                    if (brand.ai_free_tier) return true;
+                    const tier = brand.ai_tier || 'professional';
+                    const features = this.tierFeaturesList.find(f => f.tier === tier);
+                    if (!features) return true;
+                    return !!features[featureName];
                 },
                 // Fetch Brands List
                 async loadBrands() {

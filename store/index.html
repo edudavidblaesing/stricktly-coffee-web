@@ -1201,6 +1201,45 @@
     </div>
     <!-- Cart Logic JavaScript -->
     <script>
+        // Global error interceptor for customizer preview diagnostics
+        window.addEventListener('error', (event) => {
+            const log = {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error ? event.error.stack : null,
+                timestamp: new Date().toISOString()
+            };
+            const logs = JSON.parse(localStorage.getItem('sc_logs') || '[]');
+            logs.push(log);
+            localStorage.setItem('sc_logs', JSON.stringify(logs));
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'STOREFRONT_ERROR',
+                    message: event.message,
+                    stack: event.error ? event.error.stack : null
+                }, '*');
+            }
+        });
+        window.addEventListener('unhandledrejection', (event) => {
+            const log = {
+                message: event.reason ? event.reason.message : 'Unhandled Rejection',
+                error: event.reason ? event.reason.stack : null,
+                timestamp: new Date().toISOString()
+            };
+            const logs = JSON.parse(localStorage.getItem('sc_logs') || '[]');
+            logs.push(log);
+            localStorage.setItem('sc_logs', JSON.stringify(logs));
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'STOREFRONT_ERROR',
+                    message: event.reason ? event.reason.message : 'Unhandled Rejection',
+                    stack: event.reason ? event.reason.stack : null
+                }, '*');
+            }
+        });
+
         // Dynamic API Base URL resolution
         const getApiBaseUrl = () => {
             const hostname = window.location.hostname;
@@ -1607,39 +1646,55 @@
         // Live customizer postMessage update listener
         window.addEventListener('message', (event) => {
             console.log('[Storefront] Received message:', event.data);
-            if (event.data && event.data.type === 'UPDATE_PREVIEW_STYLES') {
-                window.previewStylesOverride = event.data;
-                
-                window.brandSettings = {
-                    ...(window.brandSettings || {}),
-                    text_hero_headline: event.data.text_hero_headline,
-                    text_hero_subheadline: event.data.text_hero_subheadline,
-                    text_hero_cta: event.data.text_hero_cta,
-                    text_404_headline: event.data.text_404_headline,
-                    text_404_subheadline: event.data.text_404_subheadline,
-                    text_404_cta: event.data.text_404_cta,
-                    content_translations: event.data.content_translations,
-                    announcement_text: event.data.announcement_text
-                };
+            fetch('/api/preview-debug-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'STOREFRONT_MSG_RECEIVED', data: event.data, origin: event.origin })
+            }).catch(() => {});
+            try {
+                if (event.data && event.data.type === 'UPDATE_PREVIEW_STYLES') {
+                    window.previewStylesOverride = event.data;
+                    
+                    window.brandSettings = {
+                        ...(window.brandSettings || {}),
+                        text_hero_headline: event.data.text_hero_headline,
+                        text_hero_subheadline: event.data.text_hero_subheadline,
+                        text_hero_cta: event.data.text_hero_cta,
+                        text_404_headline: event.data.text_404_headline,
+                        text_404_subheadline: event.data.text_404_subheadline,
+                        text_404_cta: event.data.text_404_cta,
+                        content_translations: event.data.content_translations,
+                        announcement_text: event.data.announcement_text
+                    };
 
-                const paths = window.location.pathname.split('/').filter(Boolean);
-                const activeSlug = paths.length > 0 ? paths[paths.length - 1] : '';
-                const matchedPage = window.landingPages ? window.landingPages.find(p => p.id === activeSlug) : null;
-                if (matchedPage) {
-                    renderLandingPage(matchedPage);
-                } else if (window.previewLandingPageOverride) {
-                    renderLandingPage(window.previewLandingPageOverride);
-                } else {
-                    applyThemeSettings(event.data);
-                    if (window.applyStorefrontTexts) window.applyStorefrontTexts();
-                    const store404 = document.getElementById('store-404-container');
-                    if (store404 && store404.style.display === 'flex' && window.renderBranded404) {
-                        window.renderBranded404();
+                    const paths = window.location.pathname.split('/').filter(Boolean);
+                    const activeSlug = paths.length > 0 ? paths[paths.length - 1] : '';
+                    const matchedPage = window.landingPages ? window.landingPages.find(p => p.id === activeSlug) : null;
+                    if (matchedPage) {
+                        renderLandingPage(matchedPage);
+                    } else if (window.previewLandingPageOverride) {
+                        renderLandingPage(window.previewLandingPageOverride);
+                    } else {
+                        applyThemeSettings(event.data);
+                        if (window.applyStorefrontTexts) window.applyStorefrontTexts();
+                        const store404 = document.getElementById('store-404-container');
+                        if (store404 && store404.style.display === 'flex' && window.renderBranded404) {
+                            window.renderBranded404();
+                        }
                     }
+                } else if (event.data && event.data.type === 'UPDATE_PREVIEW_LANDING_PAGE') {
+                    window.previewLandingPageOverride = event.data;
+                    renderLandingPage(event.data);
                 }
-            } else if (event.data && event.data.type === 'UPDATE_PREVIEW_LANDING_PAGE') {
-                window.previewLandingPageOverride = event.data;
-                renderLandingPage(event.data);
+            } catch (err) {
+                console.error('[Storefront] Error in postMessage listener:', err);
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'STOREFRONT_ERROR',
+                        message: err.message,
+                        stack: err.stack
+                    }, '*');
+                }
             }
         });
 

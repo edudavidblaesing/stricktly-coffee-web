@@ -61,6 +61,7 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS languages VARCHAR(255) DEFAULT 'en'`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS marketing_protocol TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_tier VARCHAR(20) DEFAULT 'professional'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_free_tier BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS protocol_status VARCHAR(20) DEFAULT 'idle'`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
@@ -232,6 +233,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS performance_history TEXT DEFAULT '[]'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS automation_rules TEXT DEFAULT '[]'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_enabled BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS dynamic_optimization_enabled BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ai_cost NUMERIC(10,6) DEFAULT 0.000000`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS campaign_creative_stats (
@@ -308,6 +311,30 @@ async function initializeDatabase() {
         ('gemini-2.5-flash', 0.075, 0.30),
         ('deep-research-pro-preview', 10.00, 40.00)
       ON CONFLICT (model) DO NOTHING
+    `);
+
+    // Create AI Tier Features Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_tier_features (
+        tier VARCHAR(20) PRIMARY KEY,
+        allow_manuscript BOOLEAN DEFAULT TRUE,
+        allow_copywriter BOOLEAN DEFAULT TRUE,
+        allow_translator BOOLEAN DEFAULT TRUE,
+        allow_seo BOOLEAN DEFAULT TRUE,
+        allow_designer BOOLEAN DEFAULT TRUE,
+        allow_page_builder BOOLEAN DEFAULT TRUE,
+        allow_dynamic_optimization BOOLEAN DEFAULT TRUE
+      )
+    `);
+
+    // Seed Defaults
+    await client.query(`
+      INSERT INTO ai_tier_features (tier, allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization)
+      VALUES 
+        ('standard', TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
+        ('professional', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
+        ('enterprise', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+      ON CONFLICT (tier) DO NOTHING
     `);
 
     await client.query('COMMIT');

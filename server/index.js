@@ -1082,6 +1082,13 @@ async function logAiUsage(brandId, operation, model, usageMetadata) {
 }
 
 
+// Temporary Preview Debug Logger
+app.post('/api/preview-debug-log', async (req, res) => {
+  console.log('[PREVIEW_DEBUG]', JSON.stringify(req.body, null, 2));
+  res.json({ success: true });
+});
+
+
 // User Auth endpoint
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
@@ -2052,10 +2059,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2172,7 +2179,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret FROM brands WHERE id = $1', [reqId]);
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier FROM brands WHERE id = $1', [reqId]);
 
     if (req.user.role !== 'superadmin') {
       if (existing) {
@@ -2180,10 +2187,15 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         req.body.custom_domain = existing.custom_domain;
         req.body.stripe_secret_key = existing.stripe_secret_key;
         req.body.stripe_webhook_secret = existing.stripe_webhook_secret;
+        req.body.ai_tier = existing.ai_tier;
+        req.body.ai_free_tier = existing.ai_free_tier;
+      } else {
+        req.body.ai_tier = 'professional';
+        req.body.ai_free_tier = false;
       }
     }
 
-    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier } = req.body;
+    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier } = req.body;
 
     if (!id || !name || !subdomain) {
       return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -2251,10 +2263,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     }
 
     const finalAiTier = ai_tier || 'professional';
+    const finalAiFreeTier = ai_free_tier === true || ai_free_tier === 'true';
 
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -2273,6 +2286,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         languages = EXCLUDED.languages,
         marketing_protocol = EXCLUDED.marketing_protocol,
         ai_tier = EXCLUDED.ai_tier,
+        ai_free_tier = EXCLUDED.ai_free_tier,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -2292,7 +2306,8 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       theme_settings || null,
       finalLangs,
       marketing_protocol || null,
-      finalAiTier
+      finalAiTier,
+      finalAiFreeTier
     ]);
 
     res.json({ success: true, brandId });
@@ -2864,6 +2879,45 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         total_tokens: l.total_tokens,
         estimated_cost_usd: parseFloat(parseFloat(l.estimated_cost_usd).toFixed(6)),
         created_at: l.created_at
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Global AI Usage overview for all brands (superadmin only)
+app.get('/api/global/superadmin/ai-usage', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
+
+  try {
+    const summaryRows = await allQuery(`
+      SELECT 
+        b.id as brand_id,
+        b.name as brand_name,
+        b.ai_tier,
+        b.ai_free_tier,
+        COUNT(l.id) as total_calls,
+        COALESCE(SUM(l.total_tokens), 0) as total_tokens,
+        COALESCE(SUM(l.estimated_cost_usd), 0.0) as total_cost_usd
+      FROM brands b
+      LEFT JOIN ai_usage_logs l ON b.id = l.brand_id
+      GROUP BY b.id, b.name, b.ai_tier, b.ai_free_tier
+      ORDER BY total_cost_usd DESC
+    `);
+    
+    res.json({
+      success: true,
+      summary: summaryRows.map(row => ({
+        brand_id: row.brand_id,
+        brand_name: row.brand_name,
+        ai_tier: row.ai_tier,
+        ai_free_tier: !!row.ai_free_tier,
+        total_calls: parseInt(row.total_calls, 10),
+        total_tokens: parseInt(row.total_tokens, 10),
+        total_cost_usd: parseFloat(parseFloat(row.total_cost_usd).toFixed(6))
       }))
     });
   } catch (err) {
@@ -4369,7 +4423,7 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
     id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
     carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
     start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-    automation_rules, autopilot_enabled
+    automation_rules, autopilot_enabled, ai_cost
   } = req.body;
 
   if (!name || !platform || !budget) {
@@ -4381,6 +4435,7 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
   const resolvedStartDate = start_date || new Date().toISOString().split('T')[0];
   const resolvedEndDate = end_date || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
   const resolvedBudgetType = budget_type || 'lifetime';
+  const resolvedAiCost = parseFloat(ai_cost || 0.0);
 
   // Seed simulated day-by-day logs for active campaign tracking
   let historyData = performance_history;
@@ -4396,9 +4451,9 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         id, brand_id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
         carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
         start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-        automation_rules, autopilot_enabled
+        automation_rules, autopilot_enabled, ai_cost
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         platform = EXCLUDED.platform,
@@ -4423,7 +4478,8 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         performance_history = EXCLUDED.performance_history,
         status = EXCLUDED.status,
         automation_rules = EXCLUDED.automation_rules,
-        autopilot_enabled = EXCLUDED.autopilot_enabled
+        autopilot_enabled = EXCLUDED.autopilot_enabled,
+        ai_cost = EXCLUDED.ai_cost
     `, [
       campaignId,
       brandId,
@@ -4450,7 +4506,8 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
       historyJson,
       status || 'active',
       rulesJson,
-      autopilot_enabled === true || autopilot_enabled === 'true'
+      autopilot_enabled === true || autopilot_enabled === 'true',
+      resolvedAiCost
     ]);
     res.json({ success: true, campaignId });
   } catch (err) {
@@ -4634,6 +4691,78 @@ app.post('/api/global/marketing-campaigns/proposals/:id/reject', verifyAdminToke
   }
 });
 
+// GET AI Tier features list
+app.get('/api/global/ai-tier-features', verifyAdminToken, async (req, res) => {
+  try {
+    const rows = await allQuery('SELECT * FROM ai_tier_features ORDER BY tier ASC');
+    res.json({ success: true, features: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST AI Tier features configuration overrides (Superadmin only)
+app.post('/api/global/ai-tier-features', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin permission required.' });
+  }
+  const { config } = req.body;
+  if (!Array.isArray(config)) {
+    return res.status(400).json({ error: 'Invalid payload: config array required.' });
+  }
+  try {
+    for (const item of config) {
+      await runQuery(`
+        UPDATE ai_tier_features 
+        SET allow_manuscript = $1, 
+            allow_copywriter = $2, 
+            allow_translator = $3, 
+            allow_seo = $4, 
+            allow_designer = $5, 
+            allow_page_builder = $6, 
+            allow_dynamic_optimization = $7 
+        WHERE tier = $8
+      `, [
+        item.allow_manuscript,
+        item.allow_copywriter,
+        item.allow_translator,
+        item.allow_seo,
+        item.allow_designer,
+        item.allow_page_builder,
+        item.allow_dynamic_optimization,
+        item.tier
+      ]);
+    }
+    res.json({ success: true, message: 'Tier features configuration updated successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Toggle dynamic optimization for a campaign
+app.post('/api/global/marketing-campaigns/:id/toggle-dynamic-optimization', verifyAdminToken, async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+    const { enabled } = req.body;
+    
+    let query = `UPDATE marketing_campaigns SET dynamic_optimization_enabled = $1 WHERE id = $2`;
+    let params = [enabled === true, campaignId];
+    
+    if (req.user.role === 'merchant') {
+      const campaign = await getQuery('SELECT brand_id FROM marketing_campaigns WHERE id = $1', [campaignId]);
+      if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+      if (campaign.brand_id !== req.user.brand_id) {
+        return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+      }
+    }
+    
+    await runQuery(query, params);
+    res.json({ success: true, campaignId, enabled: enabled === true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET Causal incrementality lift simulator metrics
 app.get('/api/global/marketing-campaigns/:id/causal-lift', verifyAdminToken, async (req, res) => {
   try {
@@ -4715,7 +4844,11 @@ Return ONLY a JSON object in this format:
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
             const parsed = JSON.parse(text);
             
+            let costUsd = 0.0;
             if (result.usageMetadata && brandId) {
+              const promptTokens = result.usageMetadata.promptTokenCount || 0;
+              const completionTokens = result.usageMetadata.candidatesTokenCount || 0;
+              costUsd = estimateGeminiCost('gemini-2.5-flash', promptTokens, completionTokens);
               await logAiUsage(brandId, 'Campaign Ad Copy Generation', 'gemini-2.5-flash', result.usageMetadata);
             }
 
@@ -4723,7 +4856,8 @@ Return ONLY a JSON object in this format:
               return res.json({
                 headline: parsed.headline,
                 ad_copy: parsed.ad_copy,
-                benefits: parsed.benefits || []
+                benefits: parsed.benefits || [],
+                estimated_cost: costUsd
               });
             }
           } else {

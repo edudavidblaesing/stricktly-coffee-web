@@ -641,7 +641,12 @@
                             <span v-else>{{ b.name.charAt(0).toUpperCase() }}</span>
                         </div>
                         <div>
-                            <h4 style="margin: 0; font-size: 1.05rem; color: var(--text-main); font-weight: 700;">{{ b.name }} <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal; margin-left: 6px;">(ID: {{ b.id }})</span></h4>
+                            <h4 style="margin: 0; font-size: 1.05rem; color: var(--text-main); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span>{{ b.name }}</span>
+                                <span style="font-size: 0.65rem; color: var(--accent); font-weight: 800; background: rgba(197,160,89,0.15); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; border: 1px solid rgba(197,160,89,0.3);">{{ b.ai_tier || 'professional' }}</span>
+                                <span v-if="b.ai_free_tier" style="font-size: 0.65rem; color: #10b981; font-weight: 800; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; border: 1px solid rgba(16, 185, 129, 0.3);">FREE</span>
+                                <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal; margin-left: 4px;">(ID: {{ b.id }})</span>
+                            </h4>
                             <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 12px; margin-top: 4px;">
                                 <span style="display: inline-flex; align-items: center; gap: 6px;">
                                     Platform: 

@@ -35,8 +35,9 @@
                         </p>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px;" @click="showAIModal = true">
-                            🤖 Generate Page with AI
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px;" @click="triggerAIPageBuilder">
+                            <span v-if="!app.isFeatureAllowed('allow_page_builder')">🔒 Generate Page with AI</span>
+                            <span v-else>🤖 Generate Page with AI</span>
                         </button>
                         <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border);" @click="createNewPage">
                             ➕ Create Campaign Page
@@ -161,7 +162,7 @@
                             <!-- Translate button if not default 'en' -->
                             <button v-if="landingPageContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateLandingPageWithAI(landingPageContentLang)" :disabled="translatingLandingPage">
                                 <span v-if="translatingLandingPage" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else>✨ AI Translate from EN</span>
+                                <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                             </button>
                         </div>
 
@@ -332,7 +333,7 @@
                         <button type="button" class="btn" style="margin: 0; height: 36px; border: 1px solid var(--border);" @click="showAIModal = false" :disabled="generatingAIPage">Cancel</button>
                         <button type="button" class="btn btn-accent" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="generatingAIPage || !aiModalPrompt" @click="generateAIPage">
                             <span v-if="generatingAIPage">⏳ Writing Copy & Layout...</span>
-                            <span v-else>✨ Generate & Add Page</span>
+                            <span v-else>✨ Generate & Add Page [Gemini 2.5 Flash] [~$0.0006]</span>
                         </button>
                     </div>
                 </div>
@@ -584,6 +585,13 @@ export default {
             } finally {
                 this.generatingAIPage = false;
             }
+        },
+        triggerAIPageBuilder() {
+            if (!this.app.isFeatureAllowed('allow_page_builder')) {
+                alert('🔒 Feature Locked: Please upgrade your subscription to Professional or Enterprise Tier to unlock the AI Landing Page Generator.');
+                return;
+            }
+            this.showAIModal = true;
         },
         createNewPage() {
             this.isNewPage = true;

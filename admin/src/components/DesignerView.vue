@@ -325,7 +325,20 @@
                     </div>
 
                     <!-- TAB 5: AI DESIGN LAB -->
-                    <div v-if="activeTab === 'ai'" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div v-if="activeTab === 'ai'" style="display: flex; flex-direction: column; gap: 16px; position: relative; min-height: 180px;">
+                        <!-- Locked Overlay -->
+                        <div v-if="!app.isFeatureAllowed('allow_designer')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,15,17,0.92); border-radius: 8px; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; box-sizing: border-box; text-align: center;">
+                            <div>
+                                <span style="font-size: 1.8rem; display: block; margin-bottom: 8px;">🔒</span>
+                                <span style="font-size: 0.76rem; font-weight: 800; color: var(--accent); background: rgba(197,160,89,0.15); padding: 2px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase; border: 1px solid rgba(197,160,89,0.3);">
+                                    Professional Feature
+                                </span>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; max-width: 250px; line-height: 1.4;">
+                                    Upgrade to Professional or Enterprise Tier to unlock automated Brand Look-Alike theme generators.
+                                </div>
+                            </div>
+                        </div>
+
                         <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-size: 0.8rem; line-height: 1.5; color: var(--text-main);">
                             <span style="font-size: 1.1rem; display: block; margin-bottom: 4px;">🤖 AI Storefront Designer</span>
                             The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
@@ -333,7 +346,7 @@
 
                         <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
                             <span v-if="isGeneratingLayout">⏳ Tuning Layout Colors & Styles...</span>
-                            <span v-else>✨ Generate Brand Look-Alike Theme (via Gemini 2.5 Flash)</span>
+                            <span v-else>✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [~$0.0005]</span>
                         </button>
                         <p v-if="inheritStyles" style="font-size: 0.72rem; color: #ef4444; margin: 0; text-align: center;">
                             ⚠️ Please uncheck "Inherit Master Brand Styles" above to enable custom AI design overrides.
@@ -428,7 +441,7 @@
                 <div :style="previewContainerStyle"
                     style="border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
                     <div :style="viewportIframeStyle" style="height: 100%; transition: all 0.3s ease; background: var(--workspace-bg);">
-                        <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" sandbox="allow-scripts allow-same-origin allow-forms" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
             </div>
@@ -487,7 +500,8 @@ export default {
             activeTab: 'style',
             isGeneratingLayout: false,
             aiStylePresets: [],
-            autoUpdatePreview: true
+            autoUpdatePreview: true,
+            iframeBuster: Date.now()
         };
     },
     mounted() {
@@ -497,6 +511,9 @@ export default {
             if (event.data && event.data.type === 'STOREFRONT_READY') {
                 console.log('[DesignerView] Handshake: Storefront ready signal received. Sending styles...');
                 this.updatePreviewStyles();
+            } else if (event.data && event.data.type === 'STOREFRONT_ERROR') {
+                console.error('[DesignerView] Storefront Iframe Error:', event.data.message, event.data.stack);
+                this.app.showNotification(`⚠️ Storefront preview error: ${event.data.message}`);
             }
         };
         window.addEventListener('message', this.messageListener);
@@ -561,7 +578,7 @@ export default {
         },
         previewIframeSrc() {
             if (this.app.activeShopFilter === 'all') return '';
-            return `/store/${this.app.activeShopFilter}?previewBrandId=${this.app.activeShopFilter}`;
+            return `/store/${this.app.activeShopFilter}?previewBrandId=${this.app.activeShopFilter}&t=${this.iframeBuster}`;
         },
         contrastIssues() {
             const issues = [];
@@ -665,6 +682,7 @@ export default {
         'app.activeShopFilter': {
             immediate: true,
             handler() {
+                this.iframeBuster = Date.now();
                 this.loadBrandContext();
             }
         },
@@ -1173,8 +1191,18 @@ export default {
                         content_translations: this.designerBrand.content_translations
                     };
                     console.log('[DesignerView] Posting styles to iframe:', styles);
+                    fetch('/api/preview-debug-log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'DASHBOARD_MSG_SENT', styles })
+                    }).catch(() => {});
                     iframe.contentWindow.postMessage(styles, '*');
                 } else {
+                    fetch('/api/preview-debug-log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'DASHBOARD_IFRAME_NOT_READY' })
+                    }).catch(() => {});
                     console.log('[DesignerView] Iframe or contentWindow not ready yet.');
                 }
             } catch(e) {
