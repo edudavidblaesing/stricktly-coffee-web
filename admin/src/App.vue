@@ -920,11 +920,7 @@ import MediaView from './components/MediaView.vue';
 
 Chart.register(...registerables);
 
-const envConfigs = {
-    local: '',
-    dev: 'https://dev.stricktlycoffee.be',
-    prod: 'https://stricktlycoffee.be'
-};
+
 
 export default {
             components: {
@@ -1251,8 +1247,30 @@ export default {
                         return `https://${domain}`;
                     }
                 },
+                envConfigs() {
+                    const hostname = window.location.hostname;
+                    if (hostname.includes('dev-dash.') || hostname.includes('dash.dev.')) {
+                        return {
+                            local: 'http://localhost:8082',
+                            dev: '',
+                            prod: 'https://stricktlycoffee.be'
+                        };
+                    } else if (hostname.includes('dash.stricktlycoffee.be')) {
+                        return {
+                            local: 'http://localhost:8082',
+                            dev: 'https://dev.stricktlycoffee.be',
+                            prod: ''
+                        };
+                    } else {
+                        return {
+                            local: '',
+                            dev: 'https://dev.stricktlycoffee.be',
+                            prod: 'https://stricktlycoffee.be'
+                        };
+                    }
+                },
                 apiBaseUrl() {
-                    return envConfigs[this.currentEnv];
+                    return this.envConfigs[this.currentEnv];
                 },
                 envLabel() {
                     if (this.currentEnv === 'prod') return 'Production Stack';
@@ -1444,9 +1462,19 @@ export default {
             },
             mounted() {
                 // Initialize environment variables
+                const hostname = window.location.hostname;
+                let defaultEnv = 'local';
+                if (hostname.includes('dev-dash.') || hostname.includes('dash.dev.')) {
+                    defaultEnv = 'dev';
+                } else if (hostname.includes('dash.stricktlycoffee.be')) {
+                    defaultEnv = 'prod';
+                }
+
                 const savedEnv = localStorage.getItem('sc_admin_env');
-                if (savedEnv) {
+                if (savedEnv && (savedEnv !== 'local' || defaultEnv === 'local')) {
                     this.currentEnv = savedEnv;
+                } else {
+                    this.currentEnv = defaultEnv;
                 }
 
                 // Parse initial URL segments
