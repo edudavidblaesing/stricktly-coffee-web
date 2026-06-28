@@ -1141,7 +1141,7 @@ export default {
                 },
                 baseBrandDomain() {
                     const hostname = window.location.hostname;
-                    if (hostname.includes('dev-dash.')) {
+                    if (hostname.includes('dev-dash.') || hostname.includes('dash.dev.')) {
                         return 'dev.stricktlycoffee.be';
                     }
                     if (hostname.includes('dash.')) {
@@ -1150,7 +1150,7 @@ export default {
                     if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
                         return 'stricktlycoffee.local';
                     }
-                    return hostname.replace('dash.', '').replace('dev-dash.', 'dev.');
+                    return hostname.replace('dash.dev.', 'dev.').replace('dev-dash.', 'dev.').replace('dash.', '');
                 },
                 activeBrands() {
                     return (this.brands || []).filter(b => b.status !== 'draft');

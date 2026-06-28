@@ -43,7 +43,7 @@ const targetRecords = [
   
   { name: `dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `www.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
-  { name: `dev-dash.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
+  { name: `dash.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `s3-console-dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   
   { name: `*.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
