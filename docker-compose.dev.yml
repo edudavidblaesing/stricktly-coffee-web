@@ -8,12 +8,12 @@ services:
       - BACKEND_HOST=sc-backend-dev
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.rule=Host('${DOMAIN}') || Host('www.${DOMAIN}') || HostRegexp('{subdomain:[a-z0-9-]+}.${DOMAIN}')${DEV_ROUTE_RULE}"
+      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(\`${DOMAIN}\`) || Host(\`www.${DOMAIN}\`) || HostRegexp(\`{subdomain:[a-z0-9-]+}.${DOMAIN}\`)${DEV_ROUTE_RULE}"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.entrypoints=websecure"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.tls.certresolver=letsencrypt"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.priority=20"
       - "traefik.http.services.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=80"
-      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host('${DOMAIN}') || Host('www.${DOMAIN}') || HostRegexp('{subdomain:[a-z0-9-]+}.${DOMAIN}')${DEV_ROUTE_RULE}"
+      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(\`${DOMAIN}\`) || Host(\`www.${DOMAIN}\`) || HostRegexp(\`{subdomain:[a-z0-9-]+}.${DOMAIN}\`)${DEV_ROUTE_RULE}"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.priority=20"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}"
