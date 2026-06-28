@@ -9,9 +9,9 @@ services:
       - ./web:/usr/share/nginx/html/web:ro
       - ./store:/usr/share/nginx/html/store:ro
     depends_on:
-      - backend-core
+      - sc-backend-core
 
-  backend-core:
+  sc-backend-core:
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -65,7 +65,7 @@ services:
       - ./admin/dist:/usr/share/nginx/html/admin:ro
       - ./store:/usr/share/nginx/html/store:ro
     depends_on:
-      - backend-core
+      - sc-backend-core
 
   minio:
     image: minio/minio:latest

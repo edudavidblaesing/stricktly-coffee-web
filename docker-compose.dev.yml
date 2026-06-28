@@ -17,9 +17,9 @@ services:
     networks:
       - dokploy-network
     depends_on:
-      - backend-core
+      - sc-backend-core
 
-  backend-core:
+  sc-backend-core:
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -79,7 +79,7 @@ services:
     networks:
       - dokploy-network
     depends_on:
-      - backend-core
+      - sc-backend-core
 
   minio:
     image: minio/minio:latest
