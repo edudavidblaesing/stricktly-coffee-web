@@ -375,6 +375,11 @@
                     Combined Orders Audit
                 </button>
             </li>
+            <li>
+                <button class="nav-link-btn" onclick="switchView('warehouse-sim')">
+                    Warehouse Simulator
+                </button>
+            </li>
         </ul>
     </aside>
 
@@ -417,6 +422,7 @@
                                 <th>Shopify Shop Name</th>
                                 <th>Stripe Live</th>
                                 <th>Contact Email</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="brands-table-body">
@@ -556,6 +562,27 @@
                     </table>
                 </div>
             </div>
+        <!-- VIEW 5: WAREHOUSE SIMULATOR LAUNCHER -->
+        <div id="view-warehouse-sim" class="admin-view">
+            <div class="panel" style="max-width: 600px;">
+                <h3 class="panel-title">Fulfillment Warehouse Simulator</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px;">
+                    Select an onboarded brand store below to launch its dedicated Shopify simulated fulfillment warehouse.
+                </p>
+                <div class="form-grid" style="grid-template-columns: 1fr;">
+                    <div class="form-group">
+                        <label for="sim-brand-select">Select Brand Store</label>
+                        <select id="sim-brand-select" required>
+                            <!-- Injected dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <button type="button" class="btn" onclick="launchWarehouseSimulator()">
+                            Launch Warehouse Simulator ↗
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -582,7 +609,7 @@
             if (targetBtn) targetBtn.classList.add('active');
 
             // Load view-specific dynamic datasets
-            if (viewId === 'overview' || viewId === 'products') {
+            if (viewId === 'overview' || viewId === 'products' || viewId === 'warehouse-sim') {
                 loadBrands();
             }
             if (viewId === 'orders' || viewId === 'overview') {
@@ -621,7 +648,7 @@
             document.getElementById('metric-shops').textContent = brandsCache.length;
 
             if (brandsCache.length === 0) {
-                body.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No shops registered.</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No shops registered.</td></tr>';
                 return;
             }
 
@@ -634,6 +661,11 @@
                     <td>${brand.shopify_shop_name || '<span style="color: var(--text-muted);">Mocked (Sandbox)</span>'}</td>
                     <td>${brand.has_stripe ? '✅ Live' : '🚧 Mocked (Sandbox)'}</td>
                     <td>${brand.contact_email || '-'}</td>
+                    <td>
+                        <button class="btn" style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; color: #fff; margin: 0;" onclick="deOnboardBrand('${brand.id}')">
+                            De-onboard
+                        </button>
+                    </td>
                 `;
                 body.appendChild(tr);
             });
@@ -642,12 +674,61 @@
         function populateBrandSelectors() {
             const select = document.getElementById('prod-brand');
             select.innerHTML = '';
+            
+            const simSelect = document.getElementById('sim-brand-select');
+            simSelect.innerHTML = '';
+
             brandsCache.forEach(brand => {
                 const opt = document.createElement('option');
                 opt.value = brand.id;
                 opt.textContent = `${brand.name} (${brand.id})`;
                 select.appendChild(opt);
+
+                const optSim = document.createElement('option');
+                optSim.value = brand.id;
+                optSim.textContent = `${brand.name} (${brand.id})`;
+                simSelect.appendChild(optSim);
             });
+        }
+
+        async function deOnboardBrand(brandId) {
+            if (!confirm(`Are you sure you want to de-onboard and delete the brand "${brandId}"? This will clean up all associated products, orders, and delete its Cloudflare subdomain!`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/global/brands/${brandId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showNotification(`Shop ${brandId} deleted and DNS records cleaned up!`);
+                    loadBrands();
+                } else {
+                    const err = await response.json();
+                    alert(`Error de-onboarding: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error submitting request: ${err.message}`);
+            }
+        }
+
+        function launchWarehouseSimulator() {
+            const select = document.getElementById('sim-brand-select');
+            const brandId = select.value;
+            if (!brandId) return;
+
+            const brand = brandsCache.find(b => b.id === brandId);
+            if (!brand) return;
+
+            let targetUrl;
+            if (window.location.hostname.includes('local') || window.location.hostname.includes('localhost') || window.location.port) {
+                targetUrl = `http://localhost:8081/warehouse.html`;
+            } else {
+                targetUrl = `https://${brand.subdomain}/warehouse.html`;
+            }
+
+            window.open(targetUrl, '_blank');
         }
 
         // 2. Load Orders list

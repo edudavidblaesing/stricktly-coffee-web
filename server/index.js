@@ -22,6 +22,92 @@ function getStripeInstance(brand) {
   return stripeInstances[brand.id];
 }
 
+// Cloudflare DNS Record helper
+async function createCloudflareSubdomain(subdomain) {
+  const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+  const cfZoneId = process.env.CLOUDFLARE_ZONE_ID;
+  const baseDomain = process.env.CLOUDFLARE_DOMAIN || 'stricktlycoffee.be';
+
+  if (!cfToken || !cfZoneId) {
+    console.log('[Cloudflare] API token or Zone ID missing. Skipping DNS record creation.');
+    return null;
+  }
+
+  // Extract prefix from subdomain
+  const prefix = subdomain.replace(`.${baseDomain}`, '').trim();
+
+  // If the subdomain is just the baseDomain itself, or they input something invalid, skip
+  if (prefix === baseDomain || !prefix) {
+    console.log('[Cloudflare] Subdomain prefix matches base domain or is invalid. Skipping DNS.');
+    return null;
+  }
+
+  console.log(`[Cloudflare] Creating CNAME record for ${prefix}.${baseDomain} pointing to ${baseDomain}...`);
+
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cfToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'CNAME',
+        name: prefix,
+        content: baseDomain,
+        ttl: 1, // automatic
+        proxied: true
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      console.error('[Cloudflare] Error response:', result);
+      throw new Error(result.errors?.[0]?.message || 'Failed to create DNS record');
+    }
+
+    console.log(`[Cloudflare] Successfully created DNS record ID: ${result.result.id}`);
+    return result.result.id;
+  } catch (err) {
+    console.error('[Cloudflare] DNS record creation failed:', err.message);
+    return null;
+  }
+}
+
+async function deleteCloudflareSubdomain(recordId) {
+  const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+  const cfZoneId = process.env.CLOUDFLARE_ZONE_ID;
+
+  if (!cfToken || !cfZoneId || !recordId) {
+    console.log('[Cloudflare] Missing config or Record ID. Skipping DNS record deletion.');
+    return false;
+  }
+
+  console.log(`[Cloudflare] Deleting DNS record ID: ${recordId}...`);
+
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${cfToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      console.error('[Cloudflare] Error response:', result);
+      throw new Error(result.errors?.[0]?.message || 'Failed to delete DNS record');
+    }
+
+    console.log(`[Cloudflare] Successfully deleted DNS record ID: ${recordId}`);
+    return true;
+  } catch (err) {
+    console.error('[Cloudflare] DNS record deletion failed:', err.message);
+    return false;
+  }
+}
+
 // ----------------------------------------------------------------------------
 // STRIPE WEBHOOK (Needs raw body parser)
 // ----------------------------------------------------------------------------
@@ -382,10 +468,26 @@ app.post('/api/global/brands', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
   }
 
+  const brandId = id.trim().toLowerCase();
+
   try {
+    // Check if brand already exists to see if subdomain changed
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id FROM brands WHERE id = $1', [brandId]);
+    
+    let dnsRecordId = existing ? existing.cloudflare_dns_record_id : null;
+
+    if (!existing || existing.subdomain !== subdomain) {
+      // If subdomain changed, delete the old DNS record first
+      if (existing && existing.cloudflare_dns_record_id) {
+        await deleteCloudflareSubdomain(existing.cloudflare_dns_record_id);
+      }
+      // Create new DNS record
+      dnsRecordId = await createCloudflareSubdomain(subdomain);
+    }
+
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -395,9 +497,10 @@ app.post('/api/global/brands', async (req, res) => {
         stripe_webhook_secret = EXCLUDED.stripe_webhook_secret,
         contact_email = EXCLUDED.contact_email,
         primary_color = EXCLUDED.primary_color,
+        cloudflare_dns_record_id = COALESCE(EXCLUDED.cloudflare_dns_record_id, brands.cloudflare_dns_record_id),
         updated_at = CURRENT_TIMESTAMP
     `, [
-      id.trim().toLowerCase(),
+      brandId,
       name,
       subdomain,
       shopify_shop_name || null,
@@ -405,10 +508,36 @@ app.post('/api/global/brands', async (req, res) => {
       stripe_secret_key || null,
       stripe_webhook_secret || null,
       contact_email || null,
-      primary_color || '#c5a059'
+      primary_color || '#c5a059',
+      dnsRecordId
     ]);
 
-    res.json({ success: true, brandId: id });
+    res.json({ success: true, brandId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete/De-onboard brand
+app.delete('/api/global/brands/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Fetch brand details to get DNS record ID
+    const brand = await getQuery('SELECT name, cloudflare_dns_record_id FROM brands WHERE id = $1', [id]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand shop not found' });
+    }
+
+    // 2. Delete DNS record on Cloudflare if present
+    if (brand.cloudflare_dns_record_id) {
+      await deleteCloudflareSubdomain(brand.cloudflare_dns_record_id);
+    }
+
+    // 3. Delete from database (cascades to products)
+    await runQuery('DELETE FROM brands WHERE id = $1', [id]);
+
+    res.json({ success: true, message: `Brand ${brand.name} has been successfully de-onboarded.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -36,9 +36,15 @@ async function initializeDatabase() {
         stripe_webhook_secret VARCHAR(255),
         contact_email VARCHAR(255),
         primary_color VARCHAR(50) DEFAULT '#c5a059',
+        cloudflare_dns_record_id VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Ensure migration columns exist on legacy databases
+    await client.query(`
+      ALTER TABLE brands ADD COLUMN IF NOT EXISTS cloudflare_dns_record_id VARCHAR(255)
     `);
 
     // 2. Create Products Table
