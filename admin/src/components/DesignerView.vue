@@ -357,13 +357,21 @@ export default {
                 line_height_scale: 'comfortable',
                 instagram_link: '',
                 facebook_link: '',
-                twitter_link: ''
+                twitter_link: '',
+                text_hero_headline: '',
+                text_hero_subheadline: '',
+                text_hero_cta: 'SHOP COLLECTION',
+                text_404_headline: 'Page Not Found',
+                text_404_subheadline: 'The page you are looking for doesn\'t exist or has been moved.',
+                text_404_cta: 'Back to Shop',
+                content_translations: {}
             },
             saving: false,
             isFullscreen: false,
             iframeCurrentUrl: '',
             inheritStyles: true,
-            viewportMode: 'desktop'
+            viewportMode: 'desktop',
+            translationActiveLang: 'en'
         };
     },
     mounted() {
@@ -383,6 +391,19 @@ export default {
         }
     },
     computed: {
+        availableLanguages() {
+            if (!this.designerBrand.languages) return ['en'];
+            let langs = [];
+            if (Array.isArray(this.designerBrand.languages)) {
+                langs = this.designerBrand.languages;
+            } else if (typeof this.designerBrand.languages === 'string') {
+                langs = this.designerBrand.languages.split(',').map(x => x.trim().toLowerCase());
+            }
+            if (!langs.includes('en')) {
+                langs.unshift('en');
+            }
+            return langs;
+        },
         activeBrandName() {
             if (this.app.activeShopFilter === 'all') return 'None';
             const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);

@@ -8,15 +8,15 @@ services:
       - BACKEND_HOST=sc-backend-prod
     labels:
       - "traefik.enable=true"
-      - 'traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || HostRegexp(`^[a-z0-9-]+\\.${DOMAIN}$`)${DEV_ROUTE_RULE}'
+      - 'traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || HostRegexp(`^[a-z0-9-]+\.${DOMAIN}$`)${DEV_ROUTE_RULE}'
       - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.entrypoints=websecure"
       - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.tls.certresolver=letsencrypt"
       - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.priority=10"
       - "traefik.http.services.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=80"
-      - 'traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || HostRegexp(`^[a-z0-9-]+\\.${DOMAIN}$`)${DEV_ROUTE_RULE}'
+      - 'traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || HostRegexp(`^[a-z0-9-]+\.${DOMAIN}$`)${DEV_ROUTE_RULE}'
       - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
       - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.priority=10"
-      - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}"
+      - "traefik.http.routers.stricktly-coffee-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-prod-${DOKPLOY_COMPOSE_ID_SC}"
       - "traefik.http.middlewares.redirect-to-https-prod-${DOKPLOY_COMPOSE_ID_SC}.redirectscheme.scheme=https"
     networks:
       - dokploy-network
@@ -55,7 +55,7 @@ services:
       - "traefik.http.services.sc-api-prod-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=3000"
       - "traefik.http.routers.sc-api-prod-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${API_DOMAIN}`)"
       - "traefik.http.routers.sc-api-prod-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
-      - "traefik.http.routers.sc-api-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}"
+      - "traefik.http.routers.sc-api-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-prod-${DOKPLOY_COMPOSE_ID_SC}"
     depends_on:
       - postgres-db-prod
       - minio-prod
@@ -90,7 +90,7 @@ services:
       - "traefik.http.services.web-dashboard-prod-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=80"
       - "traefik.http.routers.web-dashboard-prod-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${DASH_DOMAIN}`)"
       - "traefik.http.routers.web-dashboard-prod-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
-      - "traefik.http.routers.web-dashboard-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-dashboard-${DOKPLOY_COMPOSE_ID_SC}"
+      - "traefik.http.routers.web-dashboard-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-prod-dashboard-${DOKPLOY_COMPOSE_ID_SC}"
       - "traefik.http.middlewares.redirect-to-https-prod-dashboard-${DOKPLOY_COMPOSE_ID_SC}.redirectscheme.scheme=https"
     networks:
       - dokploy-network
@@ -115,7 +115,7 @@ services:
       - "traefik.http.services.minio-console-prod-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=9001"
       - "traefik.http.routers.minio-console-prod-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${S3_CONSOLE_DOMAIN}`)"
       - "traefik.http.routers.minio-console-prod-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
-      - "traefik.http.routers.minio-console-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-minio-${DOKPLOY_COMPOSE_ID_SC}"
+      - "traefik.http.routers.minio-console-prod-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-prod-minio-${DOKPLOY_COMPOSE_ID_SC}"
       - "traefik.http.middlewares.redirect-to-https-prod-minio-${DOKPLOY_COMPOSE_ID_SC}.redirectscheme.scheme=https"
     volumes:
       - minio_data:/data

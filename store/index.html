@@ -1893,12 +1893,32 @@
         async function loadProducts() {
             await fetchBrandConfig();
 
-            // Check if we are on any landing page slug
-            const activeSlug = pathSegmentsName[pathSegmentsName.length - 1];
-            const matchedPage = window.landingPages.find(p => p.id === activeSlug);
-            if (matchedPage) {
-                renderLandingPage(matchedPage);
-                return;
+            const segments = window.location.pathname.split('/').filter(Boolean);
+            let activeSlug = '';
+            
+            if (segments.length > 0) {
+                if (segments[0] === 'store') {
+                    if (segments.length > 2) {
+                        activeSlug = segments[2];
+                    }
+                } else {
+                    activeSlug = segments[0];
+                }
+            }
+            
+            const excludedSlugs = ['track', 'checkout-mock', 'warehouse', 'index', 'index.html'];
+            
+            if (activeSlug && !excludedSlugs.includes(activeSlug)) {
+                const matchedPage = window.landingPages.find(p => p.id === activeSlug);
+                if (matchedPage) {
+                    renderLandingPage(matchedPage);
+                    return;
+                } else {
+                    renderBranded404();
+                    return;
+                }
+            } else {
+                renderStoreHomepage();
             }
 
             try {
@@ -2185,6 +2205,70 @@
             if (prodShopLink) {
                 prodShopLink.href = previewBrandId ? `/store/${previewBrandId}` : '.';
             }
+        }
+
+        function renderBranded404() {
+            const header = document.querySelector('header');
+            const heroSec = document.querySelector('.hero');
+            const prodSec = document.querySelector('.products-section');
+            const footer = document.querySelector('footer');
+            const lpc = document.getElementById('landing-page-container');
+            
+            if (header) header.style.display = 'flex';
+            if (heroSec) heroSec.style.display = 'none';
+            if (prodSec) prodSec.style.display = 'none';
+            if (footer) footer.style.display = 'block';
+            if (lpc) lpc.style.display = 'none';
+            
+            const err404 = document.getElementById('store-404-container');
+            if (err404) {
+                err404.style.display = 'flex';
+                const homeBtn = document.getElementById('store-404-home-btn');
+                if (homeBtn) {
+                    homeBtn.href = previewBrandId ? `/store/${previewBrandId}?previewBrandId=${previewBrandId}` : '/';
+                }
+
+                let headline = 'Page Not Found';
+                let subheadline = 'The page you are looking for doesn\'t exist or has been moved.';
+                let cta = 'Back to Shop';
+
+                const activeLang = localStorage.getItem('store_lang') || 'en';
+                const settings = window.brandSettings || {};
+                
+                if (settings.storefront) {
+                    const sf = settings.storefront;
+                    if (activeLang === 'en') {
+                        if (sf.text_404_headline) headline = sf.text_404_headline;
+                        if (sf.text_404_subheadline) subheadline = sf.text_404_subheadline;
+                        if (sf.text_404_cta) cta = sf.text_404_cta;
+                    } else if (sf.translations && sf.translations[activeLang]) {
+                        const tr = sf.translations[activeLang];
+                        if (tr.text_404_headline) headline = tr.text_404_headline;
+                        if (tr.text_404_subheadline) subheadline = tr.text_404_subheadline;
+                        if (tr.text_404_cta) cta = tr.text_404_cta;
+                    }
+                }
+
+                document.getElementById('store-404-headline').innerText = headline;
+                document.getElementById('store-404-subheadline').innerText = subheadline;
+                document.getElementById('store-404-home-btn').innerText = cta;
+            }
+        }
+        
+        function renderStoreHomepage() {
+            const header = document.querySelector('header');
+            const heroSec = document.querySelector('.hero');
+            const prodSec = document.querySelector('.products-section');
+            const footer = document.querySelector('footer');
+            const lpc = document.getElementById('landing-page-container');
+            const err404 = document.getElementById('store-404-container');
+            
+            if (header) header.style.display = 'flex';
+            if (heroSec) heroSec.style.display = 'block';
+            if (prodSec) prodSec.style.display = 'block';
+            if (footer) footer.style.display = 'block';
+            if (lpc) lpc.style.display = 'none';
+            if (err404) err404.style.display = 'none';
         }
 
         function renderProducts() {
