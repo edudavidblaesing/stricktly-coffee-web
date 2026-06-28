@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
     container_name: postgres-db-local
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}

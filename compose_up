@@ -32,6 +32,7 @@ echo "════════════════════════�
 echo ""
 echo "🌐 Storefront (Strictly Coffee): http://localhost/"
 echo "🛍️  Warehouse Shop (Pesado):       http://localhost:8081/"
+echo "👑 Admin Dashboard:              http://localhost:8082/"
 echo "📦 Warehouse Simulator:           http://localhost:8081/warehouse.html"
 echo "🔍 Order Tracker:                 http://localhost:8081/track.html"
 echo ""
