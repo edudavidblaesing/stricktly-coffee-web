@@ -56,7 +56,7 @@ services:
   web-dashboard:
     build:
       context: .
-      dockerfile: Dockerfile.admin
+      dockerfile: Dockerfile.dash
     restart: unless-stopped
     container_name: web-dashboard-local
     ports:

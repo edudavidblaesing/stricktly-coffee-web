@@ -61,7 +61,7 @@ services:
   web-dashboard:
     build:
       context: .
-      dockerfile: Dockerfile.admin
+      dockerfile: Dockerfile.dash
     ports:
       - "8082:80"
       - "8444:443"
