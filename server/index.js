@@ -2593,6 +2593,210 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
   }
 });
 
+// POST Generate AI look-alike storefront layout styling configurations
+app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    if (!brand.marketing_protocol) {
+      return res.status(400).json({ error: 'No brand manuscript generated yet. Please generate a Brand Strategy Playbook first.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const prompt = `You are a premium digital Brand Designer and Frontend Art Director.
+Analyze the following Brand Strategy Playbook:
+
+[BRAND PLAYBOOK]
+${brand.marketing_protocol}
+
+Determine a highly professional, visually stunning, cohesive color scheme, button border radius, font family, and hero copywriting blocks that perfectly matches the brand's voice and customer personas.
+
+Return ONLY a JSON object matching this structure:
+{
+  "primary_color": "Hex color code e.g. #c5a059",
+  "secondary_color": "Hex color code e.g. #767676",
+  "bg_color": "Hex color code e.g. #ffffff",
+  "text_color": "Hex color code e.g. #111111",
+  "header_bg_color": "Hex color code e.g. #ffffff",
+  "button_text_color": "Hex color code e.g. #ffffff",
+  "button_radius": "One of: 0px, 4px, 8px, 12px, 9999px",
+  "font_family": "One of: Outfit, Space Grotesk, Inter, Roboto, Open Sans",
+  "text_hero_headline": "An punchy, attention-grabbing homepage banner headline based on their USPs",
+  "text_hero_subheadline": "A supporting, high-converting subheadline explaining the value proposition",
+  "text_hero_cta": "Action-oriented CTA text e.g. Explore Precision Gear"
+}`;
+
+    console.log(`[AI Layout Generator] Analyzing brand strategy to design storefront look-alike for: ${brandId}`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const layoutSettings = JSON.parse(text);
+
+      if (result.usageMetadata) {
+        await logAiUsage(brandId, 'Brand Style Layout Generation', 'gemini-2.5-flash', result.usageMetadata);
+      }
+
+      res.json({ success: true, layout: layoutSettings });
+    } else {
+      const errText = await response.text();
+      res.status(500).json({ error: `Gemini API returned status ${response.status}: ${errText}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Generate structural landing page with copy via AI
+app.post('/api/global/brands/:id/generate-ai-page', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { prompt: userTopic, productId } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  if (!userTopic) {
+    return res.status(400).json({ error: 'Missing required parameter: prompt' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    // Load product context if associated
+    let productContext = 'No specific product linked.';
+    let finalProductId = productId || '';
+    if (finalProductId) {
+      const product = await getQuery('SELECT title, description, price FROM products WHERE id = $1 AND brand_id = $2', [finalProductId, brandId]);
+      if (product) {
+        productContext = `Product: ${product.title} (€${parseFloat(product.price).toFixed(2)})\nDescription: ${product.description || ''}`;
+      } else {
+        finalProductId = ''; // clear if invalid
+      }
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const prompt = `You are an elite Performance Copywriter and UX Architect.
+Generate a structured, high-converting Landing Page campaign.
+
+Brand Manuscript & Voice guidelines:
+${brand.marketing_protocol || 'Default premium coffee brand.'}
+
+Product Context:
+${productContext}
+
+Campaign Theme/Topic:
+${userTopic}
+
+Return ONLY a JSON object representing the page structure and copy content:
+{
+  "title": "A short internal name for this landing page e.g. Black Friday Promo",
+  "headline": "A punchy, attention-grabbing hero headline",
+  "subheadline": "An explanatory subheadline matching the brand voice",
+  "cta": "Action button text e.g. Order Now with 20% Off",
+  "coupon_code": "Promo coupon code e.g. SAVE20",
+  "features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Precision Shower Screen\n☕ Zero Channeling Guarantee\n📦 Worldwide Express Shipping"
+}`;
+
+    console.log(`[AI Page Generator] Drafting campaign landing page structure for brand: ${brandId}`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const pageDraft = JSON.parse(text);
+
+      if (result.usageMetadata) {
+        await logAiUsage(brandId, 'Campaign Page Structure Generation', 'gemini-2.5-flash', result.usageMetadata);
+      }
+
+      // Automatically persist/save to the brand's landing_pages array inside theme_settings!
+      let theme = {};
+      if (brand.theme_settings) {
+        try {
+          theme = JSON.parse(brand.theme_settings);
+        } catch (e) {}
+      }
+
+      const existingPages = theme.landing_pages || [];
+      const newPageId = 'lp_' + Math.random().toString(36).substring(2, 9);
+      const newPageObj = {
+        id: newPageId,
+        title: pageDraft.title || userTopic,
+        type: 'standard',
+        product_id: finalProductId,
+        inherit: true, // inherits brand colors
+        headline: pageDraft.headline || '',
+        subheadline: pageDraft.subheadline || '',
+        cta: pageDraft.cta || '',
+        coupon_code: pageDraft.coupon_code || '',
+        features: pageDraft.features || '',
+        hero_img: '',
+        created_at: new Date().toISOString()
+      };
+
+      existingPages.push(newPageObj);
+      theme.landing_pages = existingPages;
+
+      // Set fallback parameters if this is the first page
+      if (existingPages.length === 1) {
+        theme.landing_inherit = true;
+        theme.landing_type = 'standard';
+        theme.landing_product_id = finalProductId;
+        theme.landing_headline = pageDraft.headline;
+        theme.landing_subheadline = pageDraft.subheadline;
+        theme.landing_cta = pageDraft.cta;
+        theme.landing_features = pageDraft.features;
+        theme.landing_coupon_code = pageDraft.coupon_code;
+      }
+
+      await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [JSON.stringify(theme), brandId]);
+
+      res.json({ success: true, page: newPageObj });
+    } else {
+      const errText = await response.text();
+      res.status(500).json({ error: `Gemini API returned status ${response.status}: ${errText}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET AI Usage stats & recent logs for a brand
 app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;

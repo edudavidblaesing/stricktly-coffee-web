@@ -34,9 +34,14 @@
                             Create multiple targeted landing pages to support coupon codes or showcase product discounts directly.
                         </p>
                     </div>
-                    <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px;" @click="createNewPage">
-                        ➕ Create Campaign Page
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px;" @click="showAIModal = true">
+                            🤖 Generate Page with AI
+                        </button>
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: flex; align-items: center; gap: 8px; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border);" @click="createNewPage">
+                            ➕ Create Campaign Page
+                        </button>
+                    </div>
                 </div>
 
                 <div v-if="landingPages.length === 0" style="text-align: center; padding: 40px 20px;">
@@ -95,13 +100,20 @@
             <div v-else class="designer-workspace-layout" style="display: flex; gap: 24px; flex-wrap: wrap;">
                 <!-- Left Side: Customizer Controls -->
                 <div class="panel" style="flex: 1; min-width: 340px; display: flex; flex-direction: column; gap: 16px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                         <h4 style="margin: 0; color: var(--accent); font-weight: 700;">
                             {{ isNewPage ? '➕ New Campaign' : '✏️ Edit Campaign' }}
                         </h4>
-                        <button type="button" class="btn" style="padding: 4px 8px; font-size: 0.78rem; height: 28px; background: var(--workspace-bg); border: 1px solid var(--border); color: var(--text-muted); margin: 0;" @click="cancelEditing">
-                            Cancel
-                        </button>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <input type="checkbox" id="lp-auto-update-toggle" v-model="autoUpdatePreview" style="cursor: pointer; margin: 0; width: 14px; height: 14px;">
+                                <label for="lp-auto-update-toggle" style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none; margin: 0;">Auto-Update</label>
+                            </div>
+                            <button v-if="!autoUpdatePreview" type="button" class="btn btn-accent" style="margin: 0; padding: 2px 8px; font-size: 0.7rem; height: 22px; line-height: 1; border-radius: 4px;" @click="updatePreviewLandingPage">Sync Preview</button>
+                            <button type="button" class="btn" style="padding: 4px 8px; font-size: 0.78rem; height: 28px; background: var(--workspace-bg); border: 1px solid var(--border); color: var(--text-muted); margin: 0;" @click="cancelEditing">
+                                Cancel
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Page Identity / Route Slug -->
@@ -288,6 +300,43 @@
                     </div>
                 </div>
             </div>
+
+            <!-- AI Campaign Page Generator Modal Dialog -->
+            <div v-if="showAIModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000; padding: 20px;">
+                <div style="background: var(--bg-color, #181d1a); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 520px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                            🤖 AI Landing Page Generator
+                        </h4>
+                        <button type="button" @click="showAIModal = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 0;">✕</button>
+                    </div>
+
+                    <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">
+                        Input a marketing angle or promotion concept. The AI reads your <strong>Brand Strategy Playbook</strong> and auto-crafts layout structure, headings, CTA actions, coupon hooks, and features list copy.
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; display: block;">Campaign Theme / Promotion Goal</label>
+                        <textarea v-model="aiModalPrompt" rows="3" placeholder="e.g. Black Friday discount page offering 25% off our self-leveling espresso tampers..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; outline: none; resize: vertical; margin: 0;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; display: block;">Associated Catalog Product (Optional)</label>
+                        <select v-model="aiModalProductId" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px; outline: none;">
+                            <option value="">-- No linked product --</option>
+                            <option v-for="p in brandProducts" :key="p.id" :value="p.id">{{ p.title }}</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn" style="margin: 0; height: 36px; border: 1px solid var(--border);" @click="showAIModal = false" :disabled="generatingAIPage">Cancel</button>
+                        <button type="button" class="btn btn-accent" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="generatingAIPage || !aiModalPrompt" @click="generateAIPage">
+                            <span v-if="generatingAIPage">⏳ Writing Copy & Layout...</span>
+                            <span v-else>✨ Generate & Add Page</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -325,7 +374,12 @@ export default {
             edit_primary_color: '#111111',
             landingPageContentLang: 'en',
             translatingLandingPage: false,
-            edit_translations: {}
+            edit_translations: {},
+            showAIModal: false,
+            aiModalPrompt: '',
+            aiModalProductId: '',
+            generatingAIPage: false,
+            autoUpdatePreview: true
         };
     },
     computed: {
@@ -424,6 +478,13 @@ export default {
         editState: {
             deep: true,
             handler() {
+                if (this.autoUpdatePreview) {
+                    this.updatePreviewLandingPage();
+                }
+            }
+        },
+        autoUpdatePreview(newVal) {
+            if (newVal) {
                 this.updatePreviewLandingPage();
             }
         }
@@ -479,6 +540,50 @@ export default {
         getLandingPageUrl(slug) {
             if (this.app.activeShopFilter === 'all') return '#';
             return `/store/${this.app.activeShopFilter}/${slug}`;
+        },
+        async generateAIPage() {
+            if (!this.designerBrand || !this.designerBrand.id) return;
+            this.generatingAIPage = true;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-page`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: this.aiModalPrompt,
+                        productId: this.aiModalProductId
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.page) {
+                        this.app.showNotification('✨ AI Landing Page generated and added successfully!');
+                        this.showAIModal = false;
+                        this.aiModalPrompt = '';
+                        this.aiModalProductId = '';
+                        await this.app.loadBrands();
+                        const updatedBrand = this.app.brands.find(b => b.id === this.designerBrand.id);
+                        if (updatedBrand) {
+                            this.designerBrand.theme_settings = updatedBrand.theme_settings;
+                            if (updatedBrand.theme_settings) {
+                                try {
+                                    const parsed = JSON.parse(updatedBrand.theme_settings);
+                                    this.landingPages = parsed.landing_pages || [];
+                                } catch(e) {}
+                            }
+                        }
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI landing page generation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI landing page generation network error: ' + e.message);
+            } finally {
+                this.generatingAIPage = false;
+            }
         },
         createNewPage() {
             this.isNewPage = true;

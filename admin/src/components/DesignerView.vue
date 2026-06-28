@@ -25,7 +25,14 @@
         <div v-else class="designer-workspace-layout" style="display: flex; gap: 24px; flex-wrap: wrap;">
             <!-- Left Side: Styling Controls -->
             <div class="panel" style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 16px;">
-                <h4 style="margin: 0 0 5px 0; color: var(--accent); font-weight: 700;">Theme Customizer</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+                    <h4 style="margin: 0; color: var(--accent); font-weight: 700;">Theme Customizer</h4>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="auto-update-toggle" v-model="autoUpdatePreview" style="cursor: pointer; margin: 0; width: 14px; height: 14px;">
+                        <label for="auto-update-toggle" style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none; margin: 0;">Auto-Update</label>
+                        <button v-if="!autoUpdatePreview" type="button" class="btn btn-accent" style="margin: 0; padding: 2px 8px; font-size: 0.7rem; height: 22px; line-height: 1; border-radius: 4px;" @click="updatePreviewStyles">Sync Preview</button>
+                    </div>
+                </div>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 8px 0;">
                     Tweak colors, shapes, and brand images below. Unsaved changes are safely sandboxed in the preview on the right. Click "Publish Live" to make them visible to customers.
                 </p>
@@ -36,31 +43,6 @@
                     <label for="inherit-toggle" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem; cursor: pointer; margin: 0;">
                         Inherit Master Brand Styles
                     </label>
-                </div>
-
-                <!-- One-Click Theme Presets -->
-                <div class="presets-section" style="background: var(--workspace-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
-                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.82rem; display: flex; align-items: center; gap: 6px;">
-                        <span>🎨 Quick Theme Presets</span>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-                        <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #0b0d0c; color: #ffffff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('obsidian')">
-                            🌑 Obsidian
-                        </button>
-                        <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #fdf5e6; color: #4a2c11; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('latte')">
-                            ☕ Cream Latte
-                        </button>
-                        <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #1e140a; color: #f5f5dc; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('espresso')">
-                            🪵 Espresso
-                        </button>
-                        <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #090514; color: #f3e8ff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('velvet')">
-                            🔮 Royal Velvet
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="inheritStyles" style="font-size: 0.78rem; background: var(--workspace-bg); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; color: var(--text-muted); line-height: 1.4;">
-                    ℹ️ Using default colors and assets from <strong>System Settings</strong>. Uncheck above to define custom layout overrides.
                 </div>
 
                 <!-- Contrast Checker Warning Box -->
@@ -79,134 +61,119 @@
                     </button>
                 </div>
 
+                <!-- Simplified Sidebar Navigation Tabs -->
+                <div style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 10px; overflow-x: auto;">
+                    <button type="button" @click="activeTab = 'style'" :style="{ background: activeTab === 'style' ? 'var(--accent)' : 'transparent', color: activeTab === 'style' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'style' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🎨 Style</button>
+                    <button type="button" @click="activeTab = 'typography'" :style="{ background: activeTab === 'typography' ? 'var(--accent)' : 'transparent', color: activeTab === 'typography' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'typography' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">📐 Fonts</button>
+                    <button type="button" @click="activeTab = 'copywriter'" :style="{ background: activeTab === 'copywriter' ? 'var(--accent)' : 'transparent', color: activeTab === 'copywriter' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'copywriter' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">✍️ Content</button>
+                    <button type="button" @click="activeTab = 'localization'" :style="{ background: activeTab === 'localization' ? 'var(--accent)' : 'transparent', color: activeTab === 'localization' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'localization' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🌐 Socials</button>
+                    <button type="button" @click="activeTab = 'ai'" :style="{ background: activeTab === 'ai' ? 'var(--accent)' : 'transparent', color: activeTab === 'ai' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'ai' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🤖 AI Lab</button>
+                </div>
+
+                <div v-if="inheritStyles" style="font-size: 0.78rem; background: var(--workspace-bg); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px;">
+                    ℹ️ Using default colors and assets from <strong>System Settings</strong>. Uncheck above to define custom layout overrides.
+                </div>
+
                 <!-- Grey-out wrapper for styling properties -->
                 <div :style="inheritStyles ? { opacity: 0.4, pointerEvents: 'none', userSelect: 'none' } : {}" style="transition: all 0.2s ease; display: flex; flex-direction: column; gap: 16px;">
-                    <div class="form-group">
-                        <label>Brand Primary Color (Accent)</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.primary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.primary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Secondary Color (Hover, details)</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.secondary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.secondary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#767676" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Storefront Background Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Primary Text Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Header Background Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Button Text Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="designerBrand.button_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="designerBrand.button_text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Button Shape (Border Radius)</label>
-                        <select v-model="designerBrand.button_radius" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                            <option value="0px">Sharp Square (0px)</option>
-                            <option value="4px">Slightly Rounded (4px)</option>
-                            <option value="8px">Rounded Card (8px)</option>
-                            <option value="12px">Extra Rounded (12px)</option>
-                            <option value="9999px">Pill / Stadium (9999px)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Font Family</label>
-                        <select v-model="designerBrand.font_family" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                            <option value="Outfit">Outfit (Default)</option>
-                            <option value="Space Grotesk">Space Grotesk</option>
-                            <option value="Inter">Inter</option>
-                            <option value="Roboto">Roboto</option>
-                            <option value="Open Sans">Open Sans</option>
-                            <option value="Montserrat">Montserrat</option>
-                            <option value="Lora">Lora</option>
-                            <option value="Playfair Display">Playfair Display</option>
-                            <option value="Poppins">Poppins</option>
-                            <option value="Lato">Lato</option>
-                            <option value="Merriweather">Merriweather</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Logo URL</label>
-                        <input type="text" v-model="designerBrand.logo" :disabled="inheritStyles" placeholder="https://pesado585.com/logo.png" style="width: 100%;">
-                    </div>
-
-                    <div class="form-group" style="margin-bottom: 8px;">
-                        <label>Favicon URL</label>
-                        <input type="text" v-model="designerBrand.favicon" :disabled="inheritStyles" placeholder="https://pesado585.com/favicon.ico" style="width: 100%;">
-                    </div>
-
-                    <!-- Announcement Bar Section -->
-                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
-                        <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; margin-bottom: 12px; text-transform: uppercase;">📢 Announcement Bar</div>
-                        
-                        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                            <input type="checkbox" id="announce-toggle" v-model="designerBrand.announcement_active" :disabled="inheritStyles" style="width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;">
-                            <label for="announce-toggle" style="font-weight: 600; color: var(--text-main); font-size: 0.8rem; cursor: pointer; margin: 0;">
-                                Enable Top Announcement Banner
-                            </label>
-                        </div>
-                        
-                        <div v-if="designerBrand.announcement_active" style="display: flex; flex-direction: column; gap: 12px;">
-                            <div class="form-group">
-                                <label>Banner Text</label>
-                                <input type="text" v-model="designerBrand.announcement_text" :disabled="inheritStyles" placeholder="Free shipping on all orders over €75!" style="width: 100%;">
+                    
+                    <!-- TAB 1: STYLE & PRESETS -->
+                    <div v-if="activeTab === 'style'" style="display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Presets Section -->
+                        <div class="presets-section" style="background: var(--workspace-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">🎨 Storefront Color Theme Presets</div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #0b0d0c; color: #ffffff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('obsidian')">🌑 Obsidian</button>
+                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #fdf5e6; color: #4a2c11; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('latte')">☕ Cream Latte</button>
+                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #1e140a; color: #f5f5dc; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('espresso')">🪵 Espresso</button>
+                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #090514; color: #f3e8ff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('velvet')">🔮 Royal Velvet</button>
                             </div>
-                            
-                            <div class="form-group">
-                                <label>Banner Background</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="color" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                    <input type="text" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" placeholder="#c5a059" style="flex: 1; margin: 0;">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Banner Text Color</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="color" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                    <input type="text" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                        </div>
+
+                        <!-- AI Generated Style Presets Queue -->
+                        <div v-if="aiStylePresets.length > 0" class="presets-section" style="background: rgba(197, 160, 89, 0.03); padding: 12px; border-radius: 8px; border: 1px dashed var(--accent); display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; display: flex; align-items: center; gap: 4px;">✨ Reusable AI Style Presets</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div v-for="(pr, idx) in aiStylePresets" :key="idx" style="display: flex; align-items: center; justify-content: space-between; background: var(--workspace-bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
+                                    <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-main);">AI Preset #{{ idx + 1 }}</span>
+                                    <button type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; margin: 0;" @click="applyAILayoutPreset(pr)">Apply</button>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label>Brand Primary Color (Accent)</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.primary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.primary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Secondary Color (Hover, details)</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.secondary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.secondary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#767676" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Storefront Background Color</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Primary Text Color</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Header Background Color</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Button Text Color</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.button_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                <input type="text" v-model="designerBrand.button_text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Typography Scale Section -->
-                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
-                        <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; margin-bottom: 12px; text-transform: uppercase;">📐 Typography Scale</div>
-                        
-                        <div class="form-group" style="margin-bottom: 12px;">
+                    <!-- TAB 2: TYPOGRAPHY & SHAPES -->
+                    <div v-if="activeTab === 'typography'" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div class="form-group">
+                            <label>Font Family</label>
+                            <select v-model="designerBrand.font_family" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
+                                <option value="Outfit">Outfit (Default)</option>
+                                <option value="Space Grotesk">Space Grotesk</option>
+                                <option value="Inter">Inter</option>
+                                <option value="Roboto">Roboto</option>
+                                <option value="Open Sans">Open Sans</option>
+                                <option value="Montserrat">Montserrat</option>
+                                <option value="Lora">Lora</option>
+                                <option value="Playfair Display">Playfair Display</option>
+                                <option value="Poppins">Poppins</option>
+                                <option value="Lato">Lato</option>
+                                <option value="Merriweather">Merriweather</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Button Shape (Border Radius)</label>
+                            <select v-model="designerBrand.button_radius" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
+                                <option value="0px">Sharp Square (0px)</option>
+                                <option value="4px">Slightly Rounded (4px)</option>
+                                <option value="8px">Rounded Card (8px)</option>
+                                <option value="12px">Extra Rounded (12px)</option>
+                                <option value="9999px">Pill / Stadium (9999px)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>Base Font Size</label>
                             <select v-model="designerBrand.font_size_scale" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
                                 <option value="small">Small (14px)</option>
@@ -214,7 +181,6 @@
                                 <option value="large">Large (18px)</option>
                             </select>
                         </div>
-                        
                         <div class="form-group">
                             <label>Line Height Scale</label>
                             <select v-model="designerBrand.line_height_scale" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
@@ -222,33 +188,20 @@
                                 <option value="comfortable">Comfortable (1.6 - Default)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Logo URL</label>
+                            <input type="text" v-model="designerBrand.logo" :disabled="inheritStyles" placeholder="https://pesado585.com/logo.png" style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Favicon URL</label>
+                            <input type="text" v-model="designerBrand.favicon" :disabled="inheritStyles" placeholder="https://pesado585.com/favicon.ico" style="width: 100%;">
+                        </div>
                     </div>
 
-                    <!-- Social Media Links Section -->
-                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
-                        <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; margin-bottom: 12px; text-transform: uppercase;">📱 Social Media Integration</div>
-                        
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Instagram Handle URL</label>
-                            <input type="text" v-model="designerBrand.instagram_link" :disabled="inheritStyles" placeholder="https://instagram.com/pesado58.5" style="width: 100%;">
-                        </div>
-                        
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Facebook Page URL</label>
-                            <input type="text" v-model="designerBrand.facebook_link" :disabled="inheritStyles" placeholder="https://facebook.com/pesado58.5" style="width: 100%;">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>X / Twitter URL</label>
-                            <input type="text" v-model="designerBrand.twitter_link" :disabled="inheritStyles" placeholder="https://x.com/pesado585" style="width: 100%;">
-                        </div>
-                    </div>
-                    <!-- Storefront Text & Translations Editor Section -->
-                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px; margin-bottom: 12px;">
-                        <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; margin-bottom: 12px; text-transform: uppercase;">✍️ Storefront Content & Translations</div>
-                        
+                    <!-- TAB 3: COPYWRITER & TEXT -->
+                    <div v-if="activeTab === 'copywriter'" style="display: flex; flex-direction: column; gap: 16px;">
                         <!-- Language switcher tab bar -->
-                        <div style="display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; gap: 4px; margin-bottom: 4px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
                             <button type="button" 
                                 v-for="lang in availableLanguages" 
                                 :key="lang"
@@ -259,7 +212,7 @@
                                     border: 'none',
                                     padding: '4px 10px',
                                     borderRadius: '4px',
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.72rem',
                                     fontWeight: '700',
                                     cursor: 'pointer',
                                     textTransform: 'uppercase',
@@ -274,11 +227,11 @@
                         <div v-if="translationActiveLang === 'en'" style="display: flex; flex-direction: column; gap: 12px;">
                             <div class="form-group">
                                 <label>Hero Headline</label>
-                                <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual with {brandName}" style="width: 100%;">
+                                <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual" style="width: 100%;">
                             </div>
                             <div class="form-group">
                                 <label>Hero Subheadline</label>
-                                <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop the latest precision-engineered coffee tools directly from {brandName}." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop precision coffee gear." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
                             </div>
                             <div class="form-group">
                                 <label>Hero Button Text</label>
@@ -312,10 +265,6 @@
                                 <label>Hero Button Text ({{ translationActiveLang.toUpperCase() }})</label>
                                 <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_cta" placeholder="Button Translation..." style="width: 100%;">
                             </div>
-                            <div class="form-group">
-                                <label>Announcement Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                <input type="text" v-model="getTranslationRef(translationActiveLang).announcement_text" placeholder="Announcement Translation..." style="width: 100%;">
-                            </div>
                             <div class="form-group" style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px;">
                                 <label>404 Page Headline ({{ translationActiveLang.toUpperCase() }})</label>
                                 <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_headline" placeholder="404 Headline Translation..." style="width: 100%;">
@@ -331,10 +280,72 @@
                         </div>
                     </div>
 
-                    <div class="form-group" style="margin-bottom: 12px;">
+                    <!-- TAB 4: LOCALIZATION & SOCIALS -->
+                    <div v-if="activeTab === 'localization'" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="announce-toggle" v-model="designerBrand.announcement_active" :disabled="inheritStyles" style="width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;">
+                            <label for="announce-toggle" style="font-weight: 600; color: var(--text-main); font-size: 0.8rem; cursor: pointer; margin: 0;">Enable Announcement Banner</label>
+                        </div>
+                        <div v-if="designerBrand.announcement_active" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Announcement Banner Text</label>
+                                <input type="text" v-model="designerBrand.announcement_text" :disabled="inheritStyles" placeholder="Free shipping on all orders over €75!" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Banner Background</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="color" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                    <input type="text" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" placeholder="#c5a059" style="flex: 1; margin: 0;">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Banner Text Color</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="color" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
+                                    <input type="text" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+                            <div style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-bottom: 8px;">SOCIAL PROFILES</div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label>Instagram Handle URL</label>
+                                <input type="text" v-model="designerBrand.instagram_link" :disabled="inheritStyles" placeholder="https://instagram.com/handle" style="width: 100%;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label>Facebook Page URL</label>
+                                <input type="text" v-model="designerBrand.facebook_link" :disabled="inheritStyles" placeholder="https://facebook.com/page" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>X / Twitter URL</label>
+                                <input type="text" v-model="designerBrand.twitter_link" :disabled="inheritStyles" placeholder="https://x.com/username" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: AI DESIGN LAB -->
+                    <div v-if="activeTab === 'ai'" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-size: 0.8rem; line-height: 1.5; color: var(--text-main);">
+                            <span style="font-size: 1.1rem; display: block; margin-bottom: 4px;">🤖 AI Storefront Designer</span>
+                            The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
+                        </div>
+
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
+                            <span v-if="isGeneratingLayout">⏳ Tuning Layout Colors & Styles...</span>
+                            <span v-else>✨ Generate Brand Look-Alike Theme (via Gemini 2.5 Flash)</span>
+                        </button>
+                        <p v-if="inheritStyles" style="font-size: 0.72rem; color: #ef4444; margin: 0; text-align: center;">
+                            ⚠️ Please uncheck "Inherit Master Brand Styles" above to enable custom AI design overrides.
+                        </p>
+                    </div>
+
+                    <!-- Custom CSS Override (always visible inside the grey-out wrapper) -->
+                    <div class="form-group" style="margin-top: 10px; margin-bottom: 12px;">
                         <label>Custom CSS Override</label>
                         <textarea v-model="designerBrand.custom_css" :disabled="inheritStyles" placeholder="/* Add custom CSS rules here to override layouts */&#10;body {&#10;  font-size: 16px;&#10;}" style="width: 100%; height: 120px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;"></textarea>
                     </div>
+
                 </div>
 
                 <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="saveDesignSettings" :disabled="saving">
@@ -472,7 +483,11 @@ export default {
             inheritStyles: true,
             viewportMode: 'desktop',
             translationActiveLang: 'en',
-            originalBrandSettings: ''
+            originalBrandSettings: '',
+            activeTab: 'style',
+            isGeneratingLayout: false,
+            aiStylePresets: [],
+            autoUpdatePreview: true
         };
     },
     mounted() {
@@ -637,6 +652,13 @@ export default {
         designerBrand: {
             deep: true,
             handler() {
+                if (this.autoUpdatePreview) {
+                    this.updatePreviewStyles();
+                }
+            }
+        },
+        autoUpdatePreview(newVal) {
+            if (newVal) {
                 this.updatePreviewStyles();
             }
         },
@@ -738,6 +760,66 @@ export default {
                 };
             }
             return this.designerBrand.content_translations[lang];
+        },
+        async generateAILookAlikeLayout() {
+            this.isGeneratingLayout = true;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-layout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.layout) {
+                        const layout = data.layout;
+                        
+                        this.designerBrand.primary_color = layout.primary_color || this.designerBrand.primary_color;
+                        this.designerBrand.secondary_color = layout.secondary_color || this.designerBrand.secondary_color;
+                        this.designerBrand.bg_color = layout.bg_color || this.designerBrand.bg_color;
+                        this.designerBrand.text_color = layout.text_color || this.designerBrand.text_color;
+                        this.designerBrand.header_bg_color = layout.header_bg_color || this.designerBrand.header_bg_color;
+                        this.designerBrand.button_text_color = layout.button_text_color || this.designerBrand.button_text_color;
+                        this.designerBrand.button_radius = layout.button_radius || this.designerBrand.button_radius;
+                        this.designerBrand.font_family = layout.font_family || this.designerBrand.font_family;
+                        
+                        this.designerBrand.text_hero_headline = layout.text_hero_headline || this.designerBrand.text_hero_headline;
+                        this.designerBrand.text_hero_subheadline = layout.text_hero_subheadline || this.designerBrand.text_hero_subheadline;
+                        this.designerBrand.text_hero_cta = layout.text_hero_cta || this.designerBrand.text_hero_cta;
+
+                        this.aiStylePresets.push(layout);
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Brand Look-Alike theme generated and applied successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI Theme styling generation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI Layout generation network error: ' + e.message);
+            } finally {
+                this.isGeneratingLayout = false;
+            }
+        },
+        applyAILayoutPreset(preset) {
+            this.inheritStyles = false;
+            this.designerBrand.primary_color = preset.primary_color || this.designerBrand.primary_color;
+            this.designerBrand.secondary_color = preset.secondary_color || this.designerBrand.secondary_color;
+            this.designerBrand.bg_color = preset.bg_color || this.designerBrand.bg_color;
+            this.designerBrand.text_color = preset.text_color || this.designerBrand.text_color;
+            this.designerBrand.header_bg_color = preset.header_bg_color || this.designerBrand.header_bg_color;
+            this.designerBrand.button_text_color = preset.button_text_color || this.designerBrand.button_text_color;
+            this.designerBrand.button_radius = preset.button_radius || this.designerBrand.button_radius;
+            this.designerBrand.font_family = preset.font_family || this.designerBrand.font_family;
+            
+            this.designerBrand.text_hero_headline = preset.text_hero_headline || this.designerBrand.text_hero_headline;
+            this.designerBrand.text_hero_subheadline = preset.text_hero_subheadline || this.designerBrand.text_hero_subheadline;
+            this.designerBrand.text_hero_cta = preset.text_hero_cta || this.designerBrand.text_hero_cta;
+
+            this.updatePreviewStyles();
+            this.app.showNotification('Applied AI Preset!');
         },
         applyPreset(name) {
             this.inheritStyles = false;
