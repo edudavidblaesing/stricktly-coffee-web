@@ -83,6 +83,10 @@
             color: var(--nav-active-color, var(--primary-contrast, var(--primary)));
         }
 
+        .logo-favicon-wrapper {
+            display: none !important;
+        }
+
         nav a {
             color: var(--header-text-muted, var(--text-muted));
             text-decoration: none;
@@ -336,8 +340,13 @@
                 font-size: 1.1rem;
                 letter-spacing: 0.08em;
             }
-            .logo img {
-                height: 28px !important;
+            .logo-full-wrapper {
+                display: none !important;
+            }
+            .logo-favicon-wrapper {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
             }
             nav a {
                 font-size: 0.8rem;
@@ -370,7 +379,8 @@
     <header>
         <div class="container header-container">
             <a href="/" class="logo">
-                PESADO<span>58.5</span>
+                <span class="logo-full-wrapper">PESADO<span>58.5</span></span>
+                <span class="logo-favicon-wrapper" style="display: none;">P</span>
             </a>
             <nav>
                 <a href="/">Back to Shop</a>
