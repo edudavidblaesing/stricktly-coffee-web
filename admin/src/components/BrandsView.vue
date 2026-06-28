@@ -88,6 +88,14 @@
                             <label>Support Contact Email</label>
                             <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com">
                         </div>
+                        <div class="form-group">
+                            <label>AI Performance Studio Tier</label>
+                            <select v-model="newBrand.ai_tier" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                                <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
+                                <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
+                                <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
+                            </select>
+                        </div>
 
                         <!-- Language Selection -->
                         <div class="form-group form-full">
@@ -1701,20 +1709,30 @@ export default {
             try {
                 const iframe = this.$refs.previewIframe;
                 if (iframe && iframe.contentWindow) {
-                    iframe.contentWindow.location.reload();
+                    try {
+                        iframe.contentWindow.location.reload();
+                    } catch (secErr) {
+                        iframe.src = iframe.src;
+                    }
                 }
             } catch(e) {}
         },
         handleIframeLoad() {
             try {
                 const iframe = this.$refs.previewIframe;
-                if (iframe && iframe.contentWindow) {
-                    const loc = iframe.contentWindow.location.href;
-                    this.iframeCurrentUrl = loc;
-                    // Escape check: if they went outside of '/store/' or localhost storefront paths, bring them back!
-                    if (!loc.includes('/store/') && !loc.includes('previewBrandId') && !loc.includes('localhost:8082')) {
-                        console.warn('Escape attempt blocked, resetting to default store view...');
-                        iframe.contentWindow.location.href = this.previewIframeSrc;
+                if (iframe) {
+                    try {
+                        if (iframe.contentWindow) {
+                            const loc = iframe.contentWindow.location.href;
+                            this.iframeCurrentUrl = loc;
+                            // Escape check: if they went outside of '/store/' or localhost storefront paths, bring them back!
+                            if (!loc.includes('/store/') && !loc.includes('previewBrandId') && !loc.includes('localhost:8082')) {
+                                console.warn('Escape attempt blocked, resetting to default store view...');
+                                iframe.contentWindow.location.href = this.previewIframeSrc;
+                            }
+                        }
+                    } catch (secErr) {
+                        console.warn('[BrandsView] Cannot read iframe URL directly (cross-origin security restriction).');
                     }
                 }
             } catch(e) {}
@@ -1887,13 +1905,17 @@ export default {
                         woocommerce_consumer_secret: this.newBrand.woocommerce_consumer_secret
                     })
                 });
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Connection verification failed');
-                }
                 const res = await response.json();
+                if (!response.ok) {
+                    throw new Error(res.error || 'Connection verification failed');
+                }
                 if (res.success) {
                     this.connectionVerified = true;
+                    this.importedProducts = [];
+                    this.selectedProducts = {};
+                    this.customPrices = {};
+                    this.customStock = {};
+                    this.customDescriptions = {};
                     this.app.showNotification(res.message || 'Connection verified successfully!');
                 }
             } catch (err) {
@@ -2074,6 +2096,50 @@ export default {
         },
         startBrandCreation() {
             this.isCreatingBrand = true;
+            this.currentStep = 1;
+            this.dnsVerified = false;
+            this.connectionVerified = false;
+            this.previewMode = false;
+            this.easySetupUrl = '';
+            this.easySetupError = '';
+            this.productSyncError = '';
+            this.productSyncSuccess = false;
+            this.importedProducts = [];
+            this.selectedProducts = {};
+            this.customPrices = {};
+            this.customStock = {};
+            this.customDescriptions = {};
+            this.globalMarkupPercent = 0;
+            
+            // Reset app.newBrand to default blank values
+            this.app.newBrand = {
+                id: '',
+                name: '',
+                subdomain: '',
+                contact_email: '',
+                primary_color: '#c5a059',
+                platform: 'shopify',
+                shopify_shop_name: '',
+                shopify_access_token: '',
+                woocommerce_shop_url: '',
+                woocommerce_consumer_key: '',
+                woocommerce_consumer_secret: '',
+                stripe_secret_key: '',
+                stripe_webhook_secret: '',
+                custom_domain: '',
+                logo: '',
+                favicon: '',
+                status: 'draft',
+                stripe_enabled: false,
+                languages: ['en']
+            };
+            this.selectedChannels = {
+                storefront: true,
+                landingpage: true,
+                instagram: false,
+                facebook: false,
+                twitter: false
+            };
         },
         cancelBrandCreation() {
             this.isCreatingBrand = false;
@@ -2081,6 +2147,16 @@ export default {
             this.dnsVerified = false;
             this.connectionVerified = false;
             this.previewMode = false;
+            this.easySetupUrl = '';
+            this.easySetupError = '';
+            this.productSyncError = '';
+            this.productSyncSuccess = false;
+            this.importedProducts = [];
+            this.selectedProducts = {};
+            this.customPrices = {};
+            this.customStock = {};
+            this.customDescriptions = {};
+            this.globalMarkupPercent = 0;
             this.selectedChannels = {
                 storefront: true,
                 landingpage: true,

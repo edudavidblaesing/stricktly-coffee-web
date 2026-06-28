@@ -529,9 +529,9 @@
         }
 
         .quantity-btn {
-            background-color: var(--accent);
-            border: 1px solid var(--border);
-            color: var(--text-main);
+            background-color: var(--primary);
+            border: 1px solid var(--primary);
+            color: var(--btn-text-color, #ffffff);
             width: 24px;
             height: 24px;
             border-radius: var(--btn-radius, 4px);
@@ -544,8 +544,8 @@
         }
 
         .quantity-btn:hover {
-            background-color: var(--primary);
-            color: var(--bg-color);
+            background-color: transparent;
+            color: var(--primary-contrast, var(--primary));
             border-color: var(--primary);
         }
 

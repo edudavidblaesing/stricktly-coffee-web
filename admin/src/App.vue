@@ -1034,9 +1034,8 @@ export default {
                         logo: '',
                         favicon: '',
                         font_family: 'Outfit',
-                        status: 'draft',
-                        stripe_enabled: false,
-                        languages: ['en']
+                        languages: ['en'],
+                        ai_tier: 'professional'
                     },
                     newProduct: {
                         brand_id: '',
@@ -2357,7 +2356,7 @@ export default {
 
                         if (response.ok) {
                             this.showNotification(`Shop ${this.newBrand.name} onboarded successfully!`);
-                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'] };
+                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'], ai_tier: 'professional' };
                             await this.loadBrands();
                             this.switchView('overview');
                         } else {

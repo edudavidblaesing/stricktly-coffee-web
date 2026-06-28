@@ -983,15 +983,25 @@ export default {
             try {
                 const iframe = this.$refs.previewIframe;
                 if (iframe && iframe.contentWindow) {
-                    iframe.contentWindow.location.reload();
+                    try {
+                        iframe.contentWindow.location.reload();
+                    } catch (secErr) {
+                        iframe.src = iframe.src;
+                    }
                 }
             } catch(e) {}
         },
         handleIframeLoad() {
             try {
                 const iframe = this.$refs.previewIframe;
-                if (iframe && iframe.contentWindow) {
-                    this.iframeCurrentUrl = iframe.contentWindow.location.href;
+                if (iframe) {
+                    try {
+                        if (iframe.contentWindow) {
+                            this.iframeCurrentUrl = iframe.contentWindow.location.href;
+                        }
+                    } catch (secErr) {
+                        console.warn('[DesignerView] Cannot read iframe URL directly (cross-origin security restriction).');
+                    }
                     this.updatePreviewStyles();
                 }
             } catch(e) {}

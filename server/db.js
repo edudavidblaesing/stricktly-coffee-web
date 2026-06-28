@@ -59,6 +59,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'draft'`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_enabled BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS languages VARCHAR(255) DEFAULT 'en'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS marketing_protocol TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_tier VARCHAR(20) DEFAULT 'professional'`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 
@@ -269,6 +271,42 @@ async function initializeDatabase() {
         folder VARCHAR(100) DEFAULT 'General',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Create AI Usage Logs Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_usage_logs (
+        id SERIAL PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        operation VARCHAR(100) NOT NULL,
+        model VARCHAR(100) NOT NULL,
+        prompt_tokens INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        estimated_cost_usd NUMERIC(10, 6) DEFAULT 0.0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create AI Model Pricing Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_model_pricing (
+        model VARCHAR(100) PRIMARY KEY,
+        prompt_rate_per_million NUMERIC(10, 4) NOT NULL,
+        completion_rate_per_million NUMERIC(10, 4) NOT NULL
+      )
+    `);
+
+    // Insert Default Gemini model rates
+    await client.query(`
+      INSERT INTO ai_model_pricing (model, prompt_rate_per_million, completion_rate_per_million)
+      VALUES 
+        ('gemini-1.5-pro', 1.25, 5.00),
+        ('gemini-3.1-pro', 1.25, 5.00),
+        ('gemini-1.5-flash', 0.075, 0.30),
+        ('gemini-2.5-flash', 0.075, 0.30),
+        ('deep-research-pro-preview', 10.00, 40.00)
+      ON CONFLICT (model) DO NOTHING
     `);
 
     await client.query('COMMIT');

@@ -270,6 +270,44 @@ async function createCloudflareCustomDomain(customDomain) {
   }
 }
 
+// Helper to extract clean text from raw HTML for AI analysis
+function extractCleanText(html) {
+  if (!html) return '';
+  // 1. Get meta description
+  let metaDesc = '';
+  const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+  if (descMatch) {
+    metaDesc = `Meta Description: ${descMatch[1].trim()}\n\n`;
+  }
+
+  // 2. Remove script, style, and svg tags
+  let cleanHtml = html
+    .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
+    .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
+    .replace(/<svg[^>]*>([\s\S]*?)<\/svg>/gi, '');
+
+  // 3. Extract Headings and Paragraphs
+  const textBlocks = [];
+  const tagRegex = /<(h1|h2|h3|h4|p)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  let match;
+  while ((match = tagRegex.exec(cleanHtml)) !== null) {
+    const tag = match[1].toLowerCase();
+    const content = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    if (content && content.length > 5) {
+      textBlocks.push(`${tag.toUpperCase()}: ${content}`);
+    }
+  }
+
+  // Fallback: If no headings or paragraphs are resolved, extract stripped body text
+  if (textBlocks.length === 0) {
+    const stripped = cleanHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return metaDesc + stripped.substring(0, 15000);
+  }
+
+  return metaDesc + textBlocks.join('\n').substring(0, 20000);
+}
+
 // Scrape styles, favicon, and logo from a public Shopify store URL
 async function scrapeShopifyBranding(shopUrl) {
   try {
@@ -579,7 +617,19 @@ async function scrapeShopifyBranding(shopUrl) {
       }
     }
 
-    const productsList = await scrapeShopifyProducts(shopUrl, detectedLanguages);
+    let platform = 'shopify';
+    let shopifyShopName = parsedUrl.hostname;
+    let woocommerceShopUrl = '';
+    
+    if (html.includes('wp-content') || html.includes('woocommerce') || html.includes('wp-json') || html.includes('wpengine') || html.includes('wp-includes')) {
+      platform = 'woocommerce';
+      shopifyShopName = '';
+      woocommerceShopUrl = parsedUrl.hostname;
+    }
+
+    const productsList = platform === 'woocommerce'
+      ? await scrapeWooCommerceProducts(shopUrl)
+      : await scrapeShopifyProducts(shopUrl, detectedLanguages);
     
     console.log(`[Branding Scraper] Extracted assets: favicon=${faviconUrl}, logo=${logoUrl}, color=${primaryColor}, font=${fontFamily}, productsCount=${productsList.length}, languages=${detectedLanguages.join(',')}`);
     return {
@@ -597,14 +647,70 @@ async function scrapeShopifyBranding(shopUrl) {
       button_text_color: buttonTextColor,
       header_bg_color: headerBgColor,
       font_family: fontFamily,
-      platform: 'shopify',
-      shopify_shop_name: parsedUrl.hostname,
-      woocommerce_shop_url: '',
+      platform: platform,
+      shopify_shop_name: shopifyShopName,
+      woocommerce_shop_url: woocommerceShopUrl,
       languages: detectedLanguages,
       products: productsList
     };
   } catch (e) {
     console.error('[Branding Scraper] Failed to fetch storefront branding:', e.message);
+    
+    // Fallback: Try fetching WooCommerce RSS feed as it might be a public WordPress feed bypassing WPEngine/Cloudflare blocks
+    try {
+      let url = shopUrl;
+      if (!url.startsWith('http')) {
+        url = `https://${url}`;
+      }
+      const parsedUrl = new URL(url);
+      const feedUrl = `https://${parsedUrl.hostname}/feed/?post_type=product`;
+      console.log(`[Branding Scraper Fallback] Fetching WooCommerce RSS feed from: ${feedUrl}`);
+      
+      const feedRes = await fetch(feedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+      if (feedRes.ok) {
+        const xml = await feedRes.text();
+        const channelTitleMatch = xml.match(/<title>([^<]+)<\/title>/i);
+        let storeName = parsedUrl.hostname.split('.')[0];
+        storeName = storeName.charAt(0).toUpperCase() + storeName.slice(1);
+        
+        if (channelTitleMatch) {
+          const rawTitle = channelTitleMatch[1];
+          const cleanTitle = rawTitle.replace(/Products Archive\s*-\s*/i, '').trim();
+          if (cleanTitle) {
+            storeName = cleanTitle;
+          }
+        }
+        
+        const productsList = await scrapeWooCommerceProducts(shopUrl);
+        const derivedId = parsedUrl.hostname.replace(/^www\./i, '').split('.')[0].toLowerCase();
+        
+        console.log(`[Branding Scraper Fallback] Successfully parsed WooCommerce RSS: name=${storeName}, productsCount=${productsList.length}`);
+        return {
+          id: derivedId,
+          name: storeName,
+          subdomain: `${derivedId}.stricktlycoffee.be`,
+          contact_email: `support@${parsedUrl.hostname}`,
+          favicon: null,
+          logo: null,
+          primary_color: '#c5a059',
+          secondary_color: '#767676',
+          bg_color: '#ffffff',
+          text_color: '#111111',
+          button_radius: '4px',
+          button_text_color: '#ffffff',
+          header_bg_color: '#ffffff',
+          font_family: 'Outfit',
+          platform: 'woocommerce',
+          shopify_shop_name: '',
+          woocommerce_shop_url: parsedUrl.hostname,
+          languages: ['en'],
+          products: productsList
+        };
+      }
+    } catch (fallbackErr) {
+      console.error('[Branding Scraper Fallback] WooCommerce RSS fallback failed:', fallbackErr.message);
+    }
+
     return {
       id: '',
       name: '',
@@ -625,6 +731,77 @@ async function scrapeShopifyBranding(shopUrl) {
       woocommerce_shop_url: '',
       products: []
     };
+  }
+}
+
+// Scrape public products from a WooCommerce store URL using RSS feeds
+async function scrapeWooCommerceProducts(shopUrl) {
+  try {
+    let url = shopUrl;
+    if (!url.startsWith('http')) {
+      url = `https://${url}`;
+    }
+    const parsedUrl = new URL(url);
+    const feedUrl = `https://${parsedUrl.hostname}/feed/?post_type=product`;
+    console.log(`[WooCommerce RSS Scraper] Fetching products from: ${feedUrl}`);
+    
+    const res = await fetch(feedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } });
+    if (!res.ok) return [];
+    
+    const text = await res.text();
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    const products = [];
+    let idCounter = 1;
+    
+    while ((match = itemRegex.exec(text)) !== null) {
+      const itemContent = match[1];
+      
+      const titleMatch = itemContent.match(/<title>([\s\S]*?)<\/title>/i);
+      const linkMatch = itemContent.match(/<link>([\s\S]*?)<\/link>/i);
+      const descMatch = itemContent.match(/<description>([\s\S]*?)<\/description>/i);
+      const contentMatch = itemContent.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/i);
+      
+      const title = titleMatch ? titleMatch[1].trim() : `WooCommerce Product ${idCounter}`;
+      const link = linkMatch ? linkMatch[1].trim() : '';
+      
+      let description = '';
+      if (descMatch) {
+        description = descMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/i, '$1').trim();
+      }
+      description = description.replace(/<[^>]+>/g, '').replace(/\[&#8230;\]/g, '...').trim();
+      
+      const searchHtml = (contentMatch ? contentMatch[1] : '') + ' ' + (descMatch ? descMatch[1] : '') + ' ' + itemContent;
+      const imgRegex = /src=["'](https:[^"']+\.(?:jpg|jpeg|png|webp|gif))["']/gi;
+      let imgMatch;
+      let image = '';
+      
+      while ((imgMatch = imgRegex.exec(searchHtml)) !== null) {
+        const candidate = imgMatch[1];
+        if (!candidate.includes('s.w.org') && !candidate.toLowerCase().includes('logo') && !candidate.includes('icon')) {
+          image = candidate;
+          break;
+        }
+      }
+      
+      const slug = link ? link.split('/').filter(Boolean).pop() : `wc-${idCounter}`;
+      
+      products.push({
+        id: idCounter + 2000,
+        title: title,
+        price: 55.00,
+        image: image,
+        description: description || 'Premium WooCommerce coffee product.',
+        sku: `WC-${slug.toUpperCase()}`,
+        external_id: `woocommerce-rss-${slug}`
+      });
+      idCounter++;
+    }
+    
+    return products;
+  } catch (e) {
+    console.error('[WooCommerce RSS Scraper] Failed to parse products:', e.message);
+    return [];
   }
 }
 
@@ -828,6 +1005,82 @@ const upload = multer({ storage });
 
 // Serve static uploaded files
 app.use('/uploads', express.static('uploads'));
+
+// Helper to resolve active brand context dynamically for both merchants and superadmins
+function resolveBrandId(req) {
+  if (req.user && req.user.role.toLowerCase() === 'merchant') {
+    return req.user.brand_id;
+  }
+  return req.headers['x-brand-id'] || req.query.brandId || req.query.previewBrandId || (req.brand ? req.brand.id : null);
+}
+
+// Pricing cache for Gemini models loaded dynamically from the database
+let cachedPricing = {};
+
+async function loadPricingCache() {
+  try {
+    const rows = await allQuery('SELECT model, prompt_rate_per_million, completion_rate_per_million FROM ai_model_pricing');
+    const newCache = {};
+    for (let r of rows) {
+      newCache[r.model] = {
+        promptRate: parseFloat(r.prompt_rate_per_million) / 1000000,
+        completionRate: parseFloat(r.completion_rate_per_million) / 1000000
+      };
+    }
+    cachedPricing = newCache;
+    console.log('[AI Usage Tracker] Loaded live pricing rates cache from database.');
+  } catch (err) {
+    console.error('[AI Usage Tracker] Failed to load pricing cache:', err.message);
+  }
+}
+
+// Helper to estimate Gemini API costs dynamically in USD based on cached database rates
+function estimateGeminiCost(model, promptTokens, completionTokens) {
+  let promptRate = 0.000000075; // default flash prompt rate
+  let completionRate = 0.000000300; // default flash completion rate
+
+  // Match cache entry by exact match or substring prefix
+  const config = cachedPricing[model] || Object.entries(cachedPricing).find(([k]) => model.includes(k))?.[1];
+  if (config) {
+    promptRate = config.promptRate;
+    completionRate = config.completionRate;
+  } else if (model.includes('pro')) {
+    promptRate = promptTokens > 128000 ? 0.00000250 : 0.00000125;
+    completionRate = promptTokens > 128000 ? 0.00001000 : 0.00000500;
+  } else {
+    promptRate = promptTokens > 128000 ? 0.000000150 : 0.000000075;
+    completionRate = promptTokens > 128000 ? 0.000000600 : 0.000000300;
+  }
+
+  // Adjust for double pricing tier for prompts exceeding 128k input tokens
+  if (promptTokens > 128000) {
+    promptRate = promptRate * 2.0;
+    completionRate = completionRate * 2.0;
+  }
+
+  const cost = (promptTokens * promptRate) + (completionTokens * completionRate);
+  return parseFloat(cost.toFixed(6));
+}
+
+// Helper to log AI usage to database
+async function logAiUsage(brandId, operation, model, usageMetadata) {
+  if (!brandId) return;
+  const promptTokens = usageMetadata?.promptTokenCount || 0;
+  const completionTokens = usageMetadata?.candidatesTokenCount || 0;
+  const totalTokens = usageMetadata?.totalTokenCount || (promptTokens + completionTokens);
+  const costUsd = estimateGeminiCost(model, promptTokens, completionTokens);
+
+  try {
+    await runQuery(`
+      INSERT INTO ai_usage_logs (brand_id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [brandId, operation, model, promptTokens, completionTokens, totalTokens, costUsd]);
+    console.log(`[AI Usage Tracker] Logged AI usage for ${brandId}: ${operation} (${model}) - Cost: $${costUsd}`);
+  } catch (err) {
+    console.error(`[AI Usage Tracker] Failed to write usage log to database:`, err.message);
+  }
+}
+
 
 // User Auth endpoint
 app.post('/api/auth/login', async (req, res) => {
@@ -1634,10 +1887,7 @@ function verifyAdminToken(req, res, next) {
 
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
 app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
 
   if (!brandId) {
     return res.status(400).json({ error: 'No brand context resolved.' });
@@ -1762,10 +2012,7 @@ async function triggerOrderReferralEmail(orderId, brandId) {
 // Mark order fulfilled
 app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
   const { orderId, trackingNumber, trackingCarrier } = req.body;
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
 
   if (!brandId) {
     return res.status(400).json({ error: 'No brand context resolved.' });
@@ -1805,10 +2052,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1936,7 +2183,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       }
     }
 
-    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages } = req.body;
+    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier } = req.body;
 
     if (!id || !name || !subdomain) {
       return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -2003,9 +2250,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalLangs = Array.isArray(languages) ? languages.join(',') : String(languages);
     }
 
+    const finalAiTier = ai_tier || 'professional';
+
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -2022,6 +2271,8 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         favicon = EXCLUDED.favicon,
         theme_settings = EXCLUDED.theme_settings,
         languages = EXCLUDED.languages,
+        marketing_protocol = EXCLUDED.marketing_protocol,
+        ai_tier = EXCLUDED.ai_tier,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -2039,10 +2290,410 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalLogo,
       finalFavicon,
       theme_settings || null,
-      finalLangs
+      finalLangs,
+      marketing_protocol || null,
+      finalAiTier
     ]);
 
     res.json({ success: true, brandId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Generate brand marketing protocol manuscript via AI Analysis
+app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { url, competitors } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    let targetUrl = url || brand.shopify_shop_name || brand.woocommerce_shop_url || brand.subdomain;
+    if (targetUrl && !targetUrl.startsWith('http')) {
+      targetUrl = `https://${targetUrl}`;
+    }
+
+    let homepageText = 'No website crawled.';
+    if (targetUrl) {
+      try {
+        console.log(`[AI Protocol Generator] Scraping brand site: ${targetUrl}`);
+        const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          homepageText = extractCleanText(html);
+        }
+      } catch (err) {
+        console.warn(`[AI Protocol Generator] Failed to crawl primary URL: ${targetUrl}`, err.message);
+      }
+    }
+
+    // Crawl competitors if provided
+    let competitorTexts = [];
+    if (competitors) {
+      const compUrls = Array.isArray(competitors)
+        ? competitors
+        : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
+
+      for (let compUrl of compUrls) {
+        let fullCompUrl = compUrl;
+        if (!fullCompUrl.startsWith('http')) {
+          fullCompUrl = `https://${fullCompUrl}`;
+        }
+        try {
+          console.log(`[AI Protocol Generator] Scraping competitor site: ${fullCompUrl}`);
+          const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (compRes.ok) {
+            const compHtml = await compRes.text();
+            const cleanCompText = extractCleanText(compHtml);
+            competitorTexts.push(`Competitor: ${compUrl}\n${cleanCompText.substring(0, 3000)}`);
+          }
+        } catch (err) {
+          console.warn(`[AI Protocol Generator] Failed to crawl competitor: ${fullCompUrl}`, err.message);
+        }
+      }
+    }
+
+    // Fetch products catalog context
+    const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
+    const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+    // Query Gemini
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    let generatedProtocol = '';
+
+    if (apiKey) {
+      const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
+Based on the following scraped storefront text and catalog data, generate a comprehensive Brand Performance Marketing Protocol.
+
+Brand Name: ${brand.name}
+Website URL: ${targetUrl || 'Not available'}
+
+[SCRAPED HOME PAGE CONTENT]
+${homepageText}
+
+[COMPETITOR ANALYSES]
+${competitorTexts.length > 0 ? competitorTexts.join('\n\n') : 'No competitor sites crawled. Analyze standard competitors in their industry segment based on their products.'}
+
+[PRODUCT CATALOG SAMPLES]
+${catalogContext || 'No catalog items registered.'}
+
+Generate a thorough, structured, and complete brand manuscript / protocol in Markdown format. The manuscript MUST include:
+1. **Brand Identity & Position**: Explain their mission, visual aesthetic, value proposition, and unique selling points (USPs).
+2. **Target Audience Profile**: Build 2 distinct customer personas (demographics, psychographics, buying motivations).
+3. **Marketing Voice & Tone Guidelines**: Detail clear messaging guidelines, voice adjectives (with copy examples), and a list of approved and banned terms.
+4. **Competitor & Market positioning**: Identify top 3 market competitors, analyze their positioning, and list our strategic differentiators.
+5. **Performance Ads Framework**:
+   - Emotional, Logical, and Utility hooks for ads.
+   - Ready-to-copy Ad Copy variations (Primary Text, Headline, Description) for Meta/Instagram campaigns targeting cold vs retargeting audiences.
+   - Suggestions for TikTok hook scripts.
+6. **Marketing Campaign Manuscripts**:
+   - High-converting email templates: A 3-step Welcome Sequence and a Cart Abandonment flow.
+   - High-converting landing page headline & section layout guidelines.
+
+Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
+
+      try {
+        // Determine Gemini model based on brand's AI tier
+        let targetModel = 'gemini-3.1-pro';
+        if (brand.ai_tier === 'standard') {
+          targetModel = 'gemini-2.5-flash';
+        } else if (brand.ai_tier === 'enterprise') {
+          targetModel = 'deep-research-pro-preview';
+        }
+
+        console.log(`[AI Protocol Generator] Querying Gemini for brand: ${brandId} using model: ${targetModel}`);
+        let geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
+        if (!geminiRes.ok && brand.ai_tier === 'enterprise') {
+          console.warn('[AI Protocol Generator] Enterprise model failed, falling back to gemini-3.1-pro');
+          targetModel = 'gemini-3.1-pro';
+          geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
+          });
+        }
+
+        if (geminiRes.ok) {
+          const result = await geminiRes.json();
+          generatedProtocol = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          if (result.usageMetadata) {
+            await logAiUsage(brandId, 'Brand Protocol & Strategy Generation', targetModel, result.usageMetadata);
+          }
+        } else {
+          const errText = await geminiRes.text();
+          throw new Error(`Gemini API returned status ${geminiRes.status}: ${errText}`);
+        }
+      } catch (err) {
+        console.error('[AI Protocol Generator] Gemini API query failed:', err.message);
+      }
+    }
+
+    if (!generatedProtocol) {
+      console.warn('[AI Protocol Generator] Using default fallback template');
+      generatedProtocol = `# Brand & Performance Marketing Manuscript for ${brand.name}
+
+## 1. Brand Identity & Position
+* **Mission**: To deliver high-quality custom coffee products to home baristas and commercial operators.
+* **Value Proposition**: Premium workmanship, precise dimensions, and custom storefront experiences.
+* **USPs**: Modular builds, ergonomic styling, and seamless integration.
+
+## 2. Target Audience Profile
+* **Persona 1 (Home Barista Enthusiast)**: Demographics: 25-45, tech-savvy. Values quality extraction.
+* **Persona 2 (Commercial Barista/Cafe Owner)**: Demographics: 30-55. Values durability and flow consistency.
+
+## 3. Marketing Voice & Tone Guidelines
+* **Tone**: Professional, technical, premium, passionate.
+* **Approved Terms**: "Precision extraction", "ergonomic control", "micro-lot grade".
+* **Banned Terms**: "Cheap", "average", "bargain".
+
+## 4. Competitor & Market Positioning
+* **Competitors**: Barista Hustle, Pullman, Saint Anthony Industries.
+* **Differentiators**: Unified merchant tooling, customizable storefront branding, direct-to-consumer simulator options.
+
+## 5. Performance Ads Framework
+* **Logical Hook**: "Upgrade your shower screen to achieve 22% higher extraction consistency in every single shot."
+* **Emotional Hook**: "Serve coffee exactly the way you intended it. Clean, precise, and beautiful."
+
+## 6. Marketing Campaign Manuscripts
+### Welcome Email (Step 1)
+* **Subject**: Welcome to the ${brand.name} Family! ☕
+* **Body**: Thank you for choosing premium brewing gears. Use code WELCOME10 for 10% off your first order!`;
+    }
+
+    await runQuery('UPDATE brands SET marketing_protocol = $1 WHERE id = $2', [generatedProtocol, brandId]);
+    addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
+
+    res.json({ success: true, marketing_protocol: generatedProtocol });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Compile brand prompt with scraped data for manual copy pasting
+app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { url, competitors } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    let targetUrl = url || brand.shopify_shop_name || brand.woocommerce_shop_url || brand.subdomain;
+    if (targetUrl && !targetUrl.startsWith('http')) {
+      targetUrl = `https://${targetUrl}`;
+    }
+
+    let homepageText = 'No website crawled.';
+    if (targetUrl) {
+      try {
+        console.log(`[AI Prompt Compiler] Scraping brand site: ${targetUrl}`);
+        const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          homepageText = extractCleanText(html);
+        }
+      } catch (err) {
+        console.warn(`[AI Prompt Compiler] Failed to crawl primary URL: ${targetUrl}`, err.message);
+      }
+    }
+
+    let competitorTexts = [];
+    if (competitors) {
+      const compUrls = Array.isArray(competitors)
+        ? competitors
+        : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
+
+      for (let compUrl of compUrls) {
+        let fullCompUrl = compUrl;
+        if (!fullCompUrl.startsWith('http')) {
+          fullCompUrl = `https://${fullCompUrl}`;
+        }
+        try {
+          console.log(`[AI Prompt Compiler] Scraping competitor site: ${fullCompUrl}`);
+          const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (compRes.ok) {
+            const compHtml = await compRes.text();
+            const cleanCompText = extractCleanText(compHtml);
+            competitorTexts.push(`Competitor: ${compUrl}\n${cleanCompText.substring(0, 3000)}`);
+          }
+        } catch (err) {
+          console.warn(`[AI Prompt Compiler] Failed to crawl competitor: ${fullCompUrl}`, err.message);
+        }
+      }
+    }
+
+    const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
+    const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+    const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
+Based on the following scraped storefront text and catalog data, generate a comprehensive Brand Performance Marketing Protocol.
+
+Brand Name: ${brand.name}
+Website URL: ${targetUrl || 'Not available'}
+
+[SCRAPED HOME PAGE CONTENT]
+${homepageText}
+
+[COMPETITOR ANALYSES]
+${competitorTexts.length > 0 ? competitorTexts.join('\n\n') : 'No competitor sites crawled. Analyze standard competitors in their industry segment based on their products.'}
+
+[PRODUCT CATALOG SAMPLES]
+${catalogContext || 'No catalog items registered.'}
+
+Generate a thorough, structured, and complete brand manuscript / protocol in Markdown format. The manuscript MUST include:
+1. **Brand Identity & Position**: Explain their mission, visual aesthetic, value proposition, and unique selling points (USPs).
+2. **Target Audience Profile**: Build 2 distinct customer personas (demographics, psychographics, buying motivations).
+3. **Marketing Voice & Tone Guidelines**: Detail clear messaging guidelines, voice adjectives (with copy examples), and a list of approved and banned terms.
+4. **Competitor & Market positioning**: Identify top 3 market competitors, analyze their positioning, and list our strategic differentiators.
+5. **Performance Ads Framework**:
+   - Emotional, Logical, and Utility hooks for ads.
+   - Ready-to-copy Ad Copy variations (Primary Text, Headline, Description) for Meta/Instagram campaigns targeting cold vs retargeting audiences.
+   - Suggestions for TikTok hook scripts.
+6. **Marketing Campaign Manuscripts**:
+   - High-converting email templates: A 3-step Welcome Sequence and a Cart Abandonment flow.
+   - High-converting landing page headline & section layout guidelines.
+
+Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
+
+    res.json({ success: true, prompt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET AI Usage stats & recent logs for a brand
+app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    // 1. Total Cost and count
+    const summary = await getQuery(`
+      SELECT 
+        COUNT(id) as total_calls,
+        COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
+        COALESCE(SUM(completion_tokens), 0) as total_completion_tokens,
+        COALESCE(SUM(total_tokens), 0) as total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0.0) as total_cost_usd
+      FROM ai_usage_logs
+      WHERE brand_id = $1
+    `, [brandId]);
+
+    // 2. Cost and counts breakdown by operation
+    const breakdown = await allQuery(`
+      SELECT 
+        operation,
+        COUNT(id) as calls_count,
+        COALESCE(SUM(total_tokens), 0) as total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd
+      FROM ai_usage_logs
+      WHERE brand_id = $1
+      GROUP BY operation
+      ORDER BY cost_usd DESC
+    `, [brandId]);
+
+    // 3. Recent logs (last 15 records)
+    const logs = await allQuery(`
+      SELECT id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, created_at
+      FROM ai_usage_logs
+      WHERE brand_id = $1
+      ORDER BY created_at DESC
+      LIMIT 15
+    `, [brandId]);
+
+    res.json({
+      success: true,
+      summary: {
+        total_calls: parseInt(summary.total_calls, 10),
+        total_prompt_tokens: parseInt(summary.total_prompt_tokens, 10),
+        total_completion_tokens: parseInt(summary.total_completion_tokens, 10),
+        total_tokens: parseInt(summary.total_tokens, 10),
+        total_cost_usd: parseFloat(parseFloat(summary.total_cost_usd).toFixed(6))
+      },
+      breakdown: breakdown.map(b => ({
+        operation: b.operation,
+        calls_count: parseInt(b.calls_count, 10),
+        total_tokens: parseInt(b.total_tokens, 10),
+        cost_usd: parseFloat(parseFloat(b.cost_usd).toFixed(6))
+      })),
+      recent_logs: logs.map(l => ({
+        id: l.id,
+        operation: l.operation,
+        model: l.model,
+        prompt_tokens: l.prompt_tokens,
+        completion_tokens: l.completion_tokens,
+        total_tokens: l.total_tokens,
+        estimated_cost_usd: parseFloat(parseFloat(l.estimated_cost_usd).toFixed(6)),
+        created_at: l.created_at
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET AI pricing rates list
+app.get('/api/global/ai-pricing', verifyAdminToken, async (req, res) => {
+  try {
+    const rows = await allQuery('SELECT model, prompt_rate_per_million, completion_rate_per_million FROM ai_model_pricing ORDER BY model ASC');
+    res.json({ success: true, pricing: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST update AI pricing rate (Superadmin only)
+app.post('/api/global/ai-pricing', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
+
+  const { model, prompt_rate_per_million, completion_rate_per_million } = req.body;
+  if (!model || prompt_rate_per_million === undefined || completion_rate_per_million === undefined) {
+    return res.status(400).json({ error: 'Missing required fields: model, prompt_rate_per_million, completion_rate_per_million' });
+  }
+
+  try {
+    await runQuery(`
+      INSERT INTO ai_model_pricing (model, prompt_rate_per_million, completion_rate_per_million)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (model) DO UPDATE 
+      SET prompt_rate_per_million = EXCLUDED.prompt_rate_per_million,
+          completion_rate_per_million = EXCLUDED.completion_rate_per_million
+    `, [model, parseFloat(prompt_rate_per_million), parseFloat(completion_rate_per_million)]);
+
+    // Reload pricing cache!
+    await loadPricingCache();
+
+    res.json({ success: true, message: `Successfully updated pricing rates for model ${model}.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2400,18 +3051,33 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
     return res.status(400).json({ error: 'Product title is required.' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const brandId = resolveBrandId(req);
+  let brand = null;
+  if (brandId) {
+    try {
+      brand = await getQuery('SELECT name, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+    } catch (e) {
+      console.warn('[SEO Generator] Error querying brand info:', e.message);
+    }
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
-      const prompt = `You are a premium e-commerce copywriter. Write a high-converting, SEO-optimized short description, detailed description, key features (up to 5 bullet points), and machine compatibility (up to 4 items) for a product titled "${title}". Description/Details: "${description || ''}".
-Return ONLY a JSON object in this format:
+      let prompt = `You are a premium e-commerce copywriter. Write a high-converting, SEO-optimized short description, detailed description, key features (up to 5 bullet points), and machine compatibility (up to 4 items) for a product titled "${title}". Description/Details: "${description || ''}".`;
+      
+      if (brand && brand.marketing_protocol) {
+        prompt += `\n\nYou MUST align the copy's voice, guidelines, and style parameters with this Brand Strategy Manuscript / Protocol:\n${brand.marketing_protocol}`;
+      }
+
+      prompt += `\n\nReturn ONLY a JSON object in this format:
 {
   "short_description": "A high-converting 1-2 sentence summary pitch.",
   "detailed_description": "A comprehensive paragraph explaining product craftsmanship, benefits, and materials.",
   "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
   "compatibility": ["Compatible Machine 1", "Compatible Machine 2"]
 }`;
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2424,6 +3090,11 @@ Return ONLY a JSON object in this format:
         const result = await response.json();
         const text = result.candidates[0].content.parts[0].text;
         const parsed = JSON.parse(text);
+        
+        if (result.usageMetadata && brandId) {
+          await logAiUsage(brandId, 'Product SEO Content Generation', 'gemini-2.5-flash', result.usageMetadata);
+        }
+
         return res.json({ success: true, ...parsed });
       }
     } catch (err) {
@@ -2831,47 +3502,62 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
       }
     }
 
-    // Fallback 1: Try scraping public products if shopify URL is set
+    if (brand.platform === 'woocommerce' && brand.woocommerce_shop_url && brand.woocommerce_consumer_key && brand.woocommerce_consumer_secret) {
+      try {
+        let shopUrl = brand.woocommerce_shop_url;
+        if (!shopUrl.startsWith('http')) {
+          shopUrl = `https://${shopUrl}`;
+        }
+        const parsedShopUrl = new URL(shopUrl);
+        const auth = Buffer.from(`${brand.woocommerce_consumer_key}:${brand.woocommerce_consumer_secret}`).toString('base64');
+        const wcUrl = `https://${parsedShopUrl.hostname}/wp-json/wc/v3/products?per_page=100`;
+        
+        console.log(`[WooCommerce Import] Fetching products from: ${wcUrl}`);
+        const response = await fetch(wcUrl, {
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const wcProducts = await response.json();
+          const formatted = wcProducts.map(p => {
+            return {
+              id: p.id,
+              title: p.name,
+              price: parseFloat(p.price || p.regular_price || '55.00'),
+              image: p.images && p.images.length > 0 ? p.images[0].src : '',
+              description: p.description || p.short_description || 'Premium coffee accessory imported from WooCommerce.',
+              sku: p.sku || '',
+              external_id: String(p.id)
+            };
+          });
+          return res.json({ success: true, products: formatted, source: 'woocommerce_api' });
+        } else {
+          const errText = await response.text();
+          console.warn('[WooCommerce API Fetch Failed]', response.status, errText);
+        }
+      } catch (apiErr) {
+        console.warn('[WooCommerce API Fetch Error, using sandbox fallback]', apiErr.message);
+      }
+    }
+
+    // Fallback 1: Try scraping public products if shopify or woocommerce URL is set
     if (brand.shopify_shop_name) {
       const languages = brand.languages ? brand.languages.split(',').map(l => l.trim()) : ['en'];
       const scraped = await scrapeShopifyProducts(brand.shopify_shop_name, languages);
       if (scraped && scraped.length > 0) {
         return res.json({ success: true, products: scraped, source: 'shopify_public_scrape' });
       }
+    } else if (brand.woocommerce_shop_url) {
+      const scraped = await scrapeWooCommerceProducts(brand.woocommerce_shop_url);
+      if (scraped && scraped.length > 0) {
+        return res.json({ success: true, products: scraped, source: 'woocommerce_public_scrape' });
+      }
     }
 
-    // Fallback 2: Return default premium mock coffee products for preview sandboxes
-    const mockCoffeeProducts = [
-      {
-        id: 1001,
-        title: "High Diffusion Espresso Shower Screen",
-        price: 60.50,
-        image: "https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591",
-        description: "Introducing the Pesado High Diffusion Shower Screen. This HD espresso shower screen is designed for precision, ensuring consistency in every shot.",
-        sku: "PSD-SHWR-58",
-        external_id: "shopify-variant-1001"
-      },
-      {
-        id: 1002,
-        title: "Magnetic Espresso Dosing Ring",
-        price: 24.75,
-        image: "https://pesado585.com/cdn/shop/files/Pesado54mmMagneticDosingRing.png?v=1740032571",
-        description: "Upgrade your coffee game with our Magnetic Espresso Dosing Ring. It's the efficient and effective way to dose for maximum preparation, preventing messy spills.",
-        sku: "PSD-DOSE-RING-54",
-        external_id: "shopify-variant-1002"
-      },
-      {
-        id: 1003,
-        title: "Precision Bottomless Portafilter (58mm)",
-        price: 85.00,
-        image: "https://pesado585.com/cdn/shop/files/pesado-wood-portafilter.jpg?v=1738294719",
-        description: "Premium bottomless portafilter with custom ergonomic handle. Crafted with premium materials for standard 58mm group heads.",
-        sku: "PSD-PORTA-W-58",
-        external_id: "shopify-variant-1003"
-      }
-    ];
-
-    res.json({ success: true, products: mockCoffeeProducts, source: 'mock_fallback' });
+    res.json({ success: true, products: [], source: 'empty_fallback' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3200,10 +3886,7 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
 
 // Get all coupons for the active brand
 app.get('/api/global/coupons', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   try {
@@ -3216,10 +3899,7 @@ app.get('/api/global/coupons', verifyAdminToken, async (req, res) => {
 
 // Create manual promo coupon ruleset
 app.post('/api/global/coupons', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   const { code, discount_type, discount_value, expire_at, rules } = req.body;
@@ -3257,10 +3937,7 @@ app.post('/api/global/coupons', verifyAdminToken, async (req, res) => {
 
 // Delete/Void coupon
 app.delete('/api/global/coupons/:id', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   try {
@@ -3273,10 +3950,7 @@ app.delete('/api/global/coupons/:id', verifyAdminToken, async (req, res) => {
 
 // Get referral rule settings for a brand
 app.get('/api/global/referral-rules', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   try {
@@ -3300,10 +3974,7 @@ app.get('/api/global/referral-rules', verifyAdminToken, async (req, res) => {
 
 // Update referral rule settings
 app.post('/api/global/referral-rules', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   const { days_after_delivery, discount_type, discount_value, expire_days, email_subject, email_body, rules, enabled, templates } = req.body;
@@ -3381,10 +4052,7 @@ app.post('/api/global/brands/promo-signup', async (req, res) => {
 
 // Get queued/sent email logs
 app.get('/api/global/coupon-emails', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   try {
@@ -3397,10 +4065,7 @@ app.get('/api/global/coupon-emails', verifyAdminToken, async (req, res) => {
 
 // Force send all pending emails now (Simulation Trigger)
 app.post('/api/global/coupon-emails/send-pending', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context' });
 
   try {
@@ -3466,10 +4131,7 @@ function generateMockPerformanceHistory(startDateStr, endDateStr, budget, budget
 
 // Get all marketing campaigns for the active brand
 app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -3489,10 +4151,7 @@ app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =>
 
 // Create/Update marketing campaign
 app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   const {
@@ -3590,10 +4249,7 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
 
 // GET Attribution Modeling Report
 app.get('/api/global/marketing-campaigns/attribution-report', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -3626,10 +4282,7 @@ app.get('/api/global/marketing-campaigns/attribution-report', verifyAdminToken, 
 
 // GET Cohort LTV Projections curve
 app.get('/api/global/marketing-campaigns/ltv-projections', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -3804,6 +4457,8 @@ app.get('/api/global/marketing-campaigns/:id/causal-lift', verifyAdminToken, asy
 app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, async (req, res) => {
   try {
     const { productId, segmentation, tone, campaignType } = req.body;
+    const brandId = resolveBrandId(req);
+    if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
     
     let product = null;
     if (productId) {
@@ -3813,6 +4468,62 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
     const prodName = product ? product.title : 'Premium Specialty Roasts';
     const prodPrice = product ? `€${parseFloat(product.price).toFixed(2)}` : '€14.90';
     
+    // Try AI generation using the marketing protocol
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const brand = await getQuery('SELECT name, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+        if (brand && brand.marketing_protocol) {
+          const prompt = `You are a premium e-commerce copywriter. Refer to this Brand Performance Marketing Protocol / Playbook:
+${brand.marketing_protocol}
+
+Write a high-converting performance marketing ad copy (headline, primary ad body copy, and 3 key benefits) for the product "${prodName}" (Price: ${prodPrice}).
+Target Segmentation: ${segmentation}
+Tone: ${tone}
+Campaign Type: ${campaignType || 'conversion'}
+
+Return ONLY a JSON object in this format:
+{
+  "headline": "A short, catchy, action-oriented headline including emojis.",
+  "ad_copy": "A high-converting ad body text containing the value proposition, targeted hooks, and CTA.",
+  "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"]
+}`;
+
+          console.log(`[AI Copywriter Studio] Generating custom ad copy for brand: ${brandId}`);
+          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: 'application/json' }
+            })
+          });
+
+          if (aiRes.ok) {
+            const result = await aiRes.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const parsed = JSON.parse(text);
+            
+            if (result.usageMetadata && brandId) {
+              await logAiUsage(brandId, 'Campaign Ad Copy Generation', 'gemini-2.5-flash', result.usageMetadata);
+            }
+
+            if (parsed.headline && parsed.ad_copy) {
+              return res.json({
+                headline: parsed.headline,
+                ad_copy: parsed.ad_copy,
+                benefits: parsed.benefits || []
+              });
+            }
+          } else {
+            console.warn('[AI Copywriter Studio] Gemini API call failed, falling back to rule-based copy.');
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('[AI Copywriter Studio] Error during AI copy generation:', geminiErr.message);
+      }
+    }
+
     let headline = '';
     let adCopy = '';
     let benefits = [];
@@ -3887,10 +4598,7 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
 
 // Delete/Remove marketing campaign
 app.delete('/api/global/marketing-campaigns/:id', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -3903,10 +4611,7 @@ app.delete('/api/global/marketing-campaigns/:id', verifyAdminToken, async (req, 
 
 // GET consolidated media library
 app.get('/api/global/media', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -3974,10 +4679,7 @@ app.get('/api/global/media', verifyAdminToken, async (req, res) => {
 
 // POST upload manual media asset
 app.post('/api/global/media', verifyAdminToken, upload.single('file'), async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
 
@@ -4034,10 +4736,7 @@ app.post('/api/global/media', verifyAdminToken, upload.single('file'), async (re
 
 // PUT edit media item metadata
 app.put('/api/global/media/:id', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   const { title, folder } = req.body;
@@ -4057,10 +4756,7 @@ app.put('/api/global/media/:id', verifyAdminToken, async (req, res) => {
 
 // DELETE manual media item
 app.delete('/api/global/media/:id', verifyAdminToken, async (req, res) => {
-  let brandId = req.brand ? req.brand.id : null;
-  if (req.user.role.toLowerCase() === 'merchant') {
-    brandId = req.user.brand_id;
-  }
+  const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
@@ -4157,6 +4853,7 @@ app.post('/api/global/translate', verifyAdminToken, async (req, res) => {
 });
 
 // Start Server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server listening on port ${port}`);
+  await loadPricingCache();
 });

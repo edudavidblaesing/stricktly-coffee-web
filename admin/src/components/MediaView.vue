@@ -241,6 +241,12 @@ export default {
         };
     },
     computed: {
+        authHeaders() {
+            return {
+                'Authorization': `Bearer ${this.app.adminToken}`,
+                'X-Brand-Id': this.app.activeShopFilter
+            };
+        },
         folders() {
             return [...this.systemFolders, ...this.customFolders];
         },
@@ -335,8 +341,8 @@ export default {
                         await fetch(`/api/global/media/${item.id}`, {
                             method: 'PUT',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${this.app.adminToken}`
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ title: item.title, folder: 'General' })
                         });
@@ -358,7 +364,7 @@ export default {
         async loadMedia() {
             try {
                 const response = await fetch('/api/global/media', {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.mediaItems = await response.json();
@@ -402,8 +408,8 @@ export default {
             fetch(`/api/global/media/${item.id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.app.adminToken}`
+                    ...this.authHeaders,
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ title: newTitle.trim(), folder: item.folder })
             }).then(async response => {
@@ -422,9 +428,7 @@ export default {
 
             fetch(`/api/global/media/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${this.app.adminToken}`
-                }
+                headers: this.authHeaders
             }).then(async response => {
                 if (response.ok) {
                     this.app.showNotification('Asset deleted.');
@@ -463,7 +467,7 @@ export default {
             try {
                 const response = await fetch('/api/global/media', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` },
+                    headers: this.authHeaders,
                     body: formData
                 });
                 if (response.ok) {
@@ -532,8 +536,8 @@ export default {
                             const response = await fetch(`/api/global/media/${matched.id}`, {
                                 method: 'PUT',
                                 headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${this.app.adminToken}`
+                                    ...this.authHeaders,
+                                    'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({ title: matched.title, folder: targetFolder })
                             });
@@ -603,7 +607,7 @@ export default {
             try {
                 const response = await fetch('/api/global/media', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` },
+                    headers: this.authHeaders,
                     body: formData
                 });
                 if (response.ok) {
@@ -637,8 +641,8 @@ export default {
                         await fetch(`/api/global/media/${id}`, {
                             method: 'PUT',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${this.app.adminToken}`
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ title: matched.title, folder: targetFolder })
                         });
@@ -668,7 +672,7 @@ export default {
                 for (const id of uploadsToDelete) {
                     await fetch(`/api/global/media/${id}`, {
                         method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                        headers: this.authHeaders
                     });
                 }
                 this.selectedItems = [];

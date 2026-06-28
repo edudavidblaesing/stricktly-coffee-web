@@ -1336,6 +1336,12 @@ export default {
         };
     },
     computed: {
+        authHeaders() {
+            return {
+                'Authorization': `Bearer ${this.app.adminToken}`,
+                'X-Brand-Id': this.app.activeShopFilter
+            };
+        },
         isAllCampaignsSelected() {
             return this.campaigns.length > 0 && this.campaigns.every(c => this.selectedCampaignIds.includes(c.id));
         },
@@ -1560,7 +1566,7 @@ export default {
         async loadCampaigns() {
             try {
                 const response = await fetch('/api/global/marketing-campaigns', {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.campaigns = await response.json();
@@ -1670,8 +1676,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1726,7 +1732,7 @@ export default {
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/${id}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.app.showNotification('Campaign voided.');
@@ -1835,8 +1841,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updatedCampaign)
                 });
@@ -1859,7 +1865,7 @@ export default {
             this.loadingAttribution = true;
             try {
                 const response = await fetch('/api/global/marketing-campaigns/attribution-report', {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.attributionData = await response.json();
@@ -1873,7 +1879,7 @@ export default {
         async loadCohortData() {
             try {
                 const response = await fetch('/api/global/marketing-campaigns/ltv-projections', {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.cohortData = await response.json();
@@ -1886,7 +1892,7 @@ export default {
             this.loadingCreative = true;
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/creative-stats`, {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -1919,8 +1925,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updated)
                 });
@@ -1944,8 +1950,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updated)
                 });
@@ -1967,8 +1973,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updated)
                 });
@@ -1999,8 +2005,8 @@ export default {
                 const response = await fetch('/api/global/marketing-campaigns/generate-copy', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         productId: this.selectedProductId || null,
@@ -2035,7 +2041,7 @@ export default {
         async loadAIProposals(campaignId) {
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/ai-proposals`, {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -2049,7 +2055,7 @@ export default {
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/proposals/${proposal.id}/apply`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.app.showNotification('AI-generated ad proposal applied successfully!');
@@ -2063,7 +2069,7 @@ export default {
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/proposals/${proposal.id}/reject`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.app.showNotification('AI proposal rejected.');
@@ -2076,7 +2082,7 @@ export default {
         async loadCausalLiftData(campaignId) {
             try {
                 const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/causal-lift`, {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -2214,8 +2220,8 @@ export default {
                 const response = await fetch('/api/global/brands/save-theme-settings', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.app.adminToken}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(brand)
                 });
@@ -2295,9 +2301,7 @@ export default {
             try {
                 const response = await fetch('/api/global/media', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.app.adminToken}`
-                    },
+                    headers: this.authHeaders,
                     body: formData
                 });
                 
@@ -2341,9 +2345,7 @@ export default {
                 this.app.showNotification(`Uploading image for Card #${idx+1}...`);
                 const response = await fetch('/api/global/media', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.app.adminToken}`
-                    },
+                    headers: this.authHeaders,
                     body: formData
                 });
                 
@@ -2362,7 +2364,7 @@ export default {
         async loadMediaLibrary() {
             try {
                 const response = await fetch('/api/global/media', {
-                    headers: { 'Authorization': `Bearer ${this.app.adminToken}` }
+                    headers: this.authHeaders
                 });
                 if (response.ok) {
                     this.mediaLibraryItems = await response.json();
@@ -2383,8 +2385,8 @@ export default {
                     const response = await fetch('/api/global/translate', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.app.adminToken}`
+                            ...this.authHeaders,
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             text: this.newCampaign.headline,
@@ -2402,8 +2404,8 @@ export default {
                     const response = await fetch('/api/global/translate', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${this.app.adminToken}`
+                            ...this.authHeaders,
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             text: this.newCampaign.ad_copy,

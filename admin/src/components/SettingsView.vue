@@ -31,6 +31,34 @@
             </form>
         </div>
 
+        <!-- Global AI Model Pricing settings (superadmin only) -->
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+            <div class="panel-header">
+                <h3 class="panel-title">🤖 AI Model Token Cost Tuning (USD per 1M tokens)</h3>
+            </div>
+            <div style="padding: 15px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px;">
+                    Control the estimated cost tracking metrics shown to merchants. Changes reload the pricing calculator dynamically without server re-deployment.
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div v-for="item in globalPricing" :key="item.model" style="display: grid; grid-template-columns: 2fr 1fr 1fr 80px; gap: 12px; align-items: center; background: rgba(0,0,0,0.1); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--border);">
+                        <strong style="font-size: 0.85rem; font-family: monospace; color: var(--text-main);">{{ item.model }}</strong>
+                        <div>
+                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Prompt / 1M</label>
+                            <input type="number" step="0.001" v-model="item.prompt_rate_per_million" style="margin: 0; height: 32px; font-size: 0.8rem; background: var(--workspace-bg); border-radius: 6px; border: 1px solid var(--border); color: var(--text-main); padding: 0 8px; width: 100%;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Completion / 1M</label>
+                            <input type="number" step="0.001" v-model="item.completion_rate_per_million" style="margin: 0; height: 32px; font-size: 0.8rem; background: var(--workspace-bg); border-radius: 6px; border: 1px solid var(--border); color: var(--text-main); padding: 0 8px; width: 100%;">
+                        </div>
+                        <button type="button" class="btn btn-accent" style="margin: 0; height: 32px; font-size: 0.75rem; font-weight: 700; width: 100%;" @click="saveModelPricing(item)">
+                            Update
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Contextual settings for currently filtered shop -->
         <div class="panel" id="shop-settings-panel" v-if="activeShopFilter !== 'all'">
             <div class="panel-header">
@@ -45,6 +73,15 @@
                     <div class="form-group">
                         <label>Contact Email</label>
                         <input type="email" v-model="settingsBrand.contact_email" required placeholder="contact@brand.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label>AI Operation Tier (Limits & Capabilities)</label>
+                        <select v-model="settingsBrand.ai_tier" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                            <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
+                            <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
+                            <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
+                        </select>
                     </div>
 
                     <!-- Unified storefront domain row with suffix dropdown -->
@@ -260,6 +297,153 @@
                 </div>
             </form>
 
+            <!-- AI Performance Marketing Manuscript Panel -->
+            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <h4 style="color: var(--accent); margin-bottom: 12px; font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
+                    🤖 AI Brand & Performance Marketing Manuscript
+                </h4>
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.5;">
+                        Generate and manage your Brand Strategy Manuscript. The AI crawls your homepage, analyzes your catalog, and compiles a playbook covering positioning, customer personas, approved brand voice guidelines, competitor comparisons, high-converting ad hooks, and email copywriting campaigns. This playbook is utilized directly in the AI Campaign Creator.
+                    </div>
+
+                    <!-- Competitor Domain Inputs -->
+                    <div class="form-group form-full" style="margin-bottom: 15px;" v-if="!isGeneratingProtocol">
+                        <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px; display: block;">
+                            Competitor Domains / URLs (Comma-separated, optional)
+                        </label>
+                        <input type="text" v-model="competitorInput" placeholder="e.g. competitor1.com, competitor2.com" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0; outline: none;">
+                    </div>
+
+                    <!-- Generator Action Button -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
+                            <span v-if="isGeneratingProtocol">⏳ Crawling & Generating Manuscript...</span>
+                            <span v-else>✨ Generate Brand Manuscript</span>
+                        </button>
+                        
+                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="settingsBrand.marketing_protocol && !isEditingProtocol" @click="toggleEditProtocol">
+                            ✍️ Edit Manuscript
+                        </button>
+                        
+                        <button type="button" class="btn btn-primary" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="isEditingProtocol" @click="saveManualProtocol">
+                            💾 Save Changes
+                        </button>
+
+                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="isEditingProtocol" @click="cancelEditProtocol">
+                            Cancel
+                        </button>
+                    </div>
+
+                    <!-- Loading state indicator -->
+                    <div v-if="isGeneratingProtocol" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed var(--border); margin-top: 15px;">
+                        <div style="font-size: 1.2rem; margin-bottom: 8px;">🚀</div>
+                        <div>Crawling storefront homepages and scraping elements...</div>
+                        <div style="margin-top: 4px; font-size: 0.76rem; color: var(--accent);">Formulating marketing segments, ad hooks, and competitor matrices... This might take up to 30-45 seconds.</div>
+                    </div>
+
+                    <!-- Playbook Viewer -->
+                    <div v-else-if="settingsBrand.marketing_protocol && !isEditingProtocol" style="background: #0f1311; border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-height: 450px; overflow-y: auto; font-family: Outfit, sans-serif; font-size: 0.88rem; line-height: 1.6; color: var(--text-main); white-space: pre-wrap; margin-top: 15px; position: relative;">
+                        <!-- Custom copy button -->
+                        <button type="button" class="btn" style="position: absolute; top: 12px; right: 12px; font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);" @click="copyProtocolToClipboard">
+                            📋 Copy Plaintext
+                        </button>
+                        {{ settingsBrand.marketing_protocol }}
+                    </div>
+
+                    <!-- Playbook Editor -->
+                    <div v-else-if="isEditingProtocol" style="margin-top: 15px;">
+                        <textarea v-model="editedProtocolText" style="width: 100%; height: 350px; border-radius: 8px; border: 1px solid var(--border); background: #0f1311; color: var(--text-main); padding: 15px; font-family: monospace; font-size: 0.85rem; line-height: 1.5; resize: vertical; outline: none; margin: 0;"></textarea>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div v-else style="background: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border); border-radius: 8px; padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 15px;">
+                        🚫 No marketing manuscript generated yet. Let's trigger a generation to onboard this brand onto the Performance Ad Studio.
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Usage & Cost Analytics Panel -->
+            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <h4 style="color: var(--accent); margin-bottom: 12px; font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
+                    📊 AI Usage & Cost Analytics
+                </h4>
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
+                        Track real-time token usage, api call frequencies, and estimated platform API expenses for this brand across all AI systems.
+                    </div>
+
+                    <!-- KPI Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total Spend (USD)</div>
+                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--accent); font-family: monospace;">${{ formatCost(aiUsageSummary.total_cost_usd) }}</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">{{ formatTokens(aiUsageSummary.total_tokens) }} total tokens</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total AI Calls</div>
+                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);">{{ aiUsageSummary.total_calls }}</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Across all integrations</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Avg Cost / Call</div>
+                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${{ formatCost(aiUsageSummary.total_calls > 0 ? aiUsageSummary.total_cost_usd / aiUsageSummary.total_calls : 0) }}</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Input & output combined</div>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown & Details -->
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 15px;">
+                        <!-- Breakdown by Operation -->
+                        <div v-if="aiUsageBreakdown.length > 0">
+                            <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Cost & Calls by Feature</h5>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div v-for="item in aiUsageBreakdown" :key="item.operation" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 10px 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                                        <span style="font-weight: 600; color: var(--text-main);">{{ item.operation }}</span>
+                                        <span style="font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(item.cost_usd) }} ({{ item.calls_count }} calls)</span>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; width: 100%;">
+                                        <div :style="{ width: getSpendPercentage(item.cost_usd) + '%', background: 'var(--accent)' }" style="height: 100%; transition: width 0.3s ease;"></div>
+                                    </div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">{{ formatTokens(item.total_tokens) }} tokens generated</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Logs Table -->
+                        <div>
+                            <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
+                            <div v-if="aiUsageLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
+                                    <thead>
+                                        <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
+                                            <th style="padding: 10px 12px; color: var(--text-muted);">Timestamp</th>
+                                            <th style="padding: 10px 12px; color: var(--text-muted);">Operation</th>
+                                            <th style="padding: 10px 12px; color: var(--text-muted);">Model</th>
+                                            <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Tokens (In/Out)</th>
+                                            <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Est. Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="log in aiUsageLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                            <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">{{ formatDate(log.created_at) }}</td>
+                                            <td style="padding: 10px 12px; font-weight: 600; color: var(--text-main);">{{ log.operation }}</td>
+                                            <td style="padding: 10px 12px; font-family: monospace; color: var(--text-muted);">{{ log.model }}</td>
+                                            <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
+                                            <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(log.estimated_cost_usd) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else style="background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                                No recent AI operations recorded for this brand.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Danger Zone / Store Management -->
             <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
                 <h4 style="color: #ef4444; margin-bottom: 12px; font-weight: 700; font-family: var(--font-display);">⚠️ Danger Zone / Store Management</h4>
@@ -388,7 +572,15 @@ export default {
             dnsVerifyError: '',
             dnsMissing: false,
             dnsCreating: false,
-            isScraping: false
+            isScraping: false,
+            isGeneratingProtocol: false,
+            isEditingProtocol: false,
+            editedProtocolText: '',
+            competitorInput: '',
+            aiUsageSummary: { total_calls: 0, total_prompt_tokens: 0, total_completion_tokens: 0, total_tokens: 0, total_cost_usd: 0.0 },
+            aiUsageBreakdown: [],
+            aiUsageLogs: [],
+            globalPricing: []
         }
     },
     watch: {
@@ -398,6 +590,13 @@ export default {
             this.dnsVerifyError = '';
             this.dnsMissing = false;
             this.dnsCreating = false;
+            this.loadAiUsage();
+        },
+        'app.activeView'(newView) {
+            if (newView === 'settings') {
+                this.loadAiUsage();
+                this.loadGlobalPricing();
+            }
         }
     },
     computed: {
@@ -442,7 +641,167 @@ export default {
             }
         }
     },
+    created() {
+        if (this.app.activeView === 'settings') {
+            this.loadAiUsage();
+            this.loadGlobalPricing();
+        }
+    },
     methods: {
+        async generateMarketingProtocol() {
+            this.isGeneratingProtocol = true;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/generate-protocol`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        competitors: this.competitorInput
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.settingsBrand.marketing_protocol = data.marketing_protocol;
+                        this.showNotification('AI Brand Performance Marketing Manuscript successfully generated.');
+                        this.loadAiUsage();
+                    } else {
+                        throw new Error(data.error || 'Failed to generate manuscript');
+                    }
+                } else {
+                    const errText = await response.text();
+                    throw new Error(errText);
+                }
+            } catch (err) {
+                console.error('Error generating protocol:', err);
+                this.showNotification(`Error: ${err.message}`);
+            } finally {
+                this.isGeneratingProtocol = false;
+            }
+        },
+        async loadAiUsage() {
+            if (!this.settingsBrand || !this.settingsBrand.id || this.settingsBrand.id === 'all') {
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/ai-usage`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.aiUsageSummary = data.summary;
+                        this.aiUsageBreakdown = data.breakdown;
+                        this.aiUsageLogs = data.recent_logs;
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading AI usage data:', err);
+            }
+        },
+        formatCost(val) {
+            if (val === undefined || val === null) return '0.000000';
+            return parseFloat(val).toFixed(6);
+        },
+        formatTokens(val) {
+            if (!val) return '0';
+            return Number(val).toLocaleString();
+        },
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        },
+        getSpendPercentage(cost) {
+            if (!this.aiUsageSummary.total_cost_usd || this.aiUsageSummary.total_cost_usd === 0) return 0;
+            return (cost / this.aiUsageSummary.total_cost_usd) * 100;
+        },
+        async loadGlobalPricing() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/ai-pricing`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.globalPricing = data.pricing;
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading global AI pricing rates:', err);
+            }
+        },
+        async saveModelPricing(item) {
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/ai-pricing`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: item.model,
+                        prompt_rate_per_million: parseFloat(item.prompt_rate_per_million),
+                        completion_rate_per_million: parseFloat(item.completion_rate_per_million)
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showNotification(`Successfully updated pricing for ${item.model}`);
+                        this.loadGlobalPricing();
+                        this.loadAiUsage(); // Refresh stats for active brand
+                    }
+                }
+            } catch (err) {
+                this.showNotification(`Failed to save pricing: ${err.message}`);
+            }
+        },
+        toggleEditProtocol() {
+            this.editedProtocolText = this.settingsBrand.marketing_protocol || '';
+            this.isEditingProtocol = true;
+        },
+        cancelEditProtocol() {
+            this.isEditingProtocol = false;
+        },
+        async saveManualProtocol() {
+            this.settingsBrand.marketing_protocol = this.editedProtocolText;
+            this.isEditingProtocol = false;
+            
+            // Call standard brand update route to save the updated protocol
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.settingsBrand)
+                });
+                if (response.ok) {
+                    this.showNotification('Marketing manuscript updated and saved.');
+                } else {
+                    const err = await response.text();
+                    throw new Error(err);
+                }
+            } catch (err) {
+                console.error('Error saving protocol updates:', err);
+                this.showNotification(`Error saving modifications: ${err.message}`);
+            }
+        },
+        copyProtocolToClipboard() {
+            if (this.settingsBrand.marketing_protocol) {
+                navigator.clipboard.writeText(this.settingsBrand.marketing_protocol);
+                this.showNotification('Plaintext manuscript copied to clipboard!');
+            }
+        },
         showNotification(msg) { return this.app.showNotification(msg); },
         saveProfile() {
             localStorage.setItem('sc_operator_first_name', this.operatorFirstName);

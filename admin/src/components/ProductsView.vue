@@ -523,6 +523,12 @@ export default {
         };
     },
     computed: {
+        authHeaders() {
+            return {
+                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                'X-Brand-Id': this.app.activeShopFilter
+            };
+        },
         isAllProductsSelected() {
             return this.searchedProducts.length > 0 && this.searchedProducts.every(p => this.selectedProductIds.includes(p.id));
         },
@@ -854,8 +860,8 @@ export default {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/products/generate-seo`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         title: prod.title,

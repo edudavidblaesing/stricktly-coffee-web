@@ -43,6 +43,7 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_BUCKET_MEDIA=${S3_BUCKET_MEDIA}
+      - GEMINI_API_KEY_GENERAL=${GEMINI_API_KEY_GENERAL}
     volumes:
       - uploads_data:/app/uploads
     networks:
