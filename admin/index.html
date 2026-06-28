@@ -1086,7 +1086,7 @@
                     </button>
                 </li>
                 <li>
-                    <button class="nav-link-btn" onclick="triggerUpcoming('Help Center', 'Administrator guidelines, Shopify connection tutorials, and Stripe setup manuals.')">
+                    <button class="nav-link-btn" id="btn-nav-help" onclick="switchView('help')">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                         Help Center
                     </button>
@@ -1456,6 +1456,30 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Direct Shopify Catalog Importer -->
+            <div class="panel" style="margin-top: 24px;">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        Shopify Catalog Quick Importer
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--text-muted);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </h3>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select id="shopify-import-brand-select" style="padding: 6px 12px; width: 180px; font-weight: 600; border-radius: 8px;">
+                            <!-- Injected dynamically -->
+                        </select>
+                        <button type="button" class="btn" onclick="scanShopifyProducts()">Scan Shopify Catalog</button>
+                    </div>
+                </div>
+
+                <div id="shopify-import-status-label" style="display: none; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">Scanning store, please wait...</div>
+
+                <div id="shopify-import-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
+                    <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 10px; border: 1px dashed var(--border); border-radius: 8px;">
+                        Select a brand store above and click "Scan Shopify Catalog" to fetch live items.
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- VIEW 4: COMBINED ORDERS -->
@@ -1596,6 +1620,16 @@
             
             <div class="panel" id="no-shop-selected-settings" style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
                 <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and Shopify parameters.</p>
+            </div>
+        </div>
+
+        <!-- VIEW 7: HELP CENTER / MANUAL -->
+        <div id="view-help" class="admin-view">
+            <div class="panel">
+                <h3 class="panel-title" style="margin-bottom: 20px;">Shopify Integration Manual & Guidelines</h3>
+                <div id="help-content-markdown" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-main);">
+                    Loading onboarding guidelines...
+                </div>
             </div>
         </div>
     </main>
@@ -1788,6 +1822,9 @@
                 loadBrands();
                 updateSettingsContext();
             }
+            if (viewId === 'help') {
+                loadHelpManual();
+            }
         }
 
         // Notification Helper
@@ -1918,6 +1955,9 @@
             const simSelect = document.getElementById('sim-brand-select');
             simSelect.innerHTML = '';
 
+            const importSelect = document.getElementById('shopify-import-brand-select');
+            importSelect.innerHTML = '';
+
             const sidebarSelect = document.getElementById('shop-context-select');
             // Keep "All Brand Shops"
             while (sidebarSelect.options.length > 1) {
@@ -1934,6 +1974,11 @@
                 optSim.value = brand.id;
                 optSim.textContent = `${brand.name} (${brand.id})`;
                 simSelect.appendChild(optSim);
+
+                const optImport = document.createElement('option');
+                optImport.value = brand.id;
+                optImport.textContent = `${brand.name} (${brand.id})`;
+                importSelect.appendChild(optImport);
 
                 const optSide = document.createElement('option');
                 optSide.value = brand.id;
@@ -2373,6 +2418,129 @@
             }
 
             window.open(targetUrl, '_blank');
+        }
+
+        // 10. Shopify Importer & Onboarding Manual loaders
+        async function scanShopifyProducts() {
+            const brandId = document.getElementById('shopify-import-brand-select').value;
+            const grid = document.getElementById('shopify-import-grid');
+            const statusLabel = document.getElementById('shopify-import-status-label');
+
+            if (!brandId) {
+                alert('Please select a target brand first.');
+                return;
+            }
+
+            grid.innerHTML = '';
+            statusLabel.style.display = 'block';
+            statusLabel.textContent = `Fetching Shopify product catalog for brand "${brandId}"...`;
+
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/global/shopify-import?brandId=${brandId}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusLabel.textContent = `Found ${data.products.length} products. Source: ${data.source === 'shopify_api' ? 'Shopify API Connection' : 'Mock sandbox catalog'}`;
+                    
+                    if (data.products.length === 0) {
+                        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 20px;">No products found in this Shopify store.</div>`;
+                        return;
+                    }
+
+                    data.products.forEach(p => {
+                        const card = document.createElement('div');
+                        card.className = 'metric-card';
+                        card.style.padding = '16px';
+                        card.style.display = 'flex';
+                        card.style.flexDirection = 'column';
+                        card.style.gap = '12px';
+
+                        const thumbnail = p.image ? p.image : 'https://placehold.co/100';
+
+                        card.innerHTML = `
+                            <div style="display: flex; gap: 12px;">
+                                <img src="${thumbnail}" style="width: 60px; height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);" alt="Product Thumbnail">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">${p.title}</div>
+                                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent); margin-top: 4px;">€${parseFloat(p.price).toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <p style="color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; max-height: 48px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                ${p.description.replace(/<[^>]*>/g, '')}
+                            </p>
+                            <button type="button" class="btn" style="width: 100%; font-size: 0.8rem; padding: 6px 12px; margin-top: auto;" onclick="importShopifyProduct(this, '${brandId}', ${JSON.stringify(p.title).replace(/"/g, '&quot;')}, ${p.price}, '${thumbnail}', ${JSON.stringify(p.description).replace(/"/g, '&quot;')})">
+                                Import to Catalog
+                            </button>
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    const err = await response.json();
+                    statusLabel.textContent = `Scan failed: ${err.error}`;
+                }
+            } catch (err) {
+                statusLabel.textContent = `Fetch error: ${err.message}`;
+            }
+        }
+
+        async function importShopifyProduct(btn, brandId, title, price, image, description) {
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/global/shopify-import`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    },
+                    body: JSON.stringify({ brandId, title, price, image, description })
+                });
+
+                if (response.ok) {
+                    btn.style.backgroundColor = 'var(--success)';
+                    btn.style.borderColor = 'var(--success)';
+                    btn.textContent = '✔ Imported Successfully';
+                    showNotification(`Product "${title}" imported to catalog!`);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Import to Catalog';
+                    const err = await response.json();
+                    alert(`Import failed: ${err.error}`);
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Import to Catalog';
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function loadHelpManual() {
+            const container = document.getElementById('help-content-markdown');
+            try {
+                const res = await fetch('/admin/shopify_manual.md');
+                if (res.ok) {
+                    const text = await res.text();
+                    
+                    // Simple markdown parsing to render headers, lists, and linebreaks
+                    let html = text
+                        .replace(/^# (.*$)/gim, '<h2 style="font-size: 1.4rem; font-weight: 700; margin: 24px 0 12px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px;">$1</h2>')
+                        .replace(/^## (.*$)/gim, '<h3 style="font-size: 1.1rem; font-weight: 700; margin: 20px 0 10px 0; color: var(--text-main);">$1</h3>')
+                        .replace(/^---$/gim, '<hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">')
+                        .replace(/^\d+\.\s(.*$)/gim, '<div style="margin-left: 12px; margin-bottom: 8px; font-weight: 500;"><span style="color: var(--accent); font-weight: 700;">•</span> $1</div>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--text-main); font-weight: 700;">$1</strong>')
+                        .replace(/`(.*?)`/g, '<code style="background: #fafbfc; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #d63384;">$1</code>')
+                        .replace(/\n/g, '<br>');
+                    
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = 'Failed to load manual.';
+                }
+            } catch (err) {
+                container.innerHTML = `Error loading manual: ${err.message}`;
+            }
         }
     </script>
 </body>

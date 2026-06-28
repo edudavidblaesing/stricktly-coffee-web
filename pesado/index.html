@@ -1442,6 +1442,37 @@
                 window.history.replaceState({}, document.title, window.location.pathname);
             }, 500);
         }
+        // Dynamic Admin portal shortcut target resolution
+        const shortcut = document.getElementById('admin-portal-shortcut');
+        if (shortcut) {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.endsWith('.local')) {
+                shortcut.href = 'http://localhost:8082';
+            } else {
+                shortcut.href = 'https://admin.stricktlycoffee.be';
+            }
+        }
     </script>
+    
+    <!-- Floating Admin Portal Shortcut Link -->
+    <a href="http://localhost:8082" id="admin-portal-shortcut" style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background-color: var(--primary);
+        color: #ffffff;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        text-decoration: none;
+        z-index: 10005;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s;
+        border: 1px solid var(--border);
+    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Stricktly Coffee Merchant Admin Hub">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </a>
 </body>
 </html>

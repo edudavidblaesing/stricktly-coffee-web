@@ -819,6 +819,108 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
   }
 }
 
+// Fetch products from Shopify or fallback to mock list
+app.get('/api/global/shopify-import', async (req, res) => {
+  const { brandId } = req.query;
+  if (!brandId) {
+    return res.status(400).json({ error: 'Brand ID is required.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    if (brand.shopify_shop_name && brand.shopify_access_token) {
+      try {
+        const response = await fetch(`https://${brand.shopify_shop_name}/admin/api/2024-04/products.json`, {
+          headers: {
+            'X-Shopify-Access-Token': brand.shopify_access_token,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const formatted = data.products.map(p => ({
+            id: p.id,
+            title: p.title,
+            price: p.variants && p.variants.length > 0 ? parseFloat(p.variants[0].price) : 55.00,
+            image: p.images && p.images.length > 0 ? p.images[0].src : '',
+            description: p.body_html || 'Premium coffee accessory imported from Shopify.'
+          }));
+          return res.json({ success: true, products: formatted, source: 'shopify_api' });
+        }
+      } catch (apiErr) {
+        console.warn('[Shopify API Fetch Failed, using sandbox fallback]', apiErr.message);
+      }
+    }
+
+    // Mock Fallback (Sandbox)
+    const mockProducts = [
+      {
+        id: 'mock-1',
+        title: 'Calibrated Precision Tamper (58.5mm)',
+        price: 89.00,
+        image: 'https://pesado585.com/cdn/shop/files/ADTamperFrontOpen.png?v=1734500064',
+        description: 'caliber-calibrated 58.5mm coffee tamper built with World Barista Champion collaboration.'
+      },
+      {
+        id: 'mock-2',
+        title: 'Magnetic Espresso Funnel',
+        price: 22.50,
+        image: 'https://pesado585.com/cdn/shop/files/Pesado54mmMagneticDosingRing.png?v=1740032571',
+        description: 'Magnetic coffee dosing ring ring to prevent grind spills.'
+      },
+      {
+        id: 'mock-3',
+        title: 'Shower Screen E61 (High Diffusion)',
+        price: 49.00,
+        image: 'https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591',
+        description: 'Precision water diffusion screens for optimal commercial extraction.'
+      }
+    ];
+
+    res.json({ success: true, products: mockProducts, source: 'sandbox_mock' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Import product from Shopify into brand catalog
+app.post('/api/global/shopify-import', async (req, res) => {
+  const { brandId, title, price, image, description } = req.body;
+
+  if (!brandId || !title || !price) {
+    return res.status(400).json({ error: 'Brand ID, Title, and Price are required.' });
+  }
+
+  try {
+    // Insert imported item into DB
+    await runQuery(`
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `, [
+      brandId,
+      title,
+      price,
+      'EUR',
+      image || '',
+      description || '',
+      'Imported',
+      'https://shopify.com',
+      description || '',
+      JSON.stringify(['Imported via Shopify integration', 'Calibrated dimensions']),
+      JSON.stringify(['Commercial 58mm filter baskets'])
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start Server
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
