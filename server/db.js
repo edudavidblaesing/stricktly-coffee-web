@@ -286,8 +286,7 @@ async function initializeDatabase() {
 }
 
 async function seedDefaultData() {
-  const isLocal = !process.env.DB_HOST || process.env.DB_HOST === 'localhost' || process.env.DB_HOST === '127.0.0.1';
-  const shouldSeedMock = isLocal && process.env.SEED_MOCK_DATA !== 'false';
+  const shouldSeedMock = false;
 
   // If we shouldn't seed mock data and we are in a remote stack, let's clean up default mock data if it is present!
   if (!shouldSeedMock) {
