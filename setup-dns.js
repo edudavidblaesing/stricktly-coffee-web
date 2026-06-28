@@ -48,7 +48,7 @@ const targetRecords = [
   { name: `s3.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
   { name: `api.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
   
-  { name: `*.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false },
+  { name: `*.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: true },
   { name: `*.dev.${cfDomain}`, type: 'A', content: TARGET_IP, proxied: false }
 ];
 

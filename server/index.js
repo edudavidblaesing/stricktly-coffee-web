@@ -173,6 +173,27 @@ async function createCloudflareSubdomain(subdomain) {
     return null;
   }
 
+  try {
+    // Check if a proxied wildcard record exists first
+    const wildcardUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records?name=${encodeURIComponent('*.' + baseDomain)}`;
+    const wildResponse = await fetch(wildcardUrl, {
+      headers: {
+        'Authorization': `Bearer ${cfToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const wildData = await wildResponse.json();
+    if (wildResponse.ok && wildData.success) {
+      const wildcardRecord = wildData.result.find(r => r.name.toLowerCase() === `*.${baseDomain}`.toLowerCase() && r.proxied === true);
+      if (wildcardRecord) {
+        console.log(`[Cloudflare] Wildcard *.${baseDomain} is active and proxied. Skipping individual CNAME creation.`);
+        return 'wildcard-covered';
+      }
+    }
+  } catch (err) {
+    console.warn('[Cloudflare] Wildcard pre-check failed, proceeding with fallback creation:', err.message);
+  }
+
   console.log(`[Cloudflare] Creating CNAME record for ${prefix}.${baseDomain} pointing to ${baseDomain}...`);
 
   try {
@@ -1837,7 +1858,23 @@ app.get('/api/global/brands/verify-dns', verifyAdminToken, async (req, res) => {
       return res.status(400).json({ error: data.errors?.[0]?.message || 'Cloudflare API query failed.' });
     }
 
-    const found = data.result.find(r => r.name.toLowerCase() === dnsRecordName.toLowerCase());
+    let found = data.result.find(r => r.name.toLowerCase() === dnsRecordName.toLowerCase());
+    if (!found) {
+      // Fallback: check if the wildcard record *.stricktlycoffee.be exists and is active/proxied
+      const baseDomain = process.env.CLOUDFLARE_DOMAIN || 'stricktlycoffee.be';
+      const wildcardUrl = `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/dns_records?name=${encodeURIComponent('*.' + baseDomain)}`;
+      const wildResponse = await fetch(wildcardUrl, {
+        headers: {
+          'Authorization': `Bearer ${cfToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const wildData = await wildResponse.json();
+      if (wildResponse.ok && wildData.success) {
+        found = wildData.result.find(r => r.name.toLowerCase() === `*.${baseDomain}`.toLowerCase() && r.proxied === true);
+      }
+    }
+
     if (found) {
       res.json({ success: true });
     } else {
