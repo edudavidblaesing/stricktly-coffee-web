@@ -1,8 +1,16 @@
+# Stage 1: Build the Vue application
+FROM node:18-alpine AS build-stage
+WORKDIR /app
+COPY admin/package*.json ./
+RUN npm install
+COPY admin/ ./
+RUN npm run build
+
 # Use nginx alpine for a lightweight web server
 FROM nginx:alpine
 
 # Copy website files to nginx html directory
-COPY admin/dist/ /usr/share/nginx/html/admin/
+COPY --from=build-stage /app/dist/ /usr/share/nginx/html/admin/
 COPY store/ /usr/share/nginx/html/store/
 
 # Copy nginx configuration (use nginx-dash.conf for HTTP, nginx-dash-ssl.conf for HTTPS)
