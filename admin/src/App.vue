@@ -989,8 +989,8 @@ export default {
 
                     // Auth state
                     isLoggedIn: false,
-                    loginEmail: 'sc@davidblaesing.com',
-                    loginPassword: 'TheKey4u',
+                    loginEmail: '',
+                    loginPassword: '',
                     loginError: '',
                     userRole: 'Superadmin',
                     userEmail: '',
