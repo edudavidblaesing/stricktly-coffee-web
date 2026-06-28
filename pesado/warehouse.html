@@ -274,16 +274,43 @@
 
     <script>
         const container = document.getElementById('orders-container');
+        
+        // Extract & store admin access token
+        const urlParams = new URLSearchParams(window.location.search);
+        let token = urlParams.get('token') || localStorage.getItem('sc_admin_token');
+        if (urlParams.get('token')) {
+            localStorage.setItem('sc_admin_token', urlParams.get('token'));
+        }
 
         async function fetchOrders() {
+            if (!token) {
+                renderAccessDenied();
+                return;
+            }
             try {
-                const res = await fetch('/api/admin/orders');
+                const res = await fetch('/api/admin/orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401) {
+                    renderAccessDenied();
+                    return;
+                }
                 if (!res.ok) throw new Error('Failed to fetch orders');
                 const orders = await res.json();
                 renderOrders(orders);
             } catch (err) {
                 container.innerHTML = `<div class="no-orders">Failed to load orders: ${err.message}</div>`;
             }
+        }
+
+        function renderAccessDenied() {
+            container.innerHTML = `
+                <div class="no-orders" style="border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding: 40px; border-radius: 8px;">
+                    <div style="font-size: 2rem; margin-bottom: 12px;">🚫</div>
+                    <strong style="color: #ef4444; font-size: 1.1rem; display: block; margin-bottom: 8px;">Access Denied: Unauthorized Session</strong>
+                    This simulated fulfillment interface is restricted. Please authenticate via the Stricktly Coffee Admin Hub to access warehouse simulator panels.
+                </div>
+            `;
         }
 
         function renderOrders(orders) {
@@ -411,7 +438,10 @@
             try {
                 const res = await fetch('/api/admin/fulfill', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         orderId,
                         trackingNumber: tracking,

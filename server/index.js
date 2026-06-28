@@ -509,8 +509,30 @@ app.get('/api/order/:id', async (req, res) => {
   }
 });
 
+// Middleware to verify the admin token for simulator access
+function verifyAdminToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const urlToken = req.query.token;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : urlToken;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access Denied. Unauthorized operator.' });
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+    if (!payload.email || !payload.role) {
+      return res.status(401).json({ error: 'Invalid authentication token.' });
+    }
+    req.user = payload;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Malformed authentication token.' });
+  }
+}
+
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
-app.get('/api/admin/orders', async (req, res) => {
+app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
   try {
     const rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [req.brand.id]);
     const parsedRows = rows.map(row => ({
@@ -525,7 +547,7 @@ app.get('/api/admin/orders', async (req, res) => {
 });
 
 // Mark order fulfilled
-app.post('/api/admin/fulfill', async (req, res) => {
+app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
   const { orderId, trackingNumber, trackingCarrier } = req.body;
 
   try {

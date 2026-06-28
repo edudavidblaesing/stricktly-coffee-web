@@ -1331,13 +1331,13 @@
 
         // Environment URL configuration
         const envConfigs = {
-            local: 'http://localhost:3000',
+            local: '',
             dev: 'https://dev-api.stricktlycoffee.be',
             prod: 'https://api.stricktlycoffee.be'
         };
 
         let currentEnv = 'local';
-        let apiBaseUrl = 'http://localhost:3000';
+        let apiBaseUrl = '';
 
         // Charts
         let salesChartInstance = null;
@@ -2038,10 +2038,11 @@
             if (!brand) return;
 
             let targetUrl;
+            const token = localStorage.getItem('sc_admin_token') || '';
             if (currentEnv === 'local') {
-                targetUrl = `http://localhost:8081/warehouse.html`;
+                targetUrl = `http://localhost:8081/warehouse.html?token=${token}`;
             } else {
-                targetUrl = `https://${brand.subdomain}/warehouse.html`;
+                targetUrl = `https://${brand.subdomain}/warehouse.html?token=${token}`;
             }
 
             window.open(targetUrl, '_blank');
