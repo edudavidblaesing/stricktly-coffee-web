@@ -33,12 +33,12 @@
         /* System Automatic Dark Mode Detection */
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-color: #0d0f0e;
-                --workspace-bg: #131716;
+                --bg-color: #0b0c0d;
+                --workspace-bg: #131517;
                 --card-bg: #1a1d1f;
                 --text-main: #f3f4f3;
                 --text-muted: #8e9290;
-                --border: #232826;
+                --border: #272b30;
                 --primary: #ffffff;
                 --primary-hover: #e4e4e4;
                 --accent: #d3b378;
@@ -46,74 +46,33 @@
             body {
                 background-color: var(--bg-color);
             }
-            aside {
-                background: #1a1d1f !important;
-                border-right-color: var(--border) !important;
-            }
-            input, select, textarea {
-                background: #131716 !important;
-                color: var(--text-main) !important;
-                border-color: var(--border) !important;
-            }
-            .profile-selector-btn, .footer-profile {
-                background: #131716 !important;
-                border-color: var(--border) !important;
-            }
-            .header-search-input {
-                background: #131716 !important;
-                border-color: var(--border) !important;
-            }
-            .header-search-shortcut {
-                background: #232826 !important;
-                border-color: var(--border) !important;
-            }
-            .pill-btn {
-                background: #1a1d1f !important;
-                color: var(--text-main) !important;
-                border-color: var(--border) !important;
-            }
-            .pill-btn.dark {
-                background: #ffffff !important;
+            .nav-link-btn.active {
                 color: #1a1d1f !important;
-                border-color: #ffffff !important;
+                background-color: #ffffff !important;
             }
-            .tab-track {
-                background: #131716 !important;
+            .nav-link-btn.active svg {
+                stroke: #1a1d1f !important;
             }
-            .tab-pill.active {
-                background: #1a1d1f !important;
+            .nav-link-btn:hover {
+                background: #272b30 !important;
                 color: #ffffff !important;
             }
-            .ai-banner {
-                background: #131716 !important;
+            .search-modal-container, .upcoming-card, .toast {
+                background: var(--card-bg) !important;
                 border-color: var(--border) !important;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.3) !important;
+            }
+            .search-modal-results {
+                background: var(--workspace-bg) !important;
+            }
+            .search-item:hover {
+                background: var(--card-bg) !important;
             }
             tr:hover td {
-                background: #131716 !important;
+                background: var(--workspace-bg) !important;
             }
             th, td {
                 border-bottom-color: var(--border) !important;
-            }
-            .search-modal-container {
-                background: #1a1d1f !important;
-                border-color: var(--border) !important;
-            }
-            .search-modal-results {
-                background: #131716 !important;
-            }
-            .search-item:hover {
-                background: #1a1d1f !important;
-            }
-            .upcoming-card {
-                background: #1a1d1f !important;
-                border-color: var(--border) !important;
-            }
-            .login-screen {
-                background: #0d0f0e !important;
-            }
-            .login-card {
-                background: #1a1d1f !important;
-                border-color: var(--border) !important;
             }
         }
 
@@ -145,7 +104,7 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: #ffffff;
+            background: var(--bg-color);
             background-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.02) 0%, transparent 60%);
             z-index: 9999;
             display: flex;
@@ -154,7 +113,7 @@
         }
 
         .login-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 40px;
@@ -184,7 +143,7 @@
         /* Sidebar Navigation Layout */
         aside {
             width: 260px;
-            background: #ffffff;
+            background: var(--card-bg);
             border-right: 1px solid var(--border);
             padding: 24px 20px;
             display: flex;
@@ -193,7 +152,7 @@
             height: 100vh;
             left: 0;
             top: 0;
-            z-index: 1000;
+            z-index: 100; /* Sidebar underneath modals */
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -204,7 +163,7 @@
             gap: 10px;
             padding: 10px 12px;
             border-radius: 12px;
-            background: #fafbfc;
+            background: var(--bg-color);
             border: 1px solid var(--border);
             cursor: pointer;
             text-align: left;
@@ -213,7 +172,7 @@
         }
 
         .profile-selector-btn:hover {
-            background: #f4f5f6;
+            background: var(--workspace-bg);
         }
 
         .profile-selector-avatar {
@@ -289,13 +248,16 @@
 
         .nav-link-btn:hover {
             color: var(--text-main);
-            background: #f4f5f6;
+            background: var(--bg-color);
         }
 
         .nav-link-btn.active {
-            color: #ffffff;
+            color: var(--workspace-bg);
             background-color: var(--primary);
             font-weight: 600;
+        }
+        .nav-link-btn.active svg {
+            stroke: var(--workspace-bg);
         }
 
         /* Footer profile block matching Salung Prastyo pill */
@@ -305,7 +267,7 @@
             align-items: center;
             gap: 10px;
             padding: 12px;
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.02);
@@ -315,7 +277,7 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: #efefef;
+            background: var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -355,16 +317,25 @@
         /* Header bar matching screenshot */
         header {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
+            flex-direction: column;
             gap: 16px;
+            margin-bottom: 28px;
         }
 
-        .header-left {
+        .header-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .header-bottom-row {
             display: flex;
             align-items: center;
             gap: 12px;
+            width: 100%;
         }
 
         .breadcrumb {
@@ -396,7 +367,7 @@
         .header-search-input {
             width: 100%;
             height: var(--control-height);
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 8px 12px 8px 36px;
@@ -426,7 +397,7 @@
             transform: translateY(-50%);
             font-size: 0.68rem;
             color: var(--text-muted);
-            background: #f4f5f6;
+            background: var(--bg-color);
             padding: 2px 4px;
             border-radius: 4px;
             border: 1px solid var(--border);
@@ -436,7 +407,7 @@
 
         /* Header Action elements */
         .pill-btn {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             height: var(--control-height);
             padding: 8px 14px;
@@ -458,7 +429,7 @@
 
         .pill-btn.dark {
             background: var(--primary);
-            color: #ffffff;
+            color: var(--workspace-bg);
             border-color: var(--primary);
         }
 
@@ -510,7 +481,7 @@
         }
 
         .metric-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 20px;
@@ -582,7 +553,7 @@
         }
 
         .chart-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
@@ -638,7 +609,7 @@
 
         /* Time toggle switcher */
         .tab-track {
-            background: #f4f5f6;
+            background: var(--bg-color);
             border-radius: 8px;
             padding: 4px;
             display: flex;
@@ -659,7 +630,7 @@
         }
 
         .tab-pill.active {
-            background: #ffffff;
+            background: var(--card-bg);
             color: var(--text-main);
             box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         }
@@ -674,7 +645,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: #fafbfc;
+            background: var(--bg-color);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 10px 14px;
@@ -687,12 +658,12 @@
         }
 
         .ai-banner:hover {
-            background: #f4f5f6;
+            background: var(--workspace-bg);
         }
 
         /* Panel Containers */
         .panel {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
@@ -737,7 +708,7 @@
         }
 
         .search-modal-container {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
             width: 100%;
@@ -758,6 +729,7 @@
         .search-modal-input {
             flex: 1;
             border: none;
+            background: transparent;
             font-size: 1.05rem;
             font-family: var(--font-body);
             color: var(--text-main);
@@ -771,7 +743,7 @@
             max-height: 380px;
             overflow-y: auto;
             padding: 12px;
-            background: #fafbfc;
+            background: var(--bg-color);
         }
 
         .search-item {
@@ -785,7 +757,7 @@
         }
 
         .search-item:hover {
-            background: #ffffff;
+            background: var(--card-bg);
             box-shadow: 0 4px 12px rgba(0,0,0,0.02);
         }
 
@@ -906,7 +878,7 @@
         }
 
         input, select, textarea {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0 14px;
@@ -942,12 +914,12 @@
 
         .uploader-box:hover {
             border-color: var(--text-main);
-            background: #fafbfc;
+            background: var(--bg-color);
         }
 
         .btn {
             background: var(--primary);
-            color: #ffffff;
+            color: var(--workspace-bg);
             border: 1px solid var(--primary);
             border-radius: 8px;
             height: var(--control-height);
@@ -1001,7 +973,7 @@
         }
 
         .upcoming-card {
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 40px;
@@ -1016,7 +988,7 @@
             position: fixed;
             bottom: 30px;
             right: 30px;
-            background: #ffffff;
+            background: var(--card-bg);
             border: 1px solid var(--border);
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             padding: 16px 20px;
@@ -1273,19 +1245,9 @@
         <!-- MAIN WORKSPACE -->
         <main v-if="isLoggedIn">
             <!-- Top Navigation Header -->
+            <!-- Top Navigation Header -->
             <header>
-                <div class="header-left">
-                    <button class="header-icon-btn mobile-menu-btn" @click="mobileSidebarOpen = !mobileSidebarOpen">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                    </button>
-                    <div class="breadcrumb">
-                        <a href="#" @click.prevent="switchView('overview')">Dashboard</a>
-                        <span style="color: var(--text-muted);">&gt;</span>
-                        <span style="color: var(--text-main); font-weight: 600;">{{ breadcrumbLabel }}</span>
-                    </div>
-                </div>
-                
-                <div class="header-right">
+                <div class="header-top-row">
                     <!-- Search bar input with cmd+k -->
                     <div class="header-search-container">
                         <svg class="header-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -1293,41 +1255,54 @@
                         <div class="header-search-shortcut">⌘ K</div>
                     </div>
 
-                    <!-- Env switcher select dropdown -->
-                    <select id="env-switcher" v-model="currentEnv" @change="changeEnvironment" style="width: 120px; font-weight: 600; border-radius: 8px;">
-                        <option value="local">💻 Local</option>
-                        <option value="dev">⚙️ Dev</option>
-                        <option value="prod">🚀 Prod</option>
-                    </select>
+                    <div class="header-right">
+                        <!-- Env switcher select dropdown -->
+                        <select id="env-switcher" v-model="currentEnv" @change="changeEnvironment" style="width: 120px; font-weight: 600; border-radius: 8px;">
+                            <option value="local">💻 Local</option>
+                            <option value="dev">⚙️ Dev</option>
+                            <option value="prod">🚀 Prod</option>
+                        </select>
 
-                    <!-- Active Shop filter selector -->
-                    <select id="shop-context-select" v-model="activeShopFilter" style="width: 170px; font-weight: 600; border-radius: 8px;">
-                        <option value="all">🌐 All Brand Shops</option>
-                        <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                    </select>
+                        <!-- Active Shop filter selector -->
+                        <select id="shop-context-select" v-model="activeShopFilter" style="width: 170px; font-weight: 600; border-radius: 8px;">
+                            <option value="all">🌐 All Brand Shops</option>
+                            <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
+                        </select>
 
-                    <!-- Timeframe select dropdown -->
-                    <button class="pill-btn" @click="triggerUpcoming('Timeframe Switcher', 'Adjusts metrics intervals.')">
-                        Daily <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
+                        <!-- Timeframe select dropdown -->
+                        <button class="pill-btn" @click="triggerUpcoming('Timeframe Switcher', 'Adjusts metrics intervals.')">
+                            Daily <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
+                        </button>
+
+                        <!-- Calendar Date Select -->
+                        <button class="pill-btn" @click="triggerUpcoming('Calendar Integration', 'Select custom dashboard ranges.')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            6 Nov 2025
+                        </button>
+
+                        <!-- CSV Export button matching reference -->
+                        <button class="pill-btn dark" @click="triggerUpcoming('CSV Export Engine', 'Generates customized CSV ledger files for tax computation.')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export CSV
+                        </button>
+
+                        <!-- Alert indicators -->
+                        <button class="header-icon-btn" @click="triggerUpcoming('System Alerts', 'Platform status audits.')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        </button>
+                        <div class="profile-selector-avatar" style="width: 32px; height: 32px; font-size: 0.9rem;">S</div>
+                    </div>
+                </div>
+
+                <div class="header-bottom-row" style="margin-top: 8px;">
+                    <button class="header-icon-btn mobile-menu-btn" @click="mobileSidebarOpen = !mobileSidebarOpen" style="margin-left: -8px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                     </button>
-
-                    <!-- Calendar Date Select -->
-                    <button class="pill-btn" @click="triggerUpcoming('Calendar Integration', 'Select custom dashboard ranges.')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        6 Nov 2025
-                    </button>
-
-                    <!-- CSV Export button matching reference -->
-                    <button class="pill-btn dark" @click="triggerUpcoming('CSV Export Engine', 'Generates customized CSV ledger files for tax computation.')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Export CSV
-                    </button>
-
-                    <!-- Alert indicators -->
-                    <button class="header-icon-btn" @click="triggerUpcoming('System Alerts', 'Platform status audits.')">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    </button>
-                    <div class="profile-selector-avatar" style="width: 32px; height: 32px; font-size: 0.9rem;">S</div>
+                    <div class="breadcrumb">
+                        <a href="#" @click.prevent="switchView('overview')">Dashboard</a>
+                        <span style="color: var(--text-muted);">&gt;</span>
+                        <span style="color: var(--text-main); font-weight: 600;">{{ breadcrumbLabel }}</span>
+                    </div>
                 </div>
             </header>
 
@@ -2538,6 +2513,11 @@
                     const labels = Object.keys(salesMap);
                     const dataSales = Object.values(salesMap);
 
+                    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const gridColor = isDarkMode ? '#272b30' : 'rgba(0,0,0,0.03)';
+                    const tickColor = isDarkMode ? '#8e9290' : '#9a9fa5';
+                    const barColor = isDarkMode ? '#ffffff' : '#1a1d1f';
+
                     // Sales trend chart
                     const canvasSales = document.getElementById('salesChart');
                     if (canvasSales) {
@@ -2551,7 +2531,7 @@
                                 labels: labels,
                                 datasets: [{
                                     data: dataSales,
-                                    backgroundColor: '#1a1d1f',
+                                    backgroundColor: barColor,
                                     borderRadius: 4,
                                     barThickness: 16
                                 }]
@@ -2561,8 +2541,8 @@
                                 maintainAspectRatio: false,
                                 plugins: { legend: { display: false } },
                                 scales: {
-                                    y: { grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { color: '#9a9fa5', font: { family: 'Inter', size: 10 } } },
-                                    x: { grid: { display: false }, ticks: { color: '#9a9fa5', font: { family: 'Inter', size: 10 } } }
+                                    y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 } } },
+                                    x: { grid: { display: false }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 } } }
                                 }
                             }
                         });
@@ -2592,7 +2572,7 @@
                                 labels: labelsBrands.length > 0 ? labelsBrands : ['Demo'],
                                 datasets: [{
                                     data: dataBrands.length > 0 ? dataBrands : [1],
-                                    backgroundColor: '#1a1d1f',
+                                    backgroundColor: barColor,
                                     borderRadius: 4,
                                     barThickness: 20
                                 }]
@@ -2602,8 +2582,8 @@
                                 maintainAspectRatio: false,
                                 plugins: { legend: { display: false } },
                                 scales: {
-                                    y: { grid: { color: 'rgba(0,0,0,0.03)' }, ticks: { color: '#9a9fa5', font: { family: 'Inter', size: 10 } } },
-                                    x: { grid: { display: false }, ticks: { color: '#9a9fa5', font: { family: 'Inter', size: 10 } } }
+                                    y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 } } },
+                                    x: { grid: { display: false }, ticks: { color: tickColor, font: { family: 'Inter', size: 10 } } }
                                 }
                             }
                         });
