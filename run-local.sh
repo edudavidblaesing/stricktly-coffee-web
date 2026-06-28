@@ -63,13 +63,21 @@ echo "════════════════════════�
 echo "✅ SUCCESS! Your website is now running!"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "🌐 Open your browser and visit:"
-echo ""
-echo "    http://localhost"
-echo ""
-echo "  (If another service is already on port 80, update docker-compose.yml to map a different host port like 8080:80.)"
-echo ""
-echo "═══════════════════════════════════════════════════════════"
+echo "🌐 Open your browser and visit:
+
+    Main Presentation Web:  http://localhost
+    Pesado Storefront:      http://localhost:8081
+    Admin Dashboard:        http://localhost:8082
+
+  💡 To test with actual local domains, map them in your /etc/hosts file:
+     127.0.0.1 stricktlycoffee.local www.stricktlycoffee.local pesado.stricktlycoffee.local admin.stricktlycoffee.local
+
+     Then you can access:
+     - Main Web:        http://stricktlycoffee.local
+     - Pesado Webshop:  http://pesado.stricktlycoffee.local:8081
+     - Admin Dashboard:  http://admin.stricktlycoffee.local:8082
+
+═════════════════════════════════════════════════════════════════"
 echo ""
 echo "📋 Useful commands:"
 echo ""
