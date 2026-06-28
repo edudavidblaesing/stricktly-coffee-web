@@ -51,11 +51,16 @@
                 <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
                     :style="{ cursor: userRole.toLowerCase() === 'superadmin' ? 'pointer' : 'default' }"
                     style="margin-bottom: 0;">
-                    <div class="workspace-selector-avatar">{{ activeWorkspaceLetter }}</div>
+                    <div class="workspace-selector-avatar" 
+                         :style="{ background: activeWorkspaceFavicon ? '#ffffff' : '#1a1d1f', border: activeWorkspaceFavicon ? '1px solid rgba(255,255,255,0.1)' : 'none' }"
+                         style="display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 6px;">
+                        <img v-if="activeWorkspaceFavicon" :src="activeWorkspaceFavicon" style="width: 100%; height: 100%; object-fit: contain; padding: 4px; box-sizing: border-box;" alt="favicon" />
+                        <span v-else>{{ activeWorkspaceLetter }}</span>
+                    </div>
                     <div class="profile-selector-meta">
                         <div
                             style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; line-height: 1;">
-                            {{ userRole.toLowerCase() === 'superadmin' ? 'Agency' : 'Merchant' }}</div>
+                            {{ activeWorkspaceRoleLabel }}</div>
                         <div class="profile-selector-title"
                             style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-top: 4px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                             {{ activeWorkspaceName }}</div>
@@ -69,16 +74,20 @@
                         @click="selectWorkspace('all')">
                         <div class="workspace-dropdown-icon">🌐</div>
                         <div class="workspace-dropdown-text">
-                            <strong>All Brand Shops</strong>
+                            <strong>All Brands</strong>
                             <span>Show consolidated metrics</span>
                         </div>
                     </div>
                     <div class="workspace-dropdown-divider"></div>
-                    <div class="workspace-dropdown-section-title">Brand Shops</div>
-                    <div class="workspace-dropdown-item" v-for="b in brands" :key="b.id"
+                    <div class="workspace-dropdown-section-title">Brands</div>
+                    <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
                         :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)">
-                        <div class="workspace-dropdown-avatar" style="width: 20px; height: 20px; font-size: 0.75rem;">{{
-                            b.name.charAt(0) }}</div>
+                        <div class="workspace-dropdown-avatar" 
+                             :style="{ background: b.favicon ? '#ffffff' : '#1a1d1f' }"
+                             style="width: 20px; height: 20px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            <img v-if="b.favicon" :src="b.favicon" style="width: 100%; height: 100%; object-fit: contain; padding: 2px; box-sizing: border-box;" alt="favicon" />
+                            <span v-else>{{ b.name.charAt(0) }}</span>
+                        </div>
                         <div class="workspace-dropdown-text">
                             <strong>{{ b.name }}</strong>
                             <span>{{ b.subdomain }}.stricktlycoffee.be</span>
@@ -89,15 +98,16 @@
                         style="color: var(--accent);">
                         <div class="workspace-dropdown-icon">➕</div>
                         <div class="workspace-dropdown-text">
-                            <strong style="color: var(--accent);">Spin Up New Shop</strong>
+                            <strong style="color: var(--accent);">Spin Up New Brand</strong>
                             <span>Provision subdomain & stack</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Group 1: Main Menu -->
-            <div class="nav-group">
+            <div class="sidebar-nav-container">
+                <!-- Group 1: Main Menu -->
+                <div class="nav-group">
                 <div class="nav-group-title">Main Menu</div>
                 <ul class="nav-links">
                     <li>
@@ -128,6 +138,18 @@
                         </button>
                     </li>
                     <li>
+                        <button class="nav-link-btn" :class="{ active: activeView === 'media' }"
+                            @click="switchView('media')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            Media Library
+                        </button>
+                    </li>
+                    <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'orders' }"
                             @click="switchView('orders')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -139,8 +161,8 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Reports & Analytics', 'Dynamic multi-tenant analytics graphs, customizable checkout ratios, and seasonal cohort statistics.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'reports' }"
+                            @click="switchView('reports')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -151,8 +173,8 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Messages & Notifications', 'Unified notification box to handle customer support tickets, warehouse logistics requests, and dropshipping disputes.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'messages' }"
+                            @click="switchView('messages')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -161,8 +183,8 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Team Performance', 'Audit log trackers, individual manager permissions, and task completion metrics for warehouse staff.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'team-performance' }"
+                            @click="switchView('team-performance')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -174,8 +196,8 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Campaigns & Marketing Automation', 'Deploy automated AI marketing promotions, launch ad-campaign sequences across Meta/TikTok, and track influencer commissions.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'campaigns' }"
+                            @click="switchView('campaigns')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
@@ -183,6 +205,19 @@
                                 <path d="M2 12l10 5 10-5"></path>
                             </svg>
                             Campaigns
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-link-btn" :class="{ active: activeView === 'coupons' }"
+                            @click="switchView('coupons')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                                <line x1="7" y1="8" x2="17" y2="8"></line>
+                                <line x1="7" y1="12" x2="17" y2="12"></line>
+                                <line x1="7" y1="16" x2="13" y2="16"></line>
+                            </svg>
+                            Coupons
                         </button>
                     </li>
                 </ul>
@@ -208,12 +243,14 @@
                             @click="switchView('brands')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                                <line x1="4" y1="22" x2="4" y2="15"></line>
+                                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                <polyline points="2 17 12 22 22 17"></polyline>
+                                <polyline points="2 12 12 17 22 12"></polyline>
                             </svg>
                             Channels
                         </button>
                     </li>
+
                     <li>
                         <button class="nav-link-btn" @click="switchView('orders')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -233,8 +270,8 @@
                 <div class="nav-group-title">Management</div>
                 <ul class="nav-links">
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Roles & Permissions Manager', 'Configure store managers, customize brand-specific scopes, and audit permission access logs.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'roles-permissions' }"
+                            @click="switchView('roles-permissions')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -244,8 +281,8 @@
                         </button>
                     </li>
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Billing & Subscription', 'Manage Stricktly Coffee platform billing subscriptions, integration quotas, and usage logs.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'billing-subscription' }"
+                            @click="switchView('billing-subscription')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="12" y1="1" x2="12" y2="23"></line>
@@ -272,8 +309,8 @@
                 <div class="nav-group-title">Settings</div>
                 <ul class="nav-links">
                     <li>
-                        <button class="nav-link-btn"
-                            @click="triggerUpcoming('Customer Support', 'Direct chat line setup, email auto-responders, and Zendesk integration parameters.')">
+                        <button class="nav-link-btn" :class="{ active: activeView === 'customer-support' }"
+                            @click="switchView('customer-support')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path
@@ -309,17 +346,84 @@
                     </li>
                 </ul>
             </div>
+            </div> <!-- end .sidebar-nav-container -->
+
+            <!-- Profile Selector Dropdown Menu -->
+            <div class="profile-dropdown-menu" v-if="profileDropdownOpen" style="position: absolute; bottom: 80px; left: 20px; right: 20px;">
+                <div class="profile-dropdown-header">
+                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
+                </div>
+                <div class="profile-dropdown-divider"></div>
+                <button class="profile-dropdown-item" @click.stop="toggleDemoRole">
+                    🔄 Switch Role (Current: {{ userRole }})
+                </button>
+                <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
+                    👤 Act as Store Admin (Merchant)
+                </button>
+                <div class="profile-dropdown-divider"></div>
+                <button class="profile-dropdown-item logout" @click.stop="handleLogout">
+                    🚪 Log Out
+                </button>
+            </div>
 
             <!-- Footer Profile Container -->
-            <div class="footer-profile" @click="handleLogout" style="cursor: pointer;">
-                <div class="profile-selector-avatar">{{ footerLetter }}</div>
+            <div class="footer-profile" @click.stop="profileDropdownOpen = !profileDropdownOpen" style="cursor: pointer;">
+                <div class="footer-profile-avatar">
+                    <img v-if="operatorAvatarSrc" :src="operatorAvatarSrc" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <div v-else class="footer-profile-avatar-placeholder">{{ operatorInitials }}</div>
+                </div>
                 <div class="footer-profile-meta">
-                    <div class="footer-profile-name">{{ footerUsername }}</div>
-                    <div class="footer-profile-role">{{ userRole }}</div>
+                    <div class="footer-profile-name">{{ operatorName }}</div>
+                    <div class="footer-profile-role">{{ operatorRole }}</div>
                 </div>
                 <span style="color: var(--text-muted); font-size: 0.72rem;">▼</span>
             </div>
         </aside>
+
+        <!-- BOTTOM MOBILE NAVBAR -->
+        <div class="bottom-navbar" v-if="isLoggedIn">
+            <button class="bottom-nav-btn" :class="{ active: activeView === 'overview' }" @click="switchView('overview')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>Dashboard</span>
+            </button>
+            <button class="bottom-nav-btn" :class="{ active: activeView === 'products' }" @click="switchView('products')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span>Products</span>
+            </button>
+            <button class="bottom-nav-btn" :class="{ active: activeView === 'orders' }" @click="switchView('orders')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+                <span>Orders</span>
+            </button>
+            <button class="bottom-nav-btn" :class="{ active: activeView === 'brands' }" @click="switchView('brands')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <span>Channels</span>
+            </button>
+            <button class="bottom-nav-btn" @click="mobileSidebarOpen = !mobileSidebarOpen">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+                <span>Menu</span>
+            </button>
+        </div>
 
         <!-- MAIN WORKSPACE -->
         <main v-if="isLoggedIn">
@@ -327,8 +431,7 @@
             <!-- Top Navigation Header -->
             <header>
                 <!-- TOP ROW: BREADCRUMBS & TOP NAV CONTROLS -->
-                <div class="header-top-row"
-                    style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="header-top-row">
                     <!-- Left: Breadcrumbs -->
                     <div class="breadcrumbs"
                         style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 8px;">
@@ -347,7 +450,7 @@
                     </div>
 
                     <!-- Right: Search, Notifications, Avatar -->
-                    <div style="display: flex; align-items: center; gap: 16px;">
+                    <div class="header-controls">
                         <!-- Search bar input with cmd+k -->
                         <div class="header-search-container" style="position: relative; width: 220px;">
                             <svg class="header-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -374,7 +477,7 @@
 
                         <!-- Alerts/Notifications icon button -->
                         <button class="header-icon-btn"
-                            @click="triggerUpcoming('System Alerts', 'Platform status audits.')"
+                            @click="openSystemStatusModal"
                             style="background: none; border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; padding: 0;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
@@ -403,1058 +506,98 @@
                 </div>
 
                 <!-- BOTTOM ROW: GREETING & PAGE ACTIONS -->
-                <div class="header-bottom-row"
-                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; width: 100%;">
-                    <!-- Left: Welcome back -->
-                    <div class="greeting-header"
-                        style="font-size: 1.8rem; font-weight: 700; font-family: var(--font-display); color: var(--text-main); letter-spacing: -0.03em; margin: 0;">
-                        Welcome back, {{ welcomeName }}</div>
+                <div class="header-bottom-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px; flex-shrink: 0;">
+                    <!-- Left: Unified Page Title & Subtitle -->
+                    <div style="text-align: left;">
+                        <h2 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0;">{{ pageHeader.title }}</h2>
+                        <p style="color: var(--text-muted); font-size: 0.82rem; margin: 4px 0 0 0;">{{ pageHeader.subtitle }}</p>
+                    </div>
 
-                    <!-- Right: Quick Filters -->
-                    <div style="display: flex; align-items: center; gap: 10px;" v-if="activeView === 'overview'">
-                        <!-- Timeframe select dropdown -->
-                        <button class="pill-btn"
-                            @click="triggerUpcoming('Timeframe Switcher', 'Adjusts metrics intervals.')"
-                            style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                            Daily <span style="font-size: 0.65rem; color: var(--text-muted);">▼</span>
+                    <!-- Right: Quick Filters & Actions -->
+                    <div class="header-actions-row" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+                        <template v-if="activeView === 'overview'">
+                            <!-- Timeframe select dropdown -->
+                            <select v-model="analyticsTimeframe" @change="renderAnalyticsCharts"
+                                style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; outline: none; font-family: var(--font-display);">
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                            </select>
+     
+                            <!-- Calendar Date Select -->
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    style="position: absolute; left: 12px; color: var(--text-muted); pointer-events: none;">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                <input type="date" v-model="analyticsStartDate" @change="renderAnalyticsCharts"
+                                    style="padding: 8px 16px 8px 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; outline: none; font-family: var(--font-display);">
+                            </div>
+     
+                            <!-- CSV Export button matching reference -->
+                            <button class="pill-btn dark"
+                                @click="exportOrdersCSV"
+                                style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: var(--bg-color); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Export CSV
+                            </button>
+                        </template>
+
+                        <!-- Add Product button for products -->
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'products'" @click="$refs.productsView && $refs.productsView.openAddProductModal()">
+                            ➕ Add Product
                         </button>
 
-                        <!-- Calendar Date Select -->
-                        <button class="pill-btn"
-                            @click="triggerUpcoming('Calendar Integration', 'Select custom dashboard ranges.')"
-                            style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                <line x1="16" y1="2" x2="16" y2="6"></line>
-                                <line x1="8" y1="2" x2="8" y2="6"></line>
-                                <line x1="3" y1="10" x2="21" y2="10"></line>
-                            </svg>
-                            6 Nov 2025
+                        <!-- Upload button for media -->
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'media'" @click="$refs.mediaView && $refs.mediaView.openUploadModal()">
+                            📤 Upload New Asset
                         </button>
 
-                        <!-- CSV Export button matching reference -->
-                        <button class="pill-btn dark"
-                            @click="triggerUpcoming('CSV Export Engine', 'Generates customized CSV ledger files for tax computation.')"
-                            style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--primary); background: var(--primary); color: var(--bg-color); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            Export CSV
+                        <!-- Spin Up New Brand Shop button for channels -->
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'brands' && userRole.toLowerCase() === 'superadmin' && !isCreatingBrand && brandsSubView === 'list'" @click="$refs.brandsView && $refs.brandsView.startBrandCreation()">
+                            ➕ Spin Up New Brand Shop
+                        </button>
+
+                        <!-- Create New Campaign button for campaigns view -->
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'campaigns'" @click="$refs.campaignsView && $refs.campaignsView.openCreateCampaignModal()">
+                            ➕ Create New Campaign
                         </button>
                     </div>
                 </div>
             </header>
 
-            <!-- VIEW 1: OVERVIEW & ANALYTICS -->
-            <div id="view-overview" class="admin-view" :class="{ active: activeView === 'overview' }">
-
-                <!-- Four Metrics Cards with mini bar sparklines -->
-                <div class="metrics-grid">
-                    <!-- CARD 1: REVENUE -->
-                    <div class="metric-card">
-                        <span class="metric-label">Total Revenue</span>
-                        <div class="metric-main-row">
-                            <span class="metric-value">{{ formattedSalesTotal }}</span>
-                            <div class="metric-sparkline">
-                                <div class="metric-sparkbar" style="height: 10px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar" style="height: 16px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 24px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 12px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar" style="height: 8px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 20px; width: 4px; border-radius: 2px;"></div>
-                            </div>
-                        </div>
-                        <div class="metric-info-row">
-                            <span class="metric-change"
-                                style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                                    <polyline points="7 7 17 7 17 17"></polyline>
-                                </svg>
-                                +0,94 <span style="color: var(--text-muted); font-weight: 500;">last year</span>
-                            </span>
-                        </div>
-                    </div>
-                    <!-- CARD 2: ORDERS -->
-                    <div class="metric-card">
-                        <span class="metric-label">Total Orders</span>
-                        <div class="metric-main-row">
-                            <span class="metric-value">{{ filteredOrders.length }}</span>
-                            <div class="metric-sparkline">
-                                <div class="metric-sparkbar active"
-                                    style="height: 14px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 8px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 18px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 24px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 10px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar" style="height: 16px; width: 4px; border-radius: 2px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="metric-info-row">
-                            <span class="metric-change"
-                                style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                                    <polyline points="7 7 17 7 17 17"></polyline>
-                                </svg>
-                                +0,94 <span style="color: var(--text-muted); font-weight: 500;">last year</span>
-                            </span>
-                        </div>
-                    </div>
-                    <!-- CARD 3: CUSTOMERS -->
-                    <div class="metric-card">
-                        <span class="metric-label">New Customers</span>
-                        <div class="metric-main-row">
-                            <span class="metric-value">{{ uniqueCustomersCount }}</span>
-                            <div class="metric-sparkline">
-                                <div class="metric-sparkbar" style="height: 8px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 18px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 12px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 24px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 6px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 14px; width: 4px; border-radius: 2px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="metric-info-row">
-                            <span class="metric-change"
-                                style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                                    <polyline points="7 7 17 7 17 17"></polyline>
-                                </svg>
-                                +0,94 <span style="color: var(--text-muted); font-weight: 500;">last year</span>
-                            </span>
-                        </div>
-                    </div>
-                    <!-- CARD 4: CONVERSION -->
-                    <div class="metric-card">
-                        <span class="metric-label">Conversion Rate</span>
-                        <div class="metric-main-row">
-                            <span class="metric-value">{{ calculatedConversionRate }}%</span>
-                            <div class="metric-sparkline">
-                                <div class="metric-sparkbar active"
-                                    style="height: 10px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 22px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar" style="height: 14px; width: 4px; border-radius: 2px;">
-                                </div>
-                                <div class="metric-sparkbar" style="height: 8px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar active"
-                                    style="height: 24px; width: 4px; border-radius: 2px;"></div>
-                                <div class="metric-sparkbar" style="height: 12px; width: 4px; border-radius: 2px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="metric-info-row">
-                            <span class="metric-change"
-                                style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                                    <polyline points="7 7 17 7 17 17"></polyline>
-                                </svg>
-                                +0,94 <span style="color: var(--text-muted); font-weight: 500;">last year</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Charts Trend panels -->
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <div class="chart-left-header">
-                                <div class="chart-title">
-                                    Sales Trend
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2.5" style="color: var(--text-muted);">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                    </svg>
-                                </div>
-                                <div class="chart-legends">
-                                    <div class="chart-legend-item">
-                                        <div class="chart-legend-dot" style="background: #e6e8ec;"></div>
-                                        New User
-                                    </div>
-                                    <div class="chart-legend-item">
-                                        <div class="chart-legend-dot" style="background: #1a1d1f;"></div>
-                                        Existing User
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tab-track">
-                                <button class="tab-pill">Weekly</button>
-                                <button class="tab-pill active">Monthly</button>
-                                <button class="tab-pill">Yearly</button>
-                            </div>
-                        </div>
-                        <div
-                            style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; font-weight: 600;">
-                            Total Revenue: <span
-                                style="font-size: 1.1rem; color: var(--text-main); font-weight: 800; margin-left: 4px;">{{
-                                formattedSalesTotal }}</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="salesChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <div class="chart-title">
-                                Revenue Breakdown
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5" style="color: var(--text-muted);">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg>
-                            </div>
-                            <button class="pill-btn" style="padding: 4px 8px; font-size: 0.75rem; height: 32px;">
-                                Jan 1 - Aug 30 <span style="font-size: 0.65rem; color: var(--text-muted);">▼</span>
-                            </button>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">
-                            Revenue by Category
-                            <div style="font-size: 1.4rem; color: var(--text-main); font-weight: 700; margin-top: 2px;">
-                                {{ formattedSalesTotal }}</div>
-                        </div>
-
-                        <div class="ai-banner"
-                            @click="triggerUpcoming('AI Business Insights', 'Launches deep neural analytics analysis targeting dropshipping conversions.')">
-                            <span>✨ Get AI insight for better analysis</span>
-                            <span style="color: var(--text-muted);">→</span>
-                        </div>
-
-                        <div class="chart-container" style="height: 180px;">
-                            <canvas id="funnelChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Transactions Card matching mockup layout exactly -->
-                <div class="panel" style="margin-top: 24px;">
-                    <div class="panel-header">
-                        <h3 class="panel-title">
-                            Recent Transactions
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5" style="color: var(--text-muted);">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                            </svg>
-                        </h3>
-                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                            <div class="header-search-container" style="width: 220px; position: relative;">
-                                <svg class="header-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2.5"
-                                    style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
-                                    <circle cx="11" cy="11" r="8"></circle>
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                </svg>
-                                <input type="text" class="header-search-input" placeholder="Search transactions..."
-                                    v-model="ordersSearchQuery"
-                                    style="padding: 6px 12px 6px 30px; height: 36px; line-height: 36px; border: 1px solid var(--border); border-radius: 8px; width: 100%; background: var(--card-bg); color: var(--text-main); font-size: 0.82rem;">
-                            </div>
-                            <button class="pill-btn"
-                                @click="triggerUpcoming('Transactions Ledger Creator', 'Manually inject transactions.')"
-                                style="height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5" style="margin-right: 2px;">
-                                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                </svg>
-                                Add Transaction
-                            </button>
-                            <button class="action-dots-btn"
-                                @click="triggerUpcoming('Batch Tools', 'Bulk invoice exports and status alterations.')"
-                                style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 1.1rem; cursor: pointer;">···</button>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th class="checkbox-cell" style="width: 40px; text-align: center;">
-                                        <div class="checkbox-custom"
-                                            style="width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; display: inline-block;">
-                                        </div>
-                                    </th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        ID</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Customer</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Product</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Status</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Qty</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Unit Price</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">
-                                        Total Revenue</th>
-                                    <th
-                                        style="font-weight: 600; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); text-align: center;">
-                                        Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="order in searchedOrders" :key="order.id">
-                                    <td class="checkbox-cell" style="text-align: center;">
-                                        <div class="checkbox-custom"
-                                            style="width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; display: inline-block;">
-                                        </div>
-                                    </td>
-                                    <td><strong style="color: var(--text-muted);">#{{ order.id.slice(0, 5) }}</strong>
-                                    </td>
-                                    <td>
-                                        <div><strong>{{ order.customer_name }}</strong></div>
-                                    </td>
-                                    <td>{{ getOrderProductTitle(order) }}</td>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;"
-                                            :style="{ color: order.status === 'pending_payment' ? '#f59e0b' : (order.status === 'refunded' ? '#9a9fa5' : '#10b981') }">
-                                            <span
-                                                style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"
-                                                :style="{ background: order.status === 'pending_payment' ? '#f59e0b' : (order.status === 'refunded' ? '#9a9fa5' : '#10b981') }"></span>
-                                            {{ getStatusLabel(order.status) }}
-                                        </div>
-                                    </td>
-                                    <td>{{ getOrderQty(order) }}</td>
-                                    <td>€{{ getOrderUnitPrice(order) }}</td>
-                                    <td><strong>€{{ parseFloat(order.total).toFixed(2) }}</strong></td>
-                                    <td style="text-align: center;">
-                                        <button class="action-dots-btn"
-                                            @click="triggerUpcoming('Order Operations', 'Edit shipping addresses, update delivery carriers, and print receipts.')"
-                                            style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">···</button>
-                                    </td>
-                                </tr>
-                                <tr v-if="searchedOrders.length === 0">
-                                    <td colspan="9"
-                                        style="text-align: center; color: var(--text-muted); padding: 30px;">No recent
-                                        transactions matches found.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIEW 2: BRAND SHOPS -->
-            <div id="view-brands" class="admin-view" :class="{ active: activeView === 'brands' }">
-                <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'">
-                    <h3 class="panel-title">Spin Up New Brand Shop</h3>
-                    <form @submit.prevent="onboardBrand" style="margin-top: 15px;">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label>Brand ID (Unique Slug, e.g. "pesado")</label>
-                                <input type="text" v-model="newBrand.id" required placeholder="pesado">
-                            </div>
-                            <div class="form-group">
-                                <label>Brand Display Name</label>
-                                <input type="text" v-model="newBrand.name" required placeholder="Pesado 58.5">
-                            </div>
-                            <div class="form-group">
-                                <label>Target Host Subdomain</label>
-                                <input type="text" v-model="newBrand.subdomain" required
-                                    placeholder="pesado.stricktlycoffee.be">
-                            </div>
-                            <div class="form-group">
-                                <label>Support Contact Email</label>
-                                <input type="email" v-model="newBrand.contact_email" required
-                                    placeholder="support@pesado585.com">
-                            </div>
-                            <div class="form-group">
-                                <label>Brand Primary Custom Color</label>
-                                <input type="text" v-model="newBrand.primary_color" placeholder="#c5a059">
-                            </div>
-                            <div class="form-group">
-                                <label>Manual Custom Domain (Optional)</label>
-                                <input type="text" v-model="newBrand.custom_domain" placeholder="coffee-brandsite.com">
-                            </div>
-                            <div class="form-group">
-                                <label>Favicon Icon URL (Auto-scraped on Shopify sync)</label>
-                                <input type="text" v-model="newBrand.favicon"
-                                    placeholder="https://pesado585.com/favicon.ico">
-                            </div>
-                            <div class="form-group">
-                                <label>Logo Image URL (Auto-scraped on Shopify sync)</label>
-                                <input type="text" v-model="newBrand.logo" placeholder="https://pesado585.com/logo.png">
-                            </div>
-                            <div class="form-group form-full">
-                                <label>Shopify Shop Name (for automatic asset scraping & sync)</label>
-                                <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.com">
-                            </div>
-                            <div class="form-group form-full">
-                                <label>Shopify Admin API Access Token</label>
-                                <input type="password" v-model="newBrand.shopify_access_token"
-                                    placeholder="Shopify Admin API Access Token (shpat_...)">
-                            </div>
-                            <div class="form-group">
-                                <label>Stripe Secret Key (API Key)</label>
-                                <input type="password" v-model="newBrand.stripe_secret_key"
-                                    placeholder="Stripe Secret Key (sk_live_...)">
-                            </div>
-                            <div class="form-group">
-                                <label>Stripe Webhook Secret</label>
-                                <input type="password" v-model="newBrand.stripe_webhook_secret"
-                                    placeholder="Stripe Webhook Secret (whsec_...)">
-                            </div>
-                            <div class="form-group form-full" style="margin-top: 10px;">
-                                <button type="submit" class="btn">Onboard & Save Configuration</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="panel">
-                    <h3 class="panel-title">Active Brand Subdomains</h3>
-                    <div class="table-responsive" style="margin-top: 15px;">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Shop ID</th>
-                                    <th>Display Name</th>
-                                    <th>Target Domains</th>
-                                    <th>Shopify Shop Name</th>
-                                    <th>Stripe Live</th>
-                                    <th>Contact Email</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="b in brands" :key="b.id">
-                                    <td><strong>{{ b.id }}</strong></td>
-                                    <td>{{ b.name }}</td>
-                                    <td>
-                                        <div style="font-weight: 600;">
-                                            <a :href="'http://' + b.subdomain" target="_blank"
-                                                style="color: var(--text-main); text-decoration: none;">
-                                                🔗 {{ b.subdomain }}
-                                            </a>
-                                        </div>
-                                        <div style="font-size: 0.72rem; color: var(--accent); font-weight: 700; margin-top: 4px;"
-                                            v-if="b.custom_domain">
-                                            🌐 {{ b.custom_domain }}
-                                        </div>
-                                    </td>
-                                    <td>{{ b.shopify_shop_name || 'Mocked (Sandbox)' }}</td>
-                                    <td>{{ b.stripe_secret_key ? '✅ Live' : '🚧 Mocked (Sandbox)' }}</td>
-                                    <td>{{ b.contact_email || '-' }}</td>
-                                    <td>
-                                        <button class="btn"
-                                            style="padding: 6px 12px; font-size: 0.8rem; background-color: #ef4444; color: #fff; border-color: #ef4444; margin: 0; height: 32px;"
-                                            @click="deOnboardBrand(b.id)">
-                                            De-onboard
-                                        </button>
-                                    </td>
-                                </tr>
-                                <tr v-if="brands.length === 0">
-                                    <td colspan="7" style="text-align: center; color: var(--text-muted);">No shops
-                                        registered.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- Live Storefront Sandbox Preview -->
-                    <div class="panel" style="margin-top: 24px;" v-if="brands.length > 0">
-                        <div class="panel-header">
-                            <h3 class="panel-title">
-                                Live Storefront Sandbox Preview
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5" style="color: var(--text-muted);">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg>
-                            </h3>
-                            <div style="display: flex; gap: 12px; align-items: center;">
-                                <select v-model="previewActiveBrandId"
-                                    style="width: 180px; font-weight: 600; border-radius: 8px; margin: 0;">
-                                    <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-                            Interactive preview of how the consumer storefront looks and operates for the selected brand
-                            shop. Click items, scroll, and test layout directly.
-                        </div>
-
-                        <div
-                            style="position: relative; width: 100%; height: 500px; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--workspace-bg);">
-                            <iframe :src="previewIframeSrc" style="width: 100%; height: 100%; border: none;"></iframe>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIEW 3: MANAGE CATALOG -->
-            <div id="view-products" class="admin-view" :class="{ active: activeView === 'products' }">
-                    <div class="panel">
-                        <h3 class="panel-title">Add Product to Catalog</h3>
-                        <form @submit.prevent="addProduct" style="margin-top: 15px;">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Select Target Brand Shop</label>
-                                    <select v-model="newProduct.brand_id" required>
-                                        <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Product Name / Title</label>
-                                    <input type="text" v-model="newProduct.title" required
-                                        placeholder="Self-Leveling Spring Tamper">
-                                </div>
-                                <div class="form-group">
-                                    <label>Retail Price (EUR)</label>
-                                    <input type="number" step="0.01" v-model="newProduct.price" required
-                                        placeholder="132.00">
-                                </div>
-                                <div class="form-group">
-                                    <label>Catalog Tag Badge (e.g. "Best Seller")</label>
-                                    <input type="text" v-model="newProduct.tag" placeholder="AD Edition">
-                                </div>
-
-                                <!-- Drag-and-drop Image/Video Uploader Field -->
-                                <div class="form-group form-full">
-                                    <label>Product Media (Upload Resizes Images Dynamically)</label>
-                                    <div class="uploader-box" @click="$refs.fileInput.click()">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2.5"
-                                            style="color: var(--text-muted); margin-bottom: 6px;">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="17 8 12 3 7 8"></polyline>
-                                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                                        </svg>
-                                        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
-                                            Click to upload or drag files here</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                                            Image downsizing is applied automatically</div>
-                                        <div style="font-size: 0.78rem; color: var(--accent); font-weight: 700; margin-top: 6px;"
-                                            v-if="uploadingMedia">Uploading and optimizing image...</div>
-                                        <input type="file" ref="fileInput" style="display: none;"
-                                            accept="image/*,video/*" @change="handleFileSelect">
-                                    </div>
-                                </div>
-
-                                <div class="form-group form-full">
-                                    <label>Product Image URL (Auto-filled on upload)</label>
-                                    <input type="url" v-model="newProduct.image"
-                                        placeholder="https://pesado585.com/.../img.png">
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Original Product Manufacturer Link</label>
-                                    <input type="url" v-model="newProduct.original_link"
-                                        placeholder="https://pesado585.com/products/self-leveling-tamper">
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Short Description (for homepage card)</label>
-                                    <textarea v-model="newProduct.description" rows="2"
-                                        placeholder="Brief summary of the precision tool..."></textarea>
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Detailed Marketing Description (for product drawer)</label>
-                                    <textarea v-model="newProduct.long_description" rows="4"
-                                        placeholder="Full sales copywriting copy..."></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label>Key Features (One feature per line)</label>
-                                    <textarea v-model="newProduct.features" rows="4"
-                                        placeholder="Feature 1: Detail&#10;Feature 2: Detail"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label>Machine Compatibility (One model per line)</label>
-                                    <textarea v-model="newProduct.compatibility" rows="4"
-                                        placeholder="Breville 54mm&#10;Commercial E61 group heads"></textarea>
-                                </div>
-                                <div class="form-group form-full" style="margin-top: 10px;">
-                                    <button type="submit" class="btn">Add Product to Catalog</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Direct Shopify Catalog Importer -->
-                    <div class="panel" style="margin-top: 24px;">
-                        <div class="panel-header">
-                            <h3 class="panel-title">
-                                Shopify Catalog Quick Importer
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5" style="color: var(--text-muted);">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg>
-                            </h3>
-                            <div style="display: flex; gap: 12px; align-items: center;">
-                                <select v-model="shopifyImportBrandId"
-                                    style="width: 180px; font-weight: 600; border-radius: 8px;">
-                                    <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                                </select>
-                                <button type="button" class="btn" @click="scanShopifyProducts">Scan Shopify
-                                    Catalog</button>
-                            </div>
-                        </div>
-
-                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;"
-                            v-if="shopifyScanStatus">
-                            {{ shopifyScanStatus }}
-                        </div>
-
-                        <div
-                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px;">
-                            <div v-for="p in shopifyProducts" :key="p.id" class="metric-card"
-                                style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-                                <div style="display: flex; gap: 12px;">
-                                    <img :src="p.image || 'https://placehold.co/100'"
-                                        style="width: 60px; height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);"
-                                        alt="Product Thumbnail">
-                                    <div style="flex: 1;">
-                                        <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">{{
-                                            p.title }}</div>
-                                        <div
-                                            style="font-weight: 700; font-size: 0.95rem; color: var(--accent); margin-top: 4px;">
-                                            €{{ parseFloat(p.price).toFixed(2) }}</div>
-                                    </div>
-                                </div>
-                                <p
-                                    style="color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; max-height: 48px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
-                                    {{ p.description.replace(/<[^>]*>/g, '') }}
-                                </p>
-                                <button type="button" class="btn"
-                                    style="width: 100%; font-size: 0.8rem; padding: 6px 12px; margin-top: auto; height: 32px;"
-                                    @click="importShopifyProduct($event, p)">
-                                    Import to Catalog
-                                </button>
-                            </div>
-
-                            <div v-if="shopifyProducts.length === 0"
-                                style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 10px; border: 1px dashed var(--border); border-radius: 8px;">
-                                Select a brand store above and click "Scan Shopify Catalog" to fetch live items.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Current Product Catalog Management Table -->
-                    <div class="panel" style="margin-top: 24px;">
-                        <div class="panel-header">
-                            <h3 class="panel-title">
-                                Current Product Catalog
-                                <span
-                                    style="font-size: 0.72rem; background: var(--bg-color); color: var(--text-main); padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 6px;">
-                                    {{ filteredProducts.length }} items
-                                </span>
-                            </h3>
-                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                                <div class="header-search-container" style="width: 220px;">
-                                    <svg class="header-search-icon" width="12" height="12" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2.5">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                    </svg>
-                                    <input type="text" class="header-search-input" placeholder="Search catalog..."
-                                        v-model="productsSearchQuery"
-                                        style="padding: 6px 12px 6px 32px; height: 32px; line-height: 32px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Product Info</th>
-                                        <th>Brand Shop</th>
-                                        <th>Price</th>
-                                        <th>Badge Tag</th>
-                                        <th>Compatibility</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="prod in searchedProducts" :key="prod.id">
-                                        <td>
-                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                <img :src="prod.image || 'https://placehold.co/100'"
-                                                    style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);"
-                                                    alt="Product Image">
-                                                <div>
-                                                    <strong style="color: var(--text-main);">{{ prod.title }}</strong>
-                                                    <div
-                                                        style="font-size: 0.75rem; color: var(--text-muted); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                        {{ prod.description || 'No description provided.' }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="status-pill"
-                                                style="background: var(--bg-color); color: var(--text-main); font-weight: 600;">
-                                                {{ getBrandName(prod.brand_id) }}
-                                            </span>
-                                        </td>
-                                        <td><strong>€{{ parseFloat(prod.price).toFixed(2) }}</strong></td>
-                                        <td>
-                                            <span class="status-pill"
-                                                style="background: rgba(211, 179, 120, 0.15); color: var(--accent); font-weight: 600;"
-                                                v-if="prod.tag">
-                                                {{ prod.tag }}
-                                            </span>
-                                            <span v-else style="color: var(--text-muted); font-size: 0.8rem;">—</span>
-                                        </td>
-                                        <td>
-                                            <div
-                                                style="font-size: 0.78rem; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                {{ getCompatibility(prod) }}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn"
-                                                style="background: #ef4444; border-color: #ef4444; color: #ffffff; padding: 4px 10px; font-size: 0.75rem; height: 28px; font-weight: 700;"
-                                                @click="deleteProduct(prod.id)">
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="searchedProducts.length === 0">
-                                        <td colspan="6"
-                                            style="text-align: center; color: var(--text-muted); padding: 30px;">
-                                            No products match the selected filters or search parameters.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW 4: COMBINED ORDERS -->
-                <div id="view-orders" class="admin-view" :class="{ active: activeView === 'orders' }">
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3 class="panel-title">
-                                Recent Transactions
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5" style="color: var(--text-muted);">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                </svg>
-                            </h3>
-                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                                <div class="header-search-container" style="width: 220px;">
-                                    <svg class="header-search-icon" width="12" height="12" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2.5">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                    </svg>
-                                    <input type="text" class="header-search-input" placeholder="Search transactions..."
-                                        v-model="ordersSearchQuery"
-                                        style="padding: 6px 12px 6px 32px; height: 32px; line-height: 32px;">
-                                </div>
-                                <button class="pill-btn"
-                                    @click="triggerUpcoming('Transactions Ledger Creator', 'Manually inject transactions.')"
-                                    style="height: 32px; padding: 0 12px;">+ Add Transaction</button>
-                                <button class="action-dots-btn">···</button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th class="checkbox-cell">
-                                            <div class="checkbox-custom"></div>
-                                        </th>
-                                        <th><span class="sort-header">ID ↕</span></th>
-                                        <th><span class="sort-header">Customer ↕</span></th>
-                                        <th>Product</th>
-                                        <th>Status</th>
-                                        <th><span class="sort-header">Qty ↕</span></th>
-                                        <th><span class="sort-header">Unit Price ↕</span></th>
-                                        <th><span class="sort-header">Total Revenue ↕</span></th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="order in searchedOrders" :key="order.id">
-                                        <td class="checkbox-cell">
-                                            <div class="checkbox-custom"></div>
-                                        </td>
-                                        <td><strong>#{{ order.id.slice(0, 5) }}</strong>
-                                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
-                                                {{ formatDate(order.created_at) }}</div>
-                                        </td>
-                                        <td>
-                                            <div><strong>{{ order.customer_name }}</strong></div>
-                                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{
-                                                order.customer_email }}</div>
-                                        </td>
-                                        <td>{{ getOrderProductTitle(order) }}</td>
-                                        <td>
-                                            <span class="status-pill" :class="getStatusClass(order.status)">{{
-                                                getStatusLabel(order.status) }}</span>
-                                        </td>
-                                        <td>{{ getOrderQty(order) }}</td>
-                                        <td>€{{ getOrderUnitPrice(order) }}</td>
-                                        <td><strong>€{{ parseFloat(order.total).toFixed(2) }}</strong></td>
-                                        <td>
-                                            <button class="action-dots-btn">···</button>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="searchedOrders.length === 0">
-                                        <td colspan="9"
-                                            style="text-align: center; color: var(--text-muted); padding: 30px;">No
-                                            transactions logged.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW 5: WAREHOUSE SIMULATOR LAUNCHER -->
-                <div id="view-warehouse-sim" class="admin-view" :class="{ active: activeView === 'warehouse-sim' }">
-                    <div class="panel" style="max-width: 600px;">
-                        <h3 class="panel-title">Fulfillment Warehouse Simulator</h3>
-                        <p
-                            style="color: var(--text-muted); font-size: 0.88rem; margin: 8px 0 20px 0; line-height: 1.5;">
-                            Select an onboarded brand store below to launch its dedicated Shopify simulated fulfillment
-                            warehouse.
-                        </p>
-                        <div class="form-grid" style="grid-template-columns: 1fr;">
-                            <div class="form-group">
-                                <label>Select Brand Store</label>
-                                <select v-model="simBrandId" required>
-                                    <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-top: 10px;">
-                                <button type="button" class="btn" @click="launchWarehouseSimulator">
-                                    Launch Warehouse Simulator ↗
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW 6: INTEGRATION SETTINGS -->
-                <div id="view-settings" class="admin-view" :class="{ active: activeView === 'settings' }">
-                    <!-- Global configs -->
-                    <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'">
-                        <h3 class="panel-title">Global Stripe & API Settings</h3>
-                        <form @submit.prevent style="margin-top: 15px;">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Stripe Integration Mode</label>
-                                    <select id="global-stripe-mode">
-                                        <option value="test">Sandbox / Testing (Custom Stripe checks)</option>
-                                        <option value="live">Live / Production (Direct Stripe redirection)</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Max Upload Image Size (Resized width px)</label>
-                                    <input type="number" id="global-image-rules" value="800">
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Global API Webhook Logs Path</label>
-                                    <input type="text" id="global-webhook-logs" readonly
-                                        value="/var/log/sc-api-webhooks.log">
-                                </div>
-                                <div class="form-group form-full">
-                                    <button type="button" class="btn"
-                                        @click="showNotification('Global integrations updated.')">Save Global
-                                        Configurations</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Contextual settings for currently filtered shop -->
-                    <div class="panel" id="shop-settings-panel" v-if="activeShopFilter !== 'all'">
-                        <h3 class="panel-title">Shop Settings for <span>{{ currentSelectedBrandName }}</span></h3>
-                        <form @submit.prevent="updateBrandSettings" style="margin-top: 15px;">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Display Name</label>
-                                    <input type="text" v-model="settingsBrand.name" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Host Subdomain</label>
-                                    <input type="text" v-model="settingsBrand.subdomain" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Contact Email</label>
-                                    <input type="email" v-model="settingsBrand.contact_email" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Custom Accent Color</label>
-                                    <input type="text" v-model="settingsBrand.primary_color" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Manual Custom Domain (Optional)</label>
-                                    <input type="text" v-model="settingsBrand.custom_domain"
-                                        placeholder="coffee-brandsite.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>Favicon Icon URL (Optional)</label>
-                                    <input type="text" v-model="settingsBrand.favicon"
-                                        placeholder="https://pesado585.com/favicon.ico">
-                                </div>
-                                <div class="form-group">
-                                    <label>Logo Image URL (Optional)</label>
-                                    <input type="text" v-model="settingsBrand.logo"
-                                        placeholder="https://pesado585.com/logo.png">
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Shopify Store URL (for asset scraping & sync)</label>
-                                    <input type="text" v-model="settingsBrand.shopify_shop_name">
-                                </div>
-                                <div class="form-group form-full">
-                                    <label>Shopify Access Token</label>
-                                    <input type="password" v-model="settingsBrand.shopify_access_token"
-                                        placeholder="Shopify Access Token (shpat_...)">
-                                </div>
-                                <div class="form-group">
-                                    <label>Stripe Secret Key</label>
-                                    <input type="password" v-model="settingsBrand.stripe_secret_key"
-                                        placeholder="Stripe Secret Key (sk_live_...)">
-                                </div>
-                                <div class="form-group">
-                                    <label>Stripe Webhook Secret</label>
-                                    <input type="password" v-model="settingsBrand.stripe_webhook_secret"
-                                        placeholder="Stripe Webhook Secret (whsec_...)">
-                                </div>
-                                <div class="form-group form-full">
-                                    <button type="submit" class="btn">Update Shop Integrations</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="panel" id="no-shop-selected-settings" v-if="activeShopFilter === 'all'"
-                        style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
-                        <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and
-                            Shopify parameters.</p>
-                    </div>
-                </div>
-
-                <!-- VIEW 7: HELP CENTER / MANUAL -->
-                <div id="view-help" class="admin-view" :class="{ active: activeView === 'help' }">
-                    <div class="panel">
-                        <h3 class="panel-title" style="margin-bottom: 20px;">Shopify Integration Manual & Guidelines
-                        </h3>
-                        <div id="help-content-markdown"
-                            style="font-size: 0.9rem; line-height: 1.6; color: var(--text-main);"
-                            v-html="helpManualHtml"></div>
-                    </div>
-                </div>
-
-                <!-- VIEW 8: CUSTOMERS LIST (CRM) -->
-                <div id="view-customers" class="admin-view" :class="{ active: activeView === 'customers' }">
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3 class="panel-title">
-                                Customer Directory
-                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-left: 8px;">
-                                    {{ searchedCustomers.length }} customers recorded
-                                </span>
-                            </h3>
-                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                                <div class="header-search-container" style="width: 220px; position: relative;">
-                                    <svg class="header-search-icon" width="12" height="12" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2.5"
-                                        style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                    </svg>
-                                    <input type="text" class="header-search-input" placeholder="Search customers..."
-                                        v-model="customerSearchQuery"
-                                        style="padding: 6px 12px 6px 30px; height: 36px; line-height: 36px; border: 1px solid var(--border); border-radius: 8px; width: 100%; background: var(--card-bg); color: var(--text-main); font-size: 0.82rem;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Customer</th>
-                                        <th>Brand Channel</th>
-                                        <th style="text-align: center;">Orders Count</th>
-                                        <th style="text-align: right;">Total Spent (CLV)</th>
-                                        <th style="text-align: right;">Latest Activity</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="c in searchedCustomers" :key="c.email">
-                                        <td>
-                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                <div class="workspace-dropdown-avatar" style="width: 32px; height: 32px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--border); color: var(--text-main);">
-                                                    {{ c.name.charAt(0).toUpperCase() }}
-                                                </div>
-                                                <div>
-                                                    <strong style="color: var(--text-main); font-size: 0.88rem; display: block;">{{ c.name }}</strong>
-                                                    <span style="color: var(--text-muted); font-size: 0.78rem;">{{ c.email }}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge-simulation" style="font-size: 0.72rem; padding: 3px 8px; background: var(--border); color: var(--text-main); border-radius: 4px; text-transform: uppercase;">
-                                                {{ c.brand_id }}
-                                            </span>
-                                        </td>
-                                        <td style="text-align: center; font-weight: 600;">{{ c.ordersCount }}</td>
-                                        <td style="text-align: right; font-weight: 700; color: var(--success);">
-                                            €{{ c.totalSpent.toFixed(2) }}
-                                        </td>
-                                        <td style="text-align: right; color: var(--text-muted); font-size: 0.82rem;">
-                                            {{ formatDate(c.lastOrderDate) }}
-                                        </td>
-                                    </tr>
-                                    <tr v-if="searchedCustomers.length === 0">
-                                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
-                                            No customers found matching search parameters.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+            <!-- VIEW COMPONENTS -->
+            <OverviewView ref="overviewView" />
+            <BrandsView ref="brandsView" />
+            <ProductsView ref="productsView" />
+            <OrdersView ref="ordersView" />
+            <WarehouseSimView ref="warehouseSimView" />
+            <SettingsView ref="settingsView" />
+            <HelpView ref="helpView" />
+            <CustomersView ref="customersView" />
+            <ReportsView ref="reportsView" />
+            <MessagesView ref="messagesView" />
+            <TeamPerformanceView ref="teamPerformanceView" />
+            <CampaignsView ref="campaignsView" />
+            <RolesPermissionsView ref="rolesPermissionsView" />
+            <BillingSubscriptionView ref="billingSubscriptionView" />
+            <CustomerSupportView ref="customerSupportView" />
+            <CouponsView ref="couponsView" />
+            <MediaView ref="mediaView" />
         </main>
 
         <!-- LIVE SEARCH OVERLAY MODAL (⌘ K) -->
-        <div class="search-modal" v-if="searchModalOpen" @click="closeSearchModal">
-            <div class="search-modal-container" @click.stopPropagation>
+        <div class="search-modal" v-if="searchModalOpen" @click.self="closeSearchModal">
+            <div class="search-modal-container" @click.stop>
                 <div class="search-modal-input-row">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                         style="color: var(--text-muted); margin-right: 12px;">
@@ -1466,43 +609,110 @@
                     <span
                         style="font-size: 0.72rem; color: var(--text-muted); background: #fafbfc; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 600;">ESC</span>
                 </div>
-                <div class="search-modal-results">
+                <div class="search-modal-results" style="max-height: 450px; overflow-y: auto;">
                     <div v-if="!searchQuery.trim()"
                         style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 30px 10px;">
                         Type to search catalog items...</div>
 
                     <div v-if="searchQuery.trim()">
+                        <!-- Navigation / Quick Actions -->
+                        <div v-if="matchingSearchActions.length > 0">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 8px 0 6px 0;">
+                                Quick Actions</div>
+                            <div v-for="act in matchingSearchActions" :key="act.name" class="search-item"
+                                @click="selectSearchAction(act.view)" style="margin-bottom: 4px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.25); flex-shrink: 0;">
+                                        <span style="font-size: 0.95rem;">⚡</span>
+                                    </div>
+                                    <span style="font-weight: 600; color: var(--text-main); font-size: 0.88rem;">{{ act.name }}</span>
+                                </div>
+                                <span style="font-size: 0.8rem; color: var(--accent);">Jump to Section ↗</span>
+                            </div>
+                        </div>
+
+                        <!-- Brand Shops -->
                         <div v-if="matchingSearchShops.length > 0">
-                            <div
-                                style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 8px 0;">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 6px 0;">
                                 Brand Shops</div>
                             <div v-for="shop in matchingSearchShops" :key="shop.id" class="search-item"
-                                @click="selectSearchShop(shop.id)">
-                                <div><strong>{{ shop.name }}</strong> <span
-                                        style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">({{
-                                        shop.subdomain }})</span></div>
+                                @click="selectSearchShop(shop.id)" style="margin-bottom: 4px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #ffffff; border: 1px solid var(--border); flex-shrink: 0; padding: 4px;">
+                                        <img v-if="shop.favicon || shop.logo" :src="shop.favicon || shop.logo" style="width: 100%; height: 100%; object-fit: contain;" />
+                                        <span v-else style="font-size: 0.95rem;">🏪</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                                        <span style="font-weight: 600; color: var(--text-main); font-size: 0.88rem;">{{ shop.name }}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ shop.subdomain }}</span>
+                                    </div>
+                                </div>
                                 <span style="font-size: 0.8rem; color: var(--accent);">Integrations Settings ↗</span>
                             </div>
                         </div>
 
-                        <div v-if="matchingSearchOrders.length > 0">
-                            <div
-                                style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 8px 0;">
-                                Transactions / Orders</div>
-                            <div v-for="ord in matchingSearchOrders" :key="ord.id" class="search-item"
-                                @click="selectSearchOrder(ord.id)">
-                                <div><strong>{{ ord.id }}</strong> <span
-                                        style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">({{
-                                        ord.customer_name }})</span></div>
-                                <span class="status-badge status-success"
-                                    style="font-size: 0.7rem; padding: 2px 6px;">€{{ parseFloat(ord.total).toFixed(2)
-                                    }}</span>
+                        <!-- Catalog / Products -->
+                        <div v-if="matchingSearchProducts.length > 0">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 6px 0;">
+                                Products Catalog</div>
+                            <div v-for="prod in matchingSearchProducts" :key="prod.id" class="search-item"
+                                @click="selectSearchProduct(prod.id)" style="margin-bottom: 4px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); border: 1px solid var(--border); flex-shrink: 0;">
+                                        <img v-if="prod.image" :src="prod.image" style="width: 100%; height: 100%; object-fit: cover;" />
+                                        <span v-else style="font-size: 0.95rem;">📦</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                                        <span style="font-weight: 600; color: var(--text-main); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ prod.title }}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">ID: {{ prod.id }} • <strong style="color: var(--accent);">{{ getBrandName(prod.brand_id) }}</strong></span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">€{{ parseFloat(prod.price).toFixed(2) }}</span>
                             </div>
                         </div>
 
-                        <div v-if="matchingSearchShops.length === 0 && matchingSearchOrders.length === 0"
+                        <!-- Transactions / Orders -->
+                        <div v-if="matchingSearchOrders.length > 0">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 6px 0;">
+                                Transactions / Orders</div>
+                            <div v-for="ord in matchingSearchOrders" :key="ord.id" class="search-item"
+                                @click="selectSearchOrder(ord.id)" style="margin-bottom: 4px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); flex-shrink: 0;">
+                                        <span style="font-size: 0.95rem;">💳</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                                        <span style="font-weight: 600; color: var(--text-main); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ ord.id }}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">{{ ord.customer_name }} • <strong style="color: var(--accent);">{{ getBrandName(ord.brand_id) }}</strong></span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-success" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">€{{ parseFloat(ord.total).toFixed(2) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Customers -->
+                        <div v-if="matchingSearchCustomers.length > 0">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 16px 0 6px 0;">
+                                Customers</div>
+                            <div v-for="cust in matchingSearchCustomers" :key="cust.email" class="search-item"
+                                @click="selectSearchCustomer(cust.email)" style="margin-bottom: 4px;">
+                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.25); flex-shrink: 0;">
+                                        <span style="font-weight: 700; color: #3b82f6; font-size: 0.85rem;">{{ cust.name ? cust.name.charAt(0).toUpperCase() : '👤' }}</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                                        <span style="font-weight: 600; color: var(--text-main); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ cust.name }}</span>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ cust.email }} • <strong style="color: var(--accent);">{{ getBrandName(cust.brand_id) }}</strong></span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">{{ cust.ordersCount }} orders</span>
+                            </div>
+                        </div>
+
+                        <!-- Empty state -->
+                        <div v-if="matchingSearchShops.length === 0 && matchingSearchOrders.length === 0 && matchingSearchProducts.length === 0 && matchingSearchCustomers.length === 0 && matchingSearchActions.length === 0"
                             style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 30px 10px;">
-                            No matching results found in system catalog.
+                            No matching results found in active workspace catalog.
                         </div>
                     </div>
                 </div>
@@ -1510,8 +720,8 @@
         </div>
 
         <!-- UPCOMING ROADMAPPED BETA FEATURES OVERLAY MODAL -->
-        <div class="upcoming-modal" v-if="upcomingModal.open" @click="closeUpcomingModal">
-            <div class="upcoming-card" @click.stopPropagation>
+        <div class="upcoming-modal" v-if="upcomingModal.open" @click.self="closeUpcomingModal">
+            <div class="upcoming-card" @click.stop>
                 <div
                     style="background: rgba(0, 0, 0, 0.03); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; color: var(--text-main);">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1530,6 +740,153 @@
             </div>
         </div>
 
+        <!-- SYSTEM HEALTH & PLATFORM STATUS AUDITS CONSOLE MODAL -->
+        <div class="upcoming-modal" v-if="systemStatusModalOpen" @click.self="closeSystemStatusModal">
+            <div class="upcoming-card" @click.stop style="max-width: 650px; width: 100%; text-align: left; padding: 24px; max-height: 90vh; overflow-y: auto; border-radius: 12px; background: var(--card-bg); border: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 8px;">
+                        💻 System Diagnostics & Audits
+                    </h3>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn btn-secondary" @click="loadSystemStatus" :disabled="systemStatusLoading" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">
+                            {{ systemStatusLoading ? 'Auditing...' : '🔄 Refresh' }}
+                        </button>
+                        <button class="btn btn-secondary" @click="closeSystemStatusModal" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">×</button>
+                    </div>
+                </div>
+
+                <div v-if="systemStatusLoading && !systemStatus" style="padding: 40px 0; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+                    Running platform diagnostics check...
+                </div>
+
+                <div v-else-if="systemStatus">
+                    <!-- Status Cards Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                        <!-- DB Status -->
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-size: 0.7rem; text-transform: uppercase; font-weight: bold; color: var(--text-muted);">Database Link</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span :style="{ background: systemStatus.db.status === 'healthy' ? '#10b981' : '#ef4444' }" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                                    {{ systemStatus.db.status === 'healthy' ? 'Connected' : 'Offline' }}
+                                </span>
+                            </div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Ping: {{ systemStatus.db.ping }}ms</span>
+                        </div>
+
+                        <!-- Shopify Connection -->
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-size: 0.7rem; text-transform: uppercase; font-weight: bold; color: var(--text-muted);">Shopify Sync</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span :style="{ background: systemStatus.integrations.shopify !== 'disabled' ? '#10b981' : '#f59e0b' }" style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">
+                                    {{ systemStatus.integrations.shopify === 'connected' ? 'API Active' : (systemStatus.integrations.shopify === 'public_scrape' ? 'Scraper Mode' : 'Inactive') }}
+                                </span>
+                            </div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Mode: {{ systemStatus.integrations.shopify }}</span>
+                        </div>
+
+                        <!-- DNS Resolution -->
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-size: 0.7rem; text-transform: uppercase; font-weight: bold; color: var(--text-muted);">DNS resolution</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="background: #10b981; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Verified</span>
+                            </div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">SSL status: active</span>
+                        </div>
+                    </div>
+
+                    <!-- System Memory Diagnostics -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">RAM Allocation & Heap Usage</span>
+                            <span style="font-size: 0.78rem; font-weight: 700; color: var(--accent);">{{ systemStatus.system.memory.percent }}%</span>
+                        </div>
+                        <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; margin-bottom: 8px;">
+                            <div :style="{ width: systemStatus.system.memory.percent + '%' }" style="height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                            <span>Used: {{ systemStatus.system.memory.used }}</span>
+                            <span>Total System: {{ systemStatus.system.memory.total }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Platform Audits Log Console -->
+                    <div>
+                        <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin: 0 0 10px 0;">📋 Platform Status Audits Timeline</h4>
+                        <div style="background: #0d0d0d; border: 1px solid var(--border); border-radius: 8px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.78rem; padding: 12px; display: flex; flex-direction: column; gap: 8px; color: #a0a0a0;">
+                            <div v-if="systemStatus.logs.length === 0" style="padding: 20px; text-align: center; color: var(--text-muted);">No log records populated yet.</div>
+                            <div v-for="(log, idx) in systemStatus.logs" :key="idx" style="border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                    <span style="color: var(--accent); font-weight: bold;">[{{ log.action }}]</span>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted);">{{ new Date(log.timestamp).toLocaleTimeString() }}</span>
+                                </div>
+                                <div style="display: flex; gap: 6px; align-items: flex-start;">
+                                    <span :style="{ color: log.status === 'success' ? '#10b981' : '#ef4444' }">●</span>
+                                    <span style="word-break: break-all;">{{ log.details }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px; text-align: right;">
+                    <button class="btn btn-secondary" @click="closeSystemStatusModal" style="padding: 8px 16px;">Close Diagnostics</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADD TRANSACTION MODAL -->
+        <div class="upcoming-modal" v-if="newTransactionModal.open" @click.self="closeNewTransactionModal">
+            <div class="upcoming-card" @click.stop style="max-width: 500px; width: 100%; text-align: left; padding: 24px;">
+                <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                    <span>Add New Transaction</span>
+                    <span @click="closeNewTransactionModal" style="cursor: pointer; font-size: 1.1rem; color: var(--text-muted);">&times;</span>
+                </h3>
+                
+                <form @submit.prevent="submitNewTransaction">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Customer Name</label>
+                            <input type="text" v-model="newTransactionModal.customer_name" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Customer Email</label>
+                            <input type="email" v-model="newTransactionModal.customer_email" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Select Shop/Brand</label>
+                            <select v-model="newTransactionModal.brand_id" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; cursor: pointer;">
+                                <option v-for="brand in activeBrands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Select Product</label>
+                            <select v-model="newTransactionModal.product_id" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; cursor: pointer;">
+                                <option v-for="prod in products" :key="prod.id" :value="prod.id">{{ prod.title }} (€{{ parseFloat(prod.price).toFixed(2) }})</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Quantity</label>
+                            <input type="number" v-model.number="newTransactionModal.quantity" min="1" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Status</label>
+                            <select v-model="newTransactionModal.status" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; cursor: pointer;">
+                                <option value="paid">Paid (Success)</option>
+                                <option value="pending_payment">Pending</option>
+                                <option value="refunded">Refunded</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="grid-column: span 2; margin-top: 16px;">
+                            <button type="submit" class="btn" style="width: 100%; height: 42px; font-weight: 700;">Record Transaction</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Toast message notification -->
         <div class="toast" :class="{ show: toastMessage }">
             <span style="color: var(--text-main); font-weight: bold; font-size: 1.1rem;">✔</span>
@@ -1540,29 +897,95 @@
 
 <script>
 import { nextTick } from 'vue';
+import operatorAvatar from './assets/operator_avatar.png';
 import { Chart, registerables } from 'chart.js';
+
+import OverviewView from './components/OverviewView.vue';
+import BrandsView from './components/BrandsView.vue';
+import CouponsView from './components/CouponsView.vue';
+import ProductsView from './components/ProductsView.vue';
+import OrdersView from './components/OrdersView.vue';
+import WarehouseSimView from './components/WarehouseSimView.vue';
+import SettingsView from './components/SettingsView.vue';
+import HelpView from './components/HelpView.vue';
+import CustomersView from './components/CustomersView.vue';
+import ReportsView from './components/ReportsView.vue';
+import MessagesView from './components/MessagesView.vue';
+import TeamPerformanceView from './components/TeamPerformanceView.vue';
+import CampaignsView from './components/CampaignsView.vue';
+import RolesPermissionsView from './components/RolesPermissionsView.vue';
+import BillingSubscriptionView from './components/BillingSubscriptionView.vue';
+import CustomerSupportView from './components/CustomerSupportView.vue';
+import MediaView from './components/MediaView.vue';
+
 Chart.register(...registerables);
 
 const envConfigs = {
     local: '',
-    dev: 'https://dev-api.stricktlycoffee.be',
-    prod: 'https://api.stricktlycoffee.be'
+    dev: 'https://dev.stricktlycoffee.be',
+    prod: 'https://stricktlycoffee.be'
 };
 
 export default {
+            components: {
+                OverviewView,
+                BrandsView,
+                ProductsView,
+                OrdersView,
+                WarehouseSimView,
+                SettingsView,
+                HelpView,
+                CustomersView,
+                ReportsView,
+                MessagesView,
+                TeamPerformanceView,
+                CampaignsView,
+                RolesPermissionsView,
+                BillingSubscriptionView,
+                CustomerSupportView,
+                CouponsView,
+                MediaView
+            },
+            provide() {
+                return {
+                    app: this
+                };
+            },
             data() {
                 return {
+                    operatorAvatarSrc: localStorage.getItem('sc_operator_avatar') || operatorAvatar,
+                    operatorFirstName: localStorage.getItem('sc_operator_first_name') || 'Salung',
+                    operatorLastName: localStorage.getItem('sc_operator_last_name') || 'Prastyo',
+                    operatorRole: 'Sales Operator',
+                    profileDropdownOpen: false,
+                    appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
+                    requestedInitialView: 'overview',
                     currentEnv: 'local',
                     activeShopFilter: 'all',
                     workspaceDropdownOpen: false,
                     productsSearchQuery: '',
                     customerSearchQuery: '',
+                    ordersSearchQuery: '',
+                    analyticsTimeframe: 'Monthly',
+                    salesChartType: 'bar',
+                    funnelChartType: 'bar',
+                    analyticsStartDate: '',
+                    newTransactionModal: {
+                        open: false,
+                        brand_id: '',
+                        customer_name: '',
+                        customer_email: '',
+                        product_id: '',
+                        quantity: 1,
+                        status: 'paid'
+                    },
 
                     // Datasets
                     brands: [],
                     orders: [],
                     products: [],
+                    activityLogs: [],
 
                     // Auth state
                     isLoggedIn: false,
@@ -1570,6 +993,7 @@ export default {
                     loginPassword: 'TheKey4u',
                     loginError: '',
                     userRole: 'Superadmin',
+                    userEmail: '',
 
                     // Forms
                     newBrand: {
@@ -1577,14 +1001,29 @@ export default {
                         name: '',
                         subdomain: '',
                         contact_email: '',
-                        primary_color: '#c5a059',
+                        primary_color: '#111111',
+                        secondary_color: '#767676',
+                        bg_color: '#ffffff',
+                        text_color: '#111111',
+                        button_radius: '4px',
+                        button_text_color: '#ffffff',
+                        header_bg_color: '#ffffff',
+                        theme_settings: '',
+                        platform: 'shopify',
                         shopify_shop_name: '',
                         shopify_access_token: '',
+                        woocommerce_shop_url: '',
+                        woocommerce_consumer_key: '',
+                        woocommerce_consumer_secret: '',
                         stripe_secret_key: '',
                         stripe_webhook_secret: '',
                         custom_domain: '',
                         logo: '',
-                        favicon: ''
+                        favicon: '',
+                        font_family: 'Outfit',
+                        status: 'draft',
+                        stripe_enabled: false,
+                        languages: ['en']
                     },
                     newProduct: {
                         brand_id: '',
@@ -1596,27 +1035,42 @@ export default {
                         description: '',
                         long_description: '',
                         features: '',
-                        compatibility: ''
+                        compatibility: '',
+                        sku: '',
+                        external_id: '',
+                        translations: {}
                     },
                     settingsBrand: {
                         id: '',
                         name: '',
                         subdomain: '',
                         contact_email: '',
-                        primary_color: '#c5a059',
+                        primary_color: '#111111',
+                        secondary_color: '#767676',
+                        bg_color: '#ffffff',
+                        text_color: '#111111',
+                        button_radius: '4px',
+                        button_text_color: '#ffffff',
+                        header_bg_color: '#ffffff',
+                        theme_settings: '',
                         shopify_shop_name: '',
                         shopify_access_token: '',
                         stripe_secret_key: '',
                         stripe_webhook_secret: '',
                         custom_domain: '',
                         logo: '',
-                        favicon: ''
+                        favicon: '',
+                        stripe_enabled: false,
+                        languages: ['en']
                     },
 
                     // Shopify Importer
                     shopifyImportBrandId: '',
                     shopifyProducts: [],
                     shopifyScanStatus: '',
+
+                    // Operator Users Roster
+                    users: [],
 
                     // Warehouse Simulator Launcher select
                     simBrandId: '',
@@ -1632,6 +1086,9 @@ export default {
                         title: '',
                         description: ''
                     },
+                    systemStatusModalOpen: false,
+                    systemStatusLoading: false,
+                    systemStatus: null,
 
                     // Sidebar drawer responsive state
                     mobileSidebarOpen: false,
@@ -1641,14 +1098,72 @@ export default {
 
                     // Loading progress
                     uploadingMedia: false,
+                    // Mirrored state variables for child BrandsView layout state
+                    brandsSubView: 'list',
+                    isCreatingBrand: false,
                     helpManualHtml: 'Loading onboarding guidelines...'
                 };
             },
             computed: {
+                pageHeader() {
+                    switch (this.activeView) {
+                        case 'overview':
+                            return { title: 'Overview Dashboard', subtitle: 'Monitor store performance metrics, revenues, and recent transactions' };
+                        case 'brands':
+                            return { title: 'Store Channels', subtitle: 'Manage store connections, checkout redirects, and brand customizers' };
+                        case 'products':
+                            return { title: 'Product Catalog Management', subtitle: 'Manage item statuses, retail pricing, and sync API products' };
+                        case 'orders':
+                            return { title: 'Recent Transactions', subtitle: 'Audit log of customer purchases, order totals, and fulfillment statuses' };
+                        case 'warehouse-sim':
+                            return { title: 'Fulfillment Warehouse Simulator', subtitle: 'Onboarded brand store Shopify simulated fulfillment warehouse' };
+                        case 'settings':
+                            return { title: 'Shop Integrations & Configurations', subtitle: 'Manage API credentials, domain routing, and master theme variables' };
+                        case 'help':
+                            return { title: 'Help Center & Knowledge Base', subtitle: 'Search integration manuals, WooCommerce guides, and FAQs' };
+                        case 'customers':
+                            return { title: 'Customer Directory', subtitle: 'Compiled database of shoppers, languages, and lifetime value tracking' };
+                        case 'reports':
+                            return { title: 'Reports & Analytics', subtitle: 'Analyze top selling products, sales conversion rates, and revenue performance' };
+                        case 'roles-permissions':
+                            return { title: 'Roles & Permissions', subtitle: 'Manage platform operators, access scopes, and provision managers' };
+                        case 'billing-subscription':
+                            return { title: 'Billing & Subscription', subtitle: 'Manage active subscription plans, API usage, and download Stripe invoices' };
+                        case 'coupons':
+                            return { title: 'Coupons & UTM Campaign Analytics', subtitle: 'Manage UTM campaign trackers, automated post-delivery referrals, and coupon registries' };
+                        case 'customer-support':
+                            return { title: 'Customer Support', subtitle: 'Direct ticket inbox, customer inquiries, and support integrations' };
+                        case 'media':
+                            return { title: 'Media Assets Library', subtitle: 'Manage and organize media assets, store graphics, and marketing images' };
+                        default:
+                            return { title: 'Dashboard Workspace', subtitle: 'Manage store configurations and details' };
+                    }
+                },
+                baseBrandDomain() {
+                    const hostname = window.location.hostname;
+                    if (hostname.includes('dev-dash.')) {
+                        return 'dev.stricktlycoffee.be';
+                    }
+                    if (hostname.includes('dash.')) {
+                        return 'stricktlycoffee.be';
+                    }
+                    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+                        return 'stricktlycoffee.local';
+                    }
+                    return hostname.replace('dash.', '').replace('dev-dash.', 'dev.');
+                },
+                activeBrands() {
+                    return (this.brands || []).filter(b => b.status !== 'draft');
+                },
                 activeWorkspaceLetter() {
                     if (this.activeShopFilter === 'all') return 'S';
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.name.charAt(0).toUpperCase() : 'S';
+                },
+                activeWorkspaceFavicon() {
+                    if (this.activeShopFilter === 'all') return null;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    return brand ? brand.favicon : null;
                 },
                 activeWorkspaceName() {
                     if (this.activeShopFilter === 'all') return 'Stricktly Coffee';
@@ -1693,7 +1208,9 @@ export default {
                                 brand_id: o.brand_id,
                                 ordersCount: 0,
                                 totalSpent: 0,
-                                lastOrderDate: o.created_at
+                                lastOrderDate: o.created_at,
+                                attribution_channel: o.attribution_channel || 'Direct',
+                                language: o.language || 'en'
                             };
                         }
 
@@ -1726,12 +1243,12 @@ export default {
                     if (!this.previewActiveBrandId) return '';
                     const brand = this.brands.find(b => b.id === this.previewActiveBrandId);
                     if (!brand) return '';
-                    const hostPrefix = brand.subdomain.split('.')[0];
                     if (this.currentEnv === 'local') {
-                        return `http://${hostPrefix}.stricktlycoffee.local?previewBrandId=${this.previewActiveBrandId}`;
+                        return `/store/${this.previewActiveBrandId}`;
                     } else {
+                        const hostPrefix = brand.subdomain.split('.')[0];
                         const domain = brand.custom_domain ? brand.custom_domain : `${hostPrefix}.stricktlycoffee.be`;
-                        return `https://${domain}?previewBrandId=${this.previewActiveBrandId}`;
+                        return `https://${domain}`;
                     }
                 },
                 apiBaseUrl() {
@@ -1757,14 +1274,34 @@ export default {
                     if (this.activeView === 'overview') return 'Overview';
                     if (this.activeView === 'warehouse-sim') return 'Warehouse Sim';
                     if (this.activeView === 'customers') return 'Customer Directory';
+                    if (this.activeView === 'reports') return 'Reports & Analytics';
+                    if (this.activeView === 'messages') return 'Messages & Activity Logs';
+                    if (this.activeView === 'team-performance') return 'Team Performance';
+                    if (this.activeView === 'campaigns') return 'Campaigns & Marketing';
+                    if (this.activeView === 'roles-permissions') return 'Roles & Permissions';
+                    if (this.activeView === 'billing-subscription') return 'Billing & Subscriptions';
+                    if (this.activeView === 'customer-support') return 'Customer Support';
+                    if (this.activeView === 'media') return 'Media Library';
                     return this.activeView.charAt(0).toUpperCase() + this.activeView.slice(1);
+                },
+                activeWorkspaceRoleLabel() {
+                    if (this.activeShopFilter === 'all') {
+                        return this.userRole.toLowerCase() === 'superadmin' ? 'Agency' : 'Merchant';
+                    }
+                    return 'Brand';
                 },
                 // Filtering transactions database
                 filteredOrders() {
-                    if (this.activeShopFilter === 'all') {
-                        return this.orders;
+                    let list = this.orders;
+                    if (this.activeShopFilter !== 'all') {
+                        list = list.filter(o => o.brand_id === this.activeShopFilter);
                     }
-                    return this.orders.filter(o => o.brand_id === this.activeShopFilter);
+                    if (this.analyticsStartDate) {
+                        const limitDate = new Date(this.analyticsStartDate);
+                        limitDate.setHours(23, 59, 59, 999);
+                        list = list.filter(o => new Date(o.created_at) <= limitDate);
+                    }
+                    return list;
                 },
                 calculatedConversionRate() {
                     if (this.filteredOrders.length === 0) return '3.9';
@@ -1797,20 +1334,109 @@ export default {
                 matchingSearchShops() {
                     if (!this.searchQuery.trim()) return [];
                     const q = this.searchQuery.toLowerCase();
-                    return this.brands.filter(b => b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q));
+                    let list = this.brands;
+                    if (this.userRole.toLowerCase() === 'merchant') {
+                        const userBrandId = localStorage.getItem('sc_admin_brand_id');
+                        list = list.filter(b => b.id === userBrandId);
+                    }
+                    return list.filter(b => b.name.toLowerCase().includes(q) || b.id.toLowerCase().includes(q));
                 },
                 matchingSearchOrders() {
                     if (!this.searchQuery.trim()) return [];
                     const q = this.searchQuery.toLowerCase();
-                    return this.orders.filter(o =>
-                        (o.id && o.id.toLowerCase().includes(q)) ||
-                        (o.customer_name && o.customer_name.toLowerCase().includes(q))
+                    let list = this.orders;
+                    if (this.userRole.toLowerCase() === 'merchant') {
+                        const userBrandId = localStorage.getItem('sc_admin_brand_id');
+                        list = list.filter(o => o.brand_id === userBrandId);
+                    } else if (this.activeShopFilter !== 'all') {
+                        list = list.filter(o => o.brand_id === this.activeShopFilter);
+                    }
+                    return list.filter(o =>
+                        (o.id && String(o.id).toLowerCase().includes(q)) ||
+                        (o.customer_name && o.customer_name.toLowerCase().includes(q)) ||
+                        (o.customer_email && o.customer_email.toLowerCase().includes(q))
                     );
+                },
+                matchingSearchProducts() {
+                    if (!this.searchQuery.trim()) return [];
+                    const q = this.searchQuery.toLowerCase();
+                    let list = this.products;
+                    if (this.userRole.toLowerCase() === 'merchant') {
+                        const userBrandId = localStorage.getItem('sc_admin_brand_id');
+                        list = list.filter(p => p && p.brand_id === userBrandId);
+                    } else if (this.activeShopFilter !== 'all') {
+                        list = list.filter(p => p && p.brand_id === this.activeShopFilter);
+                    }
+                    return list.filter(p =>
+                        p && (
+                            (p.title && p.title.toLowerCase().includes(q)) ||
+                            (p.description && p.description.toLowerCase().includes(q)) ||
+                            (p.tag && p.tag.toLowerCase().includes(q)) ||
+                            (p.id && String(p.id).toLowerCase().includes(q))
+                        )
+                    );
+                },
+                matchingSearchCustomers() {
+                    if (!this.searchQuery.trim()) return [];
+                    const q = this.searchQuery.toLowerCase();
+                    let list = this.customers;
+                    if (this.userRole.toLowerCase() === 'merchant') {
+                        const userBrandId = localStorage.getItem('sc_admin_brand_id');
+                        list = list.filter(c => c.brand_id === userBrandId);
+                    }
+                    return list.filter(c =>
+                        (c.name && c.name.toLowerCase().includes(q)) ||
+                        (c.email && c.email.toLowerCase().includes(q))
+                    );
+                },
+                matchingSearchActions() {
+                    if (!this.searchQuery.trim()) return [];
+                    const q = this.searchQuery.toLowerCase();
+                    const allActions = [
+                        { name: 'Go to Overview Dashboard', view: 'overview' },
+                        { name: 'Go to Catalog / Products', view: 'products' },
+                        { name: 'Go to Transactions / Orders', view: 'orders' },
+                        { name: 'Go to Reports & Analytics', view: 'reports' },
+                        { name: 'Go to Messages Inbox', view: 'messages' },
+                        { name: 'Go to Team Performance', view: 'team-performance' },
+                        { name: 'Go to Campaigns / Marketing', view: 'campaigns' },
+                        { name: 'Go to Customer List', view: 'customers' },
+                        { name: 'Go to Channels (Brand Shops)', view: 'brands', superadminOnly: true },
+                        { name: 'Go to Roles & Permissions', view: 'roles-permissions' },
+                        { name: 'Go to Billing & Subscription', view: 'billing-subscription' },
+                        { name: 'Go to Integrations (Settings)', view: 'settings' },
+                        { name: 'Go to Customer Support Helpdesk', view: 'customer-support' },
+                        { name: 'Go to Help Center Documentation', view: 'help' }
+                    ];
+
+                    return allActions.filter(act => {
+                        if (act.superadminOnly && this.userRole.toLowerCase() !== 'superadmin') {
+                            return false;
+                        }
+                        return act.name.toLowerCase().includes(q);
+                    });
+                },
+                operatorInitials() {
+                    const first = this.operatorFirstName || '';
+                    const last = this.operatorLastName || '';
+                    if (first || last) {
+                        return ((first[0] || '') + (last[0] || '')).toUpperCase();
+                    }
+                    return '??';
+                },
+                operatorName() {
+                    return `${this.operatorFirstName} ${this.operatorLastName}`.trim();
                 }
             },
             watch: {
                 activeShopFilter(newVal) {
                     this.updateSettingsContext();
+                    if (newVal && newVal !== 'all') {
+                        localStorage.setItem('sc_admin_brand_id', newVal);
+                        this.previewActiveBrandId = newVal;
+                    } else {
+                        localStorage.removeItem('sc_admin_brand_id');
+                    }
                 },
                 filteredOrders(newVal) {
                     this.renderAnalyticsCharts();
@@ -1823,6 +1449,22 @@ export default {
                     this.currentEnv = savedEnv;
                 }
 
+                // Parse initial URL segments
+                const pathSegments = window.location.pathname.split('/').filter(Boolean);
+                const primary = pathSegments[0];
+                let initialView = 'overview';
+                if (primary === 'channels') {
+                    initialView = 'brands';
+                } else if (primary === 'integrations') {
+                    initialView = 'settings';
+                } else {
+                    const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
+                    if (validViews.includes(primary)) {
+                        initialView = primary;
+                    }
+                }
+                this.requestedInitialView = initialView;
+
                 // Verify Auth session
                 const token = localStorage.getItem('sc_admin_token');
                 const role = localStorage.getItem('sc_admin_role');
@@ -1830,9 +1472,18 @@ export default {
                 if (token) {
                     this.isLoggedIn = true;
                     if (role) this.userRole = role;
+                    this.userEmail = localStorage.getItem('sc_admin_email') || '';
                     this.activeShopFilter = brandId || 'all';
                     this.bootDashboard();
+                    this.resolveRouteFromURL();
                 }
+
+                // Set up popstate and beforeunload listeners
+                window.addEventListener('popstate', this.handlePopState);
+                window.addEventListener('beforeunload', this.handleBeforeUnload);
+
+                // Apply theme setting
+                this.applyTheme(this.appTheme);
 
                 // Setup global key listener for ⌘ K and click outside
                 window.addEventListener('keydown', this.handleGlobalKeydowns);
@@ -1841,9 +1492,66 @@ export default {
             unmounted() {
                 window.removeEventListener('keydown', this.handleGlobalKeydowns);
                 document.removeEventListener('click', this.handleDocumentClick);
+                window.removeEventListener('popstate', this.handlePopState);
+                window.removeEventListener('beforeunload', this.handleBeforeUnload);
             },
             methods: {
-                handleGlobalKeydowns(e) {
+                async loadUsers() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/users`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            this.users = await response.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load users:', err);
+                    }
+                },
+                async inviteUser(email, role, brandId) {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/users/invite`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify({ email, role, brand_id: brandId })
+                        });
+                        if (response.ok) {
+                            this.showNotification('Operator invited successfully!');
+                            await this.loadUsers();
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            alert(`Invite failed: ${err.error}`);
+                            return false;
+                        }
+                    } catch (err) {
+                        alert(`Error: ${err.message}`);
+                        return false;
+                    }
+                },
+                async removeUser(userId) {
+                    if (confirm('Are you sure you want to remove this operator account?')) {
+                        try {
+                            const response = await fetch(`${this.apiBaseUrl}/api/global/users/${userId}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                            });
+                            if (response.ok) {
+                                this.showNotification('Operator account removed.');
+                                await this.loadUsers();
+                            } else {
+                                const err = await response.json();
+                                alert(`Error removing operator: ${err.error}`);
+                            }
+                        } catch (err) {
+                            alert(`Error: ${err.message}`);
+                        }
+                    }
+                },
+                 handleGlobalKeydowns(e) {
                     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
                         e.preventDefault();
                         this.openSearchModal();
@@ -1851,6 +1559,15 @@ export default {
                     if (e.key === 'Escape') {
                         this.closeSearchModal();
                         this.closeUpcomingModal();
+                    }
+                },
+                handlePopState(e) {
+                    this.resolveRouteFromURL();
+                },
+                handleBeforeUnload(event) {
+                    if (this.activeView === 'brands' && this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) {
+                        event.preventDefault();
+                        event.returnValue = '';
                     }
                 },
                 handleDocumentClick(e) {
@@ -1861,11 +1578,118 @@ export default {
                             this.workspaceDropdownOpen = false;
                         }
                     }
+                    if (this.profileDropdownOpen) {
+                        const selector = this.$el.querySelector('.footer-profile');
+                        const menu = this.$el.querySelector('.profile-dropdown-menu');
+                        if (selector && !selector.contains(e.target) && menu && !menu.contains(e.target)) {
+                            this.profileDropdownOpen = false;
+                        }
+                    }
+                },
+                toggleDemoRole() {
+                    this.userRole = this.userRole.toLowerCase() === 'superadmin' ? 'Merchant' : 'Superadmin';
+                    this.showNotification(`Switched role context to ${this.userRole}`);
+                    this.profileDropdownOpen = false;
+                },
+                assumeStoreAdmin() {
+                    this.userRole = 'Merchant';
+                    this.showNotification(`Assumed role as Store Administrator for ${this.activeWorkspaceName}`);
+                    this.profileDropdownOpen = false;
+                },
+                applyTheme(theme) {
+                    this.appTheme = theme;
+                    localStorage.setItem('sc_admin_theme', theme);
+                    document.documentElement.classList.remove('light-theme', 'dark-theme');
+                    if (theme === 'light') {
+                        document.documentElement.classList.add('light-theme');
+                    } else if (theme === 'dark') {
+                        document.documentElement.classList.add('dark-theme');
+                    }
+                },
+                openNewTransactionModal() {
+                    this.newTransactionModal.brand_id = this.activeShopFilter !== 'all' ? this.activeShopFilter : (this.brands[0] ? this.brands[0].id : '');
+                    const brandProds = this.newTransactionModal.brand_id ? this.products.filter(p => p.brand_id === this.newTransactionModal.brand_id) : this.products;
+                    this.newTransactionModal.product_id = brandProds[0] ? brandProds[0].id : (this.products[0] ? this.products[0].id : '');
+                    this.newTransactionModal.customer_name = '';
+                    this.newTransactionModal.customer_email = '';
+                    this.newTransactionModal.quantity = 1;
+                    this.newTransactionModal.status = 'paid';
+                    this.newTransactionModal.open = true;
+                },
+                closeNewTransactionModal() {
+                    this.newTransactionModal.open = false;
+                },
+                async submitNewTransaction() {
+                    const prod = this.products.find(p => p.id === this.newTransactionModal.product_id);
+                    const unitPrice = prod ? parseFloat(prod.price) : 25.00;
+                    const total = unitPrice * parseInt(this.newTransactionModal.quantity, 10);
+                    
+                    const payload = {
+                        brand_id: this.newTransactionModal.brand_id,
+                        customer_name: this.newTransactionModal.customer_name,
+                        customer_email: this.newTransactionModal.customer_email,
+                        total: total,
+                        status: this.newTransactionModal.status,
+                        items: [
+                            {
+                                id: prod ? prod.id : 9999,
+                                title: prod ? prod.title : 'Custom puck prep set',
+                                quantity: parseInt(this.newTransactionModal.quantity, 10),
+                                price: unitPrice
+                            }
+                        ]
+                    };
+
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/orders`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) throw new Error('Network error creating transaction');
+                        const resData = await response.json();
+                        
+                        if (resData.success && resData.order) {
+                            this.orders.unshift(resData.order);
+                            this.showNotification(`Transaction #${resData.order.id.slice(0, 8)} recorded successfully.`);
+                            this.closeNewTransactionModal();
+                            nextTick(() => {
+                                this.renderAnalyticsCharts();
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Failed to create manual order:', err);
+                        this.showNotification('Error creating transaction.');
+                    }
+                },
+                exportOrdersCSV() {
+                    const data = this.filteredOrders;
+                    if (data.length === 0) {
+                        this.showNotification('No transactions found to export.');
+                        return;
+                    }
+                    let csvContent = 'data:text/csv;charset=utf-8,';
+                    csvContent += 'ID,Brand,Customer Name,Customer Email,Status,Total,Created At\n';
+                    data.forEach(o => {
+                        csvContent += `"${o.id}","${o.brand_name || o.brand_id}","${o.customer_name}","${o.customer_email}","${o.status}",${o.total},"${o.created_at}"\n`;
+                    });
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', encodedUri);
+                    link.setAttribute('download', `sc_transactions_export_${Date.now()}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    this.showNotification('CSV export download initialized.');
                 },
                 selectWorkspace(id) {
                     this.workspaceDropdownOpen = false;
                     if (id === 'create') {
-                        this.activeView = 'brands';
+                        this.switchView('brands');
                         return;
                     }
                     this.activeShopFilter = id;
@@ -1889,6 +1713,81 @@ export default {
                     } catch (e) {
                         this.showNotification(`Error: ${e.message}`);
                     }
+                },
+                async toggleProductActive(productId, currentActive) {
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/products/${productId}/active`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ active: currentActive === 0 || currentActive === false ? 1 : 0 })
+                        });
+                        if (response.ok) {
+                            this.showNotification('Product visibility status updated.');
+                            this.fetchProducts(); // Refresh catalog list
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                },
+                async bulkUpdateOrderStatus(ids, status) {
+                    if (!ids || ids.length === 0) return false;
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/orders/bulk-status`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids, status })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully updated ${ids.length} transaction status to ${status}.`);
+                            await this.loadOrders();
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
+                },
+                async bulkDeleteOrders(ids) {
+                    if (!ids || ids.length === 0) return false;
+                    if (!confirm(`Are you sure you want to permanently delete these ${ids.length} transaction(s)? This action cannot be undone.`)) {
+                        return false;
+                    }
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/orders/bulk-delete`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ ids })
+                        });
+                        if (response.ok) {
+                            this.showNotification(`Successfully deleted ${ids.length} transaction(s).`);
+                            await this.loadOrders();
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            this.showNotification(`Error: ${err.error}`);
+                        }
+                    } catch (e) {
+                        this.showNotification(`Error: ${e.message}`);
+                    }
+                    return false;
                 },
                 getCompatibility(prod) {
                     if (!prod || !prod.compatibility) return 'All Espresso Machines';
@@ -1923,10 +1822,12 @@ export default {
                             }
 
                             this.userRole = result.role;
+                            this.userEmail = result.email;
                             this.activeShopFilter = result.brand_id || 'all';
                             this.isLoggedIn = true;
                             this.showNotification('Authentication successful.');
-                            this.bootDashboard();
+                             this.bootDashboard();
+                             this.resolveRouteFromURL();
                         } else {
                             this.loginError = 'Invalid credentials. Please try again.';
                         }
@@ -1934,14 +1835,29 @@ export default {
                         this.loginError = `Server connection refused: ${err.message}`;
                     }
                 },
-                handleLogout() {
+                 handleLogout() {
                     if (confirm('Log out of Enterprise Portal?')) {
                         localStorage.removeItem('sc_admin_token');
                         localStorage.removeItem('sc_admin_email');
                         localStorage.removeItem('sc_admin_role');
                         localStorage.removeItem('sc_admin_brand_id');
                         this.isLoggedIn = false;
+                        this.userEmail = '';
                         this.loginPassword = '';
+
+                        // Reset URL to base path
+                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'channels', 'roles-permissions', 'billing-subscription', 'integrations', 'customer-support', 'help', 'warehouse-sim'];
+                        let pathSegments = window.location.pathname.split('/').filter(Boolean);
+                        if (pathSegments.length > 0) {
+                            const lastSegment = pathSegments[pathSegments.length - 1];
+                            if (validViews.includes(lastSegment)) {
+                                pathSegments.pop();
+                            }
+                        }
+                        const newPath = '/' + pathSegments.join('/');
+                        if (window.location.pathname !== newPath) {
+                            window.history.pushState({}, '', newPath);
+                        }
                     }
                 },
                 changeEnvironment() {
@@ -1953,19 +1869,112 @@ export default {
                     this.loadBrands();
                     this.loadOrders();
                     this.loadProducts();
+                    this.loadUsers();
                 },
                 switchView(viewId) {
+                    if (this.activeView === 'brands' && this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) {
+                        const confirmExit = confirm("Are you sure you want to exit the setup wizard? Unsaved brand shop details may be lost.");
+                        if (!confirmExit) return;
+                    }
                     this.activeView = viewId;
                     this.mobileSidebarOpen = false;
+                    if (viewId === 'brands' && this.$refs.brandsView) {
+                        this.$refs.brandsView.activeSubView = 'list';
+                    }
 
-                    if (viewId === 'overview' || viewId === 'products' || viewId === 'warehouse-sim' || viewId === 'customers') {
+                    this.updateURL();
+
+                    if (viewId === 'overview' || viewId === 'products' || viewId === 'warehouse-sim' || viewId === 'customers' || viewId === 'reports' || viewId === 'messages' || viewId === 'roles-permissions' || viewId === 'billing-subscription' || viewId === 'team-performance' || viewId === 'campaigns' || viewId === 'customer-support') {
                         this.loadBrands();
+                        if (viewId === 'roles-permissions') {
+                            this.loadUsers();
+                        }
                     }
                     if (viewId === 'products') {
                         this.loadProducts();
                     }
-                    if (viewId === 'orders' || viewId === 'overview' || viewId === 'customers') {
+                    if (viewId === 'orders' || viewId === 'overview' || viewId === 'customers' || viewId === 'reports') {
                         this.loadOrders();
+                    }
+                    if (viewId === 'messages') {
+                        this.loadActivity();
+                    }
+                    if (viewId === 'settings') {
+                        this.loadBrands();
+                        this.updateSettingsContext();
+                    }
+                    if (viewId === 'help') {
+                        this.loadHelpManual();
+                    }
+                },
+                updateURL() {
+                    let newPath = '/' + (this.activeView === 'brands' ? 'channels' : (this.activeView === 'settings' ? 'integrations' : this.activeView));
+                    if (this.activeView === 'brands' && this.$refs.brandsView) {
+                        const sub = this.$refs.brandsView.activeSubView;
+                        if (sub === 'designer') {
+                            newPath = '/channels/storefront';
+                        } else if (sub === 'landing-designer') {
+                            newPath = '/channels/landingpage';
+                        }
+                    }
+                    if (window.location.pathname !== newPath) {
+                        window.history.pushState({ viewId: this.activeView }, '', newPath);
+                    }
+                },
+                resolveRouteFromURL() {
+                    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+                    if (pathSegments.length === 0) {
+                        this.switchView('overview');
+                        return;
+                    }
+                    
+                    const primary = pathSegments[0];
+                    const sub = pathSegments[1];
+                    
+                    let viewId = 'overview';
+                    if (primary === 'channels') {
+                        viewId = 'brands';
+                    } else if (primary === 'integrations') {
+                        viewId = 'settings';
+                    } else {
+                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
+                        if (validViews.includes(primary)) {
+                            viewId = primary;
+                        }
+                    }
+                    
+                    this.activeView = viewId;
+                    this.mobileSidebarOpen = false;
+                    
+                    if (viewId === 'brands') {
+                        this.$nextTick(() => {
+                            if (this.$refs.brandsView) {
+                                if (sub === 'storefront') {
+                                    this.$refs.brandsView.activeSubView = 'designer';
+                                } else if (sub === 'landingpage') {
+                                    this.$refs.brandsView.activeSubView = 'landing-designer';
+                                } else {
+                                    this.$refs.brandsView.activeSubView = 'list';
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Boot data loaders based on view
+                    if (viewId === 'overview' || viewId === 'products' || viewId === 'warehouse-sim' || viewId === 'customers' || viewId === 'reports' || viewId === 'messages' || viewId === 'roles-permissions' || viewId === 'billing-subscription' || viewId === 'team-performance' || viewId === 'campaigns' || viewId === 'customer-support') {
+                        this.loadBrands();
+                        if (viewId === 'roles-permissions') {
+                            this.loadUsers();
+                        }
+                    }
+                    if (viewId === 'products') {
+                        this.loadProducts();
+                    }
+                    if (viewId === 'orders' || viewId === 'overview' || viewId === 'customers' || viewId === 'reports') {
+                        this.loadOrders();
+                    }
+                    if (viewId === 'messages') {
+                        this.loadActivity();
                     }
                     if (viewId === 'settings') {
                         this.loadBrands();
@@ -1990,6 +1999,28 @@ export default {
                 closeUpcomingModal() {
                     this.upcomingModal.open = false;
                 },
+                async openSystemStatusModal() {
+                    this.systemStatusModalOpen = true;
+                    await this.loadSystemStatus();
+                },
+                closeSystemStatusModal() {
+                    this.systemStatusModalOpen = false;
+                },
+                async loadSystemStatus() {
+                    this.systemStatusLoading = true;
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/system-status`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            this.systemStatus = await response.json();
+                        }
+                    } catch(e) {
+                        console.error('Error fetching system status diagnostics:', e);
+                    } finally {
+                        this.systemStatusLoading = false;
+                    }
+                },
                 openSearchModal() {
                     this.searchModalOpen = true;
                     this.searchQuery = '';
@@ -2010,21 +2041,54 @@ export default {
                     this.switchView('orders');
                     this.ordersSearchQuery = orderId;
                 },
+                selectSearchProduct(productId) {
+                    this.closeSearchModal();
+                    this.switchView('products');
+                    this.productsSearchQuery = productId;
+                },
+                selectSearchCustomer(email) {
+                    this.closeSearchModal();
+                    this.switchView('customers');
+                    this.customerSearchQuery = email;
+                },
+                viewCustomerOrders(email) {
+                    this.switchView('orders');
+                    this.ordersSearchQuery = email;
+                },
+                selectSearchAction(view) {
+                    this.closeSearchModal();
+                    this.switchView(view);
+                },
                 // Fetch Brands List
                 async loadBrands() {
                     try {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/brands`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
-                        if (!response.ok) throw new Error();
                         this.brands = await response.json();
+                        this.updateSettingsContext();
+
+                        // Reset filter if active shop is not in current brands list
+                        if (this.activeShopFilter !== 'all' && !this.brands.some(b => b.id === this.activeShopFilter)) {
+                            this.activeShopFilter = 'all';
+                        }
 
                         // Default onboarding select option
                         if (this.brands.length > 0) {
-                            if (!this.newProduct.brand_id) this.newProduct.brand_id = this.brands[0].id;
-                            if (!this.shopifyImportBrandId) this.shopifyImportBrandId = this.brands[0].id;
-                            if (!this.simBrandId) this.simBrandId = this.brands[0].id;
-                            if (!this.previewActiveBrandId) this.previewActiveBrandId = this.brands[0].id;
+                            if (!this.newProduct.brand_id || !this.brands.some(b => b.id === this.newProduct.brand_id)) {
+                                this.newProduct.brand_id = this.brands[0].id;
+                            }
+                            if (!this.shopifyImportBrandId || !this.brands.some(b => b.id === this.shopifyImportBrandId)) {
+                                this.shopifyImportBrandId = this.brands[0].id;
+                            }
+                            if (!this.simBrandId || !this.brands.some(b => b.id === this.simBrandId)) {
+                                this.simBrandId = this.brands[0].id;
+                            }
+                            if (this.activeShopFilter !== 'all' && this.brands.some(b => b.id === this.activeShopFilter)) {
+                                this.previewActiveBrandId = this.activeShopFilter;
+                            } else {
+                                this.previewActiveBrandId = this.brands[0].id;
+                            }
                         }
                     } catch (err) {
                         console.error('Failed to load brands:', err);
@@ -2060,6 +2124,40 @@ export default {
                 fetchProducts() {
                     return this.loadProducts();
                 },
+                async loadActivity() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/activity`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            this.activityLogs = await response.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load activity logs:', err);
+                    }
+                },
+                async sendSimulatedMessage(title, description) {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/activity/simulate`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify({
+                                title,
+                                description,
+                                brand_id: this.activeShopFilter === 'all' ? null : this.activeShopFilter
+                            })
+                        });
+                        if (response.ok) {
+                            this.showNotification('Simulated support inquiry posted.');
+                            this.loadActivity();
+                        }
+                    } catch (err) {
+                        console.error('Failed to send simulated message:', err);
+                    }
+                },
                 // Onboard New Brand
                 async onboardBrand() {
                     try {
@@ -2074,7 +2172,7 @@ export default {
 
                         if (response.ok) {
                             this.showNotification(`Shop ${this.newBrand.name} onboarded successfully!`);
-                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', shopify_shop_name: '', shopify_access_token: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '' };
+                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'] };
                             await this.loadBrands();
                             this.switchView('overview');
                         } else {
@@ -2087,6 +2185,19 @@ export default {
                 },
                 // De-onboard Brand
                 async deOnboardBrand(brandId) {
+                    if (!brandId) {
+                        alert('Error: No brand shop selected to delete.');
+                        return;
+                    }
+
+                    const role = this.userRole.toLowerCase();
+                    const userBrandId = localStorage.getItem('sc_admin_brand_id');
+
+                    if (role !== 'superadmin' && (role !== 'merchant' || userBrandId !== brandId)) {
+                        this.showNotification('Error: Only platform superadmins or the store manager can delete this brand shop.');
+                        return;
+                    }
+
                     if (!confirm(`Are you sure you want to de-onboard and delete "${brandId}"? This cleans up all associated products, orders, and deletes its Cloudflare subdomain!`)) {
                         return;
                     }
@@ -2099,6 +2210,9 @@ export default {
 
                         if (response.ok) {
                             this.showNotification(`Shop ${brandId} deleted and DNS records cleaned up!`);
+                            if (this.activeShopFilter === brandId) {
+                                  this.activeShopFilter = 'all';
+                            }
                             this.loadBrands();
                         } else {
                             const err = await response.json();
@@ -2108,10 +2222,39 @@ export default {
                         alert(`Error: ${err.message}`);
                     }
                 },
+                // Update Brand Status (active, paused, archived, draft)
+                async updateBrandStatus(brandId, status) {
+                    if (status === 'archived' && this.userRole.toLowerCase() !== 'superadmin') {
+                        this.showNotification('Error: Only platform superadmins can archive brand storefronts.');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/brands/${brandId}/status`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify({ status })
+                        });
+
+                        if (response.ok) {
+                            this.showNotification(`Shop ${brandId} is now ${status}.`);
+                            this.loadBrands();
+                            this.updateSettingsContext();
+                        } else {
+                            const err = await response.json();
+                            alert(`Error updating brand status: ${err.error}`);
+                        }
+                    } catch (err) {
+                        alert(`Error: ${err.message}`);
+                    }
+                },
                 // Add Product manual
                 async addProduct() {
-                    const features = this.newProduct.features.split('\n').filter(l => l.trim() !== '');
-                    const compatibility = this.newProduct.compatibility.split('\n').filter(l => l.trim() !== '');
+                    const features = (this.newProduct.features || '').split('\n').filter(l => l.trim() !== '');
+                    const compatibility = (this.newProduct.compatibility || '').split('\n').filter(l => l.trim() !== '');
 
                     const payload = {
                         ...this.newProduct,
@@ -2132,13 +2275,39 @@ export default {
 
                         if (response.ok) {
                             this.showNotification('Product added to brand catalog successfully.');
-                            this.newProduct = { brand_id: this.brands[0]?.id || '', title: '', price: 132.00, tag: '', image: '', original_link: '', description: '', long_description: '', features: '', compatibility: '' };
+                            this.newProduct = { brand_id: this.brands[0]?.id || '', title: '', price: 132.00, tag: '', image: '', original_link: '', description: '', long_description: '', features: '', compatibility: '', sku: '', external_id: '', translations: {} };
+                            this.loadProducts();
                         } else {
                             const err = await response.json();
                             alert(`Error adding product: ${err.error}`);
                         }
                     } catch (err) {
                         alert(`Error: ${err.message}`);
+                    }
+                },
+                async updateProduct(productData) {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/products/${productData.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify(productData)
+                        });
+
+                        if (response.ok) {
+                            this.showNotification('Product details updated successfully.');
+                            this.loadProducts();
+                            return true;
+                        } else {
+                            const err = await response.json();
+                            alert(`Error updating product: ${err.error}`);
+                            return false;
+                        }
+                    } catch (err) {
+                        alert(`Error: ${err.message}`);
+                        return false;
                     }
                 },
                 // File uploads downsizer
@@ -2208,6 +2377,7 @@ export default {
                             },
                             body: JSON.stringify({
                                 brandId: this.shopifyImportBrandId,
+                                external_id: String(p.id),
                                 title: p.title,
                                 price: p.price,
                                 image: p.image,
@@ -2237,16 +2407,68 @@ export default {
                     if (this.activeShopFilter !== 'all') {
                         const brand = this.brands.find(b => b.id === this.activeShopFilter);
                         if (brand) {
+                            const langs = brand.languages ? brand.languages.split(',') : ['en'];
+                            let theme = {};
+                            if (brand.theme_settings) {
+                                try {
+                                    theme = JSON.parse(brand.theme_settings);
+                                } catch(e) {}
+                            }
                             this.settingsBrand = {
                                 ...brand,
+                                secondary_color: theme.secondary_color || '#767676',
+                                bg_color: theme.bg_color || '#ffffff',
+                                text_color: theme.text_color || '#111111',
+                                button_radius: theme.button_radius || '4px',
+                                button_text_color: theme.button_text_color || '#ffffff',
+                                header_bg_color: theme.header_bg_color || '#ffffff',
+                                font_family: theme.font_family || 'Outfit',
                                 shopify_access_token: '',
                                 stripe_secret_key: '',
-                                stripe_webhook_secret: ''
+                                stripe_webhook_secret: '',
+                                languages: langs
                             };
                         }
                     }
                 },
                 async updateBrandSettings() {
+                    // Pre-save subdomain character and conflict validation
+                    if (!this.settingsBrand.custom_domain) {
+                        const sub = this.settingsBrand.subdomain || '';
+                        const slug = sub.split('.')[0] || '';
+                        
+                        const slugRegex = /^[a-z0-9-]+$/;
+                        if (!slug || !slugRegex.test(slug)) {
+                            alert('Invalid Subdomain Slug: Only lowercase letters, numbers, and hyphens are allowed.');
+                            return;
+                        }
+                        
+                        const conflict = this.brands.some(b => b.id !== this.settingsBrand.id && (b.subdomain || '').split('.')[0] === slug);
+                        if (conflict) {
+                            alert(`Conflict: The subdomain slug "${slug}" is already in use by another shop.`);
+                            return;
+                        }
+                    }
+
+                    let existingTheme = {};
+                    if (this.settingsBrand.theme_settings) {
+                        try {
+                            existingTheme = typeof this.settingsBrand.theme_settings === 'string'
+                                ? JSON.parse(this.settingsBrand.theme_settings)
+                                : this.settingsBrand.theme_settings;
+                        } catch(e) {}
+                    }
+
+                    this.settingsBrand.theme_settings = JSON.stringify({
+                        ...existingTheme,
+                        secondary_color: this.settingsBrand.secondary_color,
+                        bg_color: this.settingsBrand.bg_color,
+                        text_color: this.settingsBrand.text_color,
+                        button_radius: this.settingsBrand.button_radius,
+                        button_text_color: this.settingsBrand.button_text_color,
+                        header_bg_color: this.settingsBrand.header_bg_color,
+                        font_family: this.settingsBrand.font_family || 'Outfit'
+                    });
                     try {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/brands`, {
                             method: 'POST',
@@ -2330,6 +2552,10 @@ export default {
                     }
                     return parseFloat(order.total).toFixed(2);
                 },
+                getBrandName(brandId) {
+                    const brand = this.brands.find(b => b.id === brandId);
+                    return brand ? brand.name : brandId;
+                },
                 getStatusLabel(status) {
                     if (status === 'paid' || status === 'sent_to_warehouse' || status === 'shipped') return 'Success';
                     if (status === 'pending_payment') return 'Pending';
@@ -2344,22 +2570,84 @@ export default {
                 renderAnalyticsCharts() {
                     const paid = this.filteredOrders.filter(o => o.status !== 'pending_payment');
 
-                    const labels = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                    const newUsersData = Array(12).fill(0);
-                    const existingUsersData = Array(12).fill(0);
+                    let labels = [];
+                    let newUsersData = [];
+                    let existingUsersData = [];
 
-                    paid.forEach(o => {
-                        const date = new Date(o.created_at);
-                        const mIdx = date.getMonth();
-                        const total = parseFloat(o.total) || 0;
-                        newUsersData[mIdx] += total * 0.65;
-                        existingUsersData[mIdx] += total * 0.35;
-                    });
+                    const timeframe = (this.analyticsTimeframe || 'Monthly').toLowerCase();
 
-                    const hasData = newUsersData.some(v => v > 0);
-                    if (!hasData) {
-                        newUsersData.splice(0, 12, 10000, 14000, 17000, 12000, 20000, 38000, 24000, 18000, 16000, 21000, 14000, 17000);
-                        existingUsersData.splice(0, 12, 6000, 8000, 10000, 6000, 11000, 18000, 12000, 9000, 8000, 10000, 6000, 8000);
+                    if (timeframe === 'daily') {
+                        labels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+                        newUsersData = Array(7).fill(0);
+                        existingUsersData = Array(7).fill(0);
+                        
+                        paid.forEach(o => {
+                            const d = new Date(o.created_at);
+                            const day = (d.getDay() + 6) % 7;
+                            const total = parseFloat(o.total) || 0;
+                            newUsersData[day] += total * 0.65;
+                            existingUsersData[day] += total * 0.35;
+                        });
+                        
+                        if (newUsersData.every(v => v === 0)) {
+                            newUsersData = [120, 150, 180, 90, 200, 310, 160];
+                            existingUsersData = [80, 100, 120, 60, 110, 190, 100];
+                        }
+                    } else if (timeframe === 'weekly') {
+                        labels = ['WEEK 1', 'WEEK 2', 'WEEK 3', 'WEEK 4'];
+                        newUsersData = Array(4).fill(0);
+                        existingUsersData = Array(4).fill(0);
+                        
+                        paid.forEach(o => {
+                            const d = new Date(o.created_at);
+                            const w = Math.min(3, Math.floor(d.getDate() / 8));
+                            const total = parseFloat(o.total) || 0;
+                            newUsersData[w] += total * 0.65;
+                            existingUsersData[w] += total * 0.35;
+                        });
+                        
+                        if (newUsersData.every(v => v === 0)) {
+                            newUsersData = [800, 1200, 1500, 1100];
+                            existingUsersData = [500, 700, 900, 600];
+                        }
+                    } else if (timeframe === 'yearly') {
+                        labels = ['2022', '2023', '2024', '2025', '2026'];
+                        newUsersData = Array(5).fill(0);
+                        existingUsersData = Array(5).fill(0);
+                        
+                        paid.forEach(o => {
+                            const d = new Date(o.created_at);
+                            const yr = d.getFullYear();
+                            const idx = yr - 2022;
+                            if (idx >= 0 && idx < 5) {
+                                const total = parseFloat(o.total) || 0;
+                                newUsersData[idx] += total * 0.65;
+                                existingUsersData[idx] += total * 0.35;
+                            }
+                        });
+                        
+                        if (newUsersData.every(v => v === 0)) {
+                            newUsersData = [120000, 145000, 180000, 210000, 245000];
+                            existingUsersData = [80000, 95000, 110000, 130000, 155000];
+                        }
+                    } else { // default 'monthly'
+                        labels = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                        newUsersData = Array(12).fill(0);
+                        existingUsersData = Array(12).fill(0);
+
+                        paid.forEach(o => {
+                            const date = new Date(o.created_at);
+                            const mIdx = date.getMonth();
+                            const total = parseFloat(o.total) || 0;
+                            newUsersData[mIdx] += total * 0.65;
+                            existingUsersData[mIdx] += total * 0.35;
+                        });
+
+                        const hasData = newUsersData.some(v => v > 0);
+                        if (!hasData) {
+                            newUsersData = [10000, 14000, 17000, 12000, 20000, 38000, 24000, 18000, 16000, 21000, 14000, 17000];
+                            existingUsersData = [6000, 8000, 10000, 6000, 11000, 18000, 12000, 9000, 8000, 10000, 6000, 8000];
+                        }
                     }
 
                     const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -2375,22 +2663,29 @@ export default {
                         if (window.salesChartInstance) {
                             window.salesChartInstance.destroy();
                         }
+                        const sType = this.salesChartType || 'bar';
                         window.salesChartInstance = new Chart(ctxSales, {
-                            type: 'bar',
+                            type: sType,
                             data: {
                                 labels: labels,
                                 datasets: [
                                     {
                                         label: 'New User',
                                         data: newUsersData,
-                                        backgroundColor: newUsersColor,
+                                        backgroundColor: sType === 'line' ? 'transparent' : newUsersColor,
+                                        borderColor: newUsersColor,
+                                        borderWidth: 2,
+                                        tension: 0.3,
                                         borderRadius: 4,
                                         barThickness: 16
                                     },
                                     {
                                         label: 'Existing User',
                                         data: existingUsersData,
-                                        backgroundColor: existingUsersColor,
+                                        backgroundColor: sType === 'line' ? 'transparent' : existingUsersColor,
+                                        borderColor: existingUsersColor,
+                                        borderWidth: 2,
+                                        tension: 0.3,
                                         borderRadius: 4,
                                         barThickness: 16
                                     }
@@ -2402,7 +2697,7 @@ export default {
                                 plugins: { legend: { display: false } },
                                 scales: {
                                     y: {
-                                        stacked: true,
+                                        stacked: sType !== 'line',
                                         grid: { color: gridColor },
                                         ticks: {
                                             color: tickColor,
@@ -2413,7 +2708,7 @@ export default {
                                         }
                                     },
                                     x: {
-                                        stacked: true,
+                                        stacked: sType !== 'line',
                                         grid: { display: false },
                                         ticks: { color: tickColor, font: { family: 'Inter', size: 10 } }
                                     }
@@ -2444,13 +2739,17 @@ export default {
                         if (window.funnelChartInstance) {
                             window.funnelChartInstance.destroy();
                         }
+                        const fType = this.funnelChartType || 'bar';
                         window.funnelChartInstance = new Chart(ctxFunnel, {
-                            type: 'bar',
+                            type: fType,
                             data: {
                                 labels: labelsBrands,
                                 datasets: [{
                                     data: dataBrands,
-                                    backgroundColor: existingUsersColor,
+                                    backgroundColor: fType === 'line' ? 'transparent' : existingUsersColor,
+                                    borderColor: existingUsersColor,
+                                    borderWidth: 2,
+                                    tension: 0.3,
                                     borderRadius: 4,
                                     barThickness: 16
                                 }]

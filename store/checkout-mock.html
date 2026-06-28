@@ -206,7 +206,7 @@
 
                 if (res.ok) {
                     // Redirect back to shop with success state, which will automatically show success modal
-                    window.location.href = `index.html?orderId=${orderId}&status=success`;
+                    window.location.href = `/?orderId=${orderId}&status=success`;
                 } else {
                     alert('Simulation payment authorization failed.');
                     payBtn.textContent = 'Authorize sandbox Payment';
@@ -220,7 +220,7 @@
         });
 
         document.getElementById('cancel-btn').addEventListener('click', () => {
-            window.location.href = 'index.html';
+            window.location.href = '/';
         });
     </script>
 </body>

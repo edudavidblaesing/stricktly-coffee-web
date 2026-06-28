@@ -53,7 +53,8 @@
             color: var(--text-main);
             font-family: var(--font-body);
             overflow-x: hidden;
-            line-height: 1.6;
+            font-size: var(--font-scale-base, 16px);
+            line-height: var(--line-height-scale, 1.6);
         }
 
         /* Utility classes */
@@ -66,11 +67,11 @@
         /* Header */
         header {
             position: fixed;
-            top: 0;
+            top: var(--header-top, 0);
             left: 0;
             width: 100%;
             height: 80px;
-            background: rgba(11, 13, 12, 0.8);
+            background: var(--header-bg-color, rgba(11, 13, 12, 0.8));
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border);
@@ -93,7 +94,7 @@
             font-weight: 700;
             letter-spacing: 0.15em;
             text-transform: uppercase;
-            color: var(--text-main);
+            color: var(--header-text-main, var(--text-main));
             text-decoration: none;
             display: flex;
             align-items: center;
@@ -101,7 +102,7 @@
         }
 
         .logo span {
-            color: var(--primary);
+            color: var(--nav-active-color, var(--primary-contrast, var(--primary)));
         }
 
         nav {
@@ -110,7 +111,7 @@
         }
 
         nav a {
-            color: var(--text-muted);
+            color: var(--header-text-muted, var(--text-muted));
             text-decoration: none;
             font-weight: 400;
             font-size: 0.95rem;
@@ -120,7 +121,7 @@
         }
 
         nav a:hover, nav a.active {
-            color: var(--primary);
+            color: var(--nav-active-color, var(--primary));
         }
 
         .header-actions {
@@ -132,7 +133,7 @@
         .cart-icon-btn {
             background: none;
             border: none;
-            color: var(--text-main);
+            color: var(--header-text-main, var(--text-main));
             cursor: pointer;
             position: relative;
             padding: 8px;
@@ -140,7 +141,7 @@
         }
 
         .cart-icon-btn:hover {
-            color: var(--primary);
+            color: var(--nav-active-color, var(--primary));
         }
 
         .cart-badge {
@@ -167,7 +168,7 @@
 
         /* Hero Section */
         .hero {
-            padding: 180px 0 100px 0;
+            padding: var(--page-top-offset, 180px) 0 100px 0;
             position: relative;
             background: radial-gradient(circle at 80% 20%, rgba(197, 160, 89, 0.08) 0%, transparent 60%);
         }
@@ -182,7 +183,7 @@
         .hero-tag {
             display: inline-block;
             font-family: var(--font-display);
-            color: var(--primary);
+            color: var(--primary-contrast, var(--primary));
             font-size: 0.85rem;
             font-weight: 700;
             letter-spacing: 0.2em;
@@ -200,7 +201,7 @@
         }
 
         .hero h1 span {
-            color: var(--primary);
+            color: var(--primary-contrast, var(--primary));
         }
 
         .hero p {
@@ -220,7 +221,7 @@
             font-weight: 700;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            border-radius: 4px;
+            border-radius: var(--btn-radius, 4px);
             text-decoration: none;
             transition: var(--transition);
             cursor: pointer;
@@ -228,13 +229,13 @@
 
         .btn-primary {
             background-color: var(--primary);
-            color: var(--bg-color);
+            color: var(--btn-text-color, var(--bg-color));
             border: 1px solid var(--primary);
         }
 
         .btn-primary:hover {
             background-color: transparent;
-            color: var(--primary);
+            color: var(--primary-contrast, var(--primary));
         }
 
         .btn-secondary {
@@ -273,7 +274,7 @@
 
         .products-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
             gap: 32px;
         }
 
@@ -365,7 +366,7 @@
             font-family: var(--font-display);
             font-size: 1.25rem;
             font-weight: 700;
-            color: var(--primary);
+            color: var(--primary-contrast, var(--primary));
         }
 
         .add-to-cart-btn {
@@ -373,7 +374,7 @@
             color: var(--text-main);
             border: 1px solid var(--border);
             padding: 10px 18px;
-            border-radius: 4px;
+            border-radius: var(--btn-radius, 4px);
             font-family: var(--font-display);
             font-size: 0.8rem;
             font-weight: 700;
@@ -523,7 +524,7 @@
             color: var(--text-main);
             width: 24px;
             height: 24px;
-            border-radius: 4px;
+            border-radius: var(--btn-radius, 4px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -784,6 +785,39 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
+            header {
+                height: auto;
+                padding: 16px 0;
+            }
+            .header-container {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                row-gap: 12px;
+                align-items: center;
+            }
+            .logo {
+                grid-row: 1;
+                grid-column: 1;
+            }
+            .header-actions {
+                grid-row: 1;
+                grid-column: 2;
+                justify-content: flex-end;
+                gap: 16px;
+            }
+            nav {
+                grid-row: 2;
+                grid-column: 1 / span 2;
+                display: flex;
+                justify-content: center;
+                gap: 24px;
+                border-top: 1px solid var(--border);
+                padding-top: 12px;
+                width: 100%;
+            }
+            .hero {
+                padding: 140px 0 80px 0;
+            }
             .hero-grid {
                 grid-template-columns: 1fr;
                 text-align: center;
@@ -792,13 +826,15 @@
                 margin-left: auto;
                 margin-right: auto;
             }
-            nav {
-                display: none;
-            }
             .btn-secondary {
                 margin-left: 0;
                 margin-top: 12px;
                 display: flex;
+            }
+            .modal {
+                max-height: 90vh;
+                overflow-y: auto;
+                padding: 24px 16px;
             }
         }
 
@@ -828,8 +864,108 @@
             margin-bottom: 6px;
         }
     </style>
+    <style id="custom-css-overrides"></style>
 </head>
 <body>
+
+    <!-- Announcement Bar Banner -->
+    <div id="announcement-bar" style="display: none; width: 100%; text-align: center; padding: 10px 20px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.05em; background: var(--announcement-bg, var(--primary)); color: var(--announcement-text, #ffffff); z-index: 101; position: fixed; top: 0; left: 0; height: 40px; font-family: var(--font-body); transition: var(--transition); line-height: 20px; box-sizing: border-box;">
+        <span id="announcement-text-span">⚡ Free shipping on all orders over €75!</span>
+    </div>
+
+    <!-- Landing Page Section (Promo Offer) -->
+    <div id="landing-page-container" style="display: none; min-height: 100vh; background-color: var(--bg-color); color: var(--text-main); font-family: var(--font-body); flex-direction: column; justify-content: center; align-items: center; padding: 60px 24px; position: relative;">
+        <!-- Top Branding / Logo -->
+        <div style="margin-bottom: 40px; text-align: center;">
+            <a href="#" id="landing-logo" class="logo" style="justify-content: center;">
+                PESADO<span>58.5</span>
+            </a>
+        </div>
+
+        <div class="container" style="max-width: 800px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 24px;">
+            <h1 id="landing-headline" style="font-family: var(--font-display); font-size: clamp(2.2rem, 6vw, 3.8rem); line-height: 1.1; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
+                Exclusive Promo: Get 20% off all Precision Coffee Gear!
+            </h1>
+            <p id="landing-subheadline" style="font-size: 1.15rem; color: var(--text-muted); max-width: 600px; line-height: 1.6; margin-bottom: 12px;">
+                Elevate your home barista journey with our award-winning tools.
+            </p>
+
+            <!-- Hero Image Preview -->
+            <div id="landing-hero-img-container" style="width: 100%; max-width: 650px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; background: var(--card-bg);">
+                <img id="landing-hero-img" src="" alt="Promo Banner" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                <div id="landing-hero-img-fallback" style="font-size: 3rem; color: var(--text-muted);">☕</div>
+            </div>
+
+            <!-- Features List -->
+            <ul id="landing-features-list" style="list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 32px; margin-bottom: 20px; font-size: 0.95rem; color: var(--text-main);">
+                <!-- Dynamic feature bullets -->
+            </ul>
+
+            <!-- Email signup or Product offer card -->
+            <div id="landing-card" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 520px; text-align: left; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <!-- TYPE 1: Coupon Lead Capture View -->
+                <div id="landing-coupon-offer-view">
+                    <div id="landing-form-step">
+                        <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Claim Your Voucher</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Enter your email to receive your custom discount coupon code instantly.</p>
+                        
+                        <form id="landing-signup-form" onsubmit="return false;">
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px;">
+                                <label for="landing-email" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Email Address</label>
+                                <input type="email" id="landing-email" required placeholder="name@domain.com" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-color); color: var(--text-main); font-family: var(--font-body); font-size: 0.95rem; outline: none; transition: var(--transition);">
+                            </div>
+                            <button type="submit" id="landing-cta-btn" class="btn" style="width: 100%; height: 48px; background: var(--primary); color: var(--btn-text-color, var(--bg-color)); font-weight: 700; border: none; border-radius: var(--btn-radius, 8px); cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
+                                Unlock Coupon
+                            </button>
+                        </form>
+                        <div id="landing-form-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 10px; display: none; text-align: center;"></div>
+                    </div>
+ 
+                    <div id="landing-success-step" style="display: none; text-align: center; padding: 10px 0;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; font-size: 1.5rem;">✓</div>
+                        <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Coupon Unlocked!</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">Your code is ready. Use it during checkout to claim your discount.</p>
+                        
+                        <div style="background: var(--bg-color); border: 1px dashed var(--primary); border-radius: 8px; padding: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                            <code id="landing-coupon-code" style="font-family: monospace; font-size: 1.4rem; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; margin-left: 8px;">COFFEE20</code>
+                            <button id="landing-copy-btn" class="btn" style="height: 32px; padding: 0 12px; font-size: 0.8rem; background: var(--primary); color: var(--btn-text-color, var(--bg-color)); border: none; border-radius: var(--btn-radius, 4px); font-weight: 700; cursor: pointer; margin: 0;">Copy</button>
+                        </div>
+                        
+                        <a href="." id="landing-shop-link" class="btn" style="display: block; width: 100%; height: 44px; line-height: 44px; text-align: center; border: 1px solid var(--border); border-radius: var(--btn-radius, 8px); color: var(--text-main); text-decoration: none; font-weight: 700; transition: var(--transition);">
+                            Go to Storefront 🛒
+                        </a>
+                    </div>
+                </div>
+
+                <!-- TYPE 2: Product Offer Direct Purchase View -->
+                <div id="landing-product-offer-view" style="display: none;">
+                    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px;">
+                        <img id="landing-prod-img" src="" alt="Featured Product" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0;">
+                        <div>
+                            <h3 id="landing-prod-title" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; line-height: 1.3;">Product Title</h3>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span id="landing-prod-old-price" style="text-decoration: line-through; color: var(--text-muted); font-size: 0.95rem;">€0.00</span>
+                                <span id="landing-prod-price" style="color: var(--primary); font-weight: 800; font-size: 1.3rem;">€0.00</span>
+                            </div>
+                            <span id="landing-prod-discount-badge" style="display: inline-block; background: rgba(16,185,129,0.15); color: #10b981; font-size: 0.72rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-top: 4px;">20% OFF Applied</span>
+                        </div>
+                    </div>
+                    
+                    <p id="landing-prod-desc" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px;"></p>
+                    
+                    <button id="landing-prod-buy-btn" class="btn" style="width: 100%; height: 48px; background: var(--primary); color: var(--btn-text-color, var(--bg-color)); font-weight: 700; border: none; border-radius: var(--btn-radius, 8px); cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0;">
+                        Claim Offer & Buy Now
+                    </button>
+                    
+                    <div style="text-align: center; margin-top: 15px;">
+                        <a href="." id="landing-prod-shop-link" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                            Or browse entire collection ➡️
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Header -->
     <header>
@@ -839,9 +975,15 @@
             </a>
             <nav>
                 <a href="#products" class="active">Collection</a>
-                <a href="track.html">Track Order</a>
+                <a href="track">Track Order</a>
             </nav>
-            <div class="header-actions">
+            <div class="header-actions" style="display: flex; align-items: center; gap: 16px;">
+                <!-- Language Selector Dropdown -->
+                <div id="language-selector-container" style="display: none;">
+                    <select id="store-language-select" style="background: transparent; border: 1px solid var(--header-text-muted, var(--border)); border-radius: 6px; color: var(--header-text-main, var(--text-main)); font-family: var(--font-body); font-size: 0.85rem; padding: 4px 8px; cursor: pointer; outline: none; transition: var(--transition);">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
                 <button class="cart-icon-btn" id="open-cart-btn" aria-label="Open Cart">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="9" cy="21" r="1"></circle>
@@ -887,9 +1029,24 @@
 
     <!-- Footer -->
     <footer>
-        <div class="container">
-            <p>© 2026 <span>Strictly Coffee</span> | Pesado 58.5 Sub-Store. All rights reserved.</p>
-            <p>Designed for coffee purists and espresso perfectionists.</p>
+        <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+            <!-- Social Icons Block -->
+            <div id="footer-social-links" style="display: none; align-items: center; justify-content: center; gap: 18px; margin-bottom: 4px;">
+                <a id="instagram-social-btn" href="#" target="_blank" style="color: var(--header-text-muted, var(--text-muted)); transition: var(--transition); display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--header-text-muted, var(--text-muted))'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </a>
+                <a id="facebook-social-btn" href="#" target="_blank" style="color: var(--header-text-muted, var(--text-muted)); transition: var(--transition); display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--header-text-muted, var(--text-muted))'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                </a>
+                <a id="twitter-social-btn" href="#" target="_blank" style="color: var(--header-text-muted, var(--text-muted)); transition: var(--transition); display: inline-flex;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--header-text-muted, var(--text-muted))'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
+                </a>
+            </div>
+            
+            <div style="text-align: center;">
+                <p>© 2026 <span>Strictly Coffee</span> | Pesado 58.5 Sub-Store. All rights reserved.</p>
+                <p style="margin-top: 4px; font-size: 0.85rem; opacity: 0.7;">Designed for coffee purists and espresso perfectionists.</p>
+            </div>
         </div>
     </footer>
 
@@ -909,10 +1066,27 @@
             <p class="empty-cart-msg">Your shopping bag is empty.</p>
         </div>
         <div class="cart-footer">
+            <!-- Coupon / Discount Breakdown -->
+            <div id="cart-subtotal-row" style="display: none; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted);">
+                <span>Subtotal</span>
+                <span id="cart-subtotal-price">€0.00</span>
+            </div>
+            <div id="cart-discount-row" style="display: none; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; color: #10b981; font-weight: 600;">
+                <span>Discount (<span id="cart-discount-code"></span>)</span>
+                <span id="cart-discount-value">-€0.00</span>
+            </div>
             <div class="cart-total-row">
-                <span class="cart-total-label">Subtotal</span>
+                <span class="cart-total-label" id="cart-total-label">Subtotal</span>
                 <span class="cart-total-price" id="cart-total-price">€0.00</span>
             </div>
+            
+            <!-- Manual Coupon Code Entry -->
+            <div style="display: flex; gap: 8px; margin-top: 15px; margin-bottom: 6px;">
+                <input type="text" id="cart-coupon-input" placeholder="Promo code" style="flex: 1; padding: 8px 12px; border-radius: var(--btn-radius, 4px); border: 1px solid var(--border); background: var(--bg-color); color: var(--text-main); font-size: 0.85rem; font-family: var(--font-body);">
+                <button type="button" id="cart-coupon-apply-btn" style="padding: 0 16px; border-radius: var(--btn-radius, 4px); border: 1px solid var(--primary); background: var(--primary); color: var(--btn-text-color, #ffffff); font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: var(--font-body);">Apply</button>
+            </div>
+            <div id="cart-coupon-message" style="font-size: 0.8rem; margin-bottom: 12px; display: none; font-weight: 500;"></div>
+            
             <button class="checkout-btn" id="checkout-btn">Proceed to Checkout</button>
         </div>
     </div>
@@ -951,18 +1125,31 @@
             </svg>
         </button>
         <div class="product-detail-container">
-            <div class="product-detail-media">
-                <img id="detail-image" src="" alt="">
+            <div class="product-detail-media" style="display: flex; flex-direction: column;">
+                <img id="detail-image" src="" alt="" style="width: 100%; border-radius: 8px; object-fit: cover;">
+                <!-- Additional Images Thumbnails -->
+                <div id="detail-thumbnails" style="display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px;"></div>
             </div>
             <div class="product-detail-content">
                 <span class="product-badge" id="detail-badge" style="display: inline-block; margin-bottom: 8px;"></span>
-                <h3 id="detail-title" class="product-title" style="font-size: 1.6rem; margin-bottom: 8px; font-family: var(--font-display);"></h3>
-                <span id="detail-price" class="product-price" style="font-size: 1.4rem; display: block; margin-bottom: 12px; color: var(--primary);"></span>
+                <h3 id="detail-title" class="product-title" style="font-size: 1.6rem; margin-bottom: 4px; font-family: var(--font-display);"></h3>
+                
+                <!-- Ratings Summary -->
+                <div id="detail-rating-summary" style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; margin-bottom: 12px;">
+                    <span style="color: #ffb800; font-size: 0.95rem;">★ ★ ★ ★ ★</span>
+                    <span id="detail-rating-text" style="color: var(--text-muted);">Excellent 4.9 (3,572 reviews)</span>
+                </div>
+
+                <span id="detail-price" class="product-price" style="font-size: 1.4rem; display: block; margin-bottom: 12px; color: var(--primary-contrast, var(--primary));"></span>
                 <p id="detail-desc" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;"></p>
+                
+                <!-- Dynamic Options Selectors -->
+                <div id="detail-options-container" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;"></div>
                 
                 <div class="detail-tabs">
                     <button class="tab-btn active" id="tab-features-btn">Features</button>
                     <button class="tab-btn" id="tab-compatibility-btn">Compatibility</button>
+                    <button class="tab-btn" id="tab-reviews-btn">Reviews</button>
                 </div>
                 
                 <div id="tab-features" class="tab-content active">
@@ -970,6 +1157,9 @@
                 </div>
                 <div id="tab-compatibility" class="tab-content">
                     <ul id="detail-compatibility" style="padding-left: 0; font-size: 0.85rem; color: var(--text-muted);"></ul>
+                </div>
+                <div id="tab-reviews" class="tab-content" style="max-height: 180px; overflow-y: auto;">
+                    <div id="detail-reviews-list" style="display: flex; flex-direction: column; gap: 10px; padding: 4px 0;"></div>
                 </div>
                 
                 <div style="margin-top: 24px; display: flex; gap: 12px; flex-direction: column;">
@@ -1089,7 +1279,305 @@
         ];
 
         const urlParams = new URLSearchParams(window.location.search);
-        const previewBrandId = urlParams.get('previewBrandId');
+        let previewBrandId = urlParams.get('previewBrandId') || urlParams.get('brandId');
+
+        function getMutedColor(hex, opacity = 0.6) {
+            if (!hex || !hex.startsWith('#')) return 'var(--text-muted)';
+            const cleanHex = hex.replace('#', '');
+            let r, g, b;
+            if (cleanHex.length === 3) {
+                r = parseInt(cleanHex[0] + cleanHex[0], 16);
+                g = parseInt(cleanHex[1] + cleanHex[1], 16);
+                b = parseInt(cleanHex[2] + cleanHex[2], 16);
+            } else if (cleanHex.length === 6) {
+                r = parseInt(cleanHex.slice(0, 2), 16);
+                g = parseInt(cleanHex.slice(2, 4), 16);
+                b = parseInt(cleanHex.slice(4, 6), 16);
+            } else {
+                return 'var(--text-muted)';
+            }
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+
+        function getCardBgColor(bgHex) {
+            if (!bgHex || !bgHex.startsWith('#')) return 'var(--card-bg)';
+            const cleanHex = bgHex.replace('#', '');
+            let r, g, b;
+            if (cleanHex.length === 3) {
+                r = parseInt(cleanHex[0] + cleanHex[0], 16);
+                g = parseInt(cleanHex[1] + cleanHex[1], 16);
+                b = parseInt(cleanHex[2] + cleanHex[2], 16);
+            } else if (cleanHex.length === 6) {
+                r = parseInt(cleanHex.slice(0, 2), 16);
+                g = parseInt(cleanHex.slice(2, 4), 16);
+                b = parseInt(cleanHex.slice(4, 6), 16);
+            } else {
+                return 'var(--card-bg)';
+            }
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#f5f7f6' : '#121514';
+        }
+
+        function loadGoogleFont(fontName) {
+            if (!fontName) return;
+            const linkId = `gfont-${fontName.replace(/\s+/g, '-').toLowerCase()}`;
+            if (document.getElementById(linkId)) return; // Already loaded
+            
+            const link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@300;400;600;700;800&display=swap`;
+            document.head.appendChild(link);
+        }
+
+        function hexToRgb(hex) {
+            if (!hex) return null;
+            const cleanHex = hex.replace('#', '');
+            if (cleanHex.length === 3) {
+                return {
+                    r: parseInt(cleanHex[0] + cleanHex[0], 16),
+                    g: parseInt(cleanHex[1] + cleanHex[1], 16),
+                    b: parseInt(cleanHex[2] + cleanHex[2], 16)
+                };
+            } else if (cleanHex.length === 6) {
+                return {
+                    r: parseInt(cleanHex.slice(0, 2), 16),
+                    g: parseInt(cleanHex.slice(2, 4), 16),
+                    b: parseInt(cleanHex.slice(4, 6), 16)
+                };
+            }
+            return null;
+        }
+
+        function getLuminance(r, g, b) {
+            const a = [r, g, b].map(v => {
+                v /= 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+        }
+
+        function getContrastRatio(hex1, hex2) {
+            if (!hex1 || !hex2) return 1;
+            const rgb1 = hexToRgb(hex1);
+            const rgb2 = hexToRgb(hex2);
+            if (!rgb1 || !rgb2) return 1;
+            const l1 = getLuminance(rgb1.r, rgb1.g, rgb1.b) + 0.05;
+            const l2 = getLuminance(rgb2.r, rgb2.g, rgb2.b) + 0.05;
+            return Math.max(l1, l2) / Math.min(l1, l2);
+        }
+
+        function applyThemeSettings(settings) {
+            if (!settings) return;
+            
+            // 1. Base colors
+            let primaryColor = settings.primary_color || '#c5a059';
+            document.documentElement.style.setProperty('--primary', primaryColor);
+            
+            let bgColor = settings.bg_color || '#ffffff';
+            let textColor = settings.text_color || '#111111';
+            
+            document.documentElement.style.setProperty('--bg-color', bgColor);
+            document.documentElement.style.setProperty('--text-main', textColor);
+            
+            // 2. Calculated elements
+            document.documentElement.style.setProperty('--card-bg', getCardBgColor(bgColor));
+            document.documentElement.style.setProperty('--text-muted', getMutedColor(textColor, 0.6));
+            document.documentElement.style.setProperty('--border', getMutedColor(textColor, 0.12));
+            
+            // 3. Contrast check: primary color vs background color
+            const primaryBgRatio = getContrastRatio(primaryColor, bgColor);
+            let primaryContrast = primaryColor;
+            if (primaryBgRatio < 3.0) {
+                primaryContrast = textColor;
+            }
+            document.documentElement.style.setProperty('--primary-contrast', primaryContrast);
+            
+            // 4. Button text color contrast fallback
+            let btnTextColor = settings.button_text_color || '#ffffff';
+            const btnContrastRatio = getContrastRatio(btnTextColor, primaryColor);
+            if (btnContrastRatio < 4.5) {
+                const primRgb = hexToRgb(primaryColor);
+                if (primRgb) {
+                    const primLuminance = getLuminance(primRgb.r, primRgb.g, primRgb.b);
+                    btnTextColor = primLuminance > 0.5 ? '#111111' : '#ffffff';
+                }
+            }
+            document.documentElement.style.setProperty('--btn-text-color', btnTextColor);
+            
+            // 5. Header background and menu link hover/active fallbacks
+            let headerBgColor = settings.header_bg_color || bgColor;
+            document.documentElement.style.setProperty('--header-bg-color', headerBgColor);
+            
+            // Header text colors contrast checking
+            let headerTextMain = textColor;
+            let headerTextMuted = getMutedColor(textColor, 0.6);
+            
+            const headerTextContrastRatio = getContrastRatio(textColor, headerBgColor);
+            if (headerTextContrastRatio < 3.0) {
+                const headerBgRgb = hexToRgb(headerBgColor);
+                if (headerBgRgb) {
+                    const headerLuminance = getLuminance(headerBgRgb.r, headerBgRgb.g, headerBgRgb.b);
+                    headerTextMain = headerLuminance > 0.5 ? '#111111' : '#ffffff';
+                    headerTextMuted = headerLuminance > 0.5 ? '#767676' : '#a0a5a3';
+                }
+            }
+            
+            document.documentElement.style.setProperty('--header-text-main', headerTextMain);
+            document.documentElement.style.setProperty('--header-text-muted', headerTextMuted);
+            
+            const primaryHeaderRatio = getContrastRatio(primaryColor, headerBgColor);
+            let navActiveColor = primaryColor;
+            if (primaryHeaderRatio < 3.0) {
+                const headerBgRgb = hexToRgb(headerBgColor);
+                const headerLuminance = headerBgRgb ? getLuminance(headerBgRgb.r, headerBgRgb.g, headerBgRgb.b) : 1.0;
+                navActiveColor = getContrastRatio(textColor, headerBgColor) >= 3.0 ? textColor : (headerLuminance > 0.5 ? '#111111' : '#ffffff');
+            }
+            document.documentElement.style.setProperty('--nav-active-color', navActiveColor);
+            
+            // 6. Radius & hover accent
+            if (settings.secondary_color) {
+                document.documentElement.style.setProperty('--primary-hover', settings.secondary_color);
+            } else {
+                document.documentElement.style.setProperty('--primary-hover', getMutedColor(primaryColor, 0.8));
+            }
+            if (settings.button_radius) {
+                document.documentElement.style.setProperty('--btn-radius', settings.button_radius);
+            }
+            
+            // 7. Google Font loader
+            if (settings.font_family) {
+                loadGoogleFont(settings.font_family);
+                document.documentElement.style.setProperty('--font-body', `'${settings.font_family}', sans-serif`);
+                document.documentElement.style.setProperty('--font-display', `'${settings.font_family}', sans-serif`);
+            }
+            
+            // 8. Custom CSS rules injection
+            if (settings.custom_css !== undefined) {
+                const styleEl = document.getElementById('custom-css-overrides');
+                if (styleEl) styleEl.textContent = settings.custom_css;
+            }
+            
+            // 9. Header logo image/text update
+            if (settings.logo !== undefined) {
+                const logoEls = document.querySelectorAll('.logo');
+                logoEls.forEach(logoEl => {
+                    if (settings.logo) {
+                        logoEl.innerHTML = `<img src="${settings.logo}" alt="Logo" style="height: 36px; object-fit: contain; vertical-align: middle;">`;
+                    } else {
+                        const name = settings.name || window.brandName || 'Store';
+                        const parts = name.split(' ');
+                        logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
+                    }
+                });
+            }
+
+            // 10. Announcement Bar banner display and colors
+            const bar = document.getElementById('announcement-bar');
+            if (settings.announcement_active) {
+                if (bar) {
+                    bar.style.display = 'block';
+                    const textSpan = document.getElementById('announcement-text-span');
+                    if (textSpan) textSpan.textContent = settings.announcement_text || '⚡ Free shipping on all orders over €75!';
+                    
+                    let announcementBg = settings.announcement_bg || primaryColor;
+                    let announcementText = settings.announcement_text_color || '#ffffff';
+                    
+                    // Check contrast ratio of text against announcement background color
+                    const annContrastRatio = getContrastRatio(announcementText, announcementBg);
+                    if (annContrastRatio < 4.5) {
+                        const annBgRgb = hexToRgb(announcementBg);
+                        if (annBgRgb) {
+                            const annLuminance = getLuminance(annBgRgb.r, annBgRgb.g, annBgRgb.b);
+                            announcementText = annLuminance > 0.5 ? '#111111' : '#ffffff';
+                        }
+                    }
+                    
+                    document.documentElement.style.setProperty('--announcement-bg', announcementBg);
+                    document.documentElement.style.setProperty('--announcement-text', announcementText);
+                    
+                    // Push header and page offset
+                    document.documentElement.style.setProperty('--header-top', '40px');
+                    document.documentElement.style.setProperty('--page-top-offset', '220px');
+                }
+            } else {
+                if (bar) {
+                    bar.style.display = 'none';
+                    document.documentElement.style.setProperty('--header-top', '0px');
+                    document.documentElement.style.setProperty('--page-top-offset', '180px');
+                }
+            }
+
+            // 11. Typography scale controls mapping
+            let fontSizePx = '16px';
+            if (settings.font_size_scale === 'small') fontSizePx = '14px';
+            else if (settings.font_size_scale === 'large') fontSizePx = '18px';
+            document.documentElement.style.setProperty('--font-scale-base', fontSizePx);
+
+            let lineH = '1.6';
+            if (settings.line_height_scale === 'compact') lineH = '1.4';
+            document.documentElement.style.setProperty('--line-height-scale', lineH);
+
+            // 12. Social Icons block rendering
+            const socialLinksDiv = document.getElementById('footer-social-links');
+            if (socialLinksDiv) {
+                let hasSocial = false;
+                const instaBtn = document.getElementById('instagram-social-btn');
+                if (instaBtn) {
+                    if (settings.instagram_link) {
+                        instaBtn.href = settings.instagram_link;
+                        instaBtn.style.display = 'inline-flex';
+                        hasSocial = true;
+                    } else {
+                        instaBtn.style.display = 'none';
+                    }
+                }
+                const fbBtn = document.getElementById('facebook-social-btn');
+                if (fbBtn) {
+                    if (settings.facebook_link) {
+                        fbBtn.href = settings.facebook_link;
+                        fbBtn.style.display = 'inline-flex';
+                        hasSocial = true;
+                    } else {
+                        fbBtn.style.display = 'none';
+                    }
+                }
+                const twBtn = document.getElementById('twitter-social-btn');
+                if (twBtn) {
+                    if (settings.twitter_link) {
+                        twBtn.href = settings.twitter_link;
+                        twBtn.style.display = 'inline-flex';
+                        hasSocial = true;
+                    } else {
+                        twBtn.style.display = 'none';
+                    }
+                }
+                socialLinksDiv.style.display = hasSocial ? 'flex' : 'none';
+            }
+        }
+
+        // Live customizer postMessage update listener
+        window.addEventListener('message', (event) => {
+            console.log('[Storefront] Received message:', event.data);
+            if (event.data && event.data.type === 'UPDATE_PREVIEW_STYLES') {
+                applyThemeSettings(event.data);
+            }
+        });
+
+        // Notify parent that storefront preview is loaded and ready to receive real-time style updates
+        if (window.parent && window.parent !== window) {
+            console.log('[Storefront] Sending STOREFRONT_READY to parent');
+            window.parent.postMessage({ type: 'STOREFRONT_READY' }, '*');
+        }
+
+        // Resolve previewBrandId from pretty URL path segments (e.g. /store/pesado585)
+        const pathSegmentsName = window.location.pathname.split('/').filter(Boolean);
+        if (!previewBrandId && pathSegmentsName.length > 1 && pathSegmentsName[0] === 'store') {
+            const potentialId = pathSegmentsName[1];
+            if ((!potentialId.includes('.') || potentialId.includes('pesado58.5')) && potentialId !== 'track' && potentialId !== 'checkout-mock' && potentialId !== 'warehouse') {
+                previewBrandId = potentialId;
+            }
+        }
 
         // Fetch and load brand configs dynamically
         async function fetchBrandConfig() {
@@ -1098,32 +1586,201 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error();
                 const brand = await response.json();
+                window.brandName = brand.name;
                 
-                if (brand.primary_color) {
-                    document.documentElement.style.setProperty('--primary', brand.primary_color);
+                // Update Hero section text dynamically
+                const heroH1 = document.querySelector('.hero-content h1');
+                if (heroH1) {
+                    heroH1.innerHTML = `Elevate Your Coffee Ritual with <span>${brand.name}</span>`;
+                }
+                const heroP = document.querySelector('.hero-content p');
+                if (heroP) {
+                    heroP.textContent = `Shop the latest precision-engineered coffee tools and custom storefront accessories directly from ${brand.name}.`;
+                }
+                
+                // Default fallback landing pages (with backward compatibility)
+                window.landingPages = [
+                    {
+                        id: 'promo-offer',
+                        type: 'coupon',
+                        headline: 'Exclusive Promo: Get 20% off all Precision Coffee Gear!',
+                        subheadline: 'Elevate your home barista journey with our award-winning tools.',
+                        cta: 'Unlock 20% Off Now',
+                        hero_img: 'https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591',
+                        features: '⚡ Free Worldwide Shipping\n🔒 100% Precision Guaranteed\n☕ Loved by 10,000+ Baristas',
+                        coupon_code: 'COFFEE20',
+                        inherit: true
+                    }
+                ];
+
+                let activePrimaryColor = brand.primary_color;
+                let activeLogo = brand.logo;
+                let activeFavicon = brand.favicon;
+
+                if (brand.theme_settings) {
+                    try {
+                        let settings = {};
+                        if (brand.theme_settings) {
+                            try {
+                                settings = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
+                            } catch(e) {}
+                        }
+
+                        // Determine if storefront inherits master brand settings or uses storefront-specific overrides
+                        const useInherit = settings.inherit !== false;
+                        const overrides = settings.storefront || {};
+
+                        // Apply settings (or fallbacks)
+                        const config = {
+                            primary_color: useInherit ? brand.primary_color : (overrides.primary_color || brand.primary_color),
+                            secondary_color: useInherit ? (settings.secondary_color || '#767676') : (overrides.secondary_color || settings.secondary_color || '#767676'),
+                            bg_color: useInherit ? (settings.bg_color || '#ffffff') : (overrides.bg_color || settings.bg_color || '#ffffff'),
+                            text_color: useInherit ? (settings.text_color || '#111111') : (overrides.text_color || settings.text_color || '#111111'),
+                            button_radius: useInherit ? (settings.button_radius || '4px') : (overrides.button_radius || settings.button_radius || '4px'),
+                            button_text_color: useInherit ? (settings.button_text_color || '#ffffff') : (overrides.button_text_color || settings.button_text_color || '#ffffff'),
+                            header_bg_color: useInherit ? (settings.header_bg_color || '#ffffff') : (overrides.header_bg_color || settings.header_bg_color || '#ffffff'),
+                            font_family: useInherit ? (settings.font_family || 'Outfit') : (overrides.font_family || settings.font_family || 'Outfit'),
+                            custom_css: useInherit ? '' : (overrides.custom_css || ''),
+                            logo: useInherit ? brand.logo : (overrides.logo || brand.logo),
+                            name: brand.name
+                        };
+                        applyThemeSettings(config);
+
+                        const logoVal = useInherit ? brand.logo : (overrides.logo || brand.logo);
+                        const favVal = useInherit ? brand.favicon : (overrides.favicon || brand.favicon);
+                        if (logoVal) activeLogo = logoVal;
+                        if (favVal) activeFavicon = favVal;
+                        activePrimaryColor = config.primary_color;
+                    } catch(e) {
+                        console.error('[Storefront] Failed to load theme customizations:', e);
+                    }
+                }
+
+                if (activePrimaryColor) {
+                    document.documentElement.style.setProperty('--primary', activePrimaryColor);
+                }
+
+                if (activeFavicon) {
+                    let link = document.querySelector("link[rel~='icon']");
+                    if (!link) {
+                        link = document.createElement('link');
+                        link.rel = 'icon';
+                        document.getElementsByTagName('head')[0].appendChild(link);
+                    }
+                    link.href = activeFavicon;
+                }
+
+                // Render languages if configured
+                if (brand.languages) {
+                    const languages = brand.languages.split(',');
+                    if (languages.length > 1) {
+                        const container = document.getElementById('language-selector-container');
+                        const select = document.getElementById('store-language-select');
+                        
+                        const langData = {
+                            en: { name: 'EN', flag: '🇬🇧' },
+                            de: { name: 'DE', flag: '🇩🇪' },
+                            fr: { name: 'FR', flag: '🇫🇷' },
+                            nl: { name: 'NL', flag: '🇳🇱' },
+                            es: { name: 'ES', flag: '🇪🇸' },
+                            it: { name: 'IT', flag: '🇮🇹' }
+                        };
+
+                        select.innerHTML = '';
+                        languages.forEach(code => {
+                            const meta = langData[code] || { name: code.toUpperCase(), flag: '🌐' };
+                            const opt = document.createElement('option');
+                            opt.value = code;
+                            opt.textContent = `${meta.flag} ${meta.name}`;
+                            opt.style.background = '#121514';
+                            opt.style.color = '#ffffff';
+                            select.appendChild(opt);
+                        });
+
+                        container.style.display = 'block';
+
+                        // Check if a language/locale is specified in the URL query parameters (e.g. ?lang=de)
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const urlLang = urlParams.get('lang') || urlParams.get('locale');
+                        if (urlLang && languages.includes(urlLang.toLowerCase())) {
+                            localStorage.setItem('store_lang', urlLang.toLowerCase());
+                        }
+
+                        // Set active selection to local storage or fallback to first
+                        const activeLang = localStorage.getItem('store_lang') || languages[0];
+                        if (languages.includes(activeLang)) {
+                            select.value = activeLang;
+                        } else {
+                            select.value = languages[0];
+                        }
+
+                        select.addEventListener('change', (e) => {
+                            localStorage.setItem('store_lang', e.target.value);
+                            location.reload();
+                        });
+                    }
+                }
+
+                // If store is paused, render a beautiful custom overlay matching their brand styles
+                if (brand.status === 'paused') {
+                    const overlay = document.createElement('div');
+                    overlay.style.position = 'fixed';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.width = '100vw';
+                    overlay.style.height = '100vh';
+                    overlay.style.background = '#000000';
+                    overlay.style.color = '#ffffff';
+                    overlay.style.display = 'flex';
+                    overlay.style.flexDirection = 'column';
+                    overlay.style.alignItems = 'center';
+                    overlay.style.justifyContent = 'center';
+                    overlay.style.zIndex = '99999';
+                    overlay.style.fontFamily = "'Outfit', sans-serif";
+                    overlay.style.padding = '20px';
+                    overlay.style.textAlign = 'center';
+                    
+                    let logoHtml = '';
+                    if (activeLogo) {
+                        logoHtml = `<img src="${activeLogo}" alt="${brand.name}" style="height: 60px; margin-bottom: 24px; object-fit: contain;">`;
+                    } else {
+                        logoHtml = `<h1 style="font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 24px; text-transform: uppercase; color: var(--primary, #c5a059);">${brand.name}</h1>`;
+                    }
+                    
+                    overlay.innerHTML = `
+                        <div style="max-width: 480px; padding: 40px; background: #111; border: 1px solid #222; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+                            ${logoHtml}
+                            <div style="font-size: 1.8rem; font-weight: 700; color: #ffffff; margin-bottom: 12px; font-family: 'Outfit', sans-serif;">Store Temporarily Offline</div>
+                            <p style="font-size: 0.95rem; color: #8e9290; line-height: 1.6; margin-bottom: 30px;">
+                                We are currently optimizing our warehouse inventory. Our storefront is temporarily paused and not accepting new orders. Please check back shortly!
+                            </p>
+                            <div style="font-size: 0.8rem; color: var(--primary, #c5a059); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; background: var(--primary, #c5a059); border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+                                Warehouse Sync Active
+                            </div>
+                        </div>
+                        <style>
+                            @keyframes pulse {
+                                0% { transform: scale(0.9); opacity: 0.6; }
+                                50% { transform: scale(1.2); opacity: 1; }
+                                100% { transform: scale(0.9); opacity: 0.6; }
+                            }
+                        </style>
+                    `;
+                    document.body.appendChild(overlay);
                 }
                 
                 document.title = `${brand.name} | Coffee Equipment & Tools | Barista Accessories`;
-
-                if (brand.favicon) {
-                    let link = document.querySelector("link[rel*='icon']");
-                    if (!link) {
-                        link = document.createElement('link');
-                        link.rel = 'shortcut icon';
-                        document.getElementsByTagName('head')[0].appendChild(link);
-                    }
-                    link.href = brand.favicon;
-                }
                 
-                const logoEl = document.querySelector('.logo');
-                if (logoEl) {
-                    if (brand.logo) {
-                        logoEl.innerHTML = `<img src="${brand.logo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;">`;
+                const logoEls = document.querySelectorAll('.logo');
+                logoEls.forEach(logoEl => {
+                    if (activeLogo) {
+                        logoEl.innerHTML = `<img src="${activeLogo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;">`;
                     } else if (brand.name) {
                         const parts = brand.name.split(' ');
                         logoEl.innerHTML = `${parts[0]} <span>${parts.slice(1).join(' ')}</span>`;
                     }
-                }
+                });
 
                 const footerSpan = document.querySelector('footer span');
                 if (footerSpan) {
@@ -1138,16 +1795,273 @@
         async function loadProducts() {
             await fetchBrandConfig();
 
+            // Check if we are on any landing page slug
+            const activeSlug = pathSegmentsName[pathSegmentsName.length - 1];
+            const matchedPage = window.landingPages.find(p => p.id === activeSlug);
+            if (matchedPage) {
+                renderLandingPage(matchedPage);
+                return;
+            }
+
             try {
                 const url = previewBrandId ? `/api/products?previewBrandId=${previewBrandId}` : '/api/products';
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('API request failed');
-                storeProducts = await response.json();
+                const data = await response.json();
+                const activeLang = localStorage.getItem('store_lang') || 'en';
+                storeProducts = data.map(p => {
+                    let title = p.title;
+                    let description = p.description;
+                    let long_description = p.long_description;
+                    if (activeLang !== 'en' && p.translations) {
+                        const tr = typeof p.translations === 'string' ? JSON.parse(p.translations) : p.translations;
+                        if (tr && tr[activeLang]) {
+                            if (tr[activeLang].title) title = tr[activeLang].title;
+                            if (tr[activeLang].description) description = tr[activeLang].description;
+                            if (tr[activeLang].long_description) long_description = tr[activeLang].long_description;
+                        }
+                    }
+                    return {
+                        ...p,
+                        title,
+                        description,
+                        long_description: long_description || description,
+                        price: parseFloat(p.price) || 0
+                    };
+                });
             } catch (err) {
                 console.warn('Backend offline, using fallback catalog:', err);
                 storeProducts = fallbackProducts;
             }
             renderProducts();
+        }
+
+        function renderLandingPage(page) {
+            // Hide storefront components
+            const header = document.querySelector('header');
+            if (header) header.style.display = 'none';
+            const heroSec = document.querySelector('.hero');
+            if (heroSec) heroSec.style.display = 'none';
+            const prodSec = document.querySelector('.products-section');
+            if (prodSec) prodSec.style.display = 'none';
+            const footer = document.querySelector('footer');
+            if (footer) footer.style.display = 'none';
+
+            // Show landing page container
+            const lpc = document.getElementById('landing-page-container');
+            if (lpc) lpc.style.display = 'flex';
+
+            // Resolve translations based on active language selector
+            let headline = page.headline;
+            let subheadline = page.subheadline;
+            let cta = page.cta;
+            let features = page.features;
+
+            const activeLang = localStorage.getItem('store_lang') || 'en';
+            if (activeLang !== 'en' && page.translations && page.translations[activeLang]) {
+                const tr = page.translations[activeLang];
+                if (tr.headline) headline = tr.headline;
+                if (tr.subheadline) subheadline = tr.subheadline;
+                if (tr.cta) cta = tr.cta;
+                if (tr.features) features = tr.features;
+            }
+
+            // Create a translated wrapper page copy to pass downstream
+            page = {
+                ...page,
+                headline,
+                subheadline,
+                cta,
+                features
+            };
+
+            // Populate landing page content
+            document.getElementById('landing-headline').innerText = page.headline;
+            document.getElementById('landing-subheadline').innerText = page.subheadline;
+            
+            // Override colors if configured
+            if (page.inherit === false && page.primary_color) {
+                document.documentElement.style.setProperty('--primary', page.primary_color);
+            }
+
+            const heroImg = document.getElementById('landing-hero-img');
+            const heroFallback = document.getElementById('landing-hero-img-fallback');
+            if (page.hero_img) {
+                heroImg.src = page.hero_img;
+                heroImg.style.display = 'block';
+                if (heroFallback) heroFallback.style.display = 'none';
+            } else {
+                heroImg.style.display = 'none';
+                if (heroFallback) heroFallback.style.display = 'block';
+            }
+
+            // Features list bullets
+            const featuresList = document.getElementById('landing-features-list');
+            if (featuresList) {
+                featuresList.innerHTML = '';
+                const features = page.features ? page.features.split('\n').filter(Boolean) : [];
+                features.forEach(f => {
+                    const li = document.createElement('li');
+                    li.style.display = 'flex';
+                    li.style.alignItems = 'center';
+                    li.style.gap = '6px';
+                    li.style.fontWeight = '600';
+                    li.innerText = f;
+                    featuresList.appendChild(li);
+                });
+            }
+
+            // Set up Page Type View states
+            if (page.type === 'product') {
+                document.getElementById('landing-coupon-offer-view').style.display = 'none';
+                const prodView = document.getElementById('landing-product-offer-view');
+                prodView.style.display = 'block';
+
+                const prodId = Number(page.product_id);
+                // Look for product in storeProducts
+                const prod = storeProducts.find(p => p.id === prodId);
+                if (prod) {
+                    document.getElementById('landing-prod-img').src = prod.image || 'https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591';
+                    document.getElementById('landing-prod-title').innerText = prod.title;
+                    document.getElementById('landing-prod-desc').innerText = prod.description || page.subheadline;
+                    
+                    // Old Price
+                    document.getElementById('landing-prod-old-price').innerText = `€${prod.price.toFixed(2)}`;
+                    
+                    // Calculate discount percentage based on code name or default to 20%
+                    let discountPercent = 20;
+                    const cleanCode = page.coupon_code.toUpperCase();
+                    if (cleanCode.includes('15')) discountPercent = 15;
+                    else if (cleanCode.includes('10')) discountPercent = 10;
+                    else if (cleanCode.includes('25')) discountPercent = 25;
+                    else if (cleanCode.includes('30')) discountPercent = 30;
+                    else if (cleanCode.includes('50')) discountPercent = 50;
+
+                    const newPrice = prod.price * (1 - discountPercent / 100);
+                    document.getElementById('landing-prod-price').innerText = `€${newPrice.toFixed(2)}`;
+                    document.getElementById('landing-prod-discount-badge').innerText = `${discountPercent}% OFF (with ${page.coupon_code})`;
+                    
+                    // Buy Button text
+                    const buyBtn = document.getElementById('landing-prod-buy-btn');
+                    buyBtn.innerText = page.cta || 'Claim Offer & Buy Now';
+                    
+                    // Setup click listener for Direct Buy
+                    buyBtn.onclick = async () => {
+                        buyBtn.disabled = true;
+                        buyBtn.innerText = 'Redirecting to checkout...';
+                        
+                        try {
+                            // Direct buy adds product to cart and clears other items
+                            cart = [{
+                                id: prod.id,
+                                title: prod.title,
+                                price: prod.price,
+                                image: prod.image,
+                                quantity: 1
+                            }];
+                            updateCartUI();
+
+                            // Set pending coupon and verify
+                            sessionStorage.setItem('pending_coupon', page.coupon_code.toUpperCase());
+                            await applyCouponCode(page.coupon_code);
+
+                            // Open checkout modal instantly
+                            const customerModal = document.getElementById('customer-modal');
+                            const cartOverlay = document.getElementById('cart-overlay');
+                            if (customerModal && cartOverlay) {
+                                customerModal.classList.add('open');
+                                cartOverlay.classList.add('show');
+                            }
+                        } catch(err) {
+                            console.error(err);
+                        } finally {
+                            buyBtn.disabled = false;
+                            buyBtn.innerText = page.cta || 'Claim Offer & Buy Now';
+                        }
+                    };
+                } else {
+                    document.getElementById('landing-prod-title').innerText = 'Product Not Found';
+                    document.getElementById('landing-prod-desc').innerText = 'Please configure a valid featured product in the Landing Page Designer.';
+                    document.getElementById('landing-prod-buy-btn').style.display = 'none';
+                }
+            } else {
+                document.getElementById('landing-coupon-offer-view').style.display = 'block';
+                document.getElementById('landing-product-offer-view').style.display = 'none';
+
+                document.getElementById('landing-cta-btn').innerText = page.cta;
+                // Update success coupon code element
+                document.getElementById('landing-coupon-code').innerText = page.coupon_code;
+
+                // Submit handler
+                const form = document.getElementById('landing-signup-form');
+                if (form) {
+                    form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const emailInput = document.getElementById('landing-email');
+                        const errorEl = document.getElementById('landing-form-error');
+                        const ctaBtn = document.getElementById('landing-cta-btn');
+                        
+                        if (!emailInput || !emailInput.value) return;
+                        
+                        errorEl.style.display = 'none';
+                        ctaBtn.disabled = true;
+                        ctaBtn.innerText = 'Verifying...';
+                        
+                        try {
+                            const response = await fetch('/api/global/brands/promo-signup', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    brandId: previewBrandId || 'pesado',
+                                    email: emailInput.value
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const resData = await response.json();
+                                // Transition steps
+                                document.getElementById('landing-form-step').style.display = 'none';
+                                document.getElementById('landing-success-step').style.display = 'block';
+                                document.getElementById('landing-coupon-code').innerText = resData.coupon_code || page.coupon_code;
+                            } else {
+                                const err = await response.json();
+                                errorEl.innerText = err.error || 'Verification failed. Please try again.';
+                                errorEl.style.display = 'block';
+                            }
+                        } catch(err) {
+                            errorEl.innerText = 'Network error. Please try again.';
+                            errorEl.style.display = 'block';
+                        } finally {
+                            ctaBtn.disabled = false;
+                            ctaBtn.innerText = page.cta;
+                        }
+                    });
+                }
+            }
+
+            // Copy handler
+            const copyBtn = document.getElementById('landing-copy-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    const code = document.getElementById('landing-coupon-code').innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        copyBtn.innerText = 'Copied!';
+                        setTimeout(() => { copyBtn.innerText = 'Copy'; }, 2000);
+                    });
+                });
+            }
+            
+            // Adjust shop links
+            const shopLink = document.getElementById('landing-shop-link');
+            if (shopLink) {
+                shopLink.href = previewBrandId ? `/store/${previewBrandId}` : '.';
+            }
+            const prodShopLink = document.getElementById('landing-prod-shop-link');
+            if (prodShopLink) {
+                prodShopLink.href = previewBrandId ? `/store/${previewBrandId}` : '.';
+            }
         }
 
         function renderProducts() {
@@ -1186,6 +2100,7 @@
         const closeDetailModalBtn = document.getElementById('close-detail-modal-btn');
         const tabFeaturesBtn = document.getElementById('tab-features-btn');
         const tabCompatibilityBtn = document.getElementById('tab-compatibility-btn');
+        const tabReviewsBtn = document.getElementById('tab-reviews-btn');
 
         closeDetailModalBtn.addEventListener('click', () => {
             detailModal.classList.remove('open');
@@ -1194,6 +2109,7 @@
 
         tabFeaturesBtn.addEventListener('click', (e) => switchDetailTab(e, 'tab-features'));
         tabCompatibilityBtn.addEventListener('click', (e) => switchDetailTab(e, 'tab-compatibility'));
+        tabReviewsBtn.addEventListener('click', (e) => switchDetailTab(e, 'tab-reviews'));
 
         function openProductDetails(id) {
             const prod = storeProducts.find(p => p.id === id);
@@ -1213,6 +2129,108 @@
             document.getElementById('detail-title').textContent = prod.title;
             document.getElementById('detail-price').textContent = `€${prod.price.toFixed(2)}`;
             document.getElementById('detail-desc').textContent = prod.long_description || prod.description;
+
+            const meta = prod.meta_details || {};
+
+            // 1. Render rating summary and reviews text
+            const ratingAvg = meta.rating_avg !== undefined ? meta.rating_avg : 4.9;
+            const ratingCount = meta.rating_count !== undefined ? meta.rating_count : 3572;
+            document.getElementById('detail-rating-text').textContent = `Excellent ${ratingAvg.toFixed(1)} (${ratingCount.toLocaleString()} reviews)`;
+            
+            // 2. Render additional image thumbnails
+            const thumbnailContainer = document.getElementById('detail-thumbnails');
+            thumbnailContainer.innerHTML = '';
+            const extraImages = Array.isArray(meta.images) ? meta.images : [];
+            if (extraImages.length > 0) {
+                const allImages = [prod.image, ...extraImages.filter(img => img !== prod.image)];
+                allImages.forEach((imgUrl, idx) => {
+                    const thumb = document.createElement('img');
+                    thumb.src = imgUrl;
+                    thumb.style = "width: 48px; height: 48px; border-radius: 6px; object-fit: cover; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; flex-shrink: 0;";
+                    if (idx === 0) thumb.style.borderColor = "var(--primary)";
+                    thumb.onclick = () => {
+                        document.getElementById('detail-image').src = imgUrl;
+                        const thumbs = thumbnailContainer.querySelectorAll('img');
+                        thumbs.forEach(t => t.style.borderColor = "transparent");
+                        thumb.style.borderColor = "var(--primary)";
+                    };
+                    thumbnailContainer.appendChild(thumb);
+                });
+            }
+
+            // 3. Render dynamic options dropdowns
+            const optionsContainer = document.getElementById('detail-options-container');
+            optionsContainer.innerHTML = '';
+            const optionsList = Array.isArray(meta.options) ? meta.options : [];
+            if (optionsList.length > 0) {
+                optionsList.forEach(opt => {
+                    const group = document.createElement('div');
+                    group.style = "display: flex; flex-direction: column; gap: 4px;";
+                    
+                    const label = document.createElement('label');
+                    label.textContent = opt.name;
+                    label.style = "font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2px;";
+                    
+                    const select = document.createElement('select');
+                    select.className = "product-option-select";
+                    select.dataset.optionName = opt.name;
+                    select.style = "width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; background: var(--workspace-bg, var(--card-bg, #1a1a1a)); color: var(--text-main); font-size: 0.85rem; outline: none; cursor: pointer;";
+                    
+                    opt.values.forEach(val => {
+                        const choice = document.createElement('option');
+                        choice.value = val;
+                        choice.textContent = val;
+                        select.appendChild(choice);
+                    });
+                    
+                    group.appendChild(label);
+                    group.appendChild(select);
+                    optionsContainer.appendChild(group);
+                });
+            }
+
+            // 4. Render reviews list
+            const reviewsList = document.getElementById('detail-reviews-list');
+            reviewsList.innerHTML = '';
+            const reviews = Array.isArray(meta.reviews) ? meta.reviews : [];
+            if (reviews.length > 0) {
+                reviews.forEach(rev => {
+                    const item = document.createElement('div');
+                    item.style = "border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 10px;";
+                    
+                    const header = document.createElement('div');
+                    header.style = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;";
+                    
+                    const author = document.createElement('span');
+                    author.textContent = rev.name;
+                    author.style = "font-weight: 600; font-size: 0.85rem; color: var(--text-main);";
+                    
+                    const date = document.createElement('span');
+                    date.textContent = rev.date;
+                    date.style = "font-size: 0.72rem; color: var(--text-muted);";
+                    
+                    header.appendChild(author);
+                    header.appendChild(date);
+                    
+                    const stars = document.createElement('div');
+                    stars.style = "color: #ffb800; font-size: 0.78rem; margin-bottom: 4px;";
+                    stars.textContent = "★".repeat(rev.rating) + "☆".repeat(5 - rev.rating);
+                    
+                    const text = document.createElement('p');
+                    text.textContent = rev.comment;
+                    text.style = "font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; margin: 0;";
+                    
+                    item.appendChild(header);
+                    item.appendChild(stars);
+                    item.appendChild(text);
+                    reviewsList.appendChild(item);
+                });
+            } else {
+                const placeholder = document.createElement('p');
+                placeholder.textContent = "No reviews yet for this product.";
+                placeholder.style = "font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-top: 15px;";
+                reviewsList.appendChild(placeholder);
+            }
 
             // Render features list
             const featuresList = document.getElementById('detail-features');
@@ -1258,7 +2276,12 @@
             // Setup add to cart button inside modal
             const addBtn = document.getElementById('detail-add-btn');
             addBtn.onclick = () => {
-                addToCart(prod.id);
+                const selectedOptions = {};
+                const selects = optionsContainer.querySelectorAll('.product-option-select');
+                selects.forEach(sel => {
+                    selectedOptions[sel.dataset.optionName] = sel.value;
+                });
+                addToCart(prod.id, selectedOptions);
                 detailModal.classList.remove('open');
                 cartOverlay.classList.remove('show');
             };
@@ -1294,20 +2317,23 @@
         closeCartBtn.addEventListener('click', toggleCart);
         cartOverlay.addEventListener('click', toggleCart);
 
-        function addToCart(id) {
+        function addToCart(id, selectedOptions = {}) {
             const prod = storeProducts.find(p => p.id === id);
             if (!prod) return;
 
-            const existingItem = cart.find(item => item.id === id);
+            const cartKey = id + '-' + Object.entries(selectedOptions).map(([k,v]) => `${k}:${v}`).join(',');
+            const existingItem = cart.find(item => item.cartKey === cartKey);
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {
                 cart.push({ 
                     id: prod.id, 
+                    cartKey: cartKey,
                     title: prod.title, 
                     price: prod.price, 
                     image: prod.image, 
-                    quantity: 1 
+                    quantity: 1,
+                    options: selectedOptions
                 });
             }
             updateCartUI();
@@ -1330,6 +2356,14 @@
                     total += item.price * item.quantity;
                     itemCount += item.quantity;
 
+                    let optionsMarkup = '';
+                    const itemOpts = item.options || {};
+                    if (Object.keys(itemOpts).length > 0) {
+                        optionsMarkup = `<div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">` + 
+                            Object.entries(itemOpts).map(([name, val]) => `${name}: ${val}`).join(' | ') + 
+                            `</div>`;
+                    }
+
                     const cartItemEl = document.createElement('div');
                     cartItemEl.className = 'cart-item';
                     cartItemEl.innerHTML = `
@@ -1337,21 +2371,66 @@
                         <div class="cart-item-details">
                             <div>
                                 <h4 class="cart-item-title">${item.title}</h4>
+                                ${optionsMarkup}
                                 <span class="cart-item-price">€${(item.price * item.quantity).toFixed(2)}</span>
                             </div>
                             <div class="cart-item-quantity">
-                                <button class="quantity-btn" onclick="updateQuantity(${item.id}, -1)">-</button>
+                                <button class="quantity-btn" onclick="updateQuantity('${item.cartKey}', -1)">-</button>
                                 <span class="quantity-val">${item.quantity}</span>
-                                <button class="quantity-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
+                                <button class="quantity-btn" onclick="updateQuantity('${item.cartKey}', 1)">+</button>
                             </div>
-                            <button class="remove-item-btn" onclick="removeItem(${item.id})">Remove</button>
+                            <button class="remove-item-btn" onclick="removeItem('${item.cartKey}')">Remove</button>
                         </div>
                     `;
                     cartItemsContainer.appendChild(cartItemEl);
                 });
             }
 
-            totalPriceEl.textContent = `€${total.toFixed(2)}`;
+            // Apply coupon discount if any
+            let discount = 0;
+            const appliedCoupon = sessionStorage.getItem('applied_coupon');
+            const appliedCouponData = sessionStorage.getItem('applied_coupon_data');
+            
+            const subtotalRow = document.getElementById('cart-subtotal-row');
+            const subtotalPriceEl = document.getElementById('cart-subtotal-price');
+            const discountRow = document.getElementById('cart-discount-row');
+            const discountCodeEl = document.getElementById('cart-discount-code');
+            const discountValueEl = document.getElementById('cart-discount-value');
+            const totalLabel = document.getElementById('cart-total-label');
+
+            if (appliedCoupon && appliedCouponData) {
+                try {
+                    const data = JSON.parse(appliedCouponData);
+                    if (data.discount_type === 'percentage') {
+                        discount = total * (data.discount_value / 100);
+                    } else if (data.discount_type === 'fixed') {
+                        discount = data.discount_value;
+                    }
+                    
+                    if (discount > total) discount = total;
+                    
+                    if (subtotalRow && subtotalPriceEl && discountRow && discountCodeEl && discountValueEl && totalLabel) {
+                        subtotalPriceEl.textContent = `€${total.toFixed(2)}`;
+                        discountCodeEl.textContent = appliedCoupon;
+                        discountValueEl.textContent = `-€${discount.toFixed(2)}`;
+                        
+                        subtotalRow.style.display = 'flex';
+                        discountRow.style.display = 'flex';
+                        totalLabel.textContent = 'Total';
+                    }
+                } catch(e) {
+                    console.error('Error applying discount in UI:', e);
+                }
+            } else {
+                if (subtotalRow && discountRow && totalLabel) {
+                    subtotalRow.style.display = 'none';
+                    discountRow.style.display = 'none';
+                    totalLabel.textContent = 'Subtotal';
+                }
+            }
+
+            const finalTotal = total - discount;
+            totalPriceEl.textContent = `€${finalTotal.toFixed(2)}`;
             badgeEl.textContent = itemCount;
             
             if (itemCount > 0) {
@@ -1361,20 +2440,20 @@
             }
         }
 
-        function updateQuantity(id, change) {
-            const item = cart.find(item => item.id === id);
+        function updateQuantity(cartKey, change) {
+            const item = cart.find(item => item.cartKey === cartKey);
             if (item) {
                 item.quantity += change;
                 if (item.quantity <= 0) {
-                    removeItem(id);
+                    removeItem(cartKey);
                 } else {
                     updateCartUI();
                 }
             }
         }
 
-        function removeItem(id) {
-            const itemIndex = cart.findIndex(item => item.id === id);
+        function removeItem(cartKey) {
+            const itemIndex = cart.findIndex(item => item.cartKey === cartKey);
             if (itemIndex > -1) {
                 cart.splice(itemIndex, 1);
                 updateCartUI();
@@ -1398,6 +2477,141 @@
             cartOverlay.classList.remove('show');
         });
 
+        // Parse query parameters for UTM tracking and coupon codes
+        function parseQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            const utmParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+            utmParams.forEach(param => {
+                const val = params.get(param);
+                if (val) {
+                    sessionStorage.setItem(param, val);
+                }
+            });
+
+            const code = params.get('code') || params.get('coupon');
+            if (code) {
+                sessionStorage.setItem('pending_coupon', code.trim().toUpperCase());
+            }
+
+            // Customer Attribution Tracking
+            if (!sessionStorage.getItem('first_touch_url')) {
+                sessionStorage.setItem('first_touch_url', window.location.href);
+            }
+            sessionStorage.setItem('last_touch_url', window.location.href);
+            if (!sessionStorage.getItem('referrer_touch')) {
+                sessionStorage.setItem('referrer_touch', document.referrer || 'Direct');
+            }
+
+            if (!sessionStorage.getItem('attribution_channel')) {
+                const utmSource = params.get('utm_source');
+                const utmMedium = params.get('utm_medium');
+                const ref = document.referrer ? document.referrer.toLowerCase() : '';
+                
+                let channel = 'Direct';
+                if (utmSource || utmMedium) {
+                    const paidKeywords = ['cpc', 'cpm', 'ppc', 'ad', 'paid', 'social_ad', 'display', 'facebook', 'instagram', 'meta', 'google', 'twitter', 'x'];
+                    const isPaid = paidKeywords.some(kw => (utmMedium && utmMedium.toLowerCase().includes(kw)) || (utmSource && utmSource.toLowerCase().includes(kw)));
+                    channel = isPaid ? 'Paid Ads' : 'Referral';
+                } else if (ref) {
+                    if (ref.includes('google.com') || ref.includes('bing.com') || ref.includes('yahoo.com') || ref.includes('duckduckgo.com')) {
+                        channel = 'Organic Search';
+                    } else if (ref.includes('instagram.com') || ref.includes('facebook.com') || ref.includes('twitter.com') || ref.includes('t.co') || ref.includes('youtube.com') || ref.includes('tiktok.com')) {
+                        channel = 'Social';
+                    } else {
+                        channel = 'Referral';
+                    }
+                }
+                sessionStorage.setItem('attribution_channel', channel);
+            }
+        }
+
+        // Verify and apply coupon code
+        async function applyCouponCode(code) {
+            if (!code) return;
+            const msgEl = document.getElementById('cart-coupon-message');
+            
+            let subtotal = 0;
+            cart.forEach(item => {
+                subtotal += item.price * item.quantity;
+            });
+
+            try {
+                const response = await fetch('/api/coupons/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        code: code.trim().toUpperCase(), 
+                        subtotal, 
+                        items: cart.map(item => ({ id: item.id, price: item.price })) 
+                    })
+                });
+                const data = await response.json();
+                if (data.valid) {
+                    sessionStorage.setItem('applied_coupon', code.trim().toUpperCase());
+                    sessionStorage.setItem('applied_coupon_data', JSON.stringify(data));
+                    if (msgEl) {
+                        msgEl.textContent = `✓ Promo Code ${code.trim().toUpperCase()} applied!`;
+                        msgEl.style.color = '#10b981';
+                        msgEl.style.display = 'block';
+                    }
+                    showFloatingPromoBanner(code.trim().toUpperCase(), data);
+                    updateCartUI();
+                } else {
+                    sessionStorage.removeItem('applied_coupon');
+                    sessionStorage.removeItem('applied_coupon_data');
+                    if (msgEl) {
+                        msgEl.textContent = `✗ ${data.error || 'Invalid code'}`;
+                        msgEl.style.color = '#ef4444';
+                        msgEl.style.display = 'block';
+                    }
+                    updateCartUI();
+                }
+            } catch(e) {
+                console.error('Error applying coupon:', e);
+            }
+        }
+
+        // Display floating applied coupon banner
+        function showFloatingPromoBanner(code, data) {
+            const existing = document.getElementById('floating-promo-banner');
+            if (existing) existing.remove();
+
+            const banner = document.createElement('div');
+            banner.id = 'floating-promo-banner';
+            banner.style.position = 'fixed';
+            banner.style.top = '20px';
+            banner.style.left = '50%';
+            banner.style.transform = 'translateX(-50%)';
+            banner.style.backgroundColor = '#10b981';
+            banner.style.color = '#ffffff';
+            banner.style.padding = '12px 24px';
+            banner.style.borderRadius = '30px';
+            banner.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+            banner.style.zIndex = '10006';
+            banner.style.fontWeight = '700';
+            banner.style.fontSize = '0.9rem';
+            banner.style.display = 'flex';
+            banner.style.alignItems = 'center';
+            banner.style.gap = '12px';
+            banner.style.fontFamily = 'var(--font-body)';
+            banner.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+            const text = data.discount_type === 'percentage' 
+                ? `🎁 Promo Code Applied: ${code} (${data.discount_value}% Off!)`
+                : `🎁 Promo Code Applied: ${code} (Save €${data.discount_value.toFixed(2)})`;
+
+            banner.innerHTML = `
+                <span>${text}</span>
+                <button type="button" style="background: none; border: none; color: #ffffff; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; padding: 0; outline: none;" onclick="document.getElementById('floating-promo-banner').remove()">×</button>
+            `;
+            document.body.appendChild(banner);
+
+            setTimeout(() => {
+                const b = document.getElementById('floating-promo-banner');
+                if (b) b.remove();
+            }, 8000);
+        }
+
         // Handle Checkout submission
         checkoutDetailsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1414,9 +2628,21 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                        items: cart.map(item => ({ id: item.id, quantity: item.quantity, options: item.options })),
                         customerName,
-                        customerEmail
+                        customerEmail,
+                        couponCode: sessionStorage.getItem('applied_coupon') || '',
+                        utm_source: sessionStorage.getItem('utm_source') || '',
+                        utm_medium: sessionStorage.getItem('utm_medium') || '',
+                        utm_campaign: sessionStorage.getItem('utm_campaign') || '',
+                        utm_term: sessionStorage.getItem('utm_term') || '',
+                        utm_content: sessionStorage.getItem('utm_content') || '',
+                        first_touch_url: sessionStorage.getItem('first_touch_url') || window.location.href,
+                        last_touch_url: window.location.href,
+                        referrer: sessionStorage.getItem('referrer_touch') || document.referrer || '',
+                        browser_info: navigator.userAgent,
+                        attribution_channel: sessionStorage.getItem('attribution_channel') || 'Direct',
+                        language: localStorage.getItem('store_lang') || document.getElementById('store-language-select')?.value || 'en'
                     })
                 });
 
@@ -1431,10 +2657,15 @@
                 cart.length = 0;
                 updateCartUI();
                 
+                // Clear coupon state from sessionStorage
+                sessionStorage.removeItem('applied_coupon');
+                sessionStorage.removeItem('applied_coupon_data');
+                sessionStorage.removeItem('pending_coupon');
+                
                 customerModal.classList.remove('open');
                 cartOverlay.classList.remove('show');
 
-                // Redirect to payment url (Stripe Checkout or Mock Checkout URL)
+                // Redirect to payment url
                 window.location.href = data.url;
 
             } catch (err) {
@@ -1452,46 +2683,39 @@
         // Initialize Page
         loadProducts();
 
+        // UTM tracking & Auto-apply coupon registration
+        parseQueryParams();
+        const pendingCoupon = sessionStorage.getItem('pending_coupon') || sessionStorage.getItem('applied_coupon');
+        if (pendingCoupon) {
+            setTimeout(() => {
+                applyCouponCode(pendingCoupon);
+            }, 600);
+        }
+
+        // Apply button click inside Cart drawer
+        const couponInput = document.getElementById('cart-coupon-input');
+        const couponApplyBtn = document.getElementById('cart-coupon-apply-btn');
+        if (couponApplyBtn && couponInput) {
+            couponApplyBtn.addEventListener('click', () => {
+                const code = couponInput.value;
+                if (code) applyCouponCode(code);
+            });
+            couponInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    couponApplyBtn.click();
+                }
+            });
+        }
+
         // Check if redirected with success query
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('status') === 'success') {
+        const successUrlParams = new URLSearchParams(window.location.search);
+        if (successUrlParams.get('status') === 'success') {
             setTimeout(() => {
                 modal.classList.add('open');
                 // Clean up URL query parameters
                 window.history.replaceState({}, document.title, window.location.pathname);
             }, 500);
         }
-        // Dynamic Admin portal shortcut target resolution
-        const shortcut = document.getElementById('admin-portal-shortcut');
-        if (shortcut) {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.endsWith('.local')) {
-                shortcut.href = 'http://localhost:8082';
-            } else {
-                shortcut.href = 'https://admin.stricktlycoffee.be';
-            }
-        }
     </script>
-    
-    <!-- Floating Admin Portal Shortcut Link -->
-    <a href="http://localhost:8082" id="admin-portal-shortcut" style="
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        background-color: var(--primary);
-        color: #ffffff;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        text-decoration: none;
-        z-index: 10005;
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s;
-        border: 1px solid var(--border);
-    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Stricktly Coffee Merchant Admin Hub">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-    </a>
 </body>
 </html>

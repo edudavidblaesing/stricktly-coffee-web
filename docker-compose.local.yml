@@ -63,6 +63,7 @@ services:
       - "8082:80"
     volumes:
       - ./admin/dist:/usr/share/nginx/html/admin:ro
+      - ./store:/usr/share/nginx/html/store:ro
     depends_on:
       - backend-core
 

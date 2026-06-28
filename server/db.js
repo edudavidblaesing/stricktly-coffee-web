@@ -49,8 +49,18 @@ async function initializeDatabase() {
     `);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS favicon TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS theme_settings TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255)`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS cloudflare_custom_domain_dns_record_id VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS platform VARCHAR(50) DEFAULT 'shopify'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS woocommerce_shop_url VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS woocommerce_consumer_key VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS woocommerce_consumer_secret VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'draft'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_enabled BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS languages VARCHAR(255) DEFAULT 'en'`);
+    await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
+    await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 
     // 2. Create Products Table
     await client.query(`
@@ -71,6 +81,17 @@ async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ensure products migration columns exist on legacy databases
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS impressions INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS external_id VARCHAR(100)`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sku VARCHAR(100)`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS meta_details TEXT`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS price_source VARCHAR(20) DEFAULT 'external'`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS translations TEXT`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS details_source VARCHAR(20) DEFAULT 'external'`);
+    await client.query(`UPDATE products SET price_source = 'manual', details_source = 'manual' WHERE external_id IS NULL`);
 
     // 3. Create Orders Table
     await client.query(`
@@ -106,8 +127,111 @@ async function initializeDatabase() {
       )
     `);
 
+    // 5. Add UTM tracking and coupon columns to orders table
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_source VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_medium VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_campaign VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_term VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_content VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0.00`);
+
+    // 6. Create Coupons Table
     await client.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE SET NULL;
+      CREATE TABLE IF NOT EXISTS coupons (
+        id VARCHAR(100) PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        code VARCHAR(100) UNIQUE NOT NULL,
+        discount_type VARCHAR(50) DEFAULT 'percentage',
+        discount_value NUMERIC(10, 2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'active',
+        rules TEXT, -- JSON string storing conditions
+        expire_at TIMESTAMP,
+        origin_order_id VARCHAR(100) REFERENCES orders(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 7. Create Referral Rules Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS referral_rules (
+        brand_id VARCHAR(50) PRIMARY KEY REFERENCES brands(id) ON DELETE CASCADE,
+        days_after_delivery INTEGER DEFAULT 3,
+        discount_type VARCHAR(50) DEFAULT 'percentage',
+        discount_value NUMERIC(10, 2) DEFAULT 10.00,
+        expire_days INTEGER DEFAULT 14,
+        email_subject TEXT,
+        email_body TEXT,
+        rules TEXT, -- JSON rulesets
+        enabled BOOLEAN DEFAULT TRUE
+      )
+    `);
+
+    // 8. Create Coupon Emails Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS coupon_emails (
+        id SERIAL PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        order_id VARCHAR(100) REFERENCES orders(id) ON DELETE CASCADE,
+        customer_email VARCHAR(255) NOT NULL,
+        scheduled_for TIMESTAMP NOT NULL,
+        sent_at TIMESTAMP,
+        coupon_code VARCHAR(100) NOT NULL
+      )
+    `);
+
+    // 9. Add Attribution and Language columns to orders table
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS first_touch_url TEXT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_touch_url TEXT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS referrer TEXT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS browser_info TEXT`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS attribution_channel VARCHAR(100)`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'en'`);
+
+    // 10. Add templates column to referral_rules table
+    await client.query(`ALTER TABLE referral_rules ADD COLUMN IF NOT EXISTS templates TEXT`);
+
+    // 11. Add subject and body log columns to coupon_emails table
+    await client.query(`ALTER TABLE coupon_emails ADD COLUMN IF NOT EXISTS email_subject TEXT`);
+    await client.query(`ALTER TABLE coupon_emails ADD COLUMN IF NOT EXISTS email_body TEXT`);
+
+    // 12. Create Marketing Campaigns Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS marketing_campaigns (
+        id VARCHAR(100) PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        platform VARCHAR(50) NOT NULL,
+        budget NUMERIC(10,2) NOT NULL,
+        segmentation VARCHAR(100) NOT NULL,
+        languages TEXT,
+        format VARCHAR(50) NOT NULL,
+        ad_copy TEXT,
+        headline TEXT,
+        media_url TEXT,
+        carousel_cards TEXT,
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add landing page target columns
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS destination_type VARCHAR(50) DEFAULT 'homepage'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS landing_page_id VARCHAR(100)`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS campaign_type VARCHAR(50) DEFAULT 'manual'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS custom_url TEXT`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS translations TEXT`);
+
+    // Create Media Library Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS media_library (
+        id VARCHAR(100) PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        url TEXT NOT NULL,
+        folder VARCHAR(100) DEFAULT 'General',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     await client.query('COMMIT');
@@ -125,6 +249,13 @@ async function initializeDatabase() {
 }
 
 async function seedDefaultData() {
+  // Check if database has already been seeded in a previous boot
+  const adminCheck = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
+  if (adminCheck) {
+    console.log('[Database Seed] Database already seeded. Skipping default data recreation.');
+    return;
+  }
+
   // Check if default 'pesado' brand exists
   const brandCheck = await getQuery('SELECT id FROM brands WHERE id = $1', ['pesado']);
   if (!brandCheck) {
@@ -253,8 +384,8 @@ async function seedDefaultData() {
   }
 
   // Seed Superadmin user
-  const adminCheck = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
-  if (!adminCheck) {
+  const adminCheckUser = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);
+  if (!adminCheckUser) {
     console.log('[Database Seed] Seeding default superadmin user sc@davidblaesing.com...');
     const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'TheKey4u';
     const passwordHash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
@@ -273,6 +404,100 @@ async function seedDefaultData() {
       INSERT INTO users (email, password_hash, role, brand_id)
       VALUES ($1, $2, $3, $4)
     `, ['merchant@davidblaesing.com', passwordHash, 'merchant', 'pesado']);
+  }
+
+  // Seed default Orders
+  const orderCheck = await getQuery('SELECT id FROM orders LIMIT 1');
+  if (!orderCheck) {
+    console.log('[Database Seed] Seeding default orders database metrics...');
+    const seedOrders = [
+      {
+        id: 'ORD-2026-9812',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_a1B2c3D4e5',
+        customer_name: 'Sarah Connor',
+        customer_email: 'sarah.connor@cyberdyne.com',
+        shipping_address: JSON.stringify({ street: '101 T-800 Lane', city: 'Los Angeles', state: 'CA', zip: '90210', country: 'US' }),
+        items: JSON.stringify([{ id: 1, title: 'Precision Portafilter (Wooden Handle)', price: 132.00, quantity: 1 }]),
+        total: 132.00,
+        status: 'delivered',
+        created_at: '2026-04-12 14:32:00'
+      },
+      {
+        id: 'ORD-2026-5421',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_b2C3d4E5f6',
+        customer_name: 'Marcus Wright',
+        customer_email: 'marcus.wright@projectangel.org',
+        shipping_address: JSON.stringify({ street: '204 Salvation Blvd', city: 'San Francisco', state: 'CA', zip: '94103', country: 'US' }),
+        items: JSON.stringify([{ id: 2, title: 'Precision Shower Screen (E61 Compatible)', price: 28.50, quantity: 2 }]),
+        total: 57.00,
+        status: 'shipped',
+        created_at: '2026-05-18 10:15:00'
+      },
+      {
+        id: 'ORD-2026-1049',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_c3D4e5F6g7',
+        customer_name: 'John Connor',
+        customer_email: 'john.connor@resistance.net',
+        shipping_address: JSON.stringify({ street: '500 Future Way', city: 'Crystal Lake', state: 'IL', zip: '60014', country: 'US' }),
+        items: JSON.stringify([
+          { id: 1, title: 'Precision Portafilter (Wooden Handle)', price: 132.00, quantity: 1 },
+          { id: 3, title: '90-Degree Edge Premium Portafilter Tamper', price: 85.00, quantity: 1 }
+        ]),
+        total: 217.00,
+        status: 'delivered',
+        created_at: '2026-06-05 09:44:00'
+      },
+      {
+        id: 'ORD-2026-7832',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_d4E5f6G7h8',
+        customer_name: 'Kate Brewster',
+        customer_email: 'kate.b@skynet.gov',
+        shipping_address: JSON.stringify({ street: 'Silo 12 Fallout Rd', city: 'Cheyenne Mountain', state: 'CO', zip: '80901', country: 'US' }),
+        items: JSON.stringify([{ id: 4, title: 'Classic Barista Tamping Station', price: 45.00, quantity: 1 }]),
+        total: 45.00,
+        status: 'pending_payment',
+        created_at: '2026-06-25 18:22:00'
+      },
+      {
+        id: 'ORD-2026-3021',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_e5F6g7H8i9',
+        customer_name: 'Sarah Connor',
+        customer_email: 'sarah.connor@cyberdyne.com',
+        shipping_address: JSON.stringify({ street: '101 T-800 Lane', city: 'Los Angeles', state: 'CA', zip: '90210', country: 'US' }),
+        items: JSON.stringify([{ id: 3, title: '90-Degree Edge Premium Portafilter Tamper', price: 85.00, quantity: 1 }]),
+        total: 85.00,
+        status: 'delivered',
+        created_at: '2026-05-22 15:10:00'
+      },
+      {
+        id: 'ORD-2026-8942',
+        brand_id: 'pesado',
+        stripe_session_id: 'cs_test_f6G7h8I9j0',
+        customer_name: 'Miles Dyson',
+        customer_email: 'miles.dyson@cyberdyne.com',
+        shipping_address: JSON.stringify({ street: '742 Cyberdyne Blvd', city: 'Sunnyvale', state: 'CA', zip: '94089', country: 'US' }),
+        items: JSON.stringify([
+          { id: 2, title: 'Precision Shower Screen (E61 Compatible)', price: 28.50, quantity: 1 },
+          { id: 4, title: 'Classic Barista Tamping Station', price: 45.00, quantity: 1 }
+        ]),
+        total: 73.50,
+        status: 'delivered',
+        created_at: '2026-06-12 11:30:00'
+      }
+    ];
+
+    for (const o of seedOrders) {
+      await runQuery(`
+        INSERT INTO orders (id, brand_id, stripe_session_id, customer_name, customer_email, shipping_address, items, total, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `, [o.id, o.brand_id, o.stripe_session_id, o.customer_name, o.customer_email, o.shipping_address, o.items, o.total, o.status, o.created_at]);
+    }
+    console.log('✅ Default orders seeded successfully.');
   }
 }
 

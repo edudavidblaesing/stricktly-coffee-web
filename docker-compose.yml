@@ -2,7 +2,6 @@ services:
   web:
     build: .
     restart: unless-stopped
-    container_name: web
     expose:
       - "80"
     labels:
@@ -25,7 +24,6 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
-    container_name: backend-core
     environment:
       - PORT=3000
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
@@ -52,7 +50,6 @@ services:
   postgres-db:
     image: postgres:16-alpine
     restart: unless-stopped
-    container_name: postgres-db
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
@@ -67,7 +64,6 @@ services:
       context: .
       dockerfile: Dockerfile.admin
     restart: unless-stopped
-    container_name: web-dashboard
     expose:
       - "80"
     labels:
@@ -88,7 +84,6 @@ services:
   minio:
     image: minio/minio:latest
     restart: unless-stopped
-    container_name: minio
     expose:
       - "9000"
       - "9001"
@@ -98,11 +93,11 @@ services:
     command: server /data --console-address ":9001"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`s3-console.${DOMAIN}`)"
+      - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`${S3_CONSOLE_DOMAIN}`)"
       - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}.entrypoints=websecure"
       - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}.tls.certresolver=letsencrypt"
       - "traefik.http.services.minio-console-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=9001"
-      - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`s3-console.${DOMAIN}`)"
+      - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${S3_CONSOLE_DOMAIN}`)"
       - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
       - "traefik.http.routers.minio-console-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-minio-${DOKPLOY_COMPOSE_ID_SC}"
       - "traefik.http.middlewares.redirect-to-https-minio-${DOKPLOY_COMPOSE_ID_SC}.redirectscheme.scheme=https"
@@ -116,7 +111,6 @@ services:
       context: .
       dockerfile: Dockerfile.backup
     restart: unless-stopped
-    container_name: database-backup
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}

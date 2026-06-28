@@ -2,7 +2,8 @@
 FROM nginx:alpine
 
 # Copy website files to nginx html directory
-COPY admin/ /usr/share/nginx/html/admin/
+COPY admin/dist/ /usr/share/nginx/html/admin/
+COPY store/ /usr/share/nginx/html/store/
 
 # Copy nginx configuration (use nginx-dash.conf for HTTP, nginx-dash-ssl.conf for HTTPS)
 COPY nginx-dash.conf /etc/nginx/conf.d/default.conf
