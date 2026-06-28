@@ -138,7 +138,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="generateAiSeo('new')" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-                                        ✨ Write AI SEO Pitch
+                                        ✨ Write AI SEO Pitch (via Gemini 2.5 Flash)
                                     </button>
                                 </div>
                                 <textarea v-model="newProduct.description" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
@@ -316,7 +316,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="generateAiSeo('edit')" :disabled="editingProduct.details_source === 'external'" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-                                        ✨ Write AI SEO Pitch
+                                        ✨ Write AI SEO Pitch (via Gemini 2.5 Flash)
                                     </button>
                                 </div>
                                 <textarea v-model="editingProduct.description" :disabled="editingProduct.details_source === 'external'" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>

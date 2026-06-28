@@ -61,6 +61,7 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS languages VARCHAR(255) DEFAULT 'en'`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS marketing_protocol TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_tier VARCHAR(20) DEFAULT 'professional'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS protocol_status VARCHAR(20) DEFAULT 'idle'`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 

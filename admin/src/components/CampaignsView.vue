@@ -459,7 +459,7 @@
                             <!-- Translate button if not default 'en' -->
                             <button v-if="campaignContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateCampaignWithAI(campaignContentLang)" :disabled="translatingCampaign">
                                 <span v-if="translatingCampaign" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else>✨ AI Translate from EN</span>
+                                <span v-else>✨ AI Translate from EN (via Gemini 2.5 Flash)</span>
                             </button>
                         </div>
 
@@ -476,7 +476,7 @@
                             </div>
                             <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="btn btn-primary" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
                                 <span v-if="generatingAICopy" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else>🤖 AI Copywriter Studio</span>
+                                <span v-else>🤖 AI Copywriter Studio (via Gemini 2.5 Flash)</span>
                             </button>
                         </div>
 

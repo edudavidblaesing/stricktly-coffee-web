@@ -27,7 +27,7 @@
             <div class="panel" style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 16px;">
                 <h4 style="margin: 0 0 5px 0; color: var(--accent); font-weight: 700;">Theme Customizer</h4>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 8px 0;">
-                    Tweak colors, shapes, and brand images below. Click "Apply & Save Design" to sync changes to the live storefront container.
+                    Tweak colors, shapes, and brand images below. Unsaved changes are safely sandboxed in the preview on the right. Click "Publish Live" to make them visible to customers.
                 </p>
 
                 <!-- Inherit Styles Toggle -->
@@ -337,10 +337,13 @@
                     </div>
                 </div>
 
-                <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px;" @click="saveDesignSettings" :disabled="saving">
+                <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="saveDesignSettings" :disabled="saving">
                     <span v-if="saving" class="spinner"></span>
-                    <span>{{ saving ? 'Applying & Saving...' : '💾 Apply & Save Design' }}</span>
+                    <span>{{ saving ? 'Publishing Live...' : '🚀 Publish Live to Storefront' }}</span>
                 </button>
+                <p style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin: 6px 0 0 0;">
+                    💡 Publishing writes changes directly to the database to go live on your storefront immediately.
+                </p>
             </div>
 
             <!-- Right Side: Storefront Sandbox Preview -->
@@ -360,7 +363,17 @@
                     padding: '24px'
                 } : {}">
                 <h4 style="margin: 0 0 10px 0; color: var(--accent); display: flex; align-items: center; justify-content: space-between;" v-if="!isFullscreen">
-                    <span>🖥️ Live Storefront Sandbox Preview</span>
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        🖥️ Live Storefront Sandbox Preview
+                        <span v-if="hasUnsavedChanges" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+                            Interactive Sandbox Draft
+                        </span>
+                        <span v-else style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+                            Published & Synced
+                        </span>
+                    </span>
                     <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">Local Port Routing</span>
                 </h4>
 
@@ -458,7 +471,8 @@ export default {
             iframeCurrentUrl: '',
             inheritStyles: true,
             viewportMode: 'desktop',
-            translationActiveLang: 'en'
+            translationActiveLang: 'en',
+            originalBrandSettings: ''
         };
     },
     mounted() {
@@ -478,6 +492,40 @@ export default {
         }
     },
     computed: {
+        hasUnsavedChanges() {
+            if (!this.originalBrandSettings || !this.designerBrand) return false;
+            const currentObj = {
+                inherit: this.inheritStyles,
+                primary_color: this.designerBrand.primary_color,
+                secondary_color: this.designerBrand.secondary_color,
+                bg_color: this.designerBrand.bg_color,
+                text_color: this.designerBrand.text_color,
+                button_radius: this.designerBrand.button_radius,
+                button_text_color: this.designerBrand.button_text_color,
+                header_bg_color: this.designerBrand.header_bg_color,
+                font_family: this.designerBrand.font_family,
+                custom_css: this.designerBrand.custom_css,
+                logo: this.designerBrand.logo,
+                favicon: this.designerBrand.favicon,
+                announcement_active: this.designerBrand.announcement_active,
+                announcement_text: this.designerBrand.announcement_text,
+                announcement_bg: this.designerBrand.announcement_bg,
+                announcement_text_color: this.designerBrand.announcement_text_color,
+                font_size_scale: this.designerBrand.font_size_scale,
+                line_height_scale: this.designerBrand.line_height_scale,
+                instagram_link: this.designerBrand.instagram_link,
+                facebook_link: this.designerBrand.facebook_link,
+                twitter_link: this.designerBrand.twitter_link,
+                text_hero_headline: this.designerBrand.text_hero_headline,
+                text_hero_subheadline: this.designerBrand.text_hero_subheadline,
+                text_hero_cta: this.designerBrand.text_hero_cta,
+                text_404_headline: this.designerBrand.text_404_headline,
+                text_404_subheadline: this.designerBrand.text_404_subheadline,
+                text_404_cta: this.designerBrand.text_404_cta,
+                content_translations: this.designerBrand.content_translations
+            };
+            return JSON.stringify(currentObj) !== this.originalBrandSettings;
+        },
         availableLanguages() {
             if (!this.designerBrand.languages) return ['en'];
             let langs = [];
@@ -810,6 +858,9 @@ export default {
                         };
                     }
                 }
+                this.$nextTick(() => {
+                    this.captureOriginalSettings();
+                });
             }
         },
         async saveDesignSettings() {
@@ -875,13 +926,10 @@ export default {
                     body: JSON.stringify(this.designerBrand)
                 });
                 if (response.ok) {
-                    this.app.showNotification('Storefront styles saved successfully.');
+                    this.app.showNotification('Storefront styles published successfully!');
                     await this.app.loadBrands();
                     this.loadBrandContext();
-                    const iframe = this.$refs.previewIframe;
-                    if (iframe && iframe.contentWindow) {
-                        iframe.contentWindow.location.reload();
-                    }
+                    this.iframeReload();
                 } else {
                     alert('Error saving designer configuration.');
                 }
@@ -1050,6 +1098,40 @@ export default {
             } catch(e) {
                 console.error('[DesignerView] Error posting styles:', e);
             }
+        },
+        captureOriginalSettings() {
+            if (!this.designerBrand) return;
+            const currentObj = {
+                inherit: this.inheritStyles,
+                primary_color: this.designerBrand.primary_color,
+                secondary_color: this.designerBrand.secondary_color,
+                bg_color: this.designerBrand.bg_color,
+                text_color: this.designerBrand.text_color,
+                button_radius: this.designerBrand.button_radius,
+                button_text_color: this.designerBrand.button_text_color,
+                header_bg_color: this.designerBrand.header_bg_color,
+                font_family: this.designerBrand.font_family,
+                custom_css: this.designerBrand.custom_css,
+                logo: this.designerBrand.logo,
+                favicon: this.designerBrand.favicon,
+                announcement_active: this.designerBrand.announcement_active,
+                announcement_text: this.designerBrand.announcement_text,
+                announcement_bg: this.designerBrand.announcement_bg,
+                announcement_text_color: this.designerBrand.announcement_text_color,
+                font_size_scale: this.designerBrand.font_size_scale,
+                line_height_scale: this.designerBrand.line_height_scale,
+                instagram_link: this.designerBrand.instagram_link,
+                facebook_link: this.designerBrand.facebook_link,
+                twitter_link: this.designerBrand.twitter_link,
+                text_hero_headline: this.designerBrand.text_hero_headline,
+                text_hero_subheadline: this.designerBrand.text_hero_subheadline,
+                text_hero_cta: this.designerBrand.text_hero_cta,
+                text_404_headline: this.designerBrand.text_404_headline,
+                text_404_subheadline: this.designerBrand.text_404_subheadline,
+                text_404_cta: this.designerBrand.text_404_cta,
+                content_translations: this.designerBrand.content_translations
+            };
+            this.originalBrandSettings = JSON.stringify(currentObj);
         }
     }
 };

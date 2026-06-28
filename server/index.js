@@ -2316,61 +2316,67 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
       return res.status(404).json({ error: 'Brand not found.' });
     }
 
-    let targetUrl = url || brand.shopify_shop_name || brand.woocommerce_shop_url || brand.subdomain;
-    if (targetUrl && !targetUrl.startsWith('http')) {
-      targetUrl = `https://${targetUrl}`;
-    }
+    // Set status to generating immediately
+    await runQuery("UPDATE brands SET protocol_status = 'generating' WHERE id = $1", [brandId]);
 
-    let homepageText = 'No website crawled.';
-    if (targetUrl) {
+    // Send immediate response
+    res.json({ success: true, message: 'Brand protocol generation started in the background.' });
+
+    // Execute generation asynchronously in the background
+    (async () => {
+      let generatedProtocol = '';
       try {
-        console.log(`[AI Protocol Generator] Scraping brand site: ${targetUrl}`);
-        const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (pageRes.ok) {
-          const html = await pageRes.text();
-          homepageText = extractCleanText(html);
+        let targetUrl = url || brand.shopify_shop_name || brand.woocommerce_shop_url || brand.subdomain;
+        if (targetUrl && !targetUrl.startsWith('http')) {
+          targetUrl = `https://${targetUrl}`;
         }
-      } catch (err) {
-        console.warn(`[AI Protocol Generator] Failed to crawl primary URL: ${targetUrl}`, err.message);
-      }
-    }
 
-    // Crawl competitors if provided
-    let competitorTexts = [];
-    if (competitors) {
-      const compUrls = Array.isArray(competitors)
-        ? competitors
-        : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
-
-      for (let compUrl of compUrls) {
-        let fullCompUrl = compUrl;
-        if (!fullCompUrl.startsWith('http')) {
-          fullCompUrl = `https://${fullCompUrl}`;
-        }
-        try {
-          console.log(`[AI Protocol Generator] Scraping competitor site: ${fullCompUrl}`);
-          const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (compRes.ok) {
-            const compHtml = await compRes.text();
-            const cleanCompText = extractCleanText(compHtml);
-            competitorTexts.push(`Competitor: ${compUrl}\n${cleanCompText.substring(0, 3000)}`);
+        let homepageText = 'No website crawled.';
+        if (targetUrl) {
+          try {
+            console.log(`[AI Protocol Generator] Scraping brand site: ${targetUrl}`);
+            const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            if (pageRes.ok) {
+              const html = await pageRes.text();
+              homepageText = extractCleanText(html);
+            }
+          } catch (err) {
+            console.warn(`[AI Protocol Generator] Failed to crawl primary URL: ${targetUrl}`, err.message);
           }
-        } catch (err) {
-          console.warn(`[AI Protocol Generator] Failed to crawl competitor: ${fullCompUrl}`, err.message);
         }
-      }
-    }
 
-    // Fetch products catalog context
-    const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
-    const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+        let competitorTexts = [];
+        if (competitors) {
+          const compUrls = Array.isArray(competitors)
+            ? competitors
+            : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
 
-    // Query Gemini
-    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
-    let generatedProtocol = '';
+          for (let compUrl of compUrls) {
+            let fullCompUrl = compUrl;
+            if (!fullCompUrl.startsWith('http')) {
+              fullCompUrl = `https://${fullCompUrl}`;
+            }
+            try {
+              console.log(`[AI Protocol Generator] Scraping competitor site: ${fullCompUrl}`);
+              const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+              if (compRes.ok) {
+                const compHtml = await compRes.text();
+                const cleanCompText = extractCleanText(compHtml);
+                competitorTexts.push(`Competitor: ${compUrl}\n${cleanCompText.substring(0, 3000)}`);
+              }
+            } catch (err) {
+              console.warn(`[AI Protocol Generator] Failed to crawl competitor: ${fullCompUrl}`, err.message);
+            }
+          }
+        }
 
-    if (apiKey) {
-      const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
+        const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
+        const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+        const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+
+        if (apiKey) {
+          const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
 Based on the following scraped storefront text and catalog data, generate a comprehensive Brand Performance Marketing Protocol.
 
 Brand Name: ${brand.name}
@@ -2400,56 +2406,52 @@ Generate a thorough, structured, and complete brand manuscript / protocol in Mar
 
 Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
 
-      try {
-        // Determine Gemini model based on brand's AI tier
-        let targetModel = 'gemini-3.1-pro';
-        if (brand.ai_tier === 'standard') {
-          targetModel = 'gemini-2.5-flash';
-        } else if (brand.ai_tier === 'enterprise') {
-          targetModel = 'deep-research-pro-preview';
-        }
+          // Determine Gemini model based on brand's AI tier
+          let targetModel = 'gemini-3.1-pro';
+          if (brand.ai_tier === 'standard') {
+            targetModel = 'gemini-2.5-flash';
+          } else if (brand.ai_tier === 'enterprise') {
+            targetModel = 'deep-research-pro-preview';
+          }
 
-        console.log(`[AI Protocol Generator] Querying Gemini for brand: ${brandId} using model: ${targetModel}`);
-        let geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        });
-
-        // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
-        if (!geminiRes.ok && brand.ai_tier === 'enterprise') {
-          console.warn('[AI Protocol Generator] Enterprise model failed, falling back to gemini-3.1-pro');
-          targetModel = 'gemini-3.1-pro';
-          geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`, {
+          console.log(`[AI Protocol Generator] Querying Gemini for brand: ${brandId} using model: ${targetModel}`);
+          let geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }]
             })
           });
-        }
 
-        if (geminiRes.ok) {
-          const result = await geminiRes.json();
-          generatedProtocol = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          
-          if (result.usageMetadata) {
-            await logAiUsage(brandId, 'Brand Protocol & Strategy Generation', targetModel, result.usageMetadata);
+          // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
+          if (!geminiRes.ok && brand.ai_tier === 'enterprise') {
+            console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-3.1-pro');
+            targetModel = 'gemini-3.1-pro';
+            geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+              })
+            });
           }
-        } else {
-          const errText = await geminiRes.text();
-          throw new Error(`Gemini API returned status ${geminiRes.status}: ${errText}`);
-        }
-      } catch (err) {
-        console.error('[AI Protocol Generator] Gemini API query failed:', err.message);
-      }
-    }
 
-    if (!generatedProtocol) {
-      console.warn('[AI Protocol Generator] Using default fallback template');
-      generatedProtocol = `# Brand & Performance Marketing Manuscript for ${brand.name}
+          if (geminiRes.ok) {
+            const result = await geminiRes.json();
+            generatedProtocol = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            
+            if (result.usageMetadata) {
+              await logAiUsage(brandId, 'Brand Protocol & Strategy Generation', targetModel, result.usageMetadata);
+            }
+          } else {
+            const errText = await geminiRes.text();
+            throw new Error(`Gemini API returned status ${geminiRes.status}: ${errText}`);
+          }
+        }
+
+        if (!generatedProtocol) {
+          console.warn('[AI Protocol Generator] Using default fallback template');
+          generatedProtocol = `# Brand & Performance Marketing Manuscript for ${brand.name}
 
 ## 1. Brand Identity & Position
 * **Mission**: To deliver high-quality custom coffee products to home baristas and commercial operators.
@@ -2477,13 +2479,18 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
 ### Welcome Email (Step 1)
 * **Subject**: Welcome to the ${brand.name} Family! ☕
 * **Body**: Thank you for choosing premium brewing gears. Use code WELCOME10 for 10% off your first order!`;
-    }
+        }
 
-    await runQuery('UPDATE brands SET marketing_protocol = $1 WHERE id = $2', [generatedProtocol, brandId]);
-    addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
-
-    res.json({ success: true, marketing_protocol: generatedProtocol });
+        await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed' WHERE id = $2", [generatedProtocol, brandId]);
+        addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
+      } catch (backgroundErr) {
+        console.error('[AI Protocol Generator] Background generation failed:', backgroundErr.message);
+        await runQuery("UPDATE brands SET protocol_status = 'failed' WHERE id = $1", [brandId]);
+        addAuditLog("Marketing Protocol Generation Failed", "failed", `Error: ${backgroundErr.message}`);
+      }
+    })();
   } catch (err) {
+    console.error('[AI Protocol Generator] Failed to initialize background task:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

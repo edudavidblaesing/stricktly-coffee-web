@@ -227,10 +227,13 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px;" @click="savePage" :disabled="saving">
+                    <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="savePage" :disabled="saving">
                         <span v-if="saving" class="spinner"></span>
-                        <span>{{ saving ? 'Applying & Saving...' : '💾 Apply & Save Landing Page' }}</span>
+                        <span>{{ saving ? 'Publishing Live...' : '🚀 Publish Live to Storefront' }}</span>
                     </button>
+                    <p style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin: 6px 0 0 0;">
+                        💡 Publishing writes changes directly to the database to go live on your storefront immediately.
+                    </p>
                 </div>
 
                 <!-- Right Side: Live Sandbox Preview -->
@@ -250,7 +253,17 @@
                         padding: '24px'
                     } : {}">
                     <h4 style="margin: 0 0 10px 0; color: var(--accent); display: flex; align-items: center; justify-content: space-between;" v-if="!isFullscreen">
-                        <span>🖥️ Landing Page Sandbox Preview</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            🖥️ Landing Page Sandbox Preview
+                            <span v-if="hasUnsavedChanges" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+                                Interactive Sandbox Draft
+                            </span>
+                            <span v-else style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+                                Published & Synced
+                            </span>
+                        </span>
                         <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">Campaign Promo Routing</span>
                     </h4>
 
@@ -290,6 +303,7 @@ export default {
             isFullscreen: false,
             iframeCurrentUrl: '',
             heroUploading: false,
+            originalPageState: '',
             
             // List / Subview control
             landingPages: [],
@@ -315,6 +329,26 @@ export default {
         };
     },
     computed: {
+        currentPageState() {
+            return JSON.stringify({
+                edit_slug: this.edit_slug,
+                edit_type: this.edit_type,
+                edit_product_id: this.edit_product_id,
+                edit_headline: this.edit_headline,
+                edit_subheadline: this.edit_subheadline,
+                edit_cta: this.edit_cta,
+                edit_hero_img: this.edit_hero_img,
+                edit_features: this.edit_features,
+                edit_coupon_code: this.edit_coupon_code,
+                edit_inherit: this.edit_inherit,
+                edit_primary_color: this.edit_primary_color,
+                edit_translations: this.edit_translations
+            });
+        },
+        hasUnsavedChanges() {
+            if (!this.originalPageState || !this.editingPage) return false;
+            return this.currentPageState !== this.originalPageState;
+        },
         activeBrandName() {
             if (this.app.activeShopFilter === 'all') return 'None';
             const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);
@@ -470,6 +504,9 @@ export default {
             this.landingPageContentLang = 'en';
             
             this.editingPage = { id: '' };
+            this.$nextTick(() => {
+                this.originalPageState = this.currentPageState;
+            });
         },
         startEditingPage(page, index) {
             this.isNewPage = false;
@@ -500,6 +537,9 @@ export default {
             this.landingPageContentLang = 'en';
             
             this.editingPage = { ...page };
+            this.$nextTick(() => {
+                this.originalPageState = this.currentPageState;
+            });
         },
         cancelEditing() {
             this.editingPage = null;
@@ -604,7 +644,7 @@ export default {
                     body: JSON.stringify(this.designerBrand)
                 });
                 if (response.ok) {
-                    this.app.showNotification('Campaign pages updated successfully.');
+                    this.app.showNotification('Campaign pages published live successfully!');
                     await this.app.loadBrands();
                     this.loadBrandContext();
                 } else {

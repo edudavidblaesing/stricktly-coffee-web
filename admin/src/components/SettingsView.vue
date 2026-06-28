@@ -307,23 +307,72 @@
                         Generate and manage your Brand Strategy Manuscript. The AI crawls your homepage, analyzes your catalog, and compiles a playbook covering positioning, customer personas, approved brand voice guidelines, competitor comparisons, high-converting ad hooks, and email copywriting campaigns. This playbook is utilized directly in the AI Campaign Creator.
                     </div>
 
+                    <!-- Background status alert tracker -->
+                    <div v-if="settingsBrand.protocol_status === 'generating'" style="background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">⚙️</span>
+                        <strong>AI Strategy Playbook Generation is in Progress!</strong><br>
+                        The crawler is gathering homepage data and analyzing catalog parameters using <span style="font-family: monospace; color: var(--accent); font-weight: bold;">{{ activeManuscriptModelName }}</span> in the background.<br>
+                        You can continue working. This dashboard will update dynamically once processing finishes.
+                    </div>
+
+                    <div v-if="settingsBrand.protocol_status === 'failed'" style="background: rgba(239, 68, 68, 0.05); border: 1px dashed #ef4444; padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
+                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">❌</span>
+                        <strong style="color: #ef4444;">AI Generation Failed or Rate Limited!</strong><br>
+                        The backend hit a throttle limit (Deep Research has just 1 RPM limit) or an error occurred. We suggest switching to <strong>Professional Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!
+                    </div>
+
+                    <!-- Method Selector Toggle -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;" v-if="!isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
+                        <button type="button" class="btn" :style="{ backgroundColor: generationMethod === 'auto' ? 'var(--accent)' : 'transparent', color: generationMethod === 'auto' ? 'var(--workspace-bg)' : 'var(--text-main)', border: '1px solid var(--border)' }" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; height: 32px; font-weight: 700; border-radius: 6px;" @click="generationMethod = 'auto'">
+                            🤖 Automated AI Crawl
+                        </button>
+                        <button type="button" class="btn" :style="{ backgroundColor: generationMethod === 'manual' ? 'var(--accent)' : 'transparent', color: generationMethod === 'manual' ? 'var(--workspace-bg)' : 'var(--text-main)', border: '1px solid var(--border)' }" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; height: 32px; font-weight: 700; border-radius: 6px;" @click="generationMethod = 'manual'">
+                            📋 Manual Prompt Builder
+                        </button>
+                    </div>
+
                     <!-- Competitor Domain Inputs -->
-                    <div class="form-group form-full" style="margin-bottom: 15px;" v-if="!isGeneratingProtocol">
+                    <div class="form-group form-full" style="margin-bottom: 15px;" v-if="!isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
                         <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px; display: block;">
                             Competitor Domains / URLs (Comma-separated, optional)
                         </label>
                         <input type="text" v-model="competitorInput" placeholder="e.g. competitor1.com, competitor2.com" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0; outline: none;">
                     </div>
 
+                    <!-- Manual generation info/prompt template -->
+                    <div v-if="generationMethod === 'manual' && !isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
+                        <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 12px 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 15px;">
+                            <h5 style="margin: 0 0 6px 0; color: var(--accent); font-weight: 700;">Manual Playbook Generation Instructions:</h5>
+                            <ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                                <li>Click <strong>"Compile Strategy Prompt"</strong> below to bundle your homepage text and active catalog products.</li>
+                                <li>Copy the compiled prompt from the text box below.</li>
+                                <li>Paste it into <a href="https://aistudio.google.com/" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: bold;">Google AI Studio</a> or Gemini Chat using your preferred model (e.g. Deep Research Pro).</li>
+                                <li>Paste the generated markdown response back into the manuscript text editor below and click <strong>"Save Changes"</strong>!</li>
+                            </ol>
+                        </div>
+                        
+                        <div style="position: relative; margin-bottom: 15px;" v-if="compiledPrompt">
+                            <textarea readonly style="width: 100%; height: 200px; border-radius: 8px; border: 1px solid var(--border); background: #0f1311; color: var(--text-muted); padding: 12px; font-family: monospace; font-size: 0.8rem; line-height: 1.4; resize: vertical;" :value="compiledPrompt"></textarea>
+                            <button type="button" class="btn btn-accent" style="position: absolute; top: 10px; right: 10px; font-size: 0.75rem; padding: 4px 10px; height: 28px; margin: 0; font-weight: 700;" @click="copyCompiledPrompt">
+                                📋 Copy Prompt
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Generator Action Button -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
-                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
-                            <span v-if="isGeneratingProtocol">⏳ Crawling & Generating Manuscript...</span>
-                            <span v-else>✨ Generate Brand Manuscript</span>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;" v-if="settingsBrand.protocol_status !== 'generating'">
+                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
+                            <span v-if="isGeneratingProtocol">⏳ Crawling & Generating (via {{ activeManuscriptModelName }})...</span>
+                            <span v-else>✨ Generate Brand Manuscript (via {{ activeManuscriptModelName }})</span>
+                        </button>
+
+                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
+                            <span v-if="isCompilingPrompt">⏳ Compiling Contextual Prompt...</span>
+                            <span v-else>📋 Compile Strategy Prompt (via Scraper)</span>
                         </button>
                         
-                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="settingsBrand.marketing_protocol && !isEditingProtocol" @click="toggleEditProtocol">
-                            ✍️ Edit Manuscript
+                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="!isEditingProtocol" @click="toggleEditProtocol">
+                            ✍️ Paste / Edit Manuscript
                         </button>
                         
                         <button type="button" class="btn btn-primary" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="isEditingProtocol" @click="saveManualProtocol">
@@ -580,7 +629,11 @@ export default {
             aiUsageSummary: { total_calls: 0, total_prompt_tokens: 0, total_completion_tokens: 0, total_tokens: 0, total_cost_usd: 0.0 },
             aiUsageBreakdown: [],
             aiUsageLogs: [],
-            globalPricing: []
+            globalPricing: [],
+            generationMethod: 'auto',
+            compiledPrompt: '',
+            isCompilingPrompt: false,
+            protocolPollInterval: null
         }
     },
     watch: {
@@ -591,16 +644,27 @@ export default {
             this.dnsMissing = false;
             this.dnsCreating = false;
             this.loadAiUsage();
+            this.startProtocolPolling();
         },
         'app.activeView'(newView) {
             if (newView === 'settings') {
                 this.loadAiUsage();
                 this.loadGlobalPricing();
+                this.startProtocolPolling();
+            } else {
+                this.stopProtocolPolling();
             }
         }
     },
     computed: {
         userRole() { return this.app.userRole; },
+        activeManuscriptModelName() {
+            if (!this.settingsBrand) return 'Gemini 3.1 Pro';
+            const tier = this.settingsBrand.ai_tier || 'professional';
+            if (tier === 'standard') return 'Gemini 2.5 Flash';
+            if (tier === 'enterprise') return 'Deep Research Pro';
+            return 'Gemini 3.1 Pro';
+        },
         activeShopFilter() { return this.app.activeShopFilter; },
         currentSelectedBrandName() { return this.app.currentSelectedBrandName; },
         settingsBrand() { return this.app.settingsBrand; },
@@ -645,9 +709,67 @@ export default {
         if (this.app.activeView === 'settings') {
             this.loadAiUsage();
             this.loadGlobalPricing();
+            this.startProtocolPolling();
         }
     },
+    beforeDestroy() {
+        this.stopProtocolPolling();
+    },
     methods: {
+        startProtocolPolling() {
+            this.stopProtocolPolling();
+            this.protocolPollInterval = setInterval(async () => {
+                if (this.settingsBrand && this.settingsBrand.protocol_status === 'generating') {
+                    console.log('[AI Settings View] Polling brand list to check generation progress...');
+                    await this.app.loadBrands();
+                    if (this.settingsBrand.protocol_status !== 'generating') {
+                        // Status changed, reload usage metrics as well
+                        this.loadAiUsage();
+                    }
+                }
+            }, 5000);
+        },
+        stopProtocolPolling() {
+            if (this.protocolPollInterval) {
+                clearInterval(this.protocolPollInterval);
+                this.protocolPollInterval = null;
+            }
+        },
+        async compileManualPrompt() {
+            this.isCompilingPrompt = true;
+            this.compiledPrompt = '';
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/compile-prompt`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        competitors: this.competitorInput
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.compiledPrompt = data.prompt;
+                        this.showNotification('Strategy prompt successfully compiled with store storefront context!');
+                    }
+                } else {
+                    const err = await response.json();
+                    this.showNotification(`Error compiling prompt: ${err.error}`);
+                }
+            } catch (err) {
+                this.showNotification(`Error: ${err.message}`);
+            } finally {
+                this.isCompilingPrompt = false;
+            }
+        },
+        copyCompiledPrompt() {
+            if (!this.compiledPrompt) return;
+            navigator.clipboard.writeText(this.compiledPrompt);
+            this.showNotification('📋 Strategy prompt copied to clipboard!');
+        },
         async generateMarketingProtocol() {
             this.isGeneratingProtocol = true;
             try {
