@@ -7,11 +7,11 @@ services:
       - "80"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(\`${DOMAIN}\`) || Host(\`www.${DOMAIN}\`) || Host(\`${PESADO_DOMAIN}\`)"
+      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || Host(`${PESADO_DOMAIN}`)"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.entrypoints=websecure"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.tls.certresolver=letsencrypt"
       - "traefik.http.services.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}.loadbalancer.server.port=80"
-      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(\`${DOMAIN}\`) || Host(\`www.${DOMAIN}\`) || Host(\`${PESADO_DOMAIN}\`)"
+      - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`) || Host(`${PESADO_DOMAIN}`)"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.entrypoints=web"
       - "traefik.http.routers.stricktly-coffee-${DOKPLOY_COMPOSE_ID_SC}-http.middlewares=redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}"
       - "traefik.http.middlewares.redirect-to-https-${DOKPLOY_COMPOSE_ID_SC}.redirectscheme.scheme=https"
