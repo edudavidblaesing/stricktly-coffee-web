@@ -2,21 +2,33 @@ services:
   web:
     build: .
     restart: unless-stopped
-    container_name: stricktly-coffee-local
+    container_name: web-local
     ports:
       - "80:80"
     volumes:
       - ./web:/usr/share/nginx/html/web:ro
+    depends_on:
+      - backend-core
+
+  web-warehouse:
+    build:
+      context: .
+      dockerfile: Dockerfile.warehouse
+    restart: unless-stopped
+    container_name: web-warehouse-local
+    ports:
+      - "8081:80"
+    volumes:
       - ./pesado:/usr/share/nginx/html/pesado:ro
     depends_on:
-      - backend
+      - backend-core
 
-  backend:
+  backend-core:
     build:
       context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
-    container_name: stricktly-coffee-backend-local
+    container_name: backend-core-local
     command: node --watch index.js
     volumes:
       - ./server:/app

@@ -112,7 +112,7 @@ if [[ "${DEPLOY_DOCKER}" == "true" ]]; then
     docker-compose up -d --build
     
     printf '\n📊 Container status:\n'
-    docker ps | grep stricktly-coffee || echo "   No containers running"
+    docker-compose ps
     
     printf '\n✅ Docker deployment complete!\n'
     printf '📡 Site available at:\n'

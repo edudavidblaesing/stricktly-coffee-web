@@ -76,3 +76,4 @@ temp/
 # OS generated files
 ehthumbs.db
 Desktop.ini
+*.db

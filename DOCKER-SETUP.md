@@ -9,8 +9,8 @@
 - `.dockerignore` - Optimizes build by excluding unnecessary files
 
 ### Nginx Configuration
-- `nginx.conf` - HTTP configuration for stricktlycoffee.be
-- `nginx-ssl.conf` - HTTPS configuration with SSL/TLS support
+- `nginx-web.conf` / `nginx-web-ssl.conf` - Nginx configs for Strictly Coffee container (HTTP/HTTPS)
+- `nginx-warehouse.conf` / `nginx-warehouse-ssl.conf` - Nginx configs for Pesado store & warehouse container (HTTP/HTTPS)
 
 ### Deployment Scripts
 - `deploy-docker.sh` - Automated deployment script with HTTP/HTTPS/prod modes
@@ -94,7 +94,7 @@ docker ps
 docker-compose logs -f
 
 # Check nginx config
-docker exec stricktly-coffee nginx -t
+docker exec web nginx -t
 
 # Restart container
 docker-compose restart
@@ -118,7 +118,7 @@ sudo systemctl stop apache2  # or nginx
 docker-compose logs web
 
 # Validate nginx config
-docker exec stricktly-coffee nginx -t
+docker exec web nginx -t
 ```
 
 ### Site Not Accessible

@@ -5,25 +5,46 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
-    container_name: stricktly-coffee
+    container_name: web-prod
     volumes:
       # Mount SSL certificates (update path to your certificates)
       - ./ssl:/etc/nginx/ssl:ro
     environment:
-      - VIRTUAL_HOST=stricktlycoffee.be,www.stricktlycoffee.be,pesado.stricktlycoffee.be
-      - LETSENCRYPT_HOST=stricktlycoffee.be,www.stricktlycoffee.be,pesado.stricktlycoffee.be
-      - LETSENCRYPT_EMAIL=admin@stricktlycoffee.be
+      - VIRTUAL_HOST=${DOMAIN},www.${DOMAIN}
+      - LETSENCRYPT_HOST=${DOMAIN},www.${DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
     networks:
       - web
     depends_on:
-      - backend
+      - backend-core
 
-  backend:
+  web-warehouse:
+    build:
+      context: .
+      dockerfile: Dockerfile.warehouse
+    ports:
+      - "8081:80"
+      - "8443:443"
+    restart: unless-stopped
+    container_name: web-warehouse-prod
+    volumes:
+      # Mount SSL certificates (update path to your certificates)
+      - ./ssl:/etc/nginx/ssl:ro
+    environment:
+      - VIRTUAL_HOST=${PESADO_DOMAIN}
+      - LETSENCRYPT_HOST=${PESADO_DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    networks:
+      - web
+    depends_on:
+      - backend-core
+
+  backend-core:
     build:
       context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
-    container_name: stricktly-coffee-backend-prod
+    container_name: backend-core-prod
     environment:
       - PORT=3000
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
