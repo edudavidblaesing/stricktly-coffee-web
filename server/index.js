@@ -775,19 +775,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.get('/api/auth/reset-password-debug-sc', async (req, res) => {
-  try {
-    const passwordHash = crypto.createHash('sha256').update('TheKey4u').digest('hex');
-    await runQuery(`
-      INSERT INTO users (email, password_hash, role)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (email) DO UPDATE SET password_hash = $2
-    `, ['sc@davidblaesing.com', passwordHash, 'superadmin']);
-    res.send("Password reset successfully to TheKey4u for sc@davidblaesing.com");
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
+
 
 // Upload local file to S3 media bucket
 async function uploadFileToS3(filePath, key, mimeType) {
