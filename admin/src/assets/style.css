@@ -2108,6 +2108,11 @@
             transition: all 0.2s ease-in-out !important;
             cursor: pointer !important;
             box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1) !important;
+            white-space: nowrap !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
         }
         .sc-ai-button:hover {
             background: #f4f5f6 !important;

@@ -1120,7 +1120,7 @@ export default {
                     salesChartType: 'bar',
                     funnelChartType: 'bar',
                     analyticsStartDate: '',
-                    showDemoData: true,
+                    showDemoData: false,
                     aiTicker: {
                         active: false,
                         tokens: 0,

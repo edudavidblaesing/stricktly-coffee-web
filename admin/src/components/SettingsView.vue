@@ -651,7 +651,7 @@
                     <div v-if="settingsBrand.protocol_status === 'failed'" style="background: rgba(239, 68, 68, 0.05); border: 1px dashed #ef4444; padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
                         <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">❌</span>
                         <strong style="color: #ef4444;">AI Generation Failed or Rate Limited!</strong><br>
-                        The backend hit a throttle limit (Deep Research has just 1 RPM limit) or an error occurred. We suggest switching to <strong>Professional Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!
+                        <span v-html="protocolErrorSuggestion"></span>
                         <div v-if="settingsBrand.protocol_error" style="margin-top: 10px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); padding: 8px 12px; border-radius: 6px; text-align: left; font-family: monospace; font-size: 0.76rem; color: #f87171; white-space: pre-wrap; overflow-x: auto; word-break: break-all;">
                             <strong>Error Context:</strong> {{ settingsBrand.protocol_error }}
                         </div>
@@ -1117,6 +1117,17 @@ export default {
             if (tier === 'standard') return 'Gemini 2.5 Flash';
             if (tier === 'enterprise') return 'Deep Research Pro';
             return 'Gemini 3.1 Pro';
+        },
+        protocolErrorSuggestion() {
+            if (!this.settingsBrand) return '';
+            const tier = this.settingsBrand.ai_tier || 'professional';
+            if (tier === 'standard') {
+                return 'The backend hit a throttle limit (Gemini 2.5 Flash has 15 RPM limit on standard key) or an error occurred. We suggest switching to <strong>Professional Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
+            } else if (tier === 'professional') {
+                return 'The backend hit a throttle limit (Gemini 1.5 Pro has 360 RPM limit) or an error occurred. We suggest switching to <strong>Enterprise Tier (Deep Research Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
+            } else {
+                return 'The backend hit a throttle limit (Deep Research has just 1 RPM limit) or an error occurred. We suggest waiting a minute before retry, or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
+            }
         },
         activeShopFilter() { return this.app.activeShopFilter; },
         isValidBrandSelected() {

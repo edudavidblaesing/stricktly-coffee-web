@@ -257,6 +257,99 @@
                                     ✓ Connected
                                 </span>
                             </div>
+
+                            <!-- TikTok Ads Option -->
+                            <div :style="{
+                                     background: newCampaign.platforms.includes('tiktok') ? '#ffffff' : 'var(--card-bg)',
+                                     color: newCampaign.platforms.includes('tiktok') ? '#000000' : 'var(--text-main)',
+                                     border: '1px solid ' + (newCampaign.platforms.includes('tiktok') ? '#ffffff' : 'var(--border)')
+                                 }"
+                                 style="padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; justify-content: space-between; font-size: 0.76rem; transition: all 0.2s ease;">
+                                <label :style="{ color: newCampaign.platforms.includes('tiktok') ? '#000000' : 'var(--text-main)' }"
+                                       style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; font-weight: 600;">
+                                    <input type="checkbox" value="tiktok" v-model="newCampaign.platforms" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+                                    <span style="font-size: 1rem;">🎵</span>
+                                    <span>TikTok Ads</span>
+                                </label>
+                                <span v-if="!isChannelConnected('tiktok')"
+                                      :style="{
+                                          color: newCampaign.platforms.includes('tiktok') ? '#b25e00' : '#eab308',
+                                          background: newCampaign.platforms.includes('tiktok') ? 'rgba(178,94,0,0.1)' : 'rgba(234,179,8,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ⚠️ <a href="#" @click.prevent="openOAuthConnector('tiktok')" :style="{ color: newCampaign.platforms.includes('tiktok') ? '#b25e00' : '#eab308' }" style="text-decoration: underline;">Disconnected</a>
+                                </span>
+                                <span v-else
+                                      :style="{
+                                          color: '#10b981',
+                                          background: newCampaign.platforms.includes('tiktok') ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ✓ Connected
+                                </span>
+                            </div>
+
+                            <!-- LinkedIn Ads Option -->
+                            <div :style="{
+                                     background: newCampaign.platforms.includes('linkedin') ? '#ffffff' : 'var(--card-bg)',
+                                     color: newCampaign.platforms.includes('linkedin') ? '#000000' : 'var(--text-main)',
+                                     border: '1px solid ' + (newCampaign.platforms.includes('linkedin') ? '#ffffff' : 'var(--border)')
+                                 }"
+                                 style="padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; justify-content: space-between; font-size: 0.76rem; transition: all 0.2s ease;">
+                                <label :style="{ color: newCampaign.platforms.includes('linkedin') ? '#000000' : 'var(--text-main)' }"
+                                       style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; font-weight: 600;">
+                                    <input type="checkbox" value="linkedin" v-model="newCampaign.platforms" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+                                    <span style="font-size: 1rem;">💼</span>
+                                    <span>LinkedIn Ads</span>
+                                </label>
+                                <span v-if="!isChannelConnected('linkedin')"
+                                      :style="{
+                                          color: newCampaign.platforms.includes('linkedin') ? '#b25e00' : '#eab308',
+                                          background: newCampaign.platforms.includes('linkedin') ? 'rgba(178,94,0,0.1)' : 'rgba(234,179,8,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ⚠️ <a href="#" @click.prevent="openOAuthConnector('linkedin')" :style="{ color: newCampaign.platforms.includes('linkedin') ? '#b25e00' : '#eab308' }" style="text-decoration: underline;">Disconnected</a>
+                                </span>
+                                <span v-else
+                                      :style="{
+                                          color: '#10b981',
+                                          background: newCampaign.platforms.includes('linkedin') ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ✓ Connected
+                                </span>
+                            </div>
+
+                            <!-- Pinterest Ads Option -->
+                            <div :style="{
+                                     background: newCampaign.platforms.includes('pinterest') ? '#ffffff' : 'var(--card-bg)',
+                                     color: newCampaign.platforms.includes('pinterest') ? '#000000' : 'var(--text-main)',
+                                     border: '1px solid ' + (newCampaign.platforms.includes('pinterest') ? '#ffffff' : 'var(--border)')
+                                 }"
+                                 style="padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; justify-content: space-between; font-size: 0.76rem; transition: all 0.2s ease;">
+                                <label :style="{ color: newCampaign.platforms.includes('pinterest') ? '#000000' : 'var(--text-main)' }"
+                                       style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; font-weight: 600;">
+                                    <input type="checkbox" value="pinterest" v-model="newCampaign.platforms" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+                                    <span style="font-size: 1rem;">📌</span>
+                                    <span>Pinterest Ads</span>
+                                </label>
+                                <span v-if="!isChannelConnected('pinterest')"
+                                      :style="{
+                                          color: newCampaign.platforms.includes('pinterest') ? '#b25e00' : '#eab308',
+                                          background: newCampaign.platforms.includes('pinterest') ? 'rgba(178,94,0,0.1)' : 'rgba(234,179,8,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ⚠️ <a href="#" @click.prevent="openOAuthConnector('pinterest')" :style="{ color: newCampaign.platforms.includes('pinterest') ? '#b25e00' : '#eab308' }" style="text-decoration: underline;">Disconnected</a>
+                                </span>
+                                <span v-else
+                                      :style="{
+                                          color: '#10b981',
+                                          background: newCampaign.platforms.includes('pinterest') ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)'
+                                      }"
+                                      style="font-size: 0.65rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-align: center; transition: all 0.2s ease;">
+                                    ✓ Connected
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -703,12 +796,15 @@
 
             <!-- Right: Real-Time Omnichannel Live Ad Previews -->
             <div class="panel" style="display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;">
-                <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                    <h3 class="panel-title">📱 Live Creative Preview</h3>
-                    <div style="display: flex; gap: 6px;">
-                        <button v-if="newCampaign.platforms.includes('meta')" class="btn btn-secondary" :class="{ active: previewChannel === 'meta' }" @click="previewChannel = 'meta'" style="font-size: 0.75rem; padding: 4px 8px; height: auto;">Meta Ads</button>
-                        <button v-if="newCampaign.platforms.includes('x')" class="btn btn-secondary" :class="{ active: previewChannel === 'x' }" @click="previewChannel = 'x'" style="font-size: 0.75rem; padding: 4px 8px; height: auto;">X Ads</button>
-                        <button v-if="newCampaign.platforms.includes('google')" class="btn btn-secondary" :class="{ active: previewChannel === 'google' }" @click="previewChannel = 'google'" style="font-size: 0.75rem; padding: 4px 8px; height: auto;">Google Ads</button>
+                <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; flex-wrap: wrap; gap: 10px;">
+                    <h3 class="panel-title" style="margin: 0;">📱 Live Creative Preview</h3>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <button v-if="newCampaign.platforms.includes('meta')" class="btn btn-secondary" :class="{ active: previewChannel === 'meta' }" @click="previewChannel = 'meta'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Meta</button>
+                        <button v-if="newCampaign.platforms.includes('google')" class="btn btn-secondary" :class="{ active: previewChannel === 'google' }" @click="previewChannel = 'google'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Google</button>
+                        <button v-if="newCampaign.platforms.includes('x')" class="btn btn-secondary" :class="{ active: previewChannel === 'x' }" @click="previewChannel = 'x'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">X</button>
+                        <button v-if="newCampaign.platforms.includes('tiktok')" class="btn btn-secondary" :class="{ active: previewChannel === 'tiktok' }" @click="previewChannel = 'tiktok'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">TikTok</button>
+                        <button v-if="newCampaign.platforms.includes('linkedin')" class="btn btn-secondary" :class="{ active: previewChannel === 'linkedin' }" @click="previewChannel = 'linkedin'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">LinkedIn</button>
+                        <button v-if="newCampaign.platforms.includes('pinterest')" class="btn btn-secondary" :class="{ active: previewChannel === 'pinterest' }" @click="previewChannel = 'pinterest'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Pinterest</button>
                     </div>
                 </div>
 
@@ -827,172 +923,172 @@
             </div>
         </div>
 
-        <!-- Active Marketing Campaigns Table -->
-        <!-- Active Marketing Campaigns Grid -->
         <div class="panel">
             <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                    <h3 class="panel-title" style="margin: 0; font-size: 1.1rem;">Omnichannel Performance Suite</h3>
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>🎨 Smart Ad Studio</span>
+                        <span class="badge-simulation" style="background: rgba(197, 160, 89, 0.15); color: var(--accent); font-size: 0.65rem; font-weight: 700;">OMNICHANNEL</span>
+                    </h3>
                     <div style="display: flex; gap: 4px; border-bottom: 1px solid transparent; flex-wrap: wrap;">
-                        <button type="button" @click="activeTab = 'campaigns'" :style="{ borderBottom: activeTab === 'campaigns' ? '2px solid var(--accent)' : 'none', color: activeTab === 'campaigns' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px;">
-                            📋 Campaigns
+                        <button type="button" @click="activeTab = 'board'" :style="{ borderBottom: activeTab === 'board' ? '2px solid var(--accent)' : 'none', color: activeTab === 'board' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            📋 Studio Board
                         </button>
-                        <button type="button" @click="activeTab = 'autopilot'" :style="{ borderBottom: activeTab === 'autopilot' ? '2px solid var(--accent)' : 'none', color: activeTab === 'autopilot' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px;">
-                            🤖 Auto-Pilot
+                        <button type="button" @click="activeTab = 'calendar'" :style="{ borderBottom: activeTab === 'calendar' ? '2px solid var(--accent)' : 'none', color: activeTab === 'calendar' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            📅 Ad Planner (Calendar)
                         </button>
-                        <button type="button" @click="activeTab = 'attribution'" :style="{ borderBottom: activeTab === 'attribution' ? '2px solid var(--accent)' : 'none', color: activeTab === 'attribution' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px;">
-                            📐 Attribution Modeling
+                        <button type="button" @click="activeTab = 'autopilot'" :style="{ borderBottom: activeTab === 'autopilot' ? '2px solid var(--accent)' : 'none', color: activeTab === 'autopilot' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            🤖 Autopilot Console
                         </button>
-                        <button type="button" @click="activeTab = 'creative'" :style="{ borderBottom: activeTab === 'creative' ? '2px solid var(--accent)' : 'none', color: activeTab === 'creative' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px;">
-                            🎨 Creative Audits
+                        <button type="button" @click="activeTab = 'performance'" :style="{ borderBottom: activeTab === 'performance' ? '2px solid var(--accent)' : 'none', color: activeTab === 'performance' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            📊 Performance Insights
                         </button>
                     </div>
-                </div>
-
-                <!-- List/Calendar Toggle (only visible when in Campaigns tab) -->
-                <div v-if="activeTab === 'campaigns'" style="display: flex; gap: 4px; background: rgba(255,255,255,0.03); padding: 2px; border-radius: 6px; border: 1px solid var(--border);">
-                    <button type="button" @click="viewMode = 'list'" :style="{ background: viewMode === 'list' ? 'var(--accent)' : 'transparent', color: viewMode === 'list' ? 'var(--workspace-bg)' : 'var(--text-muted)' }" style="border: none; font-size: 0.72rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                        📋 List View
-                    </button>
-                    <button type="button" @click="viewMode = 'calendar'" :style="{ background: viewMode === 'calendar' ? 'var(--accent)' : 'transparent', color: viewMode === 'calendar' ? 'var(--workspace-bg)' : 'var(--text-muted)' }" style="border: none; font-size: 0.72rem; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                        📅 Calendar Planner
-                    </button>
                 </div>
             </div>
 
-            <!-- TAB 1: Campaigns view -->
-            <template v-if="activeTab === 'campaigns'">
-                <!-- List View -->
-                <template v-if="viewMode === 'list'">
-                    <div v-if="campaigns.length === 0" style="padding: 40px; text-align: center; color: var(--text-muted); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;">
-                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📢</div>
-                        <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin-bottom: 4px;">No campaigns yet</div>
-                        <div style="font-size: 0.8rem;">Build one above to start promoting your store!</div>
-                    </div>
-                    
-                    <div v-else class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th class="checkbox-cell" style="width: 40px;">
-                                        <div class="checkbox-custom" :class="{ checked: isAllCampaignsSelected }" @click="toggleSelectAllCampaigns"></div>
-                                    </th>
-                                    <th>Campaign Name</th>
-                                    <th>Target Segment</th>
-                                    <th>Active Locales</th>
-                                    <th>Channel</th>
-                                    <th>Format</th>
-                                    <th style="text-align: center;">Monthly Budget</th>
-                                    <th style="text-align: right;">Status</th>
-                                    <th style="text-align: right;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="c in campaigns" :key="c.id" :class="{ selected: selectedCampaignIds.includes(c.id) }" style="cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                                    <td class="checkbox-cell" @click.stop>
-                                        <div class="checkbox-custom" :class="{ checked: selectedCampaignIds.includes(c.id) }" @click="toggleSelectCampaign(c.id)"></div>
-                                    </td>
-                                    <td @click="selectCampaign(c)">
-                                        <strong style="color: var(--text-main); display: block;">{{ c.name }}</strong>
-                                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap;">
-                                            <span style="font-size: 0.72rem; color: var(--text-muted);">{{ c.headline || 'No headline' }}</span>
-                                            <span v-if="c.destination_type === 'landing_page'" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; padding: 1px 4px; border-radius: 3px; font-size: 0.65rem; font-weight: 700;">
-                                                🔗 Target: /{{ c.landing_page_id }}
-                                            </span>
-                                            <span v-else-if="c.destination_type === 'custom_url'" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 1px 4px; border-radius: 3px; font-size: 0.65rem; font-weight: 700;">
-                                                🔗 Custom: {{ c.custom_url || 'external-link.com' }}
-                                            </span>
-                                            <span v-else style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); padding: 1px 4px; border-radius: 3px; font-size: 0.65rem; font-weight: 700;">
-                                                🏠 Homepage
-                                            </span>
-                                            <span v-if="aiProposals[c.id] && aiProposals[c.id].length > 0" @click.stop="activeTab = 'creative'" class="badge-simulation" style="font-size: 0.65rem; background: rgba(96, 165, 250, 0.15); color: #60a5fa; font-weight: 700; padding: 1px 4px; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
-                                                🤖 Review Proposal
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td @click="selectCampaign(c)">
-                                        <span class="badge-simulation" style="font-size: 0.72rem; background: var(--border); color: var(--text-main);">
-                                            {{ c.segmentation }}
-                                        </span>
-                                    </td>
-                                    <td @click="selectCampaign(c)">
-                                        <div style="display: flex; gap: 4px;">
-                                            <span v-for="lang in parseLanguages(c.languages)" :key="lang" class="badge-simulation" style="font-size: 0.65rem; background: var(--border); color: var(--text-main); font-weight: 700; padding: 1px 4px;">
-                                                {{ lang.toUpperCase() }}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td @click="selectCampaign(c)">
-                                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                                            <span v-for="plat in (c.platform || '').split(',')" :key="plat" class="badge-simulation" style="font-size: 0.72rem; text-transform: capitalize; font-weight: 600;" :style="getPlatformStyle(plat)">
-                                                {{ plat === 'x' ? 'X / Twitter' : plat }}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td @click="selectCampaign(c)">{{ c.format }}</td>
-                                    <td @click="selectCampaign(c)" style="text-align: center; font-weight: 600;">
-                                        <div>€{{ parseFloat(c.budget).toFixed(2) }}</div>
-                                        <div style="font-size: 0.65rem; color: var(--accent); font-weight: 700; margin-top: 3px;">
-                                            🤖 Cost: ${{ parseFloat(c.ai_cost || 0).toFixed(4) }}
-                                        </div>
-                                    </td>
-                                    <td @click="selectCampaign(c)" style="text-align: right;">
-                                        <span class="status-badge" :class="c.status === 'active' ? 'status-success' : 'status-warning'" style="font-size: 0.72rem;">
-                                            {{ c.status === 'active' ? 'Active' : 'Paused' }}
-                                        </span>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <button type="button" class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 8px; color: var(--danger); height: auto;" @click="deleteCampaign(c.id)">
-                                            Void
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Floating Bulk Actions Bar -->
-                    <div v-if="selectedCampaignIds.length > 0" class="bulk-actions-bar">
-                        <span><strong>{{ selectedCampaignIds.length }}</strong> campaigns selected</span>
-                        <div class="btn-group">
-                            <button class="bulk-btn btn-danger" @click="performBulkDeleteCampaigns">Delete Selected</button>
+            <!-- TAB 1: Studio Board (Kanban View) -->
+            <template v-if="activeTab === 'board'">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; min-height: 480px;">
+                    <!-- Column 1: Paused & Drafts -->
+                    <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <h4 style="margin: 0; font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                            <span>⏸️ Paused & Drafts</span>
+                            <span class="badge-simulation" style="font-size: 0.65rem; background: var(--border); color: var(--text-main);">{{ campaigns.filter(c => c.status === 'paused' || c.status === 'draft').length }}</span>
+                        </h4>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 70vh;">
+                            <div v-for="c in campaigns.filter(c => c.status === 'paused' || c.status === 'draft')" :key="c.id" @click="selectCampaign(c)" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px;" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';" >
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main); line-height: 1.3;">{{ c.name }}</strong>
+                                    <button @click.stop="toggleCampaignStatus(c)" class="btn btn-secondary" style="margin: 0; padding: 2px 6px; font-size: 0.65rem; height: 20px; line-height: 1; border-radius: 4px; display: flex; align-items: center; gap: 3px;">
+                                        ▶️ Resume
+                                    </button>
+                                </div>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <span v-for="plat in (c.platform || '').split(',')" :key="plat" class="badge-simulation" style="font-size: 0.62rem; font-weight: 700; text-transform: capitalize; padding: 1px 4px; border-radius: 3px;" :style="getPlatformStyle(plat)">
+                                        {{ plat === 'x' ? 'X' : plat }}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                                    {{ c.headline || 'No active headline ad copy set' }}
+                                </div>
+                                <div style="border-top: 1px dashed var(--border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Budget: <strong>€{{ parseFloat(c.budget).toFixed(0) }}</strong></span>
+                                    <span style="font-size: 0.7rem; color: var(--accent); font-weight: 700;">ROAS: {{ parseFloat(c.target_roas || 4).toFixed(1) }}x</span>
+                                </div>
+                            </div>
+                            <div v-if="campaigns.filter(c => c.status === 'paused' || c.status === 'draft').length === 0" style="padding: 30px 10px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                                No paused ads.
+                            </div>
                         </div>
                     </div>
-                </template>
 
-                <!-- Calendar Planner View -->
-                <template v-else>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
-                        <button type="button" class="btn btn-secondary" @click="prevMonth" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">◀ Prev</button>
-                        <strong style="color: var(--text-main); font-size: 0.9rem;">
-                            {{ getMonthName(currentMonth) }} {{ currentYear }}
-                        </strong>
-                        <button type="button" class="btn btn-secondary" @click="nextMonth" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">Next ▶</button>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--workspace-bg);">
-                        <div v-for="dLabel in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="dLabel" style="text-align: center; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); padding: 8px 4px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);">
-                            {{ dLabel }}
-                        </div>
-
-                        <div v-for="(week, wIdx) in getMonthWeeks()" :key="wIdx" style="display: contents;">
-                            <div v-for="(day, dIdx) in week" :key="dIdx" :style="{ opacity: day.isCurrentMonth ? 1 : 0.35 }" style="min-height: 95px; padding: 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; background: var(--card-bg);">
-                                <div style="font-weight: 700; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;">
-                                    {{ day.dayNum }}
+                    <!-- Column 2: Active / Optimizing -->
+                    <div style="background: rgba(16, 185, 129, 0.015); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <h4 style="margin: 0; font-size: 0.85rem; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                            <span>🟢 Active / Optimizing</span>
+                            <span class="badge-simulation" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.15); color: #10b981;">{{ campaigns.filter(c => c.status === 'active').length }}</span>
+                        </h4>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 70vh;">
+                            <div v-for="c in campaigns.filter(c => c.status === 'active')" :key="c.id" @click="selectCampaign(c)" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px;" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';" >
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main); line-height: 1.3;">{{ c.name }}</strong>
+                                    <button @click.stop="toggleCampaignStatus(c)" class="btn btn-secondary" style="margin: 0; padding: 2px 6px; font-size: 0.65rem; height: 20px; line-height: 1; border-radius: 4px; display: flex; align-items: center; gap: 3px; color: var(--warning);">
+                                        ⏸️ Pause
+                                    </button>
+                                </div>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <span v-for="plat in (c.platform || '').split(',')" :key="plat" class="badge-simulation" style="font-size: 0.62rem; font-weight: 700; text-transform: capitalize; padding: 1px 4px; border-radius: 3px;" :style="getPlatformStyle(plat)">
+                                        {{ plat === 'x' ? 'X' : plat }}
+                                    </span>
+                                    <span v-if="c.autopilot_enabled" class="badge-simulation" style="font-size: 0.6rem; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 700; padding: 1px 4px; border-radius: 3px; display: inline-flex; align-items: center; gap: 2px;">
+                                        🤖 AUTOPILOT
+                                    </span>
                                 </div>
                                 
-                                <div style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 65px;">
-                                    <div v-for="c in getCampaignsForDay(day.dateStr)" :key="c.id" @click="selectCampaign(c)" :style="getPlatformStyle((c.platform || '').split(',')[0])" style="font-size: 0.62rem; font-weight: bold; padding: 2px 4px; border-radius: 4px; cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; transition: filter 0.2s;" onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='none'">
-                                        {{ c.name }} <span v-if="aiProposals[c.id] && aiProposals[c.id].length > 0" title="AI copy proposals pending" style="color: #60a5fa; font-weight: bold;">🤖</span>
+                                <!-- Inline Budget Slider -->
+                                <div @click.stop style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
+                                        <span style="color: var(--text-muted);">Daily Spend:</span>
+                                        <strong style="color: var(--text-main);">€{{ parseFloat(c.budget).toFixed(0) }}</strong>
                                     </div>
+                                    <input type="range" min="10" max="1000" step="10" v-model.number="c.budget" @change="saveInlineBudget(c)" style="width: 100%; cursor: pointer; accent-color: var(--accent);">
+                                </div>
+
+                                <div style="border-top: 1px dashed var(--border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.7rem;">
+                                    <div style="color: var(--text-muted);">ROAS Lift: <strong style="color: #10b981;">{{ parseFloat(c.target_roas || 4).toFixed(1) }}x</strong></div>
+                                    <div style="color: var(--text-muted); text-align: right;">AI Cost: <strong style="color: var(--accent);">€{{ parseFloat(c.ai_cost || 0).toFixed(4) }}</strong></div>
+                                </div>
+                            </div>
+                            <div v-if="campaigns.filter(c => c.status === 'active').length === 0" style="padding: 30px 10px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                                No running campaigns. Launch one above!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Completed / Archived -->
+                    <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <h4 style="margin: 0; font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                            <span>🏁 Completed</span>
+                            <span class="badge-simulation" style="font-size: 0.65rem; background: var(--border); color: var(--text-main);">{{ campaigns.filter(c => c.status === 'completed').length }}</span>
+                        </h4>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 70vh;">
+                            <div v-for="c in campaigns.filter(c => c.status === 'completed')" :key="c.id" @click="selectCampaign(c)" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; opacity: 0.85; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px;" onmouseover="this.style.borderColor='var(--accent)'; this.style.opacity='1';" onmouseout="this.style.borderColor='var(--border)'; this.style.opacity='0.85';" >
+                                <strong style="font-size: 0.88rem; color: var(--text-main); line-height: 1.3;">{{ c.name }}</strong>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <span v-for="plat in (c.platform || '').split(',')" :key="plat" class="badge-simulation" style="font-size: 0.62rem; font-weight: 700; text-transform: capitalize; padding: 1px 4px; border-radius: 3px;" :style="getPlatformStyle(plat)">
+                                        {{ plat === 'x' ? 'X' : plat }}
+                                    </span>
+                                </div>
+                                <div style="border-top: 1px dashed var(--border); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem;">
+                                    <span style="color: var(--text-muted);">Final Budget: <strong>€{{ parseFloat(c.budget).toFixed(0) }}</strong></span>
+                                    <span style="color: var(--text-muted);">ROAS: <strong>{{ parseFloat(c.target_roas || 4).toFixed(1) }}x</strong></span>
+                                </div>
+                            </div>
+                            <div v-if="campaigns.filter(c => c.status === 'completed').length === 0" style="padding: 30px 10px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                                No completed campaigns yet.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- TAB 2: Ad Planner (Calendar) -->
+            <template v-if="activeTab === 'calendar'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
+                    <button type="button" class="btn btn-secondary" @click="prevMonth" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">◀ Prev</button>
+                    <strong style="color: var(--text-main); font-size: 0.9rem;">
+                        {{ getMonthName(currentMonth) }} {{ currentYear }}
+                    </strong>
+                    <button type="button" class="btn btn-secondary" @click="nextMonth" style="padding: 4px 10px; font-size: 0.75rem; height: auto;">Next ▶</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--workspace-bg);">
+                    <div v-for="dLabel in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="dLabel" style="text-align: center; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); padding: 8px 4px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);">
+                        {{ dLabel }}
+                    </div>
+
+                    <div v-for="(week, wIdx) in getMonthWeeks()" :key="wIdx" style="display: contents;">
+                        <div v-for="(day, dIdx) in week" :key="dIdx" :style="{ opacity: day.isCurrentMonth ? 1 : 0.35 }" style="min-height: 95px; padding: 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; background: var(--card-bg); position: relative;" onmouseover="const btn = this.querySelector('.calendar-add-btn'); if (btn) btn.style.opacity = '1';" onmouseout="const btn = this.querySelector('.calendar-add-btn'); if (btn) btn.style.opacity = '0';">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;">
+                                <span>{{ day.dayNum }}</span>
+                                <span class="calendar-add-btn" @click.stop="openCreateCampaignWithDate(day.dateStr)" style="cursor: pointer; opacity: 0; transition: opacity 0.2s; font-size: 0.7rem; font-weight: 800; color: var(--accent); background: rgba(197, 160, 89, 0.15); padding: 1px 4px; border-radius: 4px;">+ Ad</span>
+                            </div>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 65px;">
+                                <div v-for="c in getCampaignsForDay(day.dateStr)" :key="c.id" @click="selectCampaign(c)" :style="getPlatformStyle((c.platform || '').split(',')[0])" style="font-size: 0.62rem; font-weight: bold; padding: 2px 4px; border-radius: 4px; cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; transition: filter 0.2s;" onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='none'">
+                                    {{ c.name }} <span v-if="aiProposals[c.id] && aiProposals[c.id].length > 0" title="AI copy proposals pending" style="color: #60a5fa; font-weight: bold;">🤖</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </template>
+                </div>
             </template>
 
-            <!-- TAB 2: Auto-Pilot Content -->
+            <!-- TAB 3: Auto-Pilot Content -->
             <template v-if="activeTab === 'autopilot'">
                 <div style="display: flex; flex-direction: column; gap: 20px;">
                     <!-- Run Strategy Check Banner -->
@@ -1518,6 +1614,21 @@
                         </div>
                     </div>
 
+                    <!-- Reschedule Ad Duration -->
+                    <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px;">
+                        <h4 style="margin: 0; color: var(--text-main); font-size: 0.9rem;">Reschedule Ad Campaign Schedule</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Start Date</label>
+                                <input type="date" v-model="selectedCampaign.start_date" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.8rem; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); height: 32px; outline: none;">
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">End Date</label>
+                                <input type="date" v-model="selectedCampaign.end_date" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.8rem; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); height: 32px; outline: none;">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Projections Simulator Output -->
                     <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 16px;">
                         <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
@@ -1606,7 +1717,7 @@ export default {
             roasSlider: 1.0,
             budgetSlider: 0,
             savingAdjustments: false,
-            activeTab: 'campaigns',
+            activeTab: 'board',
             selectedAttributionModel: 'last_click',
             attributionData: null,
             cohortData: [],
@@ -2070,6 +2181,15 @@ export default {
         closeCreateCampaignModal() {
             this.showCreateCampaignModal = false;
         },
+        openCreateCampaignWithDate(dateStr) {
+            this.openCreateCampaignModal();
+            if (this.showCreateCampaignModal) {
+                this.newCampaign.start_date = dateStr;
+                const start = new Date(dateStr);
+                const end = new Date(start.getTime() + 7 * 24 * 3600 * 1000);
+                this.newCampaign.end_date = end.toISOString().split('T')[0];
+            }
+        },
         handleCreateCampaignBackdropClick(e) {
             if (e.target !== e.currentTarget) return;
             this.closeCreateCampaignModal();
@@ -2166,6 +2286,43 @@ export default {
                 console.error(err);
             }
         },
+        async toggleCampaignStatus(c) {
+            c.status = c.status === 'active' ? 'paused' : 'active';
+            try {
+                const response = await fetch('/api/global/marketing-campaigns', {
+                    method: 'POST',
+                    headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(c)
+                });
+                if (response.ok) {
+                    this.app.showNotification(`Campaign "${c.name}" status updated to ${c.status}.`);
+                    this.loadCampaigns();
+                } else {
+                    const err = await response.json();
+                    alert(`Error changing status: ${err.error}`);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async saveInlineBudget(c) {
+            try {
+                const response = await fetch('/api/global/marketing-campaigns', {
+                    method: 'POST',
+                    headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(c)
+                });
+                if (response.ok) {
+                    this.app.showNotification(`Budget for "${c.name}" adjusted to €${parseFloat(c.budget).toFixed(0)}.`);
+                    this.loadCampaigns();
+                } else {
+                    const err = await response.json();
+                    alert(`Error adjusting budget: ${err.error}`);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
         getMonthWeeks() {
             const year = this.currentYear;
             const month = this.currentMonth;
@@ -2258,6 +2415,8 @@ export default {
                 ...this.selectedCampaign,
                 budget: this.projectedMetrics.spend,
                 target_roas: this.roasSlider,
+                start_date: this.selectedCampaign.start_date,
+                end_date: this.selectedCampaign.end_date,
                 bidding_strategy: this.roasSlider > 1 ? 'target_roas' : 'manual'
             };
             
