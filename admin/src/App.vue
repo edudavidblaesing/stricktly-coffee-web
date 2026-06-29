@@ -248,7 +248,7 @@
                                 <path d="M2 17l10 5 10-5"></path>
                                 <path d="M2 12l10 5 10-5"></path>
                             </svg>
-                            Campaigns
+                            Ad Studio
                         </button>
                     </li>
                     <li>
@@ -615,7 +615,7 @@
 
                         <!-- Create New Campaign button for campaigns view -->
                         <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'campaigns'" @click="$refs.campaignsView && $refs.campaignsView.openCreateCampaignModal()">
-                            ➕ Create New Campaign
+                            ➕ Launch New Ad
                         </button>
                     </div>
                 </div>
@@ -1480,7 +1480,7 @@ export default {
                     if (this.activeView === 'reports') return 'Reports & Analytics';
                     if (this.activeView === 'messages') return 'Messages & Activity Logs';
                     if (this.activeView === 'team-performance') return 'Team Performance';
-                    if (this.activeView === 'campaigns') return 'Campaigns & Marketing';
+                    if (this.activeView === 'campaigns') return 'Smart Ad Studio';
                     if (this.activeView === 'roles-permissions') return 'Roles & Permissions';
                     if (this.activeView === 'billing-subscription') return 'Billing & Subscriptions';
                     if (this.activeView === 'customer-support') return 'Customer Support';
