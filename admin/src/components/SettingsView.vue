@@ -1,7 +1,7 @@
 <template>
     <div id="view-settings" class="admin-view" :class="{ active: app.activeView === 'settings' }">
         <!-- Global configs -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected">
             <div class="panel-header">
                 <h3 class="panel-title">Global Stripe & API Settings</h3>
             </div>
@@ -32,7 +32,7 @@
         </div>
 
         <!-- Global AI Model Pricing settings (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
             <div class="panel-header">
                 <h3 class="panel-title">🤖 AI Model Token Cost Tuning (USD per 1M tokens)</h3>
             </div>
@@ -56,20 +56,10 @@
             </div>
         </div>
 
-        <!-- AI Tier Feature Authorization Matrix -->
-        <div class="panel" style="margin-top: 20px;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <h3 class="panel-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                    🛡️ AI Tier Feature Authorization Matrix
-                </h3>
-                <button v-if="userRole.toLowerCase() === 'superadmin'" 
-                        type="button" 
-                        class="btn btn-accent" 
-                        style="margin: 0; height: 32px; font-size: 0.78rem; font-weight: 700; padding: 0 16px;" 
-                        :disabled="savingTierFeatures" 
-                        @click="saveTierFeatures">
-                    {{ savingTierFeatures ? 'Saving Matrix...' : 'Save Feature Matrix' }}
-                </button>
+        <!-- AI Tier Feature Authorization Matrix (superadmin only, global context) -->
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
+            <div class="panel-header">
+                <h3 class="panel-title">🛡️ AI Tier Feature Authorization Matrix</h3>
             </div>
             <div style="padding: 15px;">
                 <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.45;">
@@ -195,10 +185,20 @@
                     </table>
                 </div>
             </div>
+            <div class="panel-footer">
+                <button v-if="userRole.toLowerCase() === 'superadmin'" 
+                        type="button" 
+                        class="btn btn-accent" 
+                        style="margin: 0;" 
+                        :disabled="savingTierFeatures" 
+                        @click="saveTierFeatures">
+                    {{ savingTierFeatures ? 'Saving Matrix...' : 'Save Feature Matrix' }}
+                </button>
+            </div>
         </div>
 
         <!-- Global Brand AI Cost & Spend Overview (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
             <div class="panel-header">
                 <h3 class="panel-title">📊 Global Brand AI Cost & Spend Overview</h3>
             </div>
@@ -251,7 +251,7 @@
         </div>
 
         <!-- Google AI Studio Rate Limits & Usage Monitor (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin'" style="margin-top: 20px;">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 class="panel-title">🛡️ Google AI Studio Real-time Rate Limits Monitor</h3>
                 <span style="font-size: 0.65rem; font-weight: 800; background: rgba(96, 165, 250, 0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;">
@@ -328,7 +328,7 @@
         </div>
 
         <!-- Contextual settings for currently filtered shop -->
-        <div class="panel" id="shop-settings-panel" v-if="activeShopFilter !== 'all'">
+        <div class="panel" id="shop-settings-panel" v-if="isValidBrandSelected">
             <div class="panel-header">
                 <h3 class="panel-title">Shop Settings for <span>{{ currentSelectedBrandName }}</span></h3>
             </div>
@@ -346,17 +346,62 @@
                     <div class="form-group">
                         <label>AI Operation Tier (Limits & Capabilities)</label>
                         <select v-model="settingsBrand.ai_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                            <option value="none">No AI / Basic Tier (No AI Access)</option>
                             <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
                             <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
                             <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
                         </select>
+                        <div v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.ai_free_tier" style="display: flex; align-items: center; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin: 0;">
+                                <input type="checkbox" v-model="settingsBrand.ai_free_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                                <span style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">🎁 Grant Free AI Access (Superadmin Toggle)</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="form-group" v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.ai_free_tier" style="display: flex; align-items: center;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-top: 15px;">
-                            <input type="checkbox" v-model="settingsBrand.ai_free_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                            <span style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">🎁 Grant Free AI Access (Superadmin Toggle)</span>
-                        </label>
+                    <!-- Payout & Billing config (Superadmin Only settings) -->
+                    <template v-if="userRole.toLowerCase() === 'superadmin'">
+                        <div class="form-group">
+                            <label>Merchant Billing Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, or free ledger model.">i</span></label>
+                            <select v-model="settingsBrand.billing_type" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                                <option value="" disabled>Please select a billing model...</option>
+                                <option value="standard">Standard (Direct Stripe gateway)</option>
+                                <option value="external_split">External Split Billing (Platform Checkout split)</option>
+                                <option value="free">Free Model (0% Platform Take Rate / Ledger-based)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" v-if="settingsBrand.billing_type === 'external_split'">
+                            <label>Platform Take Rate (%) <span class="info-tooltip-trigger" data-tooltip="Platform commission percentage retained on checkouts.">i</span></label>
+                            <input type="number" min="0" max="100" step="0.1" :value="settingsBrand.platform_take_rate * 100" @input="settingsBrand.platform_take_rate = parseFloat($event.target.value) / 100" style="margin: 0;" placeholder="15">
+                        </div>
+                        <div class="form-group" v-if="settingsBrand.stripe_connect_account_id">
+                            <label>Stripe Connect Account ID <span class="info-tooltip-trigger" data-tooltip="The merchant Connected Account ID to route split funds programmatically.">i</span></label>
+                            <input type="text" v-model="settingsBrand.stripe_connect_account_id" style="margin: 0;" placeholder="acct_1x2y3z...">
+                        </div>
+                    </template>
+
+                    <!-- Direct Stripe Credentials (Visible when Standard Billing Model is selected) -->
+                    <template v-if="settingsBrand.billing_type === 'standard'">
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
+                            <input type="password" v-model="settingsBrand.stripe_secret_key"
+                                placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
+                            <input type="password" v-model="settingsBrand.stripe_webhook_secret"
+                                placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$">
+                        </div>
+                    </template>
+
+                    <!-- Subscription Billing Method choice (Merchant & Admin adjustable) -->
+                    <div class="form-group">
+                        <label>Subscription Billing Method <span class="info-tooltip-trigger" data-tooltip="Define how monthly subscription fees are billed.">i</span></label>
+                        <select v-model="settingsBrand.subscription_billing_method" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                            <option value="" disabled>Please select a billing method...</option>
+                            <option value="ledger">Deduct from Payout Ledger Balance</option>
+                            <option value="stripe_card">Charge Credit Card on File</option>
+                        </select>
                     </div>
 
                     <!-- Unified storefront domain row with suffix dropdown -->
@@ -368,7 +413,7 @@
                                    v-model="subdomainSlug"
                                    :readonly="userRole.toLowerCase() === 'merchant'"
                                    required
-                                   pattern="^[a-z0-9-]+$"
+                                   pattern="^[a-z0-9\-]+$"
                                    placeholder="brand-slug"
                                    style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
                             <input v-else
@@ -376,7 +421,7 @@
                                    v-model="settingsBrand.custom_domain"
                                    :readonly="userRole.toLowerCase() === 'merchant'"
                                    required
-                                   pattern="^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}$"
+                                   pattern="^(?!:\/\/)([a-zA-Z0-9\-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9\-_]+\.[a-zA-Z]{2,11}$"
                                    placeholder="coffee-brandsite.com"
                                    style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
 
@@ -478,6 +523,10 @@
                         <label>Logo Image URL (Optional)</label>
                         <input type="url" v-model="settingsBrand.logo" placeholder="https://pesado585.com/logo.png">
                     </div>
+                    <div class="form-group">
+                        <label>Default Catalog Price Markup (%)</label>
+                        <input type="number" min="0" step="1" v-model="settingsBrand.price_markup" placeholder="0">
+                    </div>
 
                     <!-- Language Selection -->
                     <div class="form-group form-full">
@@ -517,31 +566,15 @@
                     </div>
                     <div class="form-group form-full">
                         <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('shopify')"></span>Shopify Access Token</label>
-                        <input type="password" v-model="settingsBrand.shopify_access_token"
-                            placeholder="Shopify Access Token (shpat_...)">
+                        <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
+                            <input type="password" v-model="settingsBrand.shopify_access_token"
+                                placeholder="Shopify Access Token (shpat_...)" style="flex: 1; margin: 0; height: 38px;">
+                            <button type="button" class="btn btn-accent" style="margin: 0; padding: 0 16px; white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;" @click="connectShopifyOAuth">
+                                <span v-html="getPlatformLogoSvg('shopify', 16)" style="margin-right: 6px; display: inline-flex; align-items: center;"></span>Connect via OAuth
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Stripe Configuration checkbox (Superadmin Only) -->
-                    <div class="form-group form-full" v-if="userRole.toLowerCase() === 'superadmin'">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; margin-top: 10px;">
-                            <input type="checkbox" v-model="settingsBrand.stripe_enabled" style="width: 18px; height: 18px; margin: 0;">
-                            Enable custom Stripe gateway configuration for this merchant
-                        </label>
-                    </div>
-
-                    <!-- Stripe Credentials Config Fields -->
-                    <template v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.stripe_enabled">
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Secret Key</label>
-                            <input type="password" v-model="settingsBrand.stripe_secret_key"
-                                placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$">
-                        </div>
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Webhook Secret</label>
-                            <input type="password" v-model="settingsBrand.stripe_webhook_secret"
-                                placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$">
-                        </div>
-                    </template>
                     <!-- DNS Status Check and register button -->
                     <div class="form-group form-full" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;" v-if="userRole.toLowerCase() === 'superadmin'">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
@@ -597,9 +630,21 @@
 
                     <!-- Background status alert tracker -->
                     <div v-if="settingsBrand.protocol_status === 'generating'" style="background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">⚙️</span>
+                        <span class="sc-generating-gear" style="font-size: 1.6rem; display: block; margin-bottom: 6px;">⚙️</span>
                         <strong>AI Strategy Playbook Generation is in Progress!</strong><br>
                         The crawler is gathering homepage data and analyzing catalog parameters using <span style="font-family: monospace; color: var(--accent); font-weight: bold;">{{ activeManuscriptModelName }}</span> in the background.<br>
+                        <div style="margin: 10px auto; background: rgba(197, 160, 89, 0.1); border-radius: 6px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.76rem; border: 1px solid rgba(197, 160, 89, 0.15);">
+                            <span>⏳ Live Ticker:</span>
+                            <strong>{{ formatTokens(liveEstimatedTokens) }} tokens</strong>
+                            <span>•</span>
+                            <span style="color: var(--accent);">Est. Cost: <strong>€{{ liveEstimatedCost.toFixed(4) }}</strong></span>
+                        </div>
+                        <div style="margin-top: 5px; margin-bottom: 5px;">
+                            <button type="button" class="btn" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.75rem; padding: 4px 10px; height: 28px; margin: 0; font-weight: 700; border-radius: 6px;" @click="cancelMarketingProtocol">
+                                🛑 Tap to Stop / Cancel
+                            </button>
+                        </div>
+                        <br>
                         You can continue working. This dashboard will update dynamically once processing finishes.
                     </div>
 
@@ -625,9 +670,29 @@
                     <!-- Competitor Domain Inputs -->
                     <div class="form-group form-full" style="margin-bottom: 15px;" v-if="!isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
                         <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px; display: block;">
-                            Competitor Domains / URLs (Comma-separated, optional)
+                            Competitor Domains / URLs (Press Enter to add tags)
                         </label>
-                        <input type="text" v-model="competitorInput" placeholder="e.g. competitor1.com, competitor2.com" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0; outline: none;">
+                        <div class="competitor-tags-input" style="display: flex; flex-wrap: wrap; gap: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; padding: 6px 12px; min-height: 38px; box-sizing: border-box; align-items: center; width: 100%;">
+                            <div v-for="(comp, idx) in competitorTags" :key="idx" 
+                                 style="display: inline-flex; align-items: center; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; gap: 6px; margin: 2px 0;">
+                                <span>{{ comp }}</span>
+                                <button type="button" @click="removeCompetitorTag(idx)" 
+                                        style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 0.85rem; font-weight: bold; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; opacity: 0.7; transition: opacity 0.2s;"
+                                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+                            </div>
+                            <input type="text" 
+                                   v-model="newCompetitorInput" 
+                                   @keydown.enter.prevent="addCompetitorTag"
+                                   @keydown.delete="handleCompetitorBackspace"
+                                   placeholder="Type domain (e.g. competitor.com) & press Enter" 
+                                   style="border: none; background: transparent; color: var(--text-main); font-size: 0.85rem; outline: none; margin: 0; padding: 0; flex: 1; min-width: 150px; height: 26px;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <input type="checkbox" id="auto-find-toggle" v-model="autoFindCompetitors" @change="syncCompetitorsToBrand" style="width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;">
+                            <label for="auto-find-toggle" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                                🔍 Auto-discover competitors using AI during strategy generation (if list is empty)
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Manual generation info/prompt template -->
@@ -650,14 +715,25 @@
                         </div>
                     </div>
 
+                    <!-- Real token and cost usage stats -->
+                    <div v-if="manuscriptStats && manuscriptStats.calls_count > 0 && settingsBrand.protocol_status !== 'generating'" 
+                         style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.76rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                        <span>📊 Accumulated manuscript usage:</span>
+                        <strong style="color: var(--text-main);">{{ manuscriptStats.calls_count }} builds</strong>
+                        <span>•</span>
+                        <strong style="color: var(--text-main);">{{ formatTokens(manuscriptStats.total_tokens) }} tokens</strong>
+                        <span>•</span>
+                        <span>Total Cost: <strong style="color: var(--accent);">€{{ (manuscriptStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
+                    </div>
+
                     <!-- Generator Action Button -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;" v-if="settingsBrand.protocol_status !== 'generating'">
-                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
-                            <span v-if="isGeneratingProtocol">⏳ Crawling & Generating (via {{ activeManuscriptModelName }})...</span>
+                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
+                            <span v-if="isGeneratingProtocol">⏳ Generating (via {{ activeManuscriptModelName }})...</span>
                             <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
                         </button>
 
-                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
+                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
                             <span v-if="isCompilingPrompt">⏳ Compiling Contextual Prompt...</span>
                             <span v-else>📋 Compile Strategy Prompt (via Scraper)</span>
                         </button>
@@ -742,6 +818,66 @@
                                     <span>Est. Invoice:</span>
                                     <strong style="color: var(--accent); font-family: monospace; font-size: 0.95rem;">€{{ formatBillingCost(getTierSubscriptionCost() + (aiUsageSummary.total_cost_usd * 0.92)) }}</strong>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Spend Limits & Overage Controls -->
+                    <div v-if="settingsBrand && !settingsBrand.ai_free_tier" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <h5 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                    <span>📊 AI Monthly Spend Limit Usage</span>
+                                    <span v-if="settingsBrand.pay_as_you_go_enabled" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Pay-As-You-Go Enabled</span>
+                                    <span v-else style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Hard Cap Limit</span>
+                                </h5>
+                                <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
+                                    Your plan includes a monthly budget ceiling to prevent runaway costs. Track actual consumption below.
+                                </p>
+                            </div>
+                            <!-- Interactive Toggle Switch -->
+                            <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.76rem; font-weight: 700; margin: 0; color: var(--text-main);">
+                                    <input type="checkbox" v-model="settingsBrand.pay_as_you_go_enabled" @change="updateBrandSettings" style="width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--accent);" />
+                                    Enable Pay-As-You-Go Overages
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar Component -->
+                        <div style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 6px;">
+                                <span style="color: var(--text-muted);">Current Billing Cycle AI Costs</span>
+                                <strong style="color: var(--text-main); font-family: monospace;">
+                                    ${{ parseFloat(aiUsageSummary.total_cost_usd || 0).toFixed(2) }} / ${{ getActiveTierSpendLimit.toFixed(2) }} USD
+                                </strong>
+                            </div>
+                            <div style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.02);">
+                                <div :style="{ width: getSpendLimitProgressPercent + '%', backgroundColor: getSpendLimitProgressColor }" 
+                                     style="height: 100%; border-radius: 4px; transition: width 0.4s ease-out;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warnings & Alerts Banners -->
+                        <div v-if="!settingsBrand.pay_as_you_go_enabled && getSpendLimitProgressPercent >= 80" 
+                             :style="{ 
+                                 background: getSpendLimitProgressPercent >= 100 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                                 borderColor: getSpendLimitProgressPercent >= 100 ? '#ef4444' : '#f59e0b'
+                             }"
+                             style="border: 1px dashed; padding: 12px; border-radius: 6px; font-size: 0.78rem; line-height: 1.45; text-align: left; margin-top: 12px; display: flex; align-items: flex-start; gap: 8px;">
+                            <span style="font-size: 1.1rem; line-height: 1;">{{ getSpendLimitProgressPercent >= 100 ? '❌' : '⚠️' }}</span>
+                            <div style="flex: 1; color: var(--text-main);">
+                                <strong v-if="getSpendLimitProgressPercent >= 100" style="color: #ef4444;">Suspension Limit Reached (100% used)</strong>
+                                <strong v-else style="color: #f59e0b;">Usage Warning ({{ getSpendLimitProgressPercent }}% used)</strong>
+                                <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted);">
+                                    <span v-if="getSpendLimitProgressPercent >= 100">
+                                        All automated AI writers, crawlers, and translators have been suspended for this cycle. Enable **Pay-As-You-Go Overages** above to immediately restore features.
+                                    </span>
+                                    <span v-else>
+                                        Your brand is approaching its monthly AI budget cap. To prevent service disruptions once the cap is met, enable **Pay-As-You-Go Overages** or contact support to upgrade plans.
+                                    </span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -918,7 +1054,7 @@
             </form>
         </div>
 
-        <div class="panel" id="no-shop-selected-settings" v-if="activeShopFilter === 'all'"
+        <div class="panel" id="no-shop-selected-settings" v-if="!isValidBrandSelected"
             style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
             <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and
                 Shopify parameters.</p>
@@ -947,9 +1083,15 @@ export default {
             dnsCreating: false,
             isScraping: false,
             isGeneratingProtocol: false,
+            liveEstimatedTokens: 0,
+            liveEstimatedCost: 0,
+            liveTickerInterval: null,
             isEditingProtocol: false,
             editedProtocolText: '',
             competitorInput: '',
+            competitorTags: [],
+            newCompetitorInput: '',
+            autoFindCompetitors: true,
             aiUsageSummary: { total_calls: 0, total_prompt_tokens: 0, total_completion_tokens: 0, total_tokens: 0, total_cost_usd: 0.0 },
             aiUsageBreakdown: [],
             aiUsageLogs: [],
@@ -988,6 +1130,20 @@ export default {
             this.loadRealtimeLimits();
             this.startProtocolPolling();
         },
+        settingsBrand: {
+            immediate: true,
+            deep: true,
+            handler(newVal) {
+                if (newVal) {
+                    if (newVal.competitors) {
+                        this.competitorTags = newVal.competitors.split(',').map(s => s.trim()).filter(Boolean);
+                    } else {
+                        this.competitorTags = [];
+                    }
+                    this.autoFindCompetitors = newVal.auto_find_competitors !== false;
+                }
+            }
+        },
         'app.activeView'(newView) {
             if (newView === 'settings') {
                 this.loadAiUsage();
@@ -1013,8 +1169,53 @@ export default {
             return 'Gemini 3.1 Pro';
         },
         activeShopFilter() { return this.app.activeShopFilter; },
+        isValidBrandSelected() {
+            return this.activeShopFilter !== 'all' && this.app.brands.some(b => b.id === this.activeShopFilter);
+        },
         currentSelectedBrandName() { return this.app.currentSelectedBrandName; },
         settingsBrand() { return this.app.settingsBrand; },
+        manuscriptStats() {
+            if (!this.aiUsageBreakdown) return { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+            return this.aiUsageBreakdown.find(b => b.operation === 'Brand Protocol & Strategy Generation') || { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+        },
+        hasSettingsChanged() {
+            if (!this.app.originalSettingsBrand || !this.settingsBrand) return false;
+            const fields = [
+                'name', 'contact_email', 'subdomain', 'custom_domain',
+                'primary_color', 'secondary_color', 'bg_color', 'text_color',
+                'button_radius', 'button_text_color', 'header_bg_color', 'font_family',
+                'favicon', 'logo', 'shopify_shop_name', 'shopify_access_token',
+                'stripe_secret_key', 'stripe_webhook_secret', 'pay_as_you_go_enabled',
+                'competitors', 'auto_find_competitors'
+            ];
+            for (const f of fields) {
+                const origVal = this.app.originalSettingsBrand[f];
+                const curVal = this.settingsBrand[f];
+                if ((origVal || '') !== (curVal || '')) return true;
+            }
+            const origLangs = Array.isArray(this.app.originalSettingsBrand.languages) ? [...this.app.originalSettingsBrand.languages].sort().join(',') : '';
+            const curLangs = Array.isArray(this.settingsBrand.languages) ? [...this.settingsBrand.languages].sort().join(',') : '';
+            if (origLangs !== curLangs) return true;
+            return false;
+        },
+        getActiveTierSpendLimit() {
+            if (!this.settingsBrand) return 50.00;
+            const tier = this.settingsBrand.ai_tier || 'professional';
+            if (tier === 'standard') return 10.00;
+            if (tier === 'enterprise') return 200.00;
+            return 50.00;
+        },
+        getSpendLimitProgressPercent() {
+            const limit = this.getActiveTierSpendLimit;
+            const spend = parseFloat(this.aiUsageSummary.total_cost_usd || 0);
+            return Math.min(Math.round((spend / limit) * 100), 100);
+        },
+        getSpendLimitProgressColor() {
+            const percent = this.getSpendLimitProgressPercent;
+            if (percent >= 100) return '#ef4444';
+            if (percent >= 80) return '#f59e0b';
+            return '#10b981';
+        },
         baseDomainOption: {
             get() {
                 return this.settingsBrand.custom_domain ? 'custom' : 'subdomain';
@@ -1060,6 +1261,7 @@ export default {
         }
     },
     created() {
+        window.addEventListener('message', this.handleOAuthMessage);
         if (this.app.activeView === 'settings') {
             this.loadAiUsage();
             this.loadGlobalPricing();
@@ -1069,21 +1271,92 @@ export default {
         }
     },
     beforeDestroy() {
+        window.removeEventListener('message', this.handleOAuthMessage);
         this.stopProtocolPolling();
+        this.stopLiveTicker();
     },
     methods: {
+        handleOAuthMessage(e) {
+            if (e.data && e.data.type === 'shopify_oauth_success') {
+                this.app.showNotification('Shopify Connected Successfully via OAuth!');
+                this.app.loadBrands().then(() => {
+                    if (this.app.selectedBrandId === e.data.brandId) {
+                        this.app.selectBrand(e.data.brandId);
+                    }
+                });
+            }
+        },
+        async connectShopifyOAuth() {
+            if (!this.settingsBrand.shopify_shop_name) {
+                alert('Please enter your Shopify Store URL address first.');
+                return;
+            }
+            // Open Shopify OAuth in a popup window
+            const authorizeUrl = `${this.app.apiBaseUrl}/api/global/shopify/auth?shop=${encodeURIComponent(this.settingsBrand.shopify_shop_name)}&brandId=${encodeURIComponent(this.settingsBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+            window.open(authorizeUrl, 'ShopifyOAuth', 'width=800,height=700,status=yes,resizable=yes');
+        },
+        startLiveTicker() {
+            this.stopLiveTicker();
+            this.liveEstimatedTokens = 0;
+            this.liveEstimatedCost = 0;
+            this.liveTickerInterval = setInterval(() => {
+                this.liveEstimatedTokens += Math.floor(Math.random() * 80) + 50;
+                this.liveEstimatedCost = (this.liveEstimatedTokens * 0.000003) * 0.92;
+            }, 300);
+        },
+        stopLiveTicker() {
+            if (this.liveTickerInterval) {
+                clearInterval(this.liveTickerInterval);
+                this.liveTickerInterval = null;
+            }
+        },
+        async cancelMarketingProtocol() {
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/cancel-protocol`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    this.showNotification('AI strategy playbook generation cancelled.');
+                    this.stopLiveTicker();
+                    await this.app.loadBrands();
+                }
+            } catch (err) {
+                console.error('Error cancelling protocol:', err);
+                this.showNotification(`Error: ${err.message}`);
+            }
+        },
         startProtocolPolling() {
             this.stopProtocolPolling();
             this.protocolPollInterval = setInterval(async () => {
                 if (this.settingsBrand && this.settingsBrand.protocol_status === 'generating') {
+                    if (!this.liveTickerInterval) {
+                        this.startLiveTicker();
+                    }
                     console.log('[AI Settings View] Polling brand list to check generation progress...');
                     await this.app.loadBrands();
                     if (this.settingsBrand.protocol_status !== 'generating') {
                         // Status changed, reload usage metrics as well
                         this.loadAiUsage();
+                        this.stopLiveTicker();
+                        if (this.settingsBrand.protocol_status === 'completed') {
+                            this.showNotification('AI Brand Performance Marketing Manuscript successfully generated!');
+                        } else if (this.settingsBrand.protocol_status === 'failed') {
+                            this.showNotification(`AI strategy playbook generation failed: ${this.settingsBrand.protocol_error || 'Unknown error'}`);
+                        }
                     }
+                } else {
+                    this.stopLiveTicker();
                 }
             }, 5000);
+        },
+        formatTokens(num) {
+            if (!num) return '0';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+            return num;
         },
         stopProtocolPolling() {
             if (this.protocolPollInterval) {
@@ -1102,7 +1375,7 @@ export default {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        competitors: this.competitorInput
+                        competitors: this.competitorTags.join(', ')
                     })
                 });
                 if (response.ok) {
@@ -1136,15 +1409,19 @@ export default {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        competitors: this.competitorInput
+                        competitors: this.competitorTags.join(', '),
+                        auto_find_competitors: this.autoFindCompetitors
                     })
                 });
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
-                        this.settingsBrand.marketing_protocol = data.marketing_protocol;
-                        this.showNotification('AI Brand Performance Marketing Manuscript successfully generated.');
-                        this.loadAiUsage();
+                        // Immediately transition UI state to generating and trigger polling
+                        this.settingsBrand.protocol_status = 'generating';
+                        this.settingsBrand.protocol_error = null;
+                        this.startLiveTicker();
+                        this.startProtocolPolling();
+                        this.showNotification('AI strategy playbook generation started in the background.');
                     } else {
                         throw new Error(data.error || 'Failed to generate manuscript');
                     }
@@ -1157,6 +1434,39 @@ export default {
                 this.showNotification(`Error: ${err.message}`);
             } finally {
                 this.isGeneratingProtocol = false;
+            }
+        },
+        addCompetitorTag() {
+            const val = (this.newCompetitorInput || '').trim();
+            if (val) {
+                const cleanVal = val.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].toLowerCase();
+                const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+                if (!domainRegex.test(cleanVal)) {
+                    alert('Please enter a valid competitor domain address (e.g., competitor.com or competitor.be) rather than a name.');
+                    return;
+                }
+                if (cleanVal && !this.competitorTags.includes(cleanVal)) {
+                    this.competitorTags.push(cleanVal);
+                    this.syncCompetitorsToBrand();
+                }
+            }
+            this.newCompetitorInput = '';
+        },
+        removeCompetitorTag(idx) {
+            this.competitorTags.splice(idx, 1);
+            this.syncCompetitorsToBrand();
+        },
+        handleCompetitorBackspace() {
+            if (this.newCompetitorInput === '' && this.competitorTags.length > 0) {
+                const popped = this.competitorTags.pop();
+                this.newCompetitorInput = popped;
+                this.syncCompetitorsToBrand();
+            }
+        },
+        syncCompetitorsToBrand() {
+            if (this.settingsBrand) {
+                this.settingsBrand.competitors = this.competitorTags.join(', ');
+                this.settingsBrand.auto_find_competitors = this.autoFindCompetitors;
             }
         },
         async loadAiUsage() {

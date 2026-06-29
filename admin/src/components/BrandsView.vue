@@ -12,7 +12,7 @@
 
         <div v-else style="width: 100%;">
 
-            <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && isCreatingBrand">
+            <div class="panel" v-if="isCreatingBrand">
             <div class="panel-header">
                 <h3 class="panel-title" style="margin: 0;">Spin Up New Brand Shop</h3>
             </div>
@@ -42,8 +42,16 @@
                     <div class="easy-setup-container" style="margin: 15px 0 25px 0; padding: 18px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border); border-radius: 8px;">
                         <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">⚡ Easy Setup (Autofill via Website/Shopify URL)</label>
                         <div style="display: flex; gap: 12px; align-items: center;">
-                            <input type="text" v-model="easySetupUrl" placeholder="Enter shop URL (e.g., https://pesado585.com)" style="margin: 0; flex: 1;" @keydown.enter.prevent="runEasySetup">
-                            <button type="button" class="btn" @click="runEasySetup" :disabled="easySetupLoading" style="margin: 0; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 140px;">
+                            <div v-if="autofilledStoreTag" style="display: flex; align-items: center; gap: 6px; flex: 1; padding: 6px 12px; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; min-height: 42px; box-sizing: border-box;">
+                                <div class="store-tag" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
+                                    <img v-if="newBrand.favicon" :src="newBrand.favicon" style="width: 14px; height: 14px; border-radius: 2px; object-fit: contain;" />
+                                    <span v-else>🌐</span>
+                                    <span>{{ autofilledStoreTag }}</span>
+                                    <button type="button" @click="clearAutofillTag" style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.75rem; padding: 0 2px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-left: 2px;">✕</button>
+                                </div>
+                            </div>
+                            <input v-else type="text" v-model="easySetupUrl" placeholder="Enter shop URL (e.g., https://pesado585.com)" style="margin: 0; flex: 1;" @keydown.enter.prevent="runEasySetup">
+                            <button v-if="!autofilledStoreTag" type="button" class="btn btn-accent" @click="runEasySetup" :disabled="easySetupLoading" style="margin: 0; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 140px; font-weight: 700;">
                                 <span v-if="easySetupLoading" class="spinner"></span>
                                 <span>{{ easySetupLoading ? 'Scraping...' : 'Autofill Form' }}</span>
                             </button>
@@ -60,6 +68,9 @@
                         <div class="form-group">
                             <label>Brand ID (Unique Slug, e.g. "pesado")</label>
                             <input type="text" v-model="newBrand.id" required placeholder="pesado" :disabled="dnsVerified && !previewMode">
+                            <div v-if="brandIdConflict" style="color: #ef4444; font-size: 0.76rem; margin-top: 4px; font-weight: 600;">
+                                ⚠️ This Brand ID is already registered in the system.
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Brand Display Name</label>
@@ -71,7 +82,7 @@
                                 <input type="text" 
                                     v-model="domainInputValue" 
                                     :placeholder="localDomainType === 'external' ? 'coffee-brandsite.com' : 'brand-slug'" 
-                                    :pattern="localDomainType === 'external' ? '^(?!:\\/\\/)([a-zA-Z0-9-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\\.[a-zA-Z]{2,11}$' : '^[a-z0-9-]+$'" 
+                                    :pattern="localDomainType === 'external' ? '^(?!:\\/\\/)([a-zA-Z0-9\\-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9\\-_]+\\.[a-zA-Z]{2,11}$' : '^[a-z0-9\\-]+$'" 
                                     required 
                                     :disabled="dnsVerified && !previewMode" 
                                     style="flex: 1; margin: 0; background: var(--workspace-bg);">
@@ -91,9 +102,52 @@
                         <div class="form-group">
                             <label>AI Performance Studio Tier</label>
                             <select v-model="newBrand.ai_tier" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                                <option value="none">No AI / Basic Tier (No AI Access)</option>
                                 <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
                                 <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
                                 <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Billing & Payout Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, or free ledger model.">i</span></label>
+                            <select v-model="newBrand.billing_type" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                                <option value="" disabled>Please select a billing model...</option>
+                                <option value="standard">Standard (Direct Stripe gateway)</option>
+                                <option value="external_split">External Split Billing (Platform Checkout split)</option>
+                                <option value="free">Free Model (0% Platform Take Rate / Ledger-based)</option>
+                            </select>
+                        </div>
+
+                        <!-- Direct Stripe Credentials (Visible in wizard when Standard Billing Model is selected) -->
+                        <template v-if="newBrand.billing_type === 'standard'">
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 6px;">Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
+                                <input type="password" v-model="newBrand.stripe_secret_key"
+                                    placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$">
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 6px;">Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
+                                <input type="password" v-model="newBrand.stripe_webhook_secret"
+                                    placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$">
+                            </div>
+                        </template>
+
+                        <div class="form-group" v-if="newBrand.billing_type === 'external_split'">
+                            <label>Platform Take Rate (%) <span class="info-tooltip-trigger" data-tooltip="Platform commission percentage retained on checkouts.">i</span></label>
+                            <input type="number" min="0" max="100" step="0.1" :value="newBrand.platform_take_rate * 100" @input="newBrand.platform_take_rate = parseFloat($event.target.value) / 100" style="margin: 0;" placeholder="15">
+                        </div>
+                        <div class="form-group" v-if="newBrand.billing_type === 'external_split'">
+                            <label>Stripe Connect Account ID (Optional) <span class="info-tooltip-trigger" data-tooltip="The merchant Connected Account ID to route split funds programmatically.">i</span></label>
+                            <input type="text" v-model="newBrand.stripe_connect_account_id" style="margin: 0;" placeholder="acct_1x2y3z...">
+                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">If provided, checkout splits route automatically. Otherwise, earnings accumulate in the ledger.</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Subscription Billing Method <span class="info-tooltip-trigger" data-tooltip="Define how monthly subscription fees are billed.">i</span></label>
+                            <select v-model="newBrand.subscription_billing_method" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                                <option value="" disabled>Please select a billing method...</option>
+                                <option value="ledger">Deduct from Payout Ledger Balance</option>
+                                <option value="stripe_card">Charge Credit Card on File</option>
                             </select>
                         </div>
 
@@ -545,7 +599,16 @@
                                                         <span v-else style="font-size: 0.7rem; color: var(--text-muted);">☕</span>
                                                     </div>
                                                     <div>
-                                                        <div style="font-weight: 600; color: var(--text-main);">{{ p.title }}</div>
+                                                        <div style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                                            <span>{{ p.title }}</span>
+                                                            <a v-if="p.original_link" :href="p.original_link" target="_blank" style="text-decoration: none; color: var(--text-muted); opacity: 0.6; transition: opacity 0.2s; display: inline-flex; align-items: center;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="View original product page">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                                                </svg>
+                                                            </a>
+                                                        </div>
                                                         <div style="font-size: 0.72rem; color: var(--text-muted);">Orig. Price: €{{ p.price ? p.price.toFixed(2) : '55.00' }}</div>
                                                     </div>
                                                 </div>
@@ -590,6 +653,91 @@
                                     <span style="font-weight: 600;">🟡 Draft (Offline, only visible in preview mode)</span>
                                 </label>
                             </div>
+                        </div>
+
+                        <!-- Step 4 Billing Details & Payment Wall -->
+                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+                            <h5 style="margin: 0 0 12px 0; color: var(--text-main); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                💳 Select Your AI Performance Subscription Tier
+                            </h5>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                <!-- None/Trial Plan -->
+                                <div @click="newBrand.ai_tier = 'none'" 
+                                     :style="{
+                                         border: newBrand.ai_tier === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === 'none' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">None (Sandbox Trial)</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€0.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                                         Sandbox preview model. AI operations are locked or simulation-only.
+                                     </div>
+                                </div>
+                                <!-- Standard Plan -->
+                                <div @click="newBrand.ai_tier = 'standard'" 
+                                     :style="{
+                                         border: newBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Standard Plan</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€49.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                                         Basic storefront customizations, copywriter assistant, and SEO optimization tools.
+                                     </div>
+                                </div>
+                                <!-- Professional Plan -->
+                                <div @click="newBrand.ai_tier = 'professional'" 
+                                     :style="{
+                                         border: newBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === 'professional' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Professional Plan</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€99.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                                         All Standard features, plus the AI Storefront Designer & custom page builder wizard.
+                                     </div>
+                                </div>
+                                <!-- Enterprise Plan -->
+                                <div @click="newBrand.ai_tier = 'enterprise'" 
+                                     :style="{
+                                         border: newBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === 'enterprise' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Enterprise Plan</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€199.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                                         All features plus tournament-based dynamic ad campaigns and autopilot rules.
+                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Secure payment input fields (Card payment wall) -->
+                        <div v-if="newBrand.ai_tier !== 'none' && userRole.toLowerCase() !== 'superadmin'" 
+                             style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+                             <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Checkout & Billing Authorization</h5>
+                             <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted);">
+                                 Provide a valid payment method to launch your storefront. You will be billed €{{ newBrand.ai_tier === 'standard' ? '49.00' : (newBrand.ai_tier === 'professional' ? '99.00' : '199.00') }} immediately.
+                             </p>
+                             
+                             <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+                                  <div class="form-group" style="margin: 0;">
+                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Card Number</label>
+                                      <input type="text" v-model="billingCardNumber" placeholder="4242 4242 4242 4242" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                  </div>
+                                  <div class="form-group" style="margin: 0;">
+                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Expiry Date</label>
+                                      <input type="text" v-model="billingCardExpiry" placeholder="MM/YY" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                  </div>
+                                  <div class="form-group" style="margin: 0;">
+                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">CVC / CVV</label>
+                                      <input type="text" v-model="billingCardCvc" placeholder="123" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                  </div>
+                             </div>
                         </div>
 
                         <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
@@ -1003,11 +1151,20 @@ import LandingPageDesignerView from './LandingPageDesignerView.vue';
 export default {
     name: 'BrandsView',
     inject: ['app'],
+    props: {
+        forceCreateWizard: {
+            type: Boolean,
+            default: false
+        }
+    },
     components: {
         DesignerView,
         LandingPageDesignerView
     },
     mounted() {
+        if (this.forceCreateWizard) {
+            this.isCreatingBrand = true;
+        }
         window.addEventListener('message', this.handleOAuthMessage);
 
         const params = new URLSearchParams(window.location.search);
@@ -1057,6 +1214,7 @@ export default {
     data() {
         return {
             easySetupUrl: '',
+            autofilledStoreTag: '',
             easySetupLoading: false,
             easySetupError: '',
             localDomainType: 'subdomain',
@@ -1113,6 +1271,11 @@ export default {
             faviconUploading: false,
             shopifyConnectionMode: 'oauth',
             woocommerceConnectionMode: 'oauth',
+            
+            // Billing inputs
+            billingCardNumber: '',
+            billingCardExpiry: '',
+            billingCardCvc: '',
             
             // Product Selection (Step 2)
             importedProducts: [],
@@ -1185,6 +1348,12 @@ export default {
             return list;
         },
         newBrand() { return this.app.newBrand; },
+        brandIdConflict() {
+            if (!this.newBrand || !this.newBrand.id) return false;
+            const cleanedId = this.newBrand.id.trim().toLowerCase();
+            if (!cleanedId) return false;
+            return this.app.brands.some(b => b.id.toLowerCase() === cleanedId);
+        },
         previewIframeSrc() { return this.app.previewIframeSrc; },
         previewActiveBrandId: {
             get() { return this.app.previewActiveBrandId; },
@@ -1252,6 +1421,10 @@ export default {
     },
     methods: {
         async connectShopifyOAuth() {
+            if (this.brandIdConflict) {
+                alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
+                return;
+            }
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
                 alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first, so we can save your draft before connecting to Shopify.');
                 return;
@@ -1294,6 +1467,10 @@ export default {
             }
         },
         async connectWooCommerceOAuth() {
+            if (this.brandIdConflict) {
+                alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
+                return;
+            }
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
                 alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first, so we can save your draft before connecting to WooCommerce.');
                 return;
@@ -1752,6 +1929,10 @@ export default {
             return 'Publish';
         },
         async goToStep(step) {
+            if (step >= 2 && this.brandIdConflict) {
+                alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
+                return;
+            }
             if (step > 1 && (!this.dnsVerified || !this.connectionVerified) && !this.previewMode) {
                 alert('Please verify both DNS setup and Integration Connection in Step 1 first, or check "Enable Offline Preview Mode".');
                 return;
@@ -1968,6 +2149,16 @@ export default {
                     this.app.newBrand.shopify_shop_name = d.shopify_shop_name || '';
                     this.app.newBrand.woocommerce_shop_url = d.woocommerce_shop_url || '';
                     
+                    let parsedDomain = this.easySetupUrl;
+                    try {
+                        if (!parsedDomain.startsWith('http://') && !parsedDomain.startsWith('https://')) {
+                            parsedDomain = 'https://' + parsedDomain;
+                        }
+                        const urlObj = new URL(parsedDomain);
+                        parsedDomain = urlObj.hostname.replace('www.', '');
+                    } catch(e) {}
+                    this.autofilledStoreTag = parsedDomain;
+
                     // Register scraped products immediately
                     this.importedProducts = d.products || [];
                     this.importedProducts.forEach((p, idx) => {
@@ -1987,6 +2178,22 @@ export default {
             } finally {
                 this.easySetupLoading = false;
             }
+        },
+        clearAutofillTag() {
+            this.autofilledStoreTag = '';
+            this.easySetupUrl = '';
+            this.app.newBrand.id = '';
+            this.app.newBrand.name = '';
+            this.app.newBrand.subdomain = '';
+            this.app.newBrand.contact_email = '';
+            this.app.newBrand.logo = '';
+            this.app.newBrand.favicon = '';
+            this.domainInputValue = '';
+            this.importedProducts = [];
+            this.selectedProducts = {};
+            this.customPrices = {};
+            this.customStock = {};
+            this.customDescriptions = {};
         },
         async saveBrandDraft() {
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
@@ -2136,7 +2343,12 @@ export default {
                 favicon: '',
                 status: 'draft',
                 stripe_enabled: false,
-                languages: ['en']
+                price_markup: 0.00,
+                billing_type: '',
+                platform_take_rate: 0.15,
+                stripe_connect_account_id: '',
+                subscription_billing_method: '',
+                stripe_customer_id: null
             };
             this.selectedChannels = {
                 storefront: true,
@@ -2239,11 +2451,20 @@ export default {
                 if (response.ok) {
                     const data = await response.json();
                     this.importedProducts = data.products || [];
+                    if (this.newBrand.price_markup !== undefined && this.newBrand.price_markup !== null) {
+                        this.globalMarkupPercent = parseFloat(this.newBrand.price_markup) || 0;
+                    }
                     this.importedProducts.forEach((p, idx) => {
                         const id = p.id || `p-${idx}`;
                         if (this.selectedProducts[id] === undefined) {
                             this.selectedProducts[id] = true;
-                            this.customPrices[id] = p.price || 55.00;
+                            const basePrice = p.price || 55.00;
+                            if (this.globalMarkupPercent > 0) {
+                                const markupAmount = basePrice * (this.globalMarkupPercent / 100);
+                                this.customPrices[id] = parseFloat((basePrice + markupAmount).toFixed(2));
+                            } else {
+                                this.customPrices[id] = basePrice;
+                            }
                             this.customStock[id] = 100;
                             this.customDescriptions[id] = p.description || '';
                         }
@@ -2344,6 +2565,18 @@ export default {
         },
         async finalizeOnboarding() {
             this.savingFinal = true;
+            if (this.newBrand.ai_tier !== 'none' && this.app.userRole.toLowerCase() !== 'superadmin') {
+                if (!this.billingCardNumber || !this.billingCardExpiry || !this.billingCardCvc) {
+                    alert('Please enter your checkout card payment credentials to subscribe and activate your brand shop.');
+                    this.savingFinal = false;
+                    return;
+                }
+                if (this.billingCardNumber.replace(/\s+/g, '').length < 12) {
+                    alert('Invalid card number format.');
+                    this.savingFinal = false;
+                    return;
+                }
+            }
             try {
                 let primary = this.newBrand.primary_color || '#c5a059';
                 let secondary = this.newBrand.secondary_color || '#b08d47';
@@ -2402,6 +2635,7 @@ export default {
                     header_bg_color: this.newBrand.header_bg_color,
                     font_family: this.newBrand.font_family || 'Outfit'
                 });
+                this.newBrand.price_markup = parseFloat(this.globalMarkupPercent) || 0.00;
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
                     method: 'POST',
                     headers: {
@@ -2411,7 +2645,34 @@ export default {
                     body: JSON.stringify(this.newBrand)
                 });
                 if (response.ok) {
+                    const result = await response.json();
+                    if (result.token) {
+                        localStorage.setItem('sc_admin_token', result.token);
+                        localStorage.setItem('sc_admin_brand_id', result.brandId);
+                        this.app.activeShopFilter = result.brandId;
+                    }
                     this.app.showNotification(`Onboarding complete! Brand is now ${this.newBrand.status}.`);
+                    
+                    // Trigger onboarding auto-translations prompt if non-English languages are configured
+                    if (this.newBrand.languages && this.newBrand.languages.length > 1) {
+                        const confirmTranslate = confirm('✨ You selected multiple storefront languages during onboarding. Would you like the AI to automatically translate all storefront copywriting parameters (headline, subheadlines, tracking pages, 404, etc.) to all chosen languages now?');
+                        if (confirmTranslate) {
+                            this.app.showNotification('✨ AI is auto-translating all storefront copy in the background...');
+                            fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrand.id}/ai-translate-all`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({})
+                            }).then(res => {
+                                if (res.ok) {
+                                    this.app.showNotification('✨ All storefront content translated successfully!');
+                                }
+                            }).catch(err => console.error('Onboarding auto-translate error:', err));
+                        }
+                    }
+
                     
                     // Automatically sync catalog products if any are selected
                     const hasSelectedProducts = Object.keys(this.selectedProducts).some(id => this.selectedProducts[id]);
@@ -2429,7 +2690,9 @@ export default {
                                         image: p.image || '',
                                         description: this.customDescriptions[id] || p.description || '',
                                         original_link: p.original_link || '',
-                                        translations: p.translations || {}
+                                        translations: p.translations || {},
+                                        original_price: p.price || 55.00,
+                                        price_source: Math.abs((parseFloat(this.customPrices[id]) || (p.price || 55.00)) - ((p.price || 55.00) * (1 + (parseFloat(this.globalMarkupPercent) || 0) / 100))) <= 0.02 ? 'external' : 'manual'
                                     });
                                 }
                             });
@@ -2454,6 +2717,26 @@ export default {
                         }
                     }
 
+                    // Auto-trigger Strategy Manuscript Generation in the background!
+                    const brandId = result.brandId || this.newBrand.id;
+                    if (brandId) {
+                        this.app.showNotification('✨ Compiling AI Brand Strategy Manuscript in background...');
+                        fetch(`${this.app.apiBaseUrl}/api/global/brands/${brandId}/generate-protocol`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify({ auto_find_competitors: true })
+                        }).then(res => {
+                            if (res.ok) {
+                                console.log('[Onboarding] Background strategy manuscript generation successfully initiated.');
+                            }
+                        }).catch(err => {
+                            console.error('[Onboarding] Failed to trigger background manuscript generation:', err);
+                        });
+                    }
+
                     // Reset wizard state
                     this.currentStep = 1;
                     this.dnsVerified = false;
@@ -2472,8 +2755,7 @@ export default {
                         twitter: false
                     };
                     
-                    // Reset parent brand object
-                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'] };
+                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'], price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'ledger', stripe_customer_id: null };
                     
                     this.isCreatingBrand = false;
                     await this.app.loadBrands();

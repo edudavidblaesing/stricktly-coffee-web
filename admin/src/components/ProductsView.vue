@@ -412,6 +412,13 @@
                                     <div>
                                         <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                                             <strong style="color: var(--text-main); cursor: pointer;" @click="openEditProductModal(prod)">{{ prod.title }} ✏️</strong>
+                                            <a v-if="prod.original_link" :href="prod.original_link" target="_blank" style="text-decoration: none; color: var(--text-muted); opacity: 0.6; transition: opacity 0.2s; display: inline-flex; align-items: center;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="View original product page">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                                </svg>
+                                            </a>
                                             <span v-if="prod.active === 0" style="background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Inactive</span>
                                             <span v-else style="background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Active</span>
                                         </div>
@@ -601,6 +608,10 @@ export default {
             }
         },
         openAddProductModal() {
+            if (this.brands.length === 0) {
+                alert('You must onboard at least one coffee brand storefront under the "Shops" tab before you can add products.');
+                return;
+            }
             this.showAddProductModal = true;
             if (this.activeShopFilter !== 'all') {
                 this.newProduct.brand_id = this.activeShopFilter;
@@ -793,7 +804,8 @@ export default {
                 details_source: prod.details_source || (prod.external_id ? 'external' : 'manual'),
                 active: prod.active !== undefined ? prod.active : 1,
                 translations: prod.translations ? (typeof prod.translations === 'string' ? JSON.parse(prod.translations) : prod.translations) : {},
-                meta_details: prod.meta_details || {}
+                meta_details: prod.meta_details || {},
+                original_price: prod.original_price || prod.price
             };
             this.activeLangTab = this.activeLanguages[0] || 'en';
             this.showEditProductModal = true;

@@ -197,9 +197,71 @@
                             <input type="text" v-model="designerBrand.favicon" :disabled="inheritStyles" placeholder="https://pesado585.com/favicon.ico" style="width: 100%;">
                         </div>
                     </div>
+                </div>
 
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
                     <!-- TAB 3: COPYWRITER & TEXT -->
                     <div v-if="activeTab === 'copywriter'" style="display: flex; flex-direction: column; gap: 16px;">
+                        
+                        <!-- Page Context Switcher Selector -->
+                        <div>
+                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>📝 Select Page to Edit</span>
+                                <button type="button" class="btn btn-accent" style="padding: 2px 8px; margin: 0; font-size: 0.68rem; font-weight: 700; height: 22px; border-radius: 4px; display: inline-flex; align-items: center;" @click="showAddPageModal = true">
+                                    ➕ Add Custom Page
+                                </button>
+                            </div>
+                            <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px; gap: 2px; flex-wrap: wrap;">
+                                <button type="button" class="btn" 
+                                        :style="activeContentPage === 'home' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
+                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
+                                        @click="navigateToPage('home')">
+                                    🏠 Home
+                                </button>
+                                <button type="button" class="btn" 
+                                        :style="activeContentPage === 'track' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
+                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
+                                        @click="navigateToPage('track')">
+                                    📦 Track
+                                </button>
+                                <button type="button" class="btn" 
+                                        :style="activeContentPage === '404' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
+                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
+                                        @click="navigateToPage('404')">
+                                    ⚠️ 404
+                                </button>
+                                <!-- Dynamic custom pages -->
+                                <div v-for="page in (designerBrand.landing_pages || [])" :key="page.id" style="display: flex; align-items: center; gap: 2px;">
+                                    <button type="button" class="btn" 
+                                            :style="activeContentPage === page.id ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
+                                            style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
+                                            @click="navigateToPage(page.id)">
+                                        📄 /{{ page.id }}
+                                    </button>
+                                    <button type="button" style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.72rem; padding: 0 4px;" title="Delete custom page" @click.stop="deleteCustomPage(page.id)">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk translation button -->
+                        <div style="margin-top: 4px; margin-bottom: 8px;">
+                            <button type="button" class="sc-premium-ai-btn" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" :disabled="isBulkTranslating" @click="runAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
+                                <span v-if="isBulkTranslating">⏳ AI Translating storefront pages...</span>
+                                <span v-else-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [~$0.0028]</span>
+                                <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [~$0.0028]</span>
+                            </button>
+                            
+                            <!-- Real token and cost usage stats for Translator -->
+                            <div v-if="translateAiStats && translateAiStats.calls_count > 0" 
+                                 style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+                                <span>📊 Accumulated translations: <strong>{{ translateAiStats.calls_count }} runs</strong></span>
+                                <span><strong>{{ formatTokens(translateAiStats.total_tokens) }} tokens</strong></span>
+                                <span>Cost: <strong style="color: var(--accent);">€{{ (translateAiStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
+                            </div>
+                        </div>
+
                         <!-- Language switcher tab bar -->
                         <div style="display: flex; gap: 4px; margin-bottom: 4px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
                             <button type="button" 
@@ -208,7 +270,7 @@
                                 @click="translationActiveLang = lang"
                                 :style="{
                                     background: translationActiveLang === lang ? 'var(--accent)' : 'transparent',
-                                    color: translationActiveLang === lang ? '#ffffff' : 'var(--text-muted)',
+                                    color: translationActiveLang === lang ? 'var(--workspace-bg)' : 'var(--text-muted)',
                                     border: 'none',
                                     padding: '4px 10px',
                                     borderRadius: '4px',
@@ -225,58 +287,242 @@
 
                         <!-- English / Default Editor (active lang is 'en') -->
                         <div v-if="translationActiveLang === 'en'" style="display: flex; flex-direction: column; gap: 12px;">
-                            <div class="form-group">
-                                <label>Hero Headline</label>
-                                <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual" style="width: 100%;">
+                            
+                            <!-- Home Page Fields -->
+                            <div v-if="activeContentPage === 'home'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Headline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_headline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Subheadline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_subheadline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop precision coffee gear." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Button Text</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_cta')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_hero_cta" placeholder="SHOP COLLECTION" style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Hero Subheadline</label>
-                                <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop precision coffee gear." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+
+                            <!-- Track Order Fields -->
+                            <div v-if="activeContentPage === 'track'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Headline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_headline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_track_headline" placeholder="Track Your Shipment" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Subtitle / Description</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_subheadline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <textarea v-model="designerBrand.text_track_subheadline" rows="3" placeholder="Check current dispatch status." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Input Placeholder</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_placeholder')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_track_placeholder" placeholder="Enter Order ID (e.g. PES_171954...)" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Button Text</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_cta')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_track_cta" placeholder="Track" style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Hero Button Text</label>
-                                <input type="text" v-model="designerBrand.text_hero_cta" placeholder="SHOP COLLECTION" style="width: 100%;">
+
+                            <!-- 404 Error Fields -->
+                            <div v-if="activeContentPage === '404'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Headline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_headline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_404_headline" placeholder="Page Not Found" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Subheadline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_subheadline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <textarea v-model="designerBrand.text_404_subheadline" rows="2" placeholder="The page you are looking for doesn't exist." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Button Text</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_cta')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="designerBrand.text_404_cta" placeholder="Back to Shop" style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group" style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px;">
-                                <label>404 Page Headline</label>
-                                <input type="text" v-model="designerBrand.text_404_headline" placeholder="Page Not Found" style="width: 100%;">
+
+                            <!-- Dynamic Custom Page Fields -->
+                            <div v-if="isCustomPage(activeContentPage)" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Headline</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('headline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="getCustomPageRef(activeContentPage).headline" placeholder="Exclusive Promo: Get 20% off!" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Subheadline / Description</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('subheadline')">✨ AI Rewrite</button>
+                                    </div>
+                                    <textarea v-model="getCustomPageRef(activeContentPage).subheadline" rows="3" placeholder="Describe the promotion..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">CTA Button Text</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('cta')">✨ AI Rewrite</button>
+                                    </div>
+                                    <input type="text" v-model="getCustomPageRef(activeContentPage).cta" placeholder="Claim Offer Now" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Hero Image URL</label>
+                                    <input type="text" v-model="getCustomPageRef(activeContentPage).hero_img" placeholder="https://example.com/image.jpg" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Coupon Code (optional)</label>
+                                    <input type="text" v-model="getCustomPageRef(activeContentPage).coupon_code" placeholder="e.g. COFFEE20" style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Features / Bullet Points (one per line)</label>
+                                    <textarea v-model="getCustomPageRef(activeContentPage).features" rows="4" placeholder="⚡ Free Worldwide Shipping&#10;🔒 100% Precision Guaranteed" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>404 Page Subheadline</label>
-                                <textarea v-model="designerBrand.text_404_subheadline" rows="2" placeholder="The page you are looking for doesn't exist." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>404 Page Button Text</label>
-                                <input type="text" v-model="designerBrand.text_404_cta" placeholder="Back to Shop" style="width: 100%;">
-                            </div>
+
                         </div>
 
                         <!-- Translation Editor (active lang is not 'en') -->
                         <div v-else style="display: flex; flex-direction: column; gap: 12px;">
-                            <div class="form-group">
-                                <label>Hero Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_headline" placeholder="Headline Translation..." style="width: 100%;">
+                            
+                            <!-- Home Page Fields -->
+                            <div v-if="activeContentPage === 'home'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_headline')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_headline" placeholder="Headline Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_subheadline')">✨ Translate from EN</button>
+                                    </div>
+                                    <textarea v-model="getTranslationRef(translationActiveLang).text_hero_subheadline" rows="3" placeholder="Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Hero Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_cta')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_cta" placeholder="Button Translation..." style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Hero Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
-                                <textarea v-model="getTranslationRef(translationActiveLang).text_hero_subheadline" rows="3" placeholder="Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+
+                            <!-- Track Order Fields -->
+                            <div v-if="activeContentPage === 'track'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_headline')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_headline" placeholder="Headline Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Subtitle / Description ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_subheadline')">✨ Translate from EN</button>
+                                    </div>
+                                    <textarea v-model="getTranslationRef(translationActiveLang).text_track_subheadline" rows="3" placeholder="Description Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Input Placeholder ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_placeholder')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_placeholder" placeholder="Placeholder Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_cta')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_cta" placeholder="Button Translation..." style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Hero Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_cta" placeholder="Button Translation..." style="width: 100%;">
+
+                            <!-- 404 Error Fields -->
+                            <div v-if="activeContentPage === '404'" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_headline')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_headline" placeholder="404 Headline Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_subheadline')">✨ Translate from EN</button>
+                                    </div>
+                                    <textarea v-model="getTranslationRef(translationActiveLang).text_404_subheadline" rows="2" placeholder="404 Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">404 Page Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_cta')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_cta" placeholder="404 Button Translation..." style="width: 100%;">
+                                </div>
                             </div>
-                            <div class="form-group" style="margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px;">
-                                <label>404 Page Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_headline" placeholder="404 Headline Translation..." style="width: 100%;">
+
+                            <!-- Dynamic Custom Page Fields (Translations) -->
+                            <div v-if="isCustomPage(activeContentPage)" style="display: flex; flex-direction: column; gap: 12px;">
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Headline ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('headline')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).headline" placeholder="Headline Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">Subheadline / Description ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('subheadline')">✨ Translate from EN</button>
+                                    </div>
+                                    <textarea v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).subheadline" rows="3" placeholder="Description Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label style="margin: 0;">CTA Button Text ({{ translationActiveLang.toUpperCase() }})</label>
+                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('cta')">✨ Translate from EN</button>
+                                    </div>
+                                    <input type="text" v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).cta" placeholder="Button Translation..." style="width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Features / Bullet Points ({{ translationActiveLang.toUpperCase() }})</label>
+                                    <textarea v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).features" rows="4" placeholder="Features Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>404 Page Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
-                                <textarea v-model="getTranslationRef(translationActiveLang).text_404_subheadline" rows="2" placeholder="404 Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>404 Page Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_cta" placeholder="404 Button Translation..." style="width: 100%;">
-                            </div>
+
                         </div>
                     </div>
 
@@ -344,22 +590,30 @@
                             The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
                         </div>
 
-                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
+                        <button type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
                             <span v-if="isGeneratingLayout">⏳ Tuning Layout Colors & Styles...</span>
                             <span v-else>✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [~$0.0005]</span>
                         </button>
-                        <p v-if="inheritStyles" style="font-size: 0.72rem; color: #ef4444; margin: 0; text-align: center;">
+                        
+                        <!-- Real token and cost usage stats for Designer -->
+                        <div v-if="layoutAiStats && layoutAiStats.calls_count > 0" 
+                             style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+                            <span>📊 Accumulated layout builds: <strong>{{ layoutAiStats.calls_count }}</strong></span>
+                            <span><strong>{{ formatTokens(layoutAiStats.total_tokens) }} tokens</strong></span>
+                            <span>Cost: <strong style="color: var(--accent);">€{{ (layoutAiStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
+                        </div>
+
+                        <p v-if="inheritStyles" style="font-size: 0.72rem; color: #ef4444; margin: 8px 0 0 0; text-align: center;">
                             ⚠️ Please uncheck "Inherit Master Brand Styles" above to enable custom AI design overrides.
                         </p>
                     </div>
+                </div>
 
-                    <!-- Custom CSS Override (always visible inside the grey-out wrapper) -->
+                <!-- Custom CSS Override (always visible inside the grey-out wrapper) -->
                     <div class="form-group" style="margin-top: 10px; margin-bottom: 12px;">
                         <label>Custom CSS Override</label>
                         <textarea v-model="designerBrand.custom_css" :disabled="inheritStyles" placeholder="/* Add custom CSS rules here to override layouts */&#10;body {&#10;  font-size: 16px;&#10;}" style="width: 100%; height: 120px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;"></textarea>
                     </div>
-
-                </div>
 
                 <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="saveDesignSettings" :disabled="saving">
                     <span v-if="saving" class="spinner"></span>
@@ -386,6 +640,77 @@
                     flexDirection: 'column',
                     padding: '24px'
                 } : {}">
+                <div v-if="isFullscreen" 
+                     style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 19, 17, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 16px; gap: 10px; margin-bottom: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100000; flex-wrap: nowrap; overflow-x: auto;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <span style="font-size: 1.1rem;">🛠️</span>
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">Sandbox Full Editor Mode</h4>
+                        <span v-if="hasUnsavedChanges" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; flex-shrink: 0;">
+                            Unsaved Changes
+                        </span>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap;">
+                        <!-- Undo / Redo / Reset Actions -->
+                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="undo" title="Undo (Ctrl+Z)">
+                            ↩ Undo
+                        </button>
+                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="redo" title="Redo (Ctrl+Y)">
+                            ↪ Redo
+                        </button>
+                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="resetDesign" title="Reset Design">
+                            ❌ Reset
+                        </button>
+                        
+                        <div style="width: 1px; height: 20px; background: var(--border);"></div>
+
+                        <!-- Inline Edit / Preview Mode Toggle inside Fullscreen Bar -->
+                        <span style="color: var(--text-muted); font-size: 0.76rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;">Mode:</span>
+                        <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 30px; align-items: center; box-sizing: border-box; flex-shrink: 0;">
+                            <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="inlineEditMode = true">
+                                ✏️ Edit
+                            </button>
+                            <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="inlineEditMode = false">
+                                👁️ Preview
+                            </button>
+                        </div>
+
+                        <!-- Inline Language Selector in Fullscreen Bar -->
+                        <span style="color: var(--text-muted); font-size: 0.76rem; font-weight: 600; margin-left: 4px; white-space: nowrap; flex-shrink: 0;">Language:</span>
+                        <select v-model="previewActiveLang" @change="changePreviewLanguage" 
+                                style="border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.72rem; padding: 4px 6px; font-weight: 700; cursor: pointer; outline: none; height: 30px; max-width: 90px; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;">
+                            <option v-for="lang in availableLanguages" :key="lang" :value="lang">
+                                {{ getLanguageLabel(lang).toUpperCase() }}
+                            </option>
+                        </select>
+                        
+                        <!-- Device Switcher inside Fullscreen Bar -->
+                        <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 30px; align-items: center; box-sizing: border-box; flex-shrink: 0;">
+                            <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'desktop'">
+                                🖥️ Desktop
+                            </button>
+                            <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'tablet'">
+                                📟 Tablet
+                            </button>
+                            <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'mobile'">
+                                📱 Mobile
+                            </button>
+                        </div>
+                        
+                        <div style="width: 1px; height: 20px; background: var(--border);"></div>
+
+                        <!-- Publish Settings Button -->
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 30px; padding: 0 12px; font-size: 0.76rem; white-space: nowrap; flex-shrink: 0;" @click="saveDesignSettings" :disabled="saving">
+                            {{ saving ? 'Publishing...' : '🚀 Publish Live' }}
+                        </button>
+                        
+                        <!-- Collapse Fullscreen Button -->
+                        <button type="button" class="btn" style="margin: 0; font-weight: 700; height: 30px; padding: 0 10px; font-size: 0.76rem; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); white-space: nowrap; flex-shrink: 0;" @click="toggleFullscreen">
+                            🗖 Exit Full View
+                        </button>
+                    </div>
+                </div>
+
                 <h4 style="margin: 0 0 10px 0; color: var(--accent); display: flex; align-items: center; justify-content: space-between;" v-if="!isFullscreen">
                     <span style="display: flex; align-items: center; gap: 8px;">
                         🖥️ Live Storefront Sandbox Preview
@@ -402,7 +727,7 @@
                 </h4>
 
                 <!-- Browser Toolbar -->
-                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--border); border: 1px solid var(--border); border-bottom: none; border-top-left-radius: 8px; border-top-right-radius: 8px; padding: 8px 12px; gap: 12px; flex-wrap: wrap;">
+                <div v-if="!isFullscreen" style="display: flex; align-items: center; justify-content: space-between; background: var(--border); border: 1px solid var(--border); border-bottom: none; border-top-left-radius: 8px; border-top-right-radius: 8px; padding: 8px 12px; gap: 12px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" @click="iframeBack" title="Back" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -412,6 +737,18 @@
                         </button>
                         <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" @click="iframeReload" title="Reload" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                        </button>
+                        
+                        <!-- Undo / Redo / Reset Actions -->
+                        <div style="width: 1px; height: 16px; background: var(--border);"></div>
+                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="undo" title="Undo (Ctrl+Z)" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
+                            ↩ Undo
+                        </button>
+                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="redo" title="Redo (Ctrl+Y)" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
+                            ↪ Redo
+                        </button>
+                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="resetDesign" title="Reset Design" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+                            ❌ Reset
                         </button>
                     </div>
                     <div style="flex: 1; font-family: monospace; font-size: 0.78rem; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; text-align: left; user-select: none;">
@@ -423,17 +760,37 @@
                 </div>
 
                 <!-- Responsive Device Switcher Row -->
-                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--workspace-bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px; font-size: 0.8rem; user-select: none;">
-                    <span style="color: var(--text-muted); font-weight: 600;">Device Viewport:</span>
+                <div v-if="!isFullscreen" style="display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--workspace-bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px; font-size: 0.8rem; user-select: none;">
+                    <span style="color: var(--text-muted); font-weight: 600;">Device:</span>
                     <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px;">
                         <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'desktop'">
-                            🖥️ Desktop (100%)
+                            🖥️ Desktop
                         </button>
                         <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'tablet'">
-                            📟 Tablet (768px)
+                            📟 Tablet
                         </button>
                         <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'mobile'">
-                            📱 Mobile (375px)
+                            📱 Mobile
+                        </button>
+                    </div>
+                    
+                    <span style="color: var(--text-muted); font-weight: 600; margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                        🌐 Lang:
+                    </span>
+                    <select v-model="previewActiveLang" @change="changePreviewLanguage" 
+                            style="border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.72rem; padding: 4px 8px; font-weight: 700; cursor: pointer; outline: none; height: 28px; line-height: 1;">
+                        <option v-for="lang in availableLanguages" :key="lang" :value="lang">
+                            {{ getLanguageLabel(lang).toUpperCase() }}
+                        </option>
+                    </select>
+
+                    <span style="color: var(--text-muted); font-weight: 600; margin-left: 12px;">Mode:</span>
+                    <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 28px; align-items: center; box-sizing: border-box;">
+                        <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = true">
+                            ✏️ Edit
+                        </button>
+                        <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = false">
+                            👁️ Play
                         </button>
                     </div>
                 </div>
@@ -444,6 +801,44 @@
                         <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ADD CUSTOM PAGE MODAL -->
+        <div v-if="showAddPageModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div class="panel" style="width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin: 20px;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>➕</span> Create Custom Campaign Page
+                    </h3>
+                    <button type="button" @click="showAddPageModal = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+                </div>
+                <form @submit.prevent="addCustomPage" style="padding: 20px; display: flex; flex-direction: column; gap: 14px; margin: 0;">
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-muted);">Page Slug / Route (e.g. promo-offer)</label>
+                        <input type="text" v-model="newPage.id" required placeholder="promo-offer" style="width: 100%; margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-muted);">Headline</label>
+                        <input type="text" v-model="newPage.headline" placeholder="Exclusive Promo Offer" style="width: 100%; margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-muted);">Subheadline</label>
+                        <textarea v-model="newPage.subheadline" rows="2" placeholder="Claim this exclusive deal..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none; margin: 0;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-muted);">CTA Button Text</label>
+                        <input type="text" v-model="newPage.cta" placeholder="Claim Offer" style="width: 100%; margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-muted);">Coupon Code (optional)</label>
+                        <input type="text" v-model="newPage.coupon_code" placeholder="e.g. SAVE20" style="width: 100%; margin: 0;">
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                        <button type="button" class="btn" style="margin: 0; background: transparent; border: 1px solid var(--border); color: var(--text-main);" @click="showAddPageModal = false">Cancel</button>
+                        <button type="submit" class="btn btn-accent" style="margin: 0;">Create Page</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -488,6 +883,7 @@ export default {
                 text_404_headline: 'Page Not Found',
                 text_404_subheadline: 'The page you are looking for doesn\'t exist or has been moved.',
                 text_404_cta: 'Back to Shop',
+                landing_pages: [],
                 content_translations: {}
             },
             saving: false,
@@ -496,12 +892,23 @@ export default {
             inheritStyles: true,
             viewportMode: 'desktop',
             translationActiveLang: 'en',
+            previewActiveLang: 'en',
+            inlineEditMode: true,
             originalBrandSettings: '',
             activeTab: 'style',
             isGeneratingLayout: false,
             aiStylePresets: [],
             autoUpdatePreview: true,
-            iframeBuster: Date.now()
+            iframeBuster: Date.now(),
+            activeContentPage: 'home',
+            showAddPageModal: false,
+            newPage: { id: '', headline: '', subheadline: '', cta: '', hero_img: '', features: '', coupon_code: '' },
+            designerPrompt: '',
+            isBulkTranslating: false,
+            aiUsageBreakdown: [],
+            undoStack: [],
+            redoStack: [],
+            isApplyingHistory: false
         };
     },
     mounted() {
@@ -511,16 +918,102 @@ export default {
             if (event.data && event.data.type === 'STOREFRONT_READY') {
                 console.log('[DesignerView] Handshake: Storefront ready signal received. Sending styles...');
                 this.updatePreviewStyles();
+                this.changePreviewLanguage();
+            } else if (event.data && event.data.type === 'PREVIEW_LANGUAGE_CHANGED') {
+                if (event.data.lang) {
+                    this.previewActiveLang = event.data.lang;
+                    this.translationActiveLang = event.data.lang;
+                }
             } else if (event.data && event.data.type === 'STOREFRONT_ERROR') {
                 console.error('[DesignerView] Storefront Iframe Error:', event.data.message, event.data.stack);
                 this.app.showNotification(`⚠️ Storefront preview error: ${event.data.message}`);
+            } else if (event.data && event.data.type === 'INLINE_TEXT_EDIT') {
+                const { field, value, page } = event.data;
+                const activeLang = this.translationActiveLang;
+                if (page === 'home' || page === 'track' || page === '404') {
+                    if (activeLang === 'en') {
+                        this.designerBrand[field] = value;
+                    } else {
+                        if (!this.designerBrand.content_translations) {
+                            this.designerBrand.content_translations = {};
+                        }
+                        if (!this.designerBrand.content_translations[activeLang]) {
+                            this.designerBrand.content_translations[activeLang] = {};
+                        }
+                        this.designerBrand.content_translations[activeLang][field] = value;
+                    }
+                } else {
+                    if (this.designerBrand.landing_pages) {
+                        const pg = this.designerBrand.landing_pages.find(p => p.id === page);
+                        if (pg) {
+                            if (activeLang === 'en') {
+                                pg[field] = value;
+                            } else {
+                                if (!pg.translations) {
+                                    pg.translations = {};
+                                }
+                                if (!pg.translations[activeLang]) {
+                                    pg.translations[activeLang] = {};
+                                }
+                                pg.translations[activeLang][field] = value;
+                            }
+                        }
+                    }
+                }
+                this.updatePreviewStyles();
+            } else if (event.data && event.data.type === 'INLINE_STYLE_EDIT') {
+                const { field, styles, page } = event.data;
+                let theme = {};
+                try {
+                    theme = this.designerBrand.theme_settings ? JSON.parse(this.designerBrand.theme_settings) : {};
+                } catch(e) {
+                    theme = {};
+                }
+                if (!theme.element_styles) {
+                    theme.element_styles = {};
+                }
+                theme.element_styles[field] = {
+                    ...(theme.element_styles[field] || {}),
+                    ...styles
+                };
+                this.designerBrand.theme_settings = JSON.stringify(theme);
+                this.updatePreviewStyles();
+            } else if (event.data && event.data.type === 'APPLY_STYLE_GLOBALLY') {
+                const { field, styles, isButton, page } = event.data;
+                this.handleApplyStyleGlobally(field, styles, isButton, page);
+            } else if (event.data && event.data.type === 'INLINE_PRODUCT_EDIT') {
+                const { productId, field, value } = event.data;
+                this.handleInlineProductEdit(productId, field, value);
+            } else if (event.data && event.data.type === 'REQUEST_AI_REWRITE') {
+                const { text, tone, field, page } = event.data;
+                this.handleInlineAiRewrite(text, tone, field, page);
             }
         };
         window.addEventListener('message', this.messageListener);
+
+        this.keyboardListener = (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+                if (e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        this.redo();
+                    } else {
+                        this.undo();
+                    }
+                } else if (e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    this.redo();
+                }
+            }
+        };
+        window.addEventListener('keydown', this.keyboardListener);
     },
     beforeUnmount() {
         if (this.messageListener) {
             window.removeEventListener('message', this.messageListener);
+        }
+        if (this.keyboardListener) {
+            window.removeEventListener('keydown', this.keyboardListener);
         }
     },
     computed: {
@@ -579,6 +1072,20 @@ export default {
         previewIframeSrc() {
             if (this.app.activeShopFilter === 'all') return '';
             return `/store/${this.app.activeShopFilter}?previewBrandId=${this.app.activeShopFilter}&t=${this.iframeBuster}`;
+        },
+        layoutAiStats() {
+            if (!this.aiUsageBreakdown) return { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+            return this.aiUsageBreakdown.find(b => b.operation === 'Brand Style Layout Generation') || { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+        },
+        translateAiStats() {
+            if (!this.aiUsageBreakdown) return { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+            const bulk = this.aiUsageBreakdown.find(b => b.operation.includes('Bulk Translation')) || { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+            const single = this.aiUsageBreakdown.find(b => b.operation === 'AI Copy Translation') || { calls_count: 0, total_tokens: 0, cost_usd: 0 };
+            return {
+                calls_count: bulk.calls_count + single.calls_count,
+                total_tokens: bulk.total_tokens + single.total_tokens,
+                cost_usd: bulk.cost_usd + single.cost_usd
+            };
         },
         contrastIssues() {
             const issues = [];
@@ -672,12 +1179,22 @@ export default {
                 if (this.autoUpdatePreview) {
                     this.updatePreviewStyles();
                 }
+                if (!this.isApplyingHistory) {
+                    this.recordStateDebounced();
+                }
             }
         },
         autoUpdatePreview(newVal) {
             if (newVal) {
                 this.updatePreviewStyles();
             }
+        },
+        translationActiveLang(newLang) {
+            this.previewActiveLang = newLang;
+            this.changePreviewLanguage();
+        },
+        inlineEditMode(newVal) {
+            this.syncInlineEditMode();
         },
         'app.activeShopFilter': {
             immediate: true,
@@ -748,6 +1265,15 @@ export default {
                     });
                 }
             }
+        },
+        translationActiveLang(newLang) {
+            const iframe = this.$refs.previewIframe;
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'UPDATE_PREVIEW_LANGUAGE',
+                    lang: newLang
+                }, '*');
+            }
         }
     },
     methods: {
@@ -778,6 +1304,105 @@ export default {
                 };
             }
             return this.designerBrand.content_translations[lang];
+        },
+        isCustomPage(id) {
+            return id && id !== 'home' && id !== 'track' && id !== '404';
+        },
+        getCustomPageRef(id) {
+            if (!this.designerBrand.landing_pages) {
+                this.designerBrand.landing_pages = [];
+            }
+            let page = this.designerBrand.landing_pages.find(p => p.id === id);
+            if (!page) {
+                page = {
+                    id: id,
+                    headline: '',
+                    subheadline: '',
+                    cta: '',
+                    hero_img: '',
+                    coupon_code: '',
+                    features: '',
+                    translations: {}
+                };
+                this.designerBrand.landing_pages.push(page);
+            }
+            return page;
+        },
+        getCustomPageTranslationRef(page, lang) {
+            if (!page) return {};
+            if (!page.translations) {
+                page.translations = {};
+            }
+            if (!page.translations[lang]) {
+                page.translations[lang] = {
+                    headline: '',
+                    subheadline: '',
+                    cta: '',
+                    features: ''
+                };
+            }
+            return page.translations[lang];
+        },
+        navigateToPage(pageId) {
+            this.activeContentPage = pageId;
+            try {
+                const iframe = this.$refs.previewIframe;
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'NAVIGATE_PREVIEW_PAGE',
+                        page: pageId
+                    }, '*');
+                }
+            } catch (e) {
+                console.error('[DesignerView] Error navigating preview page:', e);
+            }
+        },
+        deleteCustomPage(id) {
+            if (!confirm(`Are you sure you want to delete the custom page "/${id}"?`)) {
+                return;
+            }
+            if (this.designerBrand.landing_pages) {
+                this.designerBrand.landing_pages = this.designerBrand.landing_pages.filter(p => p.id !== id);
+            }
+            if (this.activeContentPage === id) {
+                this.navigateToPage('home');
+            } else {
+                this.updatePreviewStyles();
+            }
+            this.app.showNotification('Custom page deleted.');
+        },
+        addCustomPage() {
+            const slug = this.newPage.id.trim().toLowerCase().replace(/[^a-z0-9\-]/g, '');
+            if (!slug) {
+                alert('Please enter a valid page slug.');
+                return;
+            }
+            if (['home', 'track', '404'].includes(slug)) {
+                alert('This slug is reserved for default pages.');
+                return;
+            }
+            if (!this.designerBrand.landing_pages) {
+                this.designerBrand.landing_pages = [];
+            }
+            if (this.designerBrand.landing_pages.some(p => p.id === slug)) {
+                alert('A custom page with this slug already exists.');
+                return;
+            }
+            const page = {
+                id: slug,
+                headline: this.newPage.headline.trim() || 'New Campaign Offer',
+                subheadline: this.newPage.subheadline.trim() || 'Claim this exclusive deal now.',
+                cta: this.newPage.cta.trim() || 'Claim Offer',
+                hero_img: this.newPage.hero_img.trim() || '',
+                features: this.newPage.features.trim() || '',
+                coupon_code: this.newPage.coupon_code.trim() || '',
+                translations: {}
+            };
+            this.designerBrand.landing_pages.push(page);
+            this.showAddPageModal = false;
+            this.newPage = { id: '', headline: '', subheadline: '', cta: '', hero_img: '', features: '', coupon_code: '' };
+            this.navigateToPage(slug);
+            this.app.showNotification('Custom page created.');
         },
         async generateAILookAlikeLayout() {
             this.isGeneratingLayout = true;
@@ -810,6 +1435,7 @@ export default {
                         this.aiStylePresets.push(layout);
                         this.updatePreviewStyles();
                         this.app.showNotification('✨ Brand Look-Alike theme generated and applied successfully!');
+                        this.loadAiUsage();
                     }
                 } else {
                     const err = await response.json();
@@ -872,7 +1498,34 @@ export default {
             }
             this.updatePreviewStyles();
         },
+        async loadAiUsage() {
+            if (!this.designerBrand || !this.designerBrand.id || this.designerBrand.id === 'all') {
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-usage`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.aiUsageBreakdown = data.breakdown;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading AI usage in DesignerView:', e);
+            }
+        },
+        formatTokens(num) {
+            if (!num) return '0';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+            return num;
+        },
         loadBrandContext() {
+            this.loadAiUsage();
             if (this.app.activeShopFilter !== 'all') {
                 const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);
                 if (b) {
@@ -1039,6 +1692,170 @@ export default {
                 this.saving = false;
             }
         },
+        async runAIRewrite(field) {
+            const originalText = this.designerBrand[field];
+            if (!originalText) {
+                alert('Please enter some text first to rewrite.');
+                return;
+            }
+            this.app.showNotification('✨ AI is rewriting your copy...');
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: originalText, field })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.text) {
+                        this.designerBrand[field] = data.text;
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Copywriting rewritten successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI rewrite error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI rewrite network error: ' + e.message);
+            }
+        },
+        async runAITranslateSingle(field) {
+            const englishText = this.designerBrand[field];
+            if (!englishText) {
+                alert('Please enter English copy first before translating.');
+                return;
+            }
+            this.app.showNotification(`✨ AI is translating copy to ${this.translationActiveLang.toUpperCase()}...`);
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-translate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: englishText, targetLang: this.translationActiveLang, field })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.text) {
+                        const tr = this.getTranslationRef(this.translationActiveLang);
+                        tr[field] = data.text;
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Translated successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI translation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI translation network error: ' + e.message);
+            }
+        },
+        async runAIRewriteCustomPage(field) {
+            const page = this.getCustomPageRef(this.activeContentPage);
+            const originalText = page[field];
+            if (!originalText) {
+                alert('Please enter some text first to rewrite.');
+                return;
+            }
+            this.app.showNotification('✨ AI is rewriting your copy...');
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: originalText, field })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.text) {
+                        page[field] = data.text;
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Custom page copy rewritten successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI rewrite error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI rewrite network error: ' + e.message);
+            }
+        },
+        async runAITranslateCustomPage(field) {
+            const page = this.getCustomPageRef(this.activeContentPage);
+            const englishText = page[field];
+            if (!englishText) {
+                alert('Please enter English copy first before translating.');
+                return;
+            }
+            this.app.showNotification(`✨ AI is translating copy to ${this.translationActiveLang.toUpperCase()}...`);
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-translate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: englishText, targetLang: this.translationActiveLang, field })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.text) {
+                        const tr = this.getCustomPageTranslationRef(page, this.translationActiveLang);
+                        tr[field] = data.text;
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Custom page copy translated successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI translation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI translation network error: ' + e.message);
+            }
+        },
+        async runAIBulkTranslate(targetLang) {
+            this.isBulkTranslating = true;
+            this.app.showNotification(targetLang 
+                ? `✨ AI is translating all storefront copy to ${targetLang.toUpperCase()}...` 
+                : '✨ AI is translating all storefront copy to all languages in background...'
+            );
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-translate-all`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ targetLang })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.theme_settings) {
+                        this.designerBrand.content_translations = data.theme_settings.content_translations || {};
+                        if (data.theme_settings.landing_pages) {
+                            this.designerBrand.landing_pages = data.theme_settings.landing_pages;
+                        }
+                        this.updatePreviewStyles();
+                        this.app.showNotification('✨ Storefront pages translated successfully!');
+                        this.loadAiUsage();
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI translation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI translation network error: ' + e.message);
+            } finally {
+                this.isBulkTranslating = false;
+            }
+        },
         toggleFullscreen() {
             this.isFullscreen = !this.isFullscreen;
         },
@@ -1151,6 +1968,8 @@ export default {
                         console.warn('[DesignerView] Cannot read iframe URL directly (cross-origin security restriction).');
                     }
                     this.updatePreviewStyles();
+                    this.changePreviewLanguage();
+                    this.syncInlineEditMode();
                 }
             } catch(e) {}
         },
@@ -1188,7 +2007,9 @@ export default {
                         text_404_headline: this.designerBrand.text_404_headline,
                         text_404_subheadline: this.designerBrand.text_404_subheadline,
                         text_404_cta: this.designerBrand.text_404_cta,
-                        content_translations: this.designerBrand.content_translations
+                        content_translations: this.designerBrand.content_translations,
+                        landing_pages: this.designerBrand.landing_pages,
+                        theme_settings: this.designerBrand.theme_settings
                     };
                     const cleanStyles = JSON.parse(JSON.stringify(styles));
                     console.log('[DesignerView] Posting styles to iframe:', cleanStyles);
@@ -1208,6 +2029,265 @@ export default {
                 }
             } catch(e) {
                 console.error('[DesignerView] Error posting styles:', e);
+            }
+        },
+        changePreviewLanguage() {
+            try {
+                const iframe = this.$refs.previewIframe;
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'UPDATE_PREVIEW_LANGUAGE',
+                        lang: this.previewActiveLang
+                    }, '*');
+                }
+            } catch (e) {
+                console.error('[DesignerView] Error sending language update:', e);
+            }
+        },
+        async handleInlineAiRewrite(text, tone, field, page) {
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text, tone, field })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.text) {
+                        const activeLang = this.translationActiveLang;
+                        if (page === 'home' || page === 'track' || page === '404') {
+                            if (activeLang === 'en') {
+                                this.designerBrand[field] = data.text;
+                            } else {
+                                if (!this.designerBrand.content_translations) {
+                                    this.designerBrand.content_translations = {};
+                                }
+                                if (!this.designerBrand.content_translations[activeLang]) {
+                                    this.designerBrand.content_translations[activeLang] = {};
+                                }
+                                this.designerBrand.content_translations[activeLang][field] = data.text;
+                            }
+                        } else {
+                            if (this.designerBrand.landing_pages) {
+                                const pg = this.designerBrand.landing_pages.find(p => p.id === page);
+                                if (pg) {
+                                    if (activeLang === 'en') {
+                                        pg[field] = data.text;
+                                    } else {
+                                        if (!pg.translations) {
+                                            pg.translations = {};
+                                        }
+                                        if (!pg.translations[activeLang]) {
+                                            pg.translations[activeLang] = {};
+                                        }
+                                        pg.translations[activeLang][field] = data.text;
+                                    }
+                                }
+                            }
+                        }
+                        this.showNotification('✨ AI text rewrite successfully applied!');
+                    }
+                } else {
+                    const err = await response.json();
+                    this.showNotification(`AI rewrite failed: ${err.error}`);
+                    this.updatePreviewStyles();
+                }
+            } catch (err) {
+                this.showNotification(`Error: ${err.message}`);
+                this.updatePreviewStyles();
+            }
+        },
+        rgbToHex(rgb) {
+            if (!rgb) return null;
+            const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+            if (!match) return rgb;
+            const r = parseInt(match[1]);
+            const g = parseInt(match[2]);
+            const b = parseInt(match[3]);
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        },
+        handleApplyStyleGlobally(field, styles, isButton, page) {
+            if (styles.font_family) {
+                this.designerBrand.font_family = styles.font_family;
+            }
+            if (isButton) {
+                if (styles.background_color) {
+                    const hexColor = this.rgbToHex(styles.background_color);
+                    if (hexColor) this.designerBrand.primary_color = hexColor;
+                }
+                if (styles.border_radius) {
+                    this.designerBrand.button_radius = styles.border_radius;
+                }
+            } else {
+                if (styles.color) {
+                    const hexColor = this.rgbToHex(styles.color);
+                    if (hexColor) this.designerBrand.text_color = hexColor;
+                }
+            }
+            this.updatePreviewStyles();
+            this.app.showNotification('Style applied globally.');
+        },
+        async handleInlineProductEdit(productId, field, value) {
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/products`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) return;
+                const productsData = await response.json();
+                const product = productsData.find(p => p.id === parseInt(productId));
+                if (!product) return;
+                
+                const updatePayload = {
+                    title: product.title,
+                    price: product.price,
+                    description: product.description,
+                    long_description: product.long_description,
+                    image: product.image,
+                    tag: product.tag,
+                    active: product.active,
+                    currency: product.currency || 'EUR'
+                };
+                
+                if (field === 'title') {
+                    updatePayload.title = value;
+                } else if (field === 'description') {
+                    updatePayload.description = value;
+                    updatePayload.long_description = value;
+                } else if (field === 'price') {
+                    const numericPrice = parseFloat(value.replace(/[^0-9.]/g, ''));
+                    if (!isNaN(numericPrice)) {
+                        updatePayload.price = numericPrice;
+                    }
+                }
+                
+                const saveRes = await fetch(`${this.app.apiBaseUrl}/api/global/products/${productId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updatePayload)
+                });
+                
+                if (saveRes.ok) {
+                    this.app.showNotification('Product updated globally.');
+                    const iframe = this.$refs.previewIframe;
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'RELOAD_PRODUCTS'
+                        }, '*');
+                    }
+                } else {
+                    console.error('Failed to update product details globally');
+                }
+            } catch(e) {
+                console.error('[DesignerView] Error editing product inline:', e);
+            }
+        },
+        recordState() {
+            if (this.isApplyingHistory) return;
+            if (this.undoStack.length >= 50) {
+                this.undoStack.shift();
+            }
+            const state = JSON.stringify(this.designerBrand);
+            if (this.undoStack.length === 0 || this.undoStack[this.undoStack.length - 1] !== state) {
+                this.undoStack.push(state);
+                this.redoStack = [];
+            }
+        },
+        recordStateDebounced() {
+            if (this.recordTimer) clearTimeout(this.recordTimer);
+            this.recordTimer = setTimeout(() => {
+                this.recordState();
+            }, 300);
+        },
+        undo() {
+            if (this.undoStack.length <= 1) {
+                this.app.showNotification('Nothing to undo.');
+                return;
+            }
+            const currentState = this.undoStack.pop();
+            this.redoStack.push(currentState);
+            
+            const prevState = this.undoStack[this.undoStack.length - 1];
+            this.isApplyingHistory = true;
+            this.designerBrand = JSON.parse(prevState);
+            this.updatePreviewStyles();
+            this.$nextTick(() => {
+                this.isApplyingHistory = false;
+            });
+            this.app.showNotification('Undo.');
+        },
+        redo() {
+            if (this.redoStack.length === 0) {
+                this.app.showNotification('Nothing to redo.');
+                return;
+            }
+            const nextState = this.redoStack.pop();
+            this.undoStack.push(nextState);
+            
+            this.isApplyingHistory = true;
+            this.designerBrand = JSON.parse(nextState);
+            this.updatePreviewStyles();
+            this.$nextTick(() => {
+                this.isApplyingHistory = false;
+            });
+            this.app.showNotification('Redo.');
+        },
+        resetDesign() {
+            if (!confirm('Are you sure you want to reset all designs and custom pages to their published state?')) {
+                return;
+            }
+            const original = JSON.parse(this.originalBrandSettings);
+            
+            this.isApplyingHistory = true;
+            
+            this.inheritStyles = original.inherit;
+            this.designerBrand.primary_color = original.primary_color;
+            this.designerBrand.secondary_color = original.secondary_color;
+            this.designerBrand.bg_color = original.bg_color;
+            this.designerBrand.text_color = original.text_color;
+            this.designerBrand.button_radius = original.button_radius;
+            this.designerBrand.button_text_color = original.button_text_color;
+            this.designerBrand.header_bg_color = original.header_bg_color;
+            this.designerBrand.font_family = original.font_family;
+            this.designerBrand.custom_css = original.custom_css;
+            this.designerBrand.text_hero_headline = original.text_hero_headline;
+            this.designerBrand.text_hero_subheadline = original.text_hero_subheadline;
+            this.designerBrand.text_hero_cta = original.text_hero_cta;
+            this.designerBrand.announcement_text = original.announcement_text;
+            this.designerBrand.text_404_headline = original.text_404_headline;
+            this.designerBrand.text_404_subheadline = original.text_404_subheadline;
+            this.designerBrand.text_404_cta = original.text_404_cta;
+            this.designerBrand.content_translations = original.content_translations;
+            this.designerBrand.landing_pages = original.landing_pages || [];
+            
+            this.updatePreviewStyles();
+            
+            this.undoStack = [];
+            this.redoStack = [];
+            this.recordState();
+            
+            this.$nextTick(() => {
+                this.isApplyingHistory = false;
+            });
+            this.app.showNotification('Design reset to last published version.');
+        },
+        syncInlineEditMode() {
+            try {
+                const iframe = this.$refs.previewIframe;
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        type: 'SET_EDIT_MODE',
+                        enabled: this.inlineEditMode
+                    }, '*');
+                }
+            } catch(e) {
+                console.error('[DesignerView] Error syncing edit mode:', e);
             }
         },
         captureOriginalSettings() {

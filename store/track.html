@@ -388,7 +388,11 @@
                 <span class="logo-full-wrapper">PESADO<span>58.5</span></span>
                 <span class="logo-favicon-wrapper" style="display: none;">P</span>
             </a>
-            <nav>
+            <nav style="display: flex; align-items: center; gap: 12px;">
+                <!-- Language Selector Dropdown -->
+                <div id="language-selector-container" style="display: none; margin-right: 8px;">
+                    <select id="store-language-select" style="background: transparent; border: 1px solid var(--header-text-muted, var(--border)); border-radius: 6px; color: var(--header-text-main, var(--text-main)); font-family: var(--font-body); font-size: 0.85rem; padding: 4px 8px; cursor: pointer; outline: none; transition: var(--transition);"></select>
+                </div>
                 <a href="/">Back to Shop</a>
             </nav>
         </div>
@@ -397,12 +401,12 @@
     <main>
         <div class="container">
             <div class="tracker-box">
-                <h1>Track Your Shipment</h1>
-                <p class="subtitle">Check the current dispatch status of your luxury Pesado barista tools.</p>
+                <h1 data-translate="track_headline">Track Your Shipment</h1>
+                <p class="subtitle" data-translate="track_subheadline">Check the current dispatch status of your luxury Pesado barista tools.</p>
 
                 <div class="input-group">
-                    <input type="text" id="order-id-input" placeholder="Enter Order ID (e.g. PES_171954...)" required>
-                    <button class="btn btn-primary" id="track-btn">Track</button>
+                    <input type="text" id="order-id-input" data-translate="track_placeholder" placeholder="Enter Order ID (e.g. PES_171954...)" required>
+                    <button class="btn btn-primary" id="track-btn" data-translate="track_cta">Track</button>
                 </div>
 
                 <div class="order-details-card" id="details-card">
@@ -652,6 +656,63 @@
                 const styleEl = document.getElementById('custom-css-overrides');
                 if (styleEl) styleEl.textContent = settings.custom_css;
             }
+
+            // 8b. Custom element style overrides from JSON theme settings
+            let elementStylesCss = '';
+            let theme = {};
+            if (settings.theme_settings) {
+                try {
+                    theme = typeof settings.theme_settings === 'string' ? JSON.parse(settings.theme_settings) : settings.theme_settings;
+                } catch (e) {
+                    theme = {};
+                }
+            } else if (settings.element_styles) {
+                theme = { element_styles: settings.element_styles };
+            }
+            if (theme && theme.element_styles) {
+                for (const [fieldKey, styles] of Object.entries(theme.element_styles)) {
+                    let selector = '';
+                    if (fieldKey === 'text_hero_headline') selector = '.hero-content h1';
+                    else if (fieldKey === 'text_hero_subheadline') selector = '.hero-content p';
+                    else if (fieldKey === 'text_hero_cta') selector = '.hero-actions a.btn';
+                    else if (fieldKey === 'announcement_text') selector = '#announcement-text-span';
+                    else if (fieldKey === 'text_404_headline') selector = '#store-404-headline';
+                    else if (fieldKey === 'text_404_subheadline') selector = '#store-404-subheadline';
+                    else if (fieldKey === 'text_404_cta') selector = '#store-404-home-btn';
+                    else if (fieldKey === 'text_track_headline') selector = '[data-translate="track_headline"]';
+                    else if (fieldKey === 'text_track_subheadline') selector = '[data-translate="track_subheadline"]';
+                    else if (fieldKey === 'text_track_cta') selector = '[data-translate="track_cta"]';
+                    else {
+                        selector = `[data-field="${fieldKey}"], #${fieldKey}, .${fieldKey}`;
+                    }
+
+                    if (selector) {
+                        elementStylesCss += `${selector} {`;
+                        if (styles.color) elementStylesCss += `color: ${styles.color} !important;`;
+                        if (styles.font_size) elementStylesCss += `font-size: ${styles.font_size} !important;`;
+                        if (styles.font_weight) elementStylesCss += `font-weight: ${styles.font_weight} !important;`;
+                        if (styles.font_style) elementStylesCss += `font-style: ${styles.font_style} !important;`;
+                        if (styles.font_family) {
+                            loadGoogleFont(styles.font_family);
+                            elementStylesCss += `font-family: '${styles.font_family}', sans-serif !important;`;
+                        }
+                        if (styles.background_color) elementStylesCss += `background-color: ${styles.background_color} !important;`;
+                        if (styles.border_radius) elementStylesCss += `border-radius: ${styles.border_radius} !important;`;
+                        if (styles.border) elementStylesCss += `border: ${styles.border} !important;`;
+                        if (styles.text_transform) elementStylesCss += `text-transform: ${styles.text_transform} !important;`;
+                        if (styles.padding) elementStylesCss += `padding: ${styles.padding} !important;`;
+                        if (styles.text_decoration) elementStylesCss += `text-decoration: ${styles.text_decoration} !important;`;
+                        elementStylesCss += `}\n`;
+                    }
+                }
+            }
+            let styleTag = document.getElementById('sc-inline-element-styles');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'sc-inline-element-styles';
+                document.head.appendChild(styleTag);
+            }
+            styleTag.textContent = elementStylesCss;
             
             // 9. Header logo image/text update
             if (settings.logo !== undefined) {
@@ -767,7 +828,28 @@
         window.addEventListener('message', (event) => {
             console.log('[Storefront] Received message:', event.data);
             if (event.data && event.data.type === 'UPDATE_PREVIEW_STYLES') {
+                window.brandSettings = {
+                    ...(window.brandSettings || {}),
+                    text_track_headline: event.data.text_track_headline,
+                    text_track_subheadline: event.data.text_track_subheadline,
+                    text_track_placeholder: event.data.text_track_placeholder,
+                    text_track_cta: event.data.text_track_cta,
+                    content_translations: event.data.content_translations
+                };
                 applyThemeSettings(event.data);
+                applyStorefrontTexts();
+            } else if (event.data && event.data.type === 'UPDATE_PREVIEW_LANGUAGE') {
+                localStorage.setItem('store_lang', event.data.lang);
+                const select = document.getElementById('store-language-select');
+                if (select) {
+                    select.value = event.data.lang;
+                }
+                applyStorefrontTexts();
+            } else if (event.data && event.data.type === 'SET_EDIT_MODE') {
+                window.inlineEditingEnabled = event.data.enabled;
+                if (window.toggleEditableElements) {
+                    window.toggleEditableElements(event.data.enabled);
+                }
             }
         });
 
@@ -775,6 +857,55 @@
         if (window.parent && window.parent !== window) {
             console.log('[Storefront] Sending STOREFRONT_READY to parent');
             window.parent.postMessage({ type: 'STOREFRONT_READY' }, '*');
+        }
+
+        function applyStorefrontTexts() {
+            window.applyStorefrontTexts = applyStorefrontTexts;
+            const activeLang = localStorage.getItem('store_lang') || 'en';
+            const settings = window.brandSettings || {};
+            const sf = settings.storefront || {};
+
+            let headline = 'Track Your Shipment';
+            let subheadline = 'Check the current dispatch status of your luxury Pesado barista tools.';
+            let placeholder = 'Enter Order ID (e.g. PES_171954...)';
+            let cta = 'Track';
+
+            const textSource = settings.text_track_headline ? settings : (sf.text_track_headline ? sf : null);
+            if (textSource) {
+                if (activeLang === 'en') {
+                    if (textSource.text_track_headline) headline = textSource.text_track_headline;
+                    if (textSource.text_track_subheadline) subheadline = textSource.text_track_subheadline;
+                    if (textSource.text_track_placeholder) placeholder = textSource.text_track_placeholder;
+                    if (textSource.text_track_cta) cta = textSource.text_track_cta;
+                } else if (textSource.content_translations && textSource.content_translations[activeLang]) {
+                    const tr = textSource.content_translations[activeLang];
+                    if (tr.text_track_headline) headline = tr.text_track_headline;
+                    if (tr.text_track_subheadline) subheadline = tr.text_track_subheadline;
+                    if (tr.text_track_placeholder) placeholder = tr.text_track_placeholder;
+                    if (tr.text_track_cta) cta = tr.text_track_cta;
+                }
+            }
+
+            const headlineEl = document.querySelector('[data-translate="track_headline"]');
+            if (headlineEl) {
+                headlineEl.innerText = headline.replace(/{brandName}/g, window.brandName || '').replace(/\[brandName\]/g, window.brandName || '');
+            }
+
+            const subheadlineEl = document.querySelector('[data-translate="track_subheadline"]');
+            if (subheadlineEl) {
+                subheadlineEl.innerText = subheadline.replace(/{brandName}/g, window.brandName || '').replace(/\[brandName\]/g, window.brandName || '');
+            }
+
+            const inputEl = document.querySelector('[data-translate="track_placeholder"]');
+            if (inputEl) {
+                inputEl.placeholder = placeholder;
+            }
+
+            const btnEl = document.querySelector('[data-translate="track_cta"]');
+            if (btnEl) {
+                btnEl.innerText = cta;
+            }
+            if (window.initializeInlineEditing) window.initializeInlineEditing();
         }
 
         // Load configs from API on page load
@@ -785,6 +916,28 @@
                 if (!response.ok) throw new Error();
                 const brand = await response.json();
                 window.brandName = brand.name;
+
+                // Log traffic/pageview analytics
+                (function() {
+                    try {
+                        let sessionId = localStorage.getItem('sc_visitor_session');
+                        if (!sessionId) {
+                            sessionId = 'sess_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                            localStorage.setItem('sc_visitor_session', sessionId);
+                        }
+                        fetch(`${apiBaseUrl}/api/analytics/pageview`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                brandId: brand.id,
+                                page: window.location.pathname,
+                                sessionId: sessionId
+                            })
+                        }).catch(e => console.error('[Analytics error]', e));
+                    } catch(err) {
+                        console.error(err);
+                    }
+                })();
                 
                 let activePrimaryColor = brand.primary_color;
                 let activeLogo = brand.logo;
@@ -798,6 +951,7 @@
                                 settings = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
                             } catch(e) {}
                         }
+                        window.brandSettings = settings;
 
                         // Determine if storefront inherits master brand settings or uses storefront-specific overrides
                         const useInherit = settings.inherit !== false;
@@ -826,7 +980,8 @@
                             facebook_link: useInherit ? (brand.facebook_link || '') : (overrides.facebook_link || ''),
                             twitter_link: useInherit ? (brand.twitter_link || '') : (overrides.twitter_link || ''),
                             
-                            name: brand.name
+                            name: brand.name,
+                            theme_settings: brand.theme_settings
                         };
                         applyThemeSettings(config);
 
@@ -882,6 +1037,55 @@
                 if (footerSpan) {
                     footerSpan.textContent = brand.name;
                 }
+
+                // Render languages if configured
+                if (brand.languages) {
+                    const languages = brand.languages.split(',');
+                    if (languages.length > 1) {
+                        const container = document.getElementById('language-selector-container');
+                        const select = document.getElementById('store-language-select');
+                        
+                        const langData = {
+                            en: { name: 'EN', flag: '🇬🇧' },
+                            de: { name: 'DE', flag: '🇩🇪' },
+                            fr: { name: 'FR', flag: '🇫🇷' },
+                            nl: { name: 'NL', flag: '🇳🇱' },
+                            es: { name: 'ES', flag: '🇪🇸' },
+                            it: { name: 'IT', flag: '🇮🇹' }
+                        };
+
+                        select.innerHTML = '';
+                        languages.forEach(code => {
+                            const meta = langData[code] || { name: code.toUpperCase(), flag: '🌐' };
+                            const opt = document.createElement('option');
+                            opt.value = code;
+                            opt.textContent = `${meta.flag} ${meta.name}`;
+                            opt.style.background = '#121514';
+                            opt.style.color = '#ffffff';
+                            select.appendChild(opt);
+                        });
+
+                        container.style.display = 'block';
+
+                        // Set active selection
+                        const activeLang = localStorage.getItem('store_lang') || languages[0];
+                        if (languages.includes(activeLang)) {
+                            select.value = activeLang;
+                        } else {
+                            select.value = languages[0];
+                        }
+
+                        select.addEventListener('change', (e) => {
+                            localStorage.setItem('store_lang', e.target.value);
+                            applyStorefrontTexts();
+                            if (window.parent && window.parent !== window) {
+                                window.parent.postMessage({ type: 'PREVIEW_LANGUAGE_CHANGED', lang: e.target.value }, '*');
+                            }
+                        });
+                    }
+                }
+
+                applyStorefrontTexts();
             } catch (err) {
                 console.warn('Could not load brand configurations from host API.');
                 applyThemeSettings({});
@@ -998,6 +1202,621 @@
             progressBar.style.width = `${progressPercent}%`;
             detailsCard.classList.add('active');
         }
+
+        function initializeInlineEditing() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isPreview = urlParams.get('previewBrandId') || window.parent !== window;
+            if (!isPreview) return;
+
+            // Inject Toolbar CSS
+            if (!document.getElementById('sc-inline-editor-css')) {
+                const style = document.createElement('style');
+                style.id = 'sc-inline-editor-css';
+                style.textContent = `
+                    .sc-editor-toolbar {
+                        position: absolute;
+                        background: #0f1311;
+                        border: 1px solid var(--primary, #c5a059);
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+                        border-radius: 8px;
+                        padding: 6px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        z-index: 9999999;
+                        pointer-events: auto;
+                        transition: opacity 0.2s, transform 0.2s;
+                        font-family: 'Outfit', sans-serif;
+                        color: #ffffff;
+                    }
+                    .sc-editor-btn {
+                        background: transparent;
+                        border: none;
+                        color: #a0a5a3;
+                        cursor: pointer;
+                        border-radius: 6px;
+                        width: 30px;
+                        height: 30px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.85rem;
+                        transition: all 0.2s;
+                    }
+                    .sc-editor-btn:hover {
+                        background: rgba(197, 160, 89, 0.15);
+                        color: var(--primary, #c5a059);
+                    }
+                    .sc-editor-btn.active {
+                        background: var(--primary, #c5a059);
+                        color: #0b0d0c;
+                        font-weight: 700;
+                    }
+                    .sc-editor-select {
+                        background: #181c19;
+                        border: 1px solid rgba(255,255,255,0.15);
+                        color: #ffffff;
+                        border-radius: 6px;
+                        font-size: 0.75rem;
+                        padding: 4px 8px;
+                        outline: none;
+                        cursor: pointer;
+                        height: 30px;
+                    }
+                    .sc-editor-color-btn {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        cursor: pointer;
+                        border: 2px solid transparent;
+                        transition: transform 0.2s;
+                    }
+                    .sc-editor-color-btn:hover {
+                        transform: scale(1.15);
+                    }
+                    .sc-editor-color-btn.active {
+                        border-color: #ffffff;
+                    }
+                    .sc-editor-ai-dropdown {
+                        position: absolute;
+                        background: #0f1311;
+                        border: 1px solid var(--primary, #c5a059);
+                        border-radius: 8px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+                        display: flex;
+                        flex-direction: column;
+                        width: 180px;
+                        z-index: 10000000;
+                        padding: 4px 0;
+                    }
+                    .sc-editor-ai-option {
+                        padding: 8px 12px;
+                        color: #ffffff;
+                        font-size: 0.78rem;
+                        cursor: pointer;
+                        text-align: left;
+                        transition: all 0.2s;
+                        border: none;
+                        background: transparent;
+                        width: 100%;
+                    }
+                    .sc-editor-ai-option:hover {
+                        background: rgba(197, 160, 89, 0.2);
+                        color: var(--primary, #c5a059);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const removeToolbar = () => {
+                const tb = document.querySelector('.sc-editor-toolbar');
+                if (tb) tb.remove();
+                removeAiMenu();
+            };
+
+            const removeAiMenu = () => {
+                const menu = document.querySelector('.sc-editor-ai-dropdown');
+                if (menu) menu.remove();
+            };
+
+            // Document click to close toolbar/AI menu
+            document.addEventListener('mousedown', (e) => {
+                const tb = document.querySelector('.sc-editor-toolbar');
+                const menu = document.querySelector('.sc-editor-ai-dropdown');
+                if (tb && !tb.contains(e.target) && !e.target.closest('[contenteditable="true"]')) {
+                    if (!menu || !menu.contains(e.target)) {
+                        removeToolbar();
+                    }
+                }
+            });
+
+            const showToolbar = (targetEl, fieldKey, pageContext) => {
+                removeToolbar();
+                
+                const rect = targetEl.getBoundingClientRect();
+                const toolbar = document.createElement('div');
+                toolbar.className = 'sc-editor-toolbar';
+                
+                const top = window.scrollY + rect.top - 46;
+                const left = window.scrollX + rect.left + (rect.width - 450) / 2;
+                toolbar.style.top = `${Math.max(top, 10)}px`;
+                toolbar.style.left = `${Math.max(left, 10)}px`;
+                
+                const isButton = targetEl.tagName === 'BUTTON' || targetEl.tagName === 'A' || targetEl.classList.contains('btn') || targetEl.getAttribute('role') === 'button';
+                
+                if (isButton) {
+                    // Button Style Select
+                    const styleSelect = document.createElement('select');
+                    styleSelect.className = 'sc-editor-select';
+                    styleSelect.style.width = '70px';
+                    styleSelect.style.padding = '2px';
+                    styleSelect.title = 'Button Style';
+                    const buttonStyles = [
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'outline', label: 'Outline' },
+                        { value: 'link', label: 'Link' }
+                    ];
+                    buttonStyles.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.value;
+                        opt.innerText = s.label;
+                        const currentBg = window.getComputedStyle(targetEl).backgroundColor;
+                        const currentBorder = window.getComputedStyle(targetEl).borderStyle;
+                        if (s.value === 'solid' && currentBg !== 'transparent' && currentBg !== 'rgba(0, 0, 0, 0)') {
+                            opt.selected = true;
+                        } else if (s.value === 'outline' && currentBorder !== 'none' && currentBorder !== '') {
+                            opt.selected = true;
+                        } else if (s.value === 'link' && (currentBg === 'transparent' || currentBg === 'rgba(0, 0, 0, 0)') && (currentBorder === 'none' || currentBorder === '')) {
+                            opt.selected = true;
+                        }
+                        styleSelect.appendChild(opt);
+                    });
+                    styleSelect.addEventListener('change', (e) => {
+                        const val = e.target.value;
+                        const primaryColor = window.getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#c5a059';
+                        const bgColor = window.getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#0b0d0c';
+                        if (val === 'solid') {
+                            targetEl.style.backgroundColor = primaryColor;
+                            targetEl.style.color = bgColor;
+                            targetEl.style.border = 'none';
+                            targetEl.style.textDecoration = 'none';
+                        } else if (val === 'outline') {
+                            targetEl.style.backgroundColor = 'transparent';
+                            targetEl.style.color = primaryColor;
+                            targetEl.style.border = `2px solid ${primaryColor}`;
+                            targetEl.style.textDecoration = 'none';
+                        } else if (val === 'link') {
+                            targetEl.style.backgroundColor = 'transparent';
+                            targetEl.style.color = primaryColor;
+                            targetEl.style.border = 'none';
+                            targetEl.style.textDecoration = 'underline';
+                        }
+                        saveStyles();
+                    });
+                    toolbar.appendChild(styleSelect);
+
+                    // Button Size Select
+                    const sizeSelect = document.createElement('select');
+                    sizeSelect.className = 'sc-editor-select';
+                    sizeSelect.style.width = '70px';
+                    sizeSelect.style.padding = '2px';
+                    sizeSelect.title = 'Button Size';
+                    const sizes = [
+                        { value: 'small', label: 'Small', padding: '6px 14px', fontSize: '0.72rem' },
+                        { value: 'medium', label: 'Medium', padding: '10px 20px', fontSize: '0.85rem' },
+                        { value: 'large', label: 'Large', padding: '14px 28px', fontSize: '1.05rem' }
+                    ];
+                    sizes.forEach(sz => {
+                        const opt = document.createElement('option');
+                        opt.value = sz.value;
+                        opt.innerText = sz.label;
+                        const currentPadding = targetEl.style.padding || window.getComputedStyle(targetEl).padding;
+                        if (currentPadding.includes(sz.padding.split(' ')[0])) {
+                            opt.selected = true;
+                        }
+                        sizeSelect.appendChild(opt);
+                    });
+                    sizeSelect.addEventListener('change', (e) => {
+                        const selectedSz = sizes.find(sz => sz.value === e.target.value);
+                        if (selectedSz) {
+                            targetEl.style.padding = selectedSz.padding;
+                            targetEl.style.fontSize = selectedSz.fontSize;
+                            saveStyles();
+                        }
+                    });
+                    toolbar.appendChild(sizeSelect);
+                } else {
+                    const tagSelect = document.createElement('select');
+                    tagSelect.className = 'sc-editor-select';
+                    tagSelect.style.width = '65px';
+                    tagSelect.style.padding = '2px';
+                    const tags = [
+                        { value: 'h1', label: 'H1', size: '2.5rem', weight: '800' },
+                        { value: 'h2', label: 'H2', size: '2rem', weight: '700' },
+                        { value: 'h3', label: 'H3', size: '1.5rem', weight: '600' },
+                        { value: 'body', label: 'Body', size: '1rem', weight: '400' }
+                    ];
+                    tags.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.value;
+                        opt.innerText = t.label;
+                        const elSize = targetEl.style.fontSize || window.getComputedStyle(targetEl).fontSize;
+                        if (elSize.includes(t.size) || (t.value === 'body' && !targetEl.style.fontSize)) {
+                            opt.selected = true;
+                        }
+                        tagSelect.appendChild(opt);
+                    });
+                    tagSelect.addEventListener('change', (e) => {
+                        const selectedTag = tags.find(t => t.value === e.target.value);
+                        if (selectedTag) {
+                            targetEl.style.fontSize = selectedTag.size;
+                            targetEl.style.fontWeight = selectedTag.weight;
+                            saveStyles();
+                        }
+                    });
+                    toolbar.appendChild(tagSelect);
+                }
+
+                // 2. Font Family Dropdown
+                const fontSelect = document.createElement('select');
+                fontSelect.className = 'sc-editor-select';
+                fontSelect.style.width = '80px';
+                const fonts = ['Outfit', 'Space Grotesk', 'Inter', 'Lora', 'Playfair Display', 'Montserrat'];
+                fonts.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f;
+                    opt.innerText = f;
+                    if (targetEl.style.fontFamily && targetEl.style.fontFamily.includes(f)) {
+                        opt.selected = true;
+                    }
+                    fontSelect.appendChild(opt);
+                });
+                fontSelect.addEventListener('change', (e) => {
+                    targetEl.style.fontFamily = `'${e.target.value}', sans-serif`;
+                    saveStyles();
+                });
+                toolbar.appendChild(fontSelect);
+                
+                // 3. Bold Button
+                const boldBtn = document.createElement('button');
+                boldBtn.type = 'button';
+                boldBtn.className = 'sc-editor-btn';
+                boldBtn.innerHTML = '<b>B</b>';
+                if (targetEl.style.fontWeight === 'bold' || window.getComputedStyle(targetEl).fontWeight === '700' || window.getComputedStyle(targetEl).fontWeight === '800') {
+                    boldBtn.classList.add('active');
+                }
+                boldBtn.addEventListener('click', () => {
+                    const isBold = targetEl.style.fontWeight === 'bold' || window.getComputedStyle(targetEl).fontWeight === '700';
+                    targetEl.style.fontWeight = isBold ? 'normal' : 'bold';
+                    boldBtn.classList.toggle('active');
+                    saveStyles();
+                });
+                toolbar.appendChild(boldBtn);
+
+                // 4. Italic Button
+                const italicBtn = document.createElement('button');
+                italicBtn.type = 'button';
+                italicBtn.className = 'sc-editor-btn';
+                italicBtn.innerHTML = '<i>I</i>';
+                if (targetEl.style.fontStyle === 'italic' || window.getComputedStyle(targetEl).fontStyle === 'italic') {
+                    italicBtn.classList.add('active');
+                }
+                italicBtn.addEventListener('click', () => {
+                    const isItalic = targetEl.style.fontStyle === 'italic';
+                    targetEl.style.fontStyle = isItalic ? 'normal' : 'italic';
+                    italicBtn.classList.toggle('active');
+                    saveStyles();
+                });
+                toolbar.appendChild(italicBtn);
+                
+                // Divider
+                const div1 = document.createElement('div');
+                div1.style.width = '1px';
+                div1.style.height = '18px';
+                div1.style.background = 'rgba(255,255,255,0.15)';
+                toolbar.appendChild(div1);
+                
+                // 5. Color picker / Text color presets
+                const colors = ['#c5a059', '#ffffff', '#111111', '#ef4444', '#3b82f6'];
+                colors.forEach(col => {
+                    const cbtn = document.createElement('div');
+                    cbtn.className = 'sc-editor-color-btn';
+                    cbtn.style.background = col;
+                    cbtn.title = 'Text Color';
+                    cbtn.addEventListener('click', () => {
+                        targetEl.style.color = col;
+                        saveStyles();
+                    });
+                    toolbar.appendChild(cbtn);
+                });
+                
+                // Custom Color Input
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.title = 'Text Color';
+                colorInput.style.width = '24px';
+                colorInput.style.height = '24px';
+                colorInput.style.padding = '0';
+                colorInput.style.border = 'none';
+                colorInput.style.background = 'transparent';
+                colorInput.style.cursor = 'pointer';
+                colorInput.addEventListener('input', (e) => {
+                    targetEl.style.color = e.target.value;
+                    saveStyles();
+                });
+                toolbar.appendChild(colorInput);
+
+                // BUTTON SPECIFIC CONTROLS
+                if (isButton) {
+                    const divBtn = document.createElement('div');
+                    divBtn.style.width = '1px';
+                    divBtn.style.height = '18px';
+                    divBtn.style.background = 'rgba(255,255,255,0.15)';
+                    toolbar.appendChild(divBtn);
+
+                    // Button Bg Color picker preset
+                    const bgColors = ['#111111', '#c5a059', '#3b82f6', '#10b981', '#ffffff'];
+                    bgColors.forEach(col => {
+                        const bgBtn = document.createElement('div');
+                        bgBtn.className = 'sc-editor-color-btn';
+                        bgBtn.style.background = col;
+                        bgBtn.style.borderRadius = '4px';
+                        bgBtn.title = 'Button Bg Color';
+                        bgBtn.addEventListener('click', () => {
+                            targetEl.style.backgroundColor = col;
+                            saveStyles();
+                        });
+                        toolbar.appendChild(bgBtn);
+                    });
+
+                    // Custom Button Bg Color Input
+                    const bgColorInput = document.createElement('input');
+                    bgColorInput.type = 'color';
+                    bgColorInput.title = 'Button Bg Color';
+                    bgColorInput.style.width = '24px';
+                    bgColorInput.style.height = '24px';
+                    bgColorInput.style.padding = '0';
+                    bgColorInput.style.border = 'none';
+                    bgColorInput.style.background = 'transparent';
+                    bgColorInput.style.cursor = 'pointer';
+                    bgColorInput.addEventListener('input', (e) => {
+                        targetEl.style.backgroundColor = e.target.value;
+                        saveStyles();
+                    });
+                    toolbar.appendChild(bgColorInput);
+
+                    // Corner Radius Select
+                    const radiusSelect = document.createElement('select');
+                    radiusSelect.className = 'sc-editor-select';
+                    radiusSelect.style.width = '70px';
+                    radiusSelect.title = 'Button Corner Radius';
+                    const radii = ['0px', '4px', '8px', '12px', '9999px'];
+                    radii.forEach(r => {
+                        const opt = document.createElement('option');
+                        opt.value = r;
+                        opt.innerText = r === '9999px' ? 'Pill' : r;
+                        if (targetEl.style.borderRadius === r || window.getComputedStyle(targetEl).borderRadius === r) {
+                            opt.selected = true;
+                        }
+                        radiusSelect.appendChild(opt);
+                    });
+                    radiusSelect.addEventListener('change', (e) => {
+                        targetEl.style.borderRadius = e.target.value;
+                        saveStyles();
+                    });
+                    toolbar.appendChild(radiusSelect);
+                }
+
+                // Divider
+                const div2 = document.createElement('div');
+                div2.style.width = '1px';
+                div2.style.height = '18px';
+                div2.style.background = 'rgba(255,255,255,0.15)';
+                toolbar.appendChild(div2);
+
+                // 6. Font Size Scale (A-, A+)
+                const sizeMinus = document.createElement('button');
+                sizeMinus.type = 'button';
+                sizeMinus.className = 'sc-editor-btn';
+                sizeMinus.innerText = 'A-';
+                sizeMinus.addEventListener('click', () => {
+                    let curSize = parseFloat(window.getComputedStyle(targetEl).fontSize);
+                    targetEl.style.fontSize = `${Math.max(curSize - 2, 10)}px`;
+                    saveStyles();
+                });
+                toolbar.appendChild(sizeMinus);
+                
+                const sizePlus = document.createElement('button');
+                sizePlus.type = 'button';
+                sizePlus.className = 'sc-editor-btn';
+                sizePlus.innerText = 'A+';
+                sizePlus.addEventListener('click', () => {
+                    let curSize = parseFloat(window.getComputedStyle(targetEl).fontSize);
+                    targetEl.style.fontSize = `${Math.min(curSize + 2, 72)}px`;
+                    saveStyles();
+                });
+                toolbar.appendChild(sizePlus);
+
+                // Divider
+                const divFontSize = document.createElement('div');
+                divFontSize.style.width = '1px';
+                divFontSize.style.height = '18px';
+                divFontSize.style.background = 'rgba(255,255,255,0.15)';
+                toolbar.appendChild(divFontSize);
+
+                // 7. ✨ AI Rewrite Button
+                const aiBtn = document.createElement('button');
+                aiBtn.type = 'button';
+                aiBtn.className = 'sc-editor-btn';
+                aiBtn.style.width = 'auto';
+                aiBtn.style.padding = '0 6px';
+                aiBtn.innerHTML = '✨ AI';
+                aiBtn.addEventListener('click', () => {
+                    showAiMenu(aiBtn, targetEl);
+                });
+                toolbar.appendChild(aiBtn);
+
+                // 8. 🌎 Apply Globally Button
+                const applyAllBtn = document.createElement('button');
+                applyAllBtn.type = 'button';
+                applyAllBtn.className = 'sc-editor-btn';
+                applyAllBtn.style.width = 'auto';
+                applyAllBtn.style.padding = '0 6px';
+                applyAllBtn.style.color = '#c5a059';
+                applyAllBtn.title = 'Apply this style globally to all elements/pages';
+                applyAllBtn.innerHTML = '🌎 Apply to All';
+                applyAllBtn.addEventListener('click', () => {
+                    const fontFamily = targetEl.style.fontFamily ? targetEl.style.fontFamily.split(',')[0].replace(/['"]/g, '') : '';
+                    const color = targetEl.style.color;
+                    const bg = targetEl.style.backgroundColor;
+                    const radius = targetEl.style.borderRadius;
+                    
+                    window.parent.postMessage({
+                        type: 'APPLY_STYLE_GLOBALLY',
+                        field: fieldKey,
+                        styles: {
+                            font_family: fontFamily,
+                            color: color,
+                            background_color: bg,
+                            border_radius: radius
+                        },
+                        isButton: isButton,
+                        page: pageContext
+                    }, '*');
+                });
+                toolbar.appendChild(applyAllBtn);
+
+                document.body.appendChild(toolbar);
+                
+                function saveStyles() {
+                    window.parent.postMessage({
+                        type: 'INLINE_STYLE_EDIT',
+                        field: fieldKey,
+                        styles: {
+                            color: targetEl.style.color,
+                            font_size: targetEl.style.fontSize,
+                            font_weight: targetEl.style.fontWeight,
+                            font_style: targetEl.style.fontStyle,
+                            font_family: targetEl.style.fontFamily ? targetEl.style.fontFamily.split(',')[0].replace(/['"]/g, '') : '',
+                            background_color: targetEl.style.backgroundColor,
+                            border_radius: targetEl.style.borderRadius,
+                            border: targetEl.style.border,
+                            text_transform: targetEl.style.textTransform,
+                            padding: targetEl.style.padding,
+                            text_decoration: targetEl.style.textDecoration
+                        },
+                        page: pageContext
+                    }, '*');
+                }
+            };
+
+            const showAiMenu = (btnEl, targetEl) => {
+                removeAiMenu();
+                
+                const rect = btnEl.getBoundingClientRect();
+                const menu = document.createElement('div');
+                menu.className = 'sc-editor-ai-dropdown';
+                menu.style.top = `${window.scrollY + rect.bottom + 6}px`;
+                menu.style.left = `${window.scrollX + rect.left}px`;
+                
+                const options = [
+                    { label: '🔥 Make it Punchier', tone: 'punchy' },
+                    { label: '💼 Make it Professional', tone: 'professional' },
+                    { label: '💡 Create Hype Hook', tone: 'hype' },
+                    { label: '📏 Shorten text', tone: 'shorten' },
+                    { label: '📜 Lengthen text', tone: 'lengthen' }
+                ];
+                
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'sc-editor-ai-option';
+                    btn.innerText = opt.label;
+                    btn.addEventListener('click', () => {
+                        removeAiMenu();
+                        const origText = targetEl.innerText.trim();
+                        targetEl.innerText = '✨ AI Thinking...';
+                        
+                        window.parent.postMessage({
+                            type: 'REQUEST_AI_REWRITE',
+                            text: origText,
+                            tone: opt.tone,
+                            field: fieldKey,
+                            page: pageContext
+                        }, '*');
+                    });
+                    menu.appendChild(btn);
+                });
+                
+                document.body.appendChild(menu);
+            };
+
+            const setupEditable = (el, fieldKey, pageContext) => {
+                if (!el) return;
+                
+                el.dataset.fieldKey = fieldKey;
+                el.dataset.pageContext = pageContext;
+                
+                const enabled = window.inlineEditingEnabled !== false;
+                el.contentEditable = enabled ? "true" : "false";
+                el.style.cursor = enabled ? "text" : "";
+                el.style.outline = "none";
+                el.style.transition = "box-shadow 0.2s ease";
+                
+                if (el.dataset.inlineBound) return;
+                el.dataset.inlineBound = "true";
+                
+                el.addEventListener('mouseenter', () => {
+                    if (window.inlineEditingEnabled === false) return;
+                    el.style.boxShadow = "0 0 0 2px var(--primary, #c5a059)";
+                    el.style.borderRadius = "4px";
+                });
+                el.addEventListener('mouseleave', () => {
+                    el.style.boxShadow = "none";
+                });
+                el.addEventListener('focus', () => {
+                    if (window.inlineEditingEnabled === false) return;
+                    el.style.boxShadow = "0 0 0 2px var(--primary, #c5a059), 0 0 8px rgba(197, 160, 89, 0.4)";
+                    showToolbar(el, fieldKey, pageContext);
+                });
+                el.addEventListener('blur', () => {
+                    el.style.boxShadow = "none";
+                    const text = el.innerText.trim();
+                    if (text === '✨ AI Thinking...') return;
+                    window.parent.postMessage({
+                        type: 'INLINE_TEXT_EDIT',
+                        field: fieldKey,
+                        value: text,
+                        page: pageContext
+                    }, '*');
+                });
+                el.addEventListener('click', (e) => {
+                    if (window.inlineEditingEnabled !== false) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                });
+            };
+
+            window.toggleEditableElements = (enabled) => {
+                window.inlineEditingEnabled = enabled;
+                document.querySelectorAll('[data-inline-bound="true"]').forEach(el => {
+                    el.contentEditable = enabled ? "true" : "false";
+                    el.style.cursor = enabled ? "text" : "";
+                    if (!enabled) {
+                        el.style.boxShadow = "none";
+                    }
+                });
+                if (!enabled) {
+                    removeToolbar();
+                }
+            };
+
+            setupEditable(document.querySelector('[data-translate="track_headline"]'), 'text_track_headline', 'track');
+            setupEditable(document.querySelector('[data-translate="track_subheadline"]'), 'text_track_subheadline', 'track');
+            setupEditable(document.querySelector('[data-translate="track_cta"]'), 'text_track_cta', 'track');
+        }
+        window.initializeInlineEditing = initializeInlineEditing;
+        initializeInlineEditing();
     </script>
 </body>
 </html>

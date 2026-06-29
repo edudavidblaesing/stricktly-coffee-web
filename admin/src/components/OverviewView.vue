@@ -48,7 +48,7 @@
                         <span class="metric-label" style="margin-bottom: 0;">Total Orders</span>
                     </div>
                     <div class="metric-main-row">
-                        <span class="metric-value">{{ filteredOrders.length }}</span>
+                        <span class="metric-value">{{ dashboardOrdersCount }}</span>
                         <div class="metric-sparkline">
                             <div class="metric-sparkbar active"
                                 style="height: 14px; width: 4px; border-radius: 2px;"></div>
@@ -77,14 +77,14 @@
                     </span>
                 </div>
             </div>
-            <!-- CARD 3: CUSTOMERS -->
+            <!-- CARD 3: VISITORS -->
             <div class="metric-card">
                 <div class="metric-card-body">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span class="metric-label" style="margin-bottom: 0;">New Customers</span>
+                        <span class="metric-label" style="margin-bottom: 0;">Unique Visitors</span>
                     </div>
                     <div class="metric-main-row">
-                        <span class="metric-value">{{ uniqueCustomersCount }}</span>
+                        <span class="metric-value">{{ dashboardUniqueVisitors.toLocaleString() }}</span>
                         <div class="metric-sparkline">
                             <div class="metric-sparkbar" style="height: 8px; width: 4px; border-radius: 2px;"></div>
                             <div class="metric-sparkbar active"
@@ -100,7 +100,7 @@
                     </div>
                 </div>
                 <div class="metric-card-footer">
-                    <span class="info-tooltip-trigger" data-tooltip="Number of unique customer email addresses resolved in transactions.">i</span>
+                    <span class="info-tooltip-trigger" data-tooltip="Number of unique visitor sessions tracked on your storefront pages.">i</span>
                     <span class="metric-change"
                         style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px;">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -394,6 +394,8 @@ export default {
         formattedSalesTotal() { return this.app.formattedSalesTotal; },
         filteredOrders() { return this.app.filteredOrders; },
         uniqueCustomersCount() { return this.app.uniqueCustomersCount; },
+        dashboardOrdersCount() { return this.app.dashboardOrdersCount; },
+        dashboardUniqueVisitors() { return this.app.dashboardUniqueVisitors; },
         calculatedConversionRate() { return this.app.calculatedConversionRate; },
         searchedOrders() { return this.app.searchedOrders; },
         ordersSearchQuery: {
