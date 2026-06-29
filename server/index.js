@@ -3301,35 +3301,62 @@ Return ONLY a comma-separated list of the 3 competitor domains (e.g. "competitor
         }
 
         if (apiKey) {
-          const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
-Based on the following scraped storefront text and catalog data, generate a comprehensive Brand Performance Marketing Protocol.
+          const prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist specializing in high-end consumer hardware, luxury lifestyle products, and precision-engineered gear.
+Your task is to analyze the raw storefront data, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
+To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on physical engineering, material integrity, and aesthetic value.
 
-Brand Name: ${brand.name}
-Website URL: ${targetUrl || 'Not available'}
-
-[SCRAPED HOME PAGE CONTENT]
+[INPUT DATA]
+1. Brand Profile & Core Web Data
+•	Brand Name: ${brand.name}
+•	Website URL: ${targetUrl || 'Not available'}
+•	Primary Value Prop / Meta Description: Precision coffee tools for all barista levels, premium accessories.
+•	Scraped Web Content / Core Claims:
 ${homepageText}
 
-[COMPETITOR ANALYSES]
-${competitorTexts.length > 0 ? competitorTexts.join('\n\n') : 'No competitor sites crawled. Analyze standard competitors in their industry segment based on their products.'}
+2. Competitor Context & Market Positioning
+•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'Pullman, Normcore, Saint Anthony Industries'}
+•	Target Price Segment: Premium, high-end ($50 - $200+ USD accessories)
+•	Core Market Pain Points: Uneven extraction, channeling, cheap plastic tools, lack of setup aesthetic cohesion
+${competitorTexts.length > 0 ? '\nCompetitor Scraping Context:\n' + competitorTexts.join('\n\n') : ''}
 
-[PRODUCT CATALOG SAMPLES]
+3. Core Product Catalog Samples
 ${catalogContext || 'No catalog items registered.'}
 
-Generate a thorough, structured, and complete brand manuscript / protocol in Markdown format. The manuscript MUST include:
-1. **Brand Identity & Position**: Explain their mission, visual aesthetic, value proposition, and unique selling points (USPs).
-2. **Target Audience Profile**: Build 2 distinct customer personas (demographics, psychographics, buying motivations).
-3. **Marketing Voice & Tone Guidelines**: Detail clear messaging guidelines, voice adjectives (with copy examples), and a list of approved and banned terms.
-4. **Competitor & Market positioning**: Identify top 3 market competitors, analyze their positioning, and list our strategic differentiators.
-5. **Performance Ads Framework**:
-   - Emotional, Logical, and Utility hooks for ads.
-   - Ready-to-copy Ad Copy variations (Primary Text, Headline, Description) for Meta/Instagram campaigns targeting cold vs retargeting audiences.
-   - Suggestions for TikTok hook scripts.
-6. **Marketing Campaign Manuscripts**:
-   - High-converting email templates: A 3-step Welcome Sequence and a Cart Abandonment flow.
-   - High-converting landing page headline & section layout guidelines.
-
-Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
+[GENERATION INSTRUCTIONS & OUTLINES]
+Generate a thorough, structured, and complete manuscript in Markdown. You must execute every single section below in full detail, without shortcuts or placeholders.
+SECTION 1: Strategic Market Position & Product Architecture
+	1.	The Technical Narrative: Detail the technical position of the brand. Explain why the physical engineering details matter (e.g., how 1.1mm rigid steel prevents base flexing under 9 bar pressure, or how specific tolerances reduce flow channeling).
+	2.	Fluid Dynamics / Physical Modeling: Include a mathematical representation of the problem the product solves. Use a relevant scientific or physical formula in clean LaTeX format (e.g., Darcy's Law for fluid flow through porous media: $Q = \\frac{-k A \\Delta P}{\\mu L}$ to describe hydraulic flow uniformity, or Extraction Yield % equations).
+	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their exact physical specs, raw materials (e.g., 316-grade stainless steel, POM, vacuum-dyed birch), and price points.
+SECTION 2: Multi-Segment Customer Personas
+Build 2 highly distinct consumer profiles based on buying psychological motivations:
+	1.	Persona A (The Technical Enthusiast): Focuses heavily on data, micro-tolerances, physical science, and repeatability. Detail their demographics, psychological triggers, and core friction points.
+	2.	Persona B (The Design Curator): Focuses heavily on kitchen aesthetics, tactile materials (wood, resin), and visual alignment with their living space. Detail their demographics, aesthetic triggers, and core friction points.
+SECTION 3: Brand Voice Guidelines & Vocabulary Protocol
+	1.	Adjectives & Application: Define 4 voice adjectives that represent a premium, expert tone. Provide a copy example for each.
+	2.	Controlled Vocabulary Matrix: Provide a clear table of:
+•	Approved Terminology (e.g., hydraulic uniformity, zero-compromise engineering, structural rigidity).
+•	Banned Terminology (e.g., cheap, budget-friendly, morning routine hack, game-changing, world's best).
+SECTION 4: Performance Ads Copywriting Framework
+Develop ad variations based on three psychological angles:
+	1.	Emotional (Tactile & Aesthetic Satisfaction): Focuses on materials, weight, and visual ritual.
+	2.	Logical (Data & Science): Focuses on eliminating channeling, extraction yield, and math.
+	3.	Utility (Workflow & Durability): Focuses on compatibility, cleaning, and long-term use.
+For each angle, provide:
+•	One Cold Prospecting (TOFU) ad copy variation (Primary Text, Headline, Description).
+•	One Retargeting (MOFU/BOFU) ad copy variation (Primary Text, Headline, Description).
+•	Strict Copy Rule: Write descriptions and primary texts from an objective, premium third-person perspective using strong imperative calls-to-action. Do not use cheesy, spammy emojis.
+SECTION 5: Video & Image Creative Briefs (AI Generation Ready)
+	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues (e.g., the physical click of a calibrated tamper or metal locking).
+	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a marble countertop, warm side lighting, shallow depth of field, 85mm lens, high-end architectural digest aesthetic\").
+SECTION 6: High-Converting Email Flows
+Provide raw, copy-pasteable email copy for:
+	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and precision. Step 2: The physical science behind a key product feature. Step 3: Elite collaboration or design standards. Include subject lines, preheaders, and button CTA text.
+	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving performance hesitation. Step 2: Technical sizing and machine compatibility checklist. Step 3: Upgrading setup visual styling.
+SECTION 7: Landing Page Visual Architecture
+Provide a step-by-step structural blueprint for a high-converting landing page. Map out the exact visual containers, value statements, functional modules (e.g., an interactive compatibility sizing engine), and social proof blocks required to maximize conversion rates.
+[EXECUTION RULE]
+Output the complete Markdown document directly. Write all ad copy and email templates in ready-to-use, professional English. Do not explain your process or write conversational filler. Start directly with the first section header.`;
 
           // Determine Gemini model based on brand's AI tier
           let targetModel = getTargetModel(brand.ai_tier);
@@ -3509,35 +3536,62 @@ app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, 
     const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
     const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
 
-    const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
-Based on the following scraped storefront text and catalog data, generate a comprehensive Brand Performance Marketing Protocol.
+    const prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist specializing in high-end consumer hardware, luxury lifestyle products, and precision-engineered gear.
+Your task is to analyze the raw storefront data, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
+To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on physical engineering, material integrity, and aesthetic value.
 
-Brand Name: ${brand.name}
-Website URL: ${targetUrl || 'Not available'}
-
-[SCRAPED HOME PAGE CONTENT]
+[INPUT DATA]
+1. Brand Profile & Core Web Data
+•	Brand Name: ${brand.name}
+•	Website URL: ${targetUrl || 'Not available'}
+•	Primary Value Prop / Meta Description: Precision coffee tools for all barista levels, premium accessories.
+•	Scraped Web Content / Core Claims:
 ${homepageText}
 
-[COMPETITOR ANALYSES]
-${competitorTexts.length > 0 ? competitorTexts.join('\n\n') : 'No competitor sites crawled. Analyze standard competitors in their industry segment based on their products.'}
+2. Competitor Context & Market Positioning
+•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'Pullman, Normcore, Saint Anthony Industries'}
+•	Target Price Segment: Premium, high-end ($50 - $200+ USD accessories)
+•	Core Market Pain Points: Uneven extraction, channeling, cheap plastic tools, lack of setup aesthetic cohesion
+${competitorTexts.length > 0 ? '\nCompetitor Scraping Context:\n' + competitorTexts.join('\n\n') : ''}
 
-[PRODUCT CATALOG SAMPLES]
+3. Core Product Catalog Samples
 ${catalogContext || 'No catalog items registered.'}
 
-Generate a thorough, structured, and complete brand manuscript / protocol in Markdown format. The manuscript MUST include:
-1. **Brand Identity & Position**: Explain their mission, visual aesthetic, value proposition, and unique selling points (USPs).
-2. **Target Audience Profile**: Build 2 distinct customer personas (demographics, psychographics, buying motivations).
-3. **Marketing Voice & Tone Guidelines**: Detail clear messaging guidelines, voice adjectives (with copy examples), and a list of approved and banned terms.
-4. **Competitor & Market positioning**: Identify top 3 market competitors, analyze their positioning, and list our strategic differentiators.
-5. **Performance Ads Framework**:
-   - Emotional, Logical, and Utility hooks for ads.
-   - Ready-to-copy Ad Copy variations (Primary Text, Headline, Description) for Meta/Instagram campaigns targeting cold vs retargeting audiences.
-   - Suggestions for TikTok hook scripts.
-6. **Marketing Campaign Manuscripts**:
-   - High-converting email templates: A 3-step Welcome Sequence and a Cart Abandonment flow.
-   - High-converting landing page headline & section layout guidelines.
-
-Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
+[GENERATION INSTRUCTIONS & OUTLINES]
+Generate a thorough, structured, and complete manuscript in Markdown. You must execute every single section below in full detail, without shortcuts or placeholders.
+SECTION 1: Strategic Market Position & Product Architecture
+	1.	The Technical Narrative: Detail the technical position of the brand. Explain why the physical engineering details matter (e.g., how 1.1mm rigid steel prevents base flexing under 9 bar pressure, or how specific tolerances reduce flow channeling).
+	2.	Fluid Dynamics / Physical Modeling: Include a mathematical representation of the problem the product solves. Use a relevant scientific or physical formula in clean LaTeX format (e.g., Darcy's Law for fluid flow through porous media: $Q = \\frac{-k A \\Delta P}{\\mu L}$ to describe hydraulic flow uniformity, or Extraction Yield % equations).
+	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their exact physical specs, raw materials (e.g., 316-grade stainless steel, POM, vacuum-dyed birch), and price points.
+SECTION 2: Multi-Segment Customer Personas
+Build 2 highly distinct consumer profiles based on buying psychological motivations:
+	1.	Persona A (The Technical Enthusiast): Focuses heavily on data, micro-tolerances, physical science, and repeatability. Detail their demographics, psychological triggers, and core friction points.
+	2.	Persona B (The Design Curator): Focuses heavily on kitchen aesthetics, tactile materials (wood, resin), and visual alignment with their living space. Detail their demographics, aesthetic triggers, and core friction points.
+SECTION 3: Brand Voice Guidelines & Vocabulary Protocol
+	1.	Adjectives & Application: Define 4 voice adjectives that represent a premium, expert tone. Provide a copy example for each.
+	2.	Controlled Vocabulary Matrix: Provide a clear table of:
+•	Approved Terminology (e.g., hydraulic uniformity, zero-compromise engineering, structural rigidity).
+•	Banned Terminology (e.g., cheap, budget-friendly, morning routine hack, game-changing, world's best).
+SECTION 4: Performance Ads Copywriting Framework
+Develop ad variations based on three psychological angles:
+	1.	Emotional (Tactile & Aesthetic Satisfaction): Focuses on materials, weight, and visual ritual.
+	2.	Logical (Data & Science): Focuses on eliminating channeling, extraction yield, and math.
+	3.	Utility (Workflow & Durability): Focuses on compatibility, cleaning, and long-term use.
+For each angle, provide:
+•	One Cold Prospecting (TOFU) ad copy variation (Primary Text, Headline, Description).
+•	One Retargeting (MOFU/BOFU) ad copy variation (Primary Text, Headline, Description).
+•	Strict Copy Rule: Write descriptions and primary texts from an objective, premium third-person perspective using strong imperative calls-to-action. Do not use cheesy, spammy emojis.
+SECTION 5: Video & Image Creative Briefs (AI Generation Ready)
+	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues (e.g., the physical click of a calibrated tamper or metal locking).
+	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a marble countertop, warm side lighting, shallow depth of field, 85mm lens, high-end architectural digest aesthetic\").
+SECTION 6: High-Converting Email Flows
+Provide raw, copy-pasteable email copy for:
+	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and precision. Step 2: The physical science behind a key product feature. Step 3: Elite collaboration or design standards. Include subject lines, preheaders, and button CTA text.
+	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving performance hesitation. Step 2: Technical sizing and machine compatibility checklist. Step 3: Upgrading setup visual styling.
+SECTION 7: Landing Page Visual Architecture
+Provide a step-by-step structural blueprint for a high-converting landing page. Map out the exact visual containers, value statements, functional modules (e.g., an interactive compatibility sizing engine), and social proof blocks required to maximize conversion rates.
+[EXECUTION RULE]
+Output the complete Markdown document directly. Write all ad copy and email templates in ready-to-use, professional English. Do not explain your process or write conversational filler. Start directly with the first section header.`;
 
     res.json({ success: true, prompt });
   } catch (err) {
