@@ -1,7 +1,7 @@
 <template>
     <div id="view-campaigns" class="admin-view" :class="{ active: app.activeView === 'campaigns' }">
         <!-- Marketing Summary Cards -->
-        <div class="metrics-grid" style="margin-bottom: 24px;">
+        <div v-if="!isCreatingCampaign" class="metrics-grid" style="margin-bottom: 24px;">
             <div class="metric-card">
                 <div class="metric-card-body">
                     <span class="metric-label">Active Ad Spend Budget</span>
@@ -65,16 +65,72 @@
         </div>
 
         <!-- CREATE CAMPAIGN MODAL -->
-        <div class="upcoming-modal" v-if="showCreateCampaignModal" @click.self="closeCreateCampaignModal">
-            <div class="upcoming-card" @click.stop style="max-width: 1200px; width: 100%; height: 85vh; max-height: 780px; text-align: left; padding: 24px; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); border: 1px solid var(--border); background: var(--card-bg);">
-                <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
-                    <!-- Top Left: Cancel Button -->
-                    <button type="button" @click="closeCreateCampaignModal" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; gap: 4px;">
-                        ✕ Cancel
+        <!-- CREATE CAMPAIGN FULL-SCREEN WORKSPACE -->
+        <div v-if="isCreatingCampaign" style="display: flex; flex-direction: column; height: calc(100vh - 120px); min-height: 620px; text-align: left; padding: 24px; overflow: hidden; border-radius: 12px; border: 1px solid var(--border); background: var(--card-bg); margin-bottom: 24px;">
+            
+            <!-- Onboarding Mode Selector Screen -->
+            <div v-if="!newCampaign.creation_mode_selected" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; overflow-y: auto;">
+                <div style="width: 100%; display: flex; justify-content: flex-start; margin-bottom: 20px;">
+                    <button type="button" @click="closeCreateCampaignModal" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0;">
+                        ← Back to Board
                     </button>
-                    
-                    <!-- Center: Title -->
-                    <span style="font-size: 1.25rem;">🚀 Launch Omnichannel Campaign</span>
+                </div>
+                
+                <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px;">Select Campaign Creator Mode</h2>
+                <p style="font-size: 0.88rem; color: var(--text-muted); max-width: 480px; margin-bottom: 32px;">
+                    Choose how you want to build this campaign. You can switch modes or customize parameters at any point in the workspace.
+                </p>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 900px; width: 100%;">
+                    <!-- Card 1: Manual -->
+                    <div @click="setWorkspaceMode('manual')" class="mode-selection-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 24px; cursor: pointer; transition: all 0.3s; background: rgba(255,255,255,0.015); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <span style="font-size: 2.5rem;">✍️</span>
+                        <strong style="font-size: 1rem; color: var(--text-main);">Manual Designer</strong>
+                        <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; margin: 0;">
+                            Take absolute control. Configure target channels, budget schedules, and write copywriting variants yourself.
+                        </p>
+                        <span class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 12px; margin-top: auto;">Select Manual</span>
+                    </div>
+
+                    <!-- Card 2: Co-Pilot -->
+                    <div @click="setWorkspaceMode('copilot')" class="mode-selection-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 24px; cursor: pointer; transition: all 0.3s; background: rgba(96,165,250,0.03); border-color: rgba(96,165,250,0.25); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <span style="font-size: 2.5rem;">💡</span>
+                        <strong style="font-size: 1rem; color: var(--text-main);">AI Co-Pilot</strong>
+                        <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; margin: 0;">
+                            Collaborative builder. You configure channels and base copy; our AI improves headlines, rewrites copies, and provides budget recommendations.
+                        </p>
+                        <span class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 12px; margin-top: auto; color: #60a5fa; border-color: rgba(96,165,250,0.3);">Select Co-Pilot</span>
+                    </div>
+
+                    <!-- Card 3: Autopilot -->
+                    <div @click="setWorkspaceMode('autopilot')" class="mode-selection-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 24px; cursor: pointer; transition: all 0.3s; background: rgba(197,160,89,0.05); border-color: rgba(197,160,89,0.3); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <span style="font-size: 2.5rem;">⚡</span>
+                        <strong style="font-size: 1rem; color: var(--accent);">AI Autopilot (One-Tap)</strong>
+                        <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; margin: 0;">
+                            Zero-effort launch. Enter a single sentence campaign goal, and AI generates copywriting copy, links landing page structure, and schedules all channels.
+                        </p>
+                        <span class="btn btn-accent" style="font-size: 0.72rem; padding: 4px 12px; margin-top: auto;">Select Autopilot</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Creation Workspace (Once Mode is Selected) -->
+            <div v-else style="display: flex; flex-direction: column; height: 100%; min-height: 0;">
+                <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-top: 0;">
+                    <!-- Top Left: Back Button & Mode Indicator -->
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button type="button" @click="closeCreateCampaignModal" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; gap: 4px;">
+                            ← Back to Board
+                        </button>
+                        <span style="font-size: 1.1rem; color: var(--text-main);">✨ Ad Studio Workspace</span>
+                        
+                        <!-- Creator Mode Badges/Toggles -->
+                        <div style="display: flex; gap: 4px; background: var(--border); padding: 2px; border-radius: 6px;">
+                            <button type="button" @click="setWorkspaceMode('manual')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'manual' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">✍️ Manual</button>
+                            <button type="button" @click="setWorkspaceMode('copilot')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'copilot' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">💡 Co-Pilot</button>
+                            <button type="button" @click="setWorkspaceMode('autopilot')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'autopilot' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">⚡ Autopilot</button>
+                        </div>
+                    </div>
                     
                     <!-- Top Right: Actions -->
                     <div style="display: flex; gap: 8px; align-items: center;">
@@ -98,6 +154,32 @@
                 </div>
 
                 <form id="campaign-creation-form" @submit.prevent="saveCampaign" style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 8px;">
+                    <!-- AI AUTOPILOT GENERATION CONSOLE -->
+                    <div v-if="newCampaign.creation_mode === 'autopilot'" style="background: rgba(197, 160, 89, 0.04); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                            <span>⚡ AI Autopilot Director</span>
+                        </h4>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">
+                            Describe your campaign goal. Autopilot will write Headlines & Description variants (A/B), select target channels, configure the optimal budget, translate copies to target locales, and auto-build a custom landing page in one tap.
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <textarea v-model="newCampaign.autopilot_goal" rows="2" placeholder="e.g. Promote our new organic dark roast blend to dark roast coffee enthusiasts and offer a 15% discount code using promo DARK15" style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-size: 0.82rem; resize: vertical; font-family: inherit;"></textarea>
+                            
+                            <button type="button" @click="runAIAutopilotGeneration" :disabled="generatingAutopilot" class="btn btn-accent" style="font-size: 0.76rem; padding: 8px 16px; font-weight: 700; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0;">
+                                <span v-if="generatingAutopilot">⏳ Building Campaign Assets...</span>
+                                <span v-else>✨ Run AI Autopilot Setup</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Status loader ticks -->
+                        <div v-if="generatingAutopilot && autopilotStatusTicks.length > 0" style="margin-top: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+                            <div v-for="tick in autopilotStatusTicks" :key="tick" style="font-size: 0.7rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                                <span style="color: var(--accent);">●</span>
+                                <span>{{ tick }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Campaign Focus / Goal Selector -->
                     <div style="margin-bottom: 16px;">
                         <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">
@@ -509,12 +591,71 @@
                                     <span>Select Landing Page</span>
                                     <span class="info-tooltip-trigger" data-tooltip="Choose one of your active built-in landing pages to redirect traffic to.">i</span>
                                 </label>
-                                <select v-model="newCampaign.landing_page_id" style="width: 100%;" :disabled="newCampaign.destination_type !== 'landing_page'">
-                                    <option value="">-- Choose Landing Page --</option>
-                                    <option v-for="page in availableLandingPages" :key="page.id" :value="page.id">
-                                        {{ page.title }} ({{ page.id }})
-                                    </option>
-                                </select>
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+                                    <select v-model="newCampaign.landing_page_id" style="width: 100%; margin-bottom: 0;" :disabled="newCampaign.destination_type !== 'landing_page'">
+                                        <option value="">-- Choose Landing Page --</option>
+                                        <option v-for="page in availableLandingPages" :key="page.id" :value="page.id">
+                                            {{ page.title }} ({{ page.id }})
+                                        </option>
+                                    </select>
+                                    <button v-if="newCampaign.destination_type === 'landing_page'" type="button" @click="startInlineLandingPageBuilder" class="btn btn-secondary" style="font-size: 0.72rem; padding: 6px 12px; margin: 0; white-space: nowrap; height: 36px;">
+                                        ➕ New Page
+                                    </button>
+                                </div>
+
+                                <!-- Inline Landing Page Designer Panel -->
+                                <div v-if="showLandingPageBuilder" style="background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                                        <span>📄 Campaign Landing Page Designer</span>
+                                        <button type="button" @click="generateLandingPageCopyViaAI" :disabled="landingPageAiGenerating" class="sc-ai-button" style="font-size: 0.68rem; padding: 2px 6px; height: 24px; margin: 0; line-height: 1;">
+                                            <span v-if="landingPageAiGenerating">⏳ Generating...</span>
+                                            <span v-else>✨ AI Generate Copy</span>
+                                        </button>
+                                    </h4>
+                                    
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                            <div class="form-group" style="margin: 0;">
+                                                <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Page ID / URL Slug</label>
+                                                <input type="text" v-model="newLandingPage.id" placeholder="e.g. promo-blend" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                            </div>
+                                            <div class="form-group" style="margin: 0;">
+                                                <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Internal Page Title</label>
+                                                <input type="text" v-model="newLandingPage.title" placeholder="e.g. Summer Promo Offer" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Hero Headline Text</label>
+                                            <input type="text" v-model="newLandingPage.headline" placeholder="e.g. Taste the Freshly Roasted Difference" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Subheadline Text</label>
+                                            <input type="text" v-model="newLandingPage.subheadline" placeholder="e.g. Handcrafted custom beans with direct farmer sourcing." style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                        </div>
+                                        
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                            <div class="form-group" style="margin: 0;">
+                                                <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Button Text (CTA)</label>
+                                                <input type="text" v-model="newLandingPage.cta" placeholder="e.g. Shop Special 15% Off" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                            </div>
+                                            <div class="form-group" style="margin: 0;">
+                                                <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Promo Code</label>
+                                                <input type="text" v-model="newLandingPage.coupon_code" placeholder="e.g. FRESH15" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px; display: block;">Features / USPs (Newline-separated list of 3 items)</label>
+                                            <textarea v-model="newLandingPage.features" rows="2" placeholder="⚡ USP 1&#10;☕ USP 2&#10;🌱 USP 3" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-family: inherit; resize: vertical;"></textarea>
+                                        </div>
+                                        
+                                        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+                                            <button type="button" @click="closeLandingPageBuilder" class="btn btn-secondary" style="font-size: 0.68rem; padding: 4px 8px; margin: 0; height: 28px;">Cancel</button>
+                                            <button type="button" @click="saveInlineLandingPage" class="btn btn-accent" style="font-size: 0.68rem; padding: 4px 10px; margin: 0; background: #10b981; border-color: #10b981; color: white; height: 28px; line-height: 1;">Save Page</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -911,12 +1052,102 @@
                         <button v-if="newCampaign.platforms.includes('tiktok')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'tiktok' }" @click="previewChannel = 'tiktok'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">TikTok</button>
                         <button v-if="newCampaign.platforms.includes('linkedin')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'linkedin' }" @click="previewChannel = 'linkedin'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">LinkedIn</button>
                         <button v-if="newCampaign.platforms.includes('pinterest')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'pinterest' }" @click="previewChannel = 'pinterest'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Pinterest</button>
+                        <button type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'destination' }" @click="previewChannel = 'destination'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1; background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16,185,129,0.3);">🌐 Destination</button>
                     </div>
                 </div>
 
                 <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: var(--bg-color); border-radius: 8px; padding: 24px; border: 1px dashed var(--border); overflow-y: auto; min-height: 0;">
+                    <!-- MOCK BROWSER VIEWPORT FOR TARGET DESTINATION -->
+                    <div v-if="previewChannel === 'destination'" style="flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: #ffffff; color: #111111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; min-height: 480px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); align-self: stretch;">
+                        <!-- Browser Chrome Header -->
+                        <div style="background: #f0f0f0; border-bottom: 1px solid #d4d4d4; padding: 6px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                            <div style="display: flex; gap: 4px;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff5f56;"></span>
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ffbd2e;"></span>
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #27c93f;"></span>
+                            </div>
+                            <div style="flex: 1; background: #ffffff; border: 1px solid #c7c7c7; border-radius: 4px; padding: 2px 8px; font-size: 0.65rem; color: #555555; font-family: monospace; display: flex; align-items: center; gap: 4px;">
+                                <span style="color: #10b981;">🔒 https://</span>
+                                <span>{{ activeBrand.subdomain }}.strictlycoffee.com/{{ newCampaign.destination_type === 'landing_page' ? (showLandingPageBuilder ? newLandingPage.id : newCampaign.landing_page_id) : (newCampaign.destination_type === 'custom_url' ? 'external' : '') }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Viewport Content -->
+                        <div style="flex: 1; overflow-y: auto; background: #f8fafc; display: flex; flex-direction: column;">
+                            <!-- Destination: Homepage Mock -->
+                            <div v-if="newCampaign.destination_type === 'homepage'" style="display: flex; flex-direction: column; flex: 1;">
+                                <div style="background: #0d0d0d; color: white; padding: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222;">
+                                    <span style="font-weight: bold; font-size: 0.8rem;">☕ {{ activeBrand.name }} Storefront</span>
+                                    <span style="font-size: 0.7rem;">Cart (0)</span>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #1f1209 0%, #3d2516 100%); color: white; padding: 24px 16px; text-align: center;">
+                                    <h1 style="font-size: 1.1rem; margin: 0 0 6px 0; font-family: Georgia, serif; color: white !important;">Welcome to {{ activeBrand.name }}</h1>
+                                    <p style="font-size: 0.72rem; color: #d6c4b8; margin: 0;">Explore our fresh, direct-trade specialty coffees.</p>
+                                </div>
+                                <div style="padding: 12px;">
+                                    <h3 style="font-size: 0.75rem; margin: 0 0 8px 0; color: #334155;">Featured Catalog</h3>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div v-for="p in app.products.slice(0, 4)" :key="p.id" style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; display: flex; flex-direction: column;">
+                                            <img :src="p.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-bottom: 6px;">
+                                            <strong style="font-size: 0.7rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.title }}</strong>
+                                            <span style="font-size: 0.65rem; color: #10b981; font-weight: 700; margin-top: 2px;">€{{ parseFloat(p.price).toFixed(2) }}</span>
+                                        </div>
+                                        <div v-if="app.products.length === 0" style="grid-column: span 2; text-align: center; font-size: 0.7rem; padding: 20px; color: #64748b;">
+                                            No items in store catalog.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Destination: Landing Page Mock -->
+                            <div v-else-if="newCampaign.destination_type === 'landing_page'" style="display: flex; flex-direction: column; flex: 1;">
+                                <div style="background: #ffffff; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px;">
+                                    <img :src="activeBrand.logo || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">
+                                    <span style="font-weight: 800; font-size: 0.75rem; color: #1e293b;">{{ activeBrand.name }}</span>
+                                </div>
+                                <div style="background: #ffffff; padding: 32px 16px; text-align: center; border-bottom: 1px solid #e2e8f0;">
+                                    <div v-if="getLandingPageDetail('coupon_code')" style="display: inline-block; background: #ecfdf5; border: 1px dashed #10b981; color: #047857; font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase;">
+                                        🎟️ Apply Code: {{ getLandingPageDetail('coupon_code') }} at Checkout
+                                    </div>
+                                    <h1 style="font-size: 1.25rem; font-weight: 900; line-height: 1.3; color: #0f172a; margin: 0 0 10px 0; font-family: system-ui;">
+                                        {{ getLandingPageDetail('headline') || 'Special Campaign Landing Page' }}
+                                    </h1>
+                                    <p style="font-size: 0.78rem; color: #475569; max-width: 400px; margin: 0 auto 16px auto; line-height: 1.4;">
+                                        {{ getLandingPageDetail('subheadline') || 'Fill out the campaign form to preview landing page subheadline details.' }}
+                                    </p>
+                                    <button type="button" style="background: #0f172a; color: white; border: none; font-size: 0.75rem; padding: 8px 16px; border-radius: 6px; font-weight: 700;">
+                                        {{ getLandingPageDetail('cta') || 'Shop Offer' }}
+                                    </button>
+                                </div>
+                                <div style="padding: 16px; background: #f8fafc; flex: 1;">
+                                    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto;">
+                                        <div v-for="feat in getLandingPageFeaturesArray()" :key="feat" style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.74rem; color: #334155; line-height: 1.3;">
+                                            <span style="color: #10b981;">✓</span>
+                                            <span>{{ feat }}</span>
+                                        </div>
+                                        <div v-if="getLandingPageFeaturesArray().length === 0" style="font-size: 0.7rem; color: #64748b; text-align: center; padding: 10px;">
+                                            No visual USPs listed.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Destination: Custom URL Mock -->
+                            <div v-else style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 24px; text-align: center;">
+                                <span style="font-size: 2.2rem; margin-bottom: 12px;">🌐</span>
+                                <strong style="font-size: 0.85rem; color: #1e293b;">Redirecting to Custom URL Target</strong>
+                                <p style="font-size: 0.72rem; color: #64748b; max-width: 300px; margin: 6px 0 12px 0;">
+                                    Visitors clicking this ad post will be taken directly to the following external link destination:
+                                </p>
+                                <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; font-size: 0.68rem; font-family: monospace; color: #0f172a; word-break: break-all; max-width: 320px;">
+                                    {{ newCampaign.custom_url || 'https://my-external-site.com/offer' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- NO PLATFORMS SELECTED STATE -->
-                    <div v-if="!newCampaign.platforms || newCampaign.platforms.length === 0" style="text-align: center; color: var(--text-muted);">
+                    <div v-else-if="!newCampaign.platforms || newCampaign.platforms.length === 0" style="text-align: center; color: var(--text-muted);">
                         <span style="font-size: 2.2rem; display: block; margin-bottom: 12px;">📣</span>
                         <span style="font-size: 0.85rem; font-weight: 600;">Select at least one omnichannel ad platform to preview your live creatives.</span>
                     </div>
@@ -958,7 +1189,7 @@
                                         </div>
                                         <div style="padding: 6px; border-top: 1px solid #e5e5e5;">
                                             <div style="font-size: 0.72rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1c1e21;">{{ card.title || 'Dynamic Product' }}</div>
-                                            <button type="button" style="border: 0; outline: 0; border-radius: 3px; font-size: 0.65rem; padding: 3px 6px; background: #e4e6eb; color: #050505; margin-top: 4px; font-weight: 600; width: 100%;">Shop Now</button>
+                                            <button type="button" @click="previewChannel = 'destination'" style="border: 0; outline: 0; border-radius: 3px; font-size: 0.65rem; padding: 3px 6px; background: #e4e6eb; color: #050505; margin-top: 4px; font-weight: 600; width: 100%;">Shop Now</button>
                                         </div>
                                     </div>
                                 </div>
@@ -966,7 +1197,7 @@
                         </div>
 
                         <!-- CTA bar -->
-                        <div v-if="newCampaign.format !== 'Carousel'" style="display: flex; justify-content: space-between; align-items: center; background: #f2f3f5; padding: 10px 12px; border-top: 1px solid #e5e5e5;">
+                        <div v-if="newCampaign.format !== 'Carousel'" @click="previewChannel = 'destination'" style="display: flex; justify-content: space-between; align-items: center; background: #f2f3f5; padding: 10px 12px; border-top: 1px solid #e5e5e5; cursor: pointer;">
                             <div style="max-width: 65%;">
                                 <span style="font-size: 0.7rem; color: #606770; text-transform: uppercase;">{{ previewDestinationUrl }}</span>
                                 <strong style="font-size: 0.85rem; color: #1c1e21; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</strong>
@@ -990,7 +1221,7 @@
                                 <div style="font-size: 0.9rem; line-height: 1.4; margin-top: 4px; white-space: pre-line; color: #e7e9ea;">{{ previewAdCopy }}</div>
                                 
                                 <!-- Card Attachment -->
-                                <div style="border: 1px solid #2f3336; border-radius: 16px; overflow: hidden; margin-top: 10px; background: #000;">
+                                <div @click="previewChannel = 'destination'" style="border: 1px solid #2f3336; border-radius: 16px; overflow: hidden; margin-top: 10px; background: #000; cursor: pointer;">
                                     <div style="position: relative; height: 180px; display: flex; align-items: center; justify-content: center; background: #15181c;">
                                         <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                                         <div v-else style="color: #71767b; text-align: center;">
@@ -1016,7 +1247,7 @@
                                 <span style="font-size: 0.7rem; color: #5f6368; display: block;">https://{{ previewDestinationUrl }}</span>
                             </div>
                         </div>
-                        <h4 style="font-size: 1.15rem; color: #1a0dab; font-weight: 400; line-height: 1.3; margin: 4px 0; cursor: pointer; text-decoration: none;">
+                        <h4 @click="previewChannel = 'destination'" style="font-size: 1.15rem; color: #1a0dab; font-weight: 400; line-height: 1.3; margin: 4px 0; cursor: pointer; text-decoration: none;">
                             {{ previewHeadline }}
                         </h4>
                         <p style="font-size: 0.85rem; color: #4d5156; line-height: 1.4; margin: 0;">
@@ -1050,7 +1281,7 @@
                                 {{ previewAdCopy }}
                             </p>
                             <!-- CTA Button -->
-                            <div style="background: #ff0050; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; font-size: 0.78rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; letter-spacing: 0.05em;">
+                            <div @click="previewChannel = 'destination'" style="background: #ff0050; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; font-size: 0.78rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; letter-spacing: 0.05em;">
                                 Shop Now
                             </div>
                         </div>
@@ -1085,7 +1316,7 @@
                         </div>
                         
                         <!-- CTA Bar -->
-                        <div style="padding: 12px; background: #f3f6f8; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                        <div @click="previewChannel = 'destination'" style="padding: 12px; background: #f3f6f8; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                             <div style="max-width: 65%;">
                                 <div style="font-size: 0.82rem; font-weight: 600; color: rgba(0,0,0,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</div>
                                 <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6);">{{ previewDestinationUrl }}</span>
@@ -1097,7 +1328,7 @@
                     <!-- PINTEREST AD PREVIEW -->
                     <div v-else-if="previewChannel === 'pinterest'" style="width: 100%; max-width: 240px; background: #ffffff; color: #111111; border-radius: 16px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #efefef; text-align: left;">
                         <!-- Pin Media -->
-                        <div style="position: relative; background: #f0f0f0; width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                        <div @click="previewChannel = 'destination'" style="position: relative; background: #f0f0f0; width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                             <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                             <div v-else style="color: #767676; text-align: center; padding: 12px;">
                                 <span style="font-size: 2rem; display: block;">📌</span>
@@ -1113,7 +1344,7 @@
                             
                             <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; border-top: 1px solid #f0f0f0; padding-top: 8px;">
                                 <img :src="activeBrand.logo || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;">
-                                <span style="font-size: 0.7rem; color: #111111; font-weight: 600;">{{ activeBrand.name }}</span>
+                                <span style="font-size: 0.72rem; color: #111111; font-weight: 600;">{{ activeBrand.name }}</span>
                             </div>
                         </div>
                     </div>
@@ -1123,7 +1354,7 @@
             </div>
         </div>
 
-        <div class="panel">
+        <div v-if="!isCreatingCampaign" class="panel">
             <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                     <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
@@ -2545,17 +2776,20 @@ export default {
                     max_budget_change_pct: 20,
                     min_roas_floor: 1.8,
                     max_spend_ceiling: 500
-                }
+                },
+                creation_mode: 'manual',
+                creation_mode_selected: false,
+                autopilot_goal: ''
             };
             this.campaignContentLang = 'en';
-            this.showCreateCampaignModal = true;
+            this.isCreatingCampaign = true;
         },
         closeCreateCampaignModal() {
-            this.showCreateCampaignModal = false;
+            this.isCreatingCampaign = false;
         },
         openCreateCampaignWithDate(dateStr) {
             this.openCreateCampaignModal();
-            if (this.showCreateCampaignModal) {
+            if (this.isCreatingCampaign) {
                 this.newCampaign.start_date = dateStr;
                 const start = new Date(dateStr);
                 const end = new Date(start.getTime() + 7 * 24 * 3600 * 1000);
@@ -2630,7 +2864,7 @@ export default {
                         }
                     };
                     this.campaignContentLang = 'en';
-                    this.showCreateCampaignModal = false;
+                    this.isCreatingCampaign = false;
                 } else {
                     const data = await response.json();
                     alert(`Error launching campaign: ${data.error || 'Unknown error'}`);
@@ -2642,6 +2876,270 @@ export default {
         async saveCampaignAsDraft() {
             this.newCampaign.status = 'paused';
             await this.saveCampaign();
+        },
+        setWorkspaceMode(mode) {
+            this.newCampaign.creation_mode = mode;
+            this.newCampaign.creation_mode_selected = true;
+            if (mode === 'manual') {
+                this.newCampaign.autopilot_enabled = false;
+            } else if (mode === 'copilot') {
+                this.newCampaign.autopilot_enabled = true;
+                this.newCampaign.agent_mode = 'recommendation';
+            } else if (mode === 'autopilot') {
+                this.newCampaign.autopilot_enabled = true;
+                this.newCampaign.agent_mode = 'autonomous';
+            }
+        },
+        async runAIAutopilotGeneration() {
+            if (!this.newCampaign.autopilot_goal) {
+                alert('Please enter a campaign goal/topic first.');
+                return;
+            }
+            this.generatingAutopilot = true;
+            this.autopilotStatusTicks = [];
+            
+            const addTick = (text) => {
+                this.autopilotStatusTicks.push(text);
+            };
+
+            try {
+                addTick('⚡ Initializing AI Autopilot Director...');
+                await new Promise(r => setTimeout(r, 800));
+                
+                addTick('🧠 Analyzing Brand Voice manuscript & marketing guidelines...');
+                await new Promise(r => setTimeout(r, 800));
+
+                addTick('✍️ Drafting headlines and descriptions for A/B split-testing...');
+                
+                const response = await fetch(`/api/global/brands/${this.app.activeShopFilter}/ai-generate-campaign`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ goal: this.newCampaign.autopilot_goal })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to generate campaign components.');
+                }
+
+                const data = await response.json();
+                const gen = data.campaign;
+
+                this.newCampaign.name = gen.name || 'AI Autopilot Campaign';
+                this.newCampaign.headline = gen.headline || '';
+                this.newCampaign.ad_copy = gen.ad_copy || '';
+                
+                this.newCampaign.enable_ab_testing = true;
+                this.newCampaign.ab_test_headlines = [gen.headline || '', gen.headline_b || ''];
+                this.newCampaign.ab_test_descriptions = [gen.ad_copy || '', gen.ad_copy_b || ''];
+                this.newCampaign.platforms = gen.suggested_platforms || ['meta'];
+                this.newCampaign.budget = gen.suggested_budget || 150;
+                this.newCampaign.target_roas = gen.suggested_roas || 3.0;
+
+                addTick('🌐 Recommending cross-network platform schedules...');
+                await new Promise(r => setTimeout(r, 600));
+
+                addTick('📄 Automatically constructing dedicated landing page in theme database...');
+                // Call generate-ai-page to create matching landing page
+                const lpRes = await fetch(`/api/global/brands/${this.app.activeShopFilter}/generate-ai-page`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: this.newCampaign.autopilot_goal,
+                        productId: this.app.products.length > 0 ? this.app.products[0].id : ''
+                    })
+                });
+
+                if (lpRes.ok) {
+                    const lpData = await lpRes.json();
+                    if (lpData.success && lpData.page) {
+                        this.newCampaign.destination_type = 'landing_page';
+                        this.newCampaign.landing_page_id = lpData.page.id;
+                        await this.app.loadBrands(); // refresh brands list to reflect new landing page
+                    }
+                }
+
+                addTick('✨ Performing localized copywriting translation for target locales...');
+                // Automatically run translate all for languages
+                if (this.newCampaign.languages && this.newCampaign.languages.length > 1) {
+                    await this.translateAllCampaignLanguages();
+                }
+
+                addTick('✅ Complete! Ad Studio fully configured.');
+                await new Promise(r => setTimeout(r, 400));
+                
+                this.app.showNotification('✨ AI Autopilot successfully generated campaign & landing page!');
+                this.previewChannel = 'destination'; // instantly show the landing page preview!
+            } catch (err) {
+                alert(`Autopilot failed: ${err.message}`);
+            } finally {
+                this.generatingAutopilot = false;
+            }
+        },
+        startInlineLandingPageBuilder() {
+            this.newLandingPage = {
+                id: 'lp_' + Math.random().toString(36).substring(2, 9),
+                title: 'New Promo Landing Page',
+                headline: this.newCampaign.headline || 'Exclusive Limited Offer',
+                subheadline: this.newCampaign.ad_copy || 'Check out our latest premium collections.',
+                cta: 'Shop Now',
+                coupon_code: 'SAVE15',
+                features: '⚡ Rich Aroma\n☕ Perfect Crema\n🌱 Responsibly Sourced',
+                product_id: this.app.products.length > 0 ? this.app.products[0].id : ''
+            };
+            this.showLandingPageBuilder = true;
+        },
+        closeLandingPageBuilder() {
+            this.showLandingPageBuilder = false;
+        },
+        async generateLandingPageCopyViaAI() {
+            const topic = this.newCampaign.autopilot_goal || this.newLandingPage.headline || 'Premium Coffee Promotion';
+            this.landingPageAiGenerating = true;
+            try {
+                // Call Gemini to generate page text
+                const response = await fetch(`/api/global/brands/${this.app.activeShopFilter}/generate-ai-page`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: topic,
+                        productId: this.newLandingPage.product_id || (this.app.products.length > 0 ? this.app.products[0].id : '')
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.page) {
+                        const page = data.page;
+                        this.newLandingPage.title = page.title;
+                        this.newLandingPage.headline = page.headline;
+                        this.newLandingPage.subheadline = page.subheadline;
+                        this.newLandingPage.cta = page.cta;
+                        this.newLandingPage.coupon_code = page.coupon_code;
+                        this.newLandingPage.features = page.features;
+                        this.app.showNotification('✨ AI successfully generated landing page copy.');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert(`AI generation failed: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            } finally {
+                this.landingPageAiGenerating = false;
+            }
+        },
+        async saveInlineLandingPage() {
+            if (!this.newLandingPage.id) {
+                alert('Please provide a unique page slug/ID.');
+                return;
+            }
+            const brand = this.activeBrand;
+            if (!brand) return;
+
+            let theme = {};
+            if (brand.theme_settings) {
+                try {
+                    theme = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
+                } catch(e) {}
+            }
+
+            const pages = theme.landing_pages || [];
+            
+            // Check if page already exists, if so update it, otherwise push
+            const existingIdx = pages.findIndex(p => p.id === this.newLandingPage.id);
+            const pageObj = {
+                id: this.newLandingPage.id,
+                title: this.newLandingPage.title || this.newLandingPage.id,
+                type: 'standard',
+                product_id: this.newLandingPage.product_id,
+                inherit: true,
+                headline: this.newLandingPage.headline,
+                subheadline: this.newLandingPage.subheadline,
+                cta: this.newLandingPage.cta,
+                coupon_code: this.newLandingPage.coupon_code,
+                features: this.newLandingPage.features,
+                created_at: new Date().toISOString()
+            };
+
+            if (existingIdx >= 0) {
+                pages[existingIdx] = pageObj;
+            } else {
+                pages.push(pageObj);
+            }
+
+            theme.landing_pages = pages;
+            
+            // Fallback for default if first page
+            if (pages.length === 1) {
+                theme.landing_inherit = true;
+                theme.landing_type = 'standard';
+                theme.landing_product_id = this.newLandingPage.product_id;
+                theme.landing_headline = this.newLandingPage.headline;
+                theme.landing_subheadline = this.newLandingPage.subheadline;
+                theme.landing_cta = this.newLandingPage.cta;
+                theme.landing_features = this.newLandingPage.features;
+                theme.landing_coupon_code = this.newLandingPage.coupon_code;
+            }
+
+            try {
+                // Save brand back
+                const payload = {
+                    ...brand,
+                    theme_settings: JSON.stringify(theme)
+                };
+                const response = await fetch('/api/global/brands', {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    this.app.showNotification('Landing page saved and synced to brand theme.');
+                    await this.app.loadBrands();
+                    this.newCampaign.landing_page_id = this.newLandingPage.id;
+                    this.showLandingPageBuilder = false;
+                } else {
+                    const err = await response.json();
+                    alert(`Failed to save landing page: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        },
+        getLandingPageDetail(field) {
+            if (this.showLandingPageBuilder) {
+                return this.newLandingPage[field];
+            }
+            if (!this.newCampaign.landing_page_id) return '';
+            
+            const brand = this.activeBrand;
+            if (!brand || !brand.theme_settings) return '';
+            try {
+                const settings = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
+                const pages = settings.landing_pages || [];
+                const page = pages.find(p => p.id === this.newCampaign.landing_page_id);
+                if (page) {
+                    return page[field] || '';
+                }
+            } catch(e) {}
+            return '';
+        },
+        getLandingPageFeaturesArray() {
+            const rawFeatures = this.getLandingPageDetail('features') || '';
+            if (!rawFeatures) return [];
+            return rawFeatures.split('\n').map(f => f.trim()).filter(Boolean);
         },
         async deleteCampaign(id) {
             if (!confirm('Are you sure you want to void this marketing ad campaign?')) return;

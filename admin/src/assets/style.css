@@ -1333,6 +1333,39 @@
             text-align: center;
         }
 
+        .mode-selection-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mode-selection-card:hover {
+            border-color: var(--accent) !important;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+            background: rgba(197, 160, 89, 0.04) !important;
+        }
+
+        .sc-ai-button {
+            background: linear-gradient(135deg, var(--accent) 0%, #b45309 100%);
+            border: none;
+            color: #000;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .sc-ai-button:hover {
+            opacity: 0.95;
+            transform: scale(1.02);
+        }
+        .sc-ai-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         /* Toast notifications */
         .toast {
             position: fixed;

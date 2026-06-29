@@ -30,15 +30,12 @@ globalThis.fetch = async function(url, options) {
   let replacedStr = urlStr;
 
   if (urlStr) {
-    if (urlStr.includes('models/gemini-2.5-flash')) {
-      replacedStr = urlStr.replace('models/gemini-2.5-flash', 'models/gemini-1.5-flash');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-flash for: ${urlStr}`);
-    } else if (urlStr.includes('models/gemini-3.1-pro')) {
-      replacedStr = urlStr.replace('models/gemini-3.1-pro', 'models/gemini-1.5-pro');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${urlStr}`);
+    if (urlStr.includes('models/gemini-3.1-pro')) {
+      replacedStr = urlStr.replace('models/gemini-3.1-pro', 'models/gemini-3.1-pro-preview');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-3.1-pro-preview for: ${urlStr}`);
     } else if (urlStr.includes('models/deep-research-pro-preview')) {
-      replacedStr = urlStr.replace('models/deep-research-pro-preview', 'models/gemini-1.5-pro');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${urlStr}`);
+      replacedStr = urlStr.replace('models/deep-research-pro-preview', 'models/deep-research-pro-preview-12-2025');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to deep-research-pro-preview-12-2025 for: ${urlStr}`);
     }
 
     if (replacedStr !== urlStr) {
@@ -92,13 +89,44 @@ globalThis.fetch = async function(url, options) {
     currentUrlStr = stableStr; // update url string for potential next fallbacks
   }
 
-  // Auto fallback to gemini-1.5-flash if gemini-1.5-pro returns 404/400 (not supported / not found / key restrictions)
-  if (!res.ok && (res.status === 404 || res.status === 400) && currentUrlStr && currentUrlStr.includes('models/gemini-1.5-pro')) {
-    let fallbackStr = currentUrlStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
-    if (fallbackStr.includes('/v1beta/')) {
-      fallbackStr = fallbackStr.replace('/v1beta/', '/v1/'); // try v1 stable Flash
+  // Fallback 1: If deep-research-pro-preview-12-2025 fails, fallback to gemini-3.1-pro-preview
+  if (!res.ok && currentUrlStr && currentUrlStr.includes('models/deep-research-pro-preview-12-2025')) {
+    const fallbackStr = currentUrlStr.replace('models/deep-research-pro-preview-12-2025', 'models/gemini-3.1-pro-preview');
+    console.warn(`[AI Fetch Interceptor] deep-research-pro-preview-12-2025 call failed. Falling back transparently to gemini-3.1-pro-preview: ${fallbackStr}`);
+    
+    let fallbackUrl = url;
+    if (typeof url === 'string') {
+      fallbackUrl = fallbackStr;
+    } else if (url && typeof url === 'object' && url.href) {
+      try {
+        fallbackUrl = new URL(fallbackStr);
+      } catch (e) {
+        url.href = fallbackStr;
+        fallbackUrl = url;
+      }
+    } else if (url && typeof url === 'object' && url.url) {
+      try {
+        fallbackUrl = new Request(fallbackStr, url);
+      } catch (e) {
+        url.url = fallbackStr;
+        fallbackUrl = url;
+      }
     }
-    console.warn(`[AI Fetch Interceptor] gemini-1.5-pro call failed. Falling back transparently to gemini-1.5-flash: ${fallbackStr}`);
+
+    res = await originalFetch(fallbackUrl, options);
+    currentUrlStr = fallbackStr;
+  }
+
+  // Fallback 2: If gemini-3.1-pro-preview (or gemini-2.5-pro) fails, fallback to gemini-2.5-flash
+  if (!res.ok && currentUrlStr && (currentUrlStr.includes('models/gemini-3.1-pro-preview') || currentUrlStr.includes('models/gemini-2.5-pro'))) {
+    const targetFallback = 'models/gemini-2.5-flash';
+    let fallbackStr = currentUrlStr;
+    if (currentUrlStr.includes('models/gemini-3.1-pro-preview')) {
+      fallbackStr = currentUrlStr.replace('models/gemini-3.1-pro-preview', targetFallback);
+    } else {
+      fallbackStr = currentUrlStr.replace('models/gemini-2.5-pro', targetFallback);
+    }
+    console.warn(`[AI Fetch Interceptor] Pro model call failed. Falling back transparently to gemini-2.5-flash: ${fallbackStr}`);
     
     let fallbackUrl = url;
     if (typeof url === 'string') {
@@ -3540,12 +3568,7 @@ app.post('/api/global/brands/:id/ai-rewrite', verifyAdminToken, async (req, res)
     const brand = await getQuery('SELECT name, ai_tier FROM brands WHERE id = $1', [brandId]);
     const brandName = brand ? brand.name : 'our cafe';
 
-    let targetModel = 'gemini-1.5-pro';
-    if (brand && brand.ai_tier === 'standard') {
-      targetModel = 'gemini-2.5-flash';
-    } else if (brand && brand.ai_tier === 'enterprise') {
-      targetModel = 'deep-research-pro-preview';
-    }
+    let targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
 
     let instruction = 'Rewrite the following storefront copy string to make it more engaging, premium, and high-converting.';
     if (tone === 'punchy') instruction = 'Rewrite this storefront copy text to be more punchy, modern, vibrant, and engaging. Keep it brief and match its length.';
@@ -3606,12 +3629,7 @@ app.post('/api/global/brands/:id/ai-generate-campaign', verifyAdminToken, async 
     const brand = await getQuery('SELECT name, ai_tier, marketing_protocol FROM brands WHERE id = $1', [brandId]);
     const brandName = brand ? brand.name : 'our cafe';
 
-    let targetModel = 'gemini-1.5-pro';
-    if (brand && brand.ai_tier === 'standard') {
-      targetModel = 'gemini-2.5-flash';
-    } else if (brand && brand.ai_tier === 'enterprise') {
-      targetModel = 'deep-research-pro-preview';
-    }
+    let targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
 
     const systemPrompt = `You are an elite omnichannel ad campaign director and luxury brand copywriter.
 Generate a structured, cohesive ad campaign and matching landing page content based on the following brand context and campaign goal.
@@ -3689,12 +3707,7 @@ app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, re
     }
 
     const brand = await getQuery('SELECT ai_tier FROM brands WHERE id = $1', [brandId]);
-    let targetModel = 'gemini-1.5-pro';
-    if (brand && brand.ai_tier === 'standard') {
-      targetModel = 'gemini-2.5-flash';
-    } else if (brand && brand.ai_tier === 'enterprise') {
-      targetModel = 'deep-research-pro-preview';
-    }
+    let targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
 
     const systemPrompt = `You are an expert translator. Translate the following storefront copy string into the language code "${targetLang}". Keep it natural, idiomatic, and premium in style. Preserve placeholders like {brandName} or [brandName] exactly.
 Original text for field "${field || 'copy'}": "${text}"
@@ -6932,12 +6945,7 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
       try {
         const brand = await getQuery('SELECT name, marketing_protocol, ai_tier FROM brands WHERE id = $1', [brandId]);
         if (brand && brand.marketing_protocol) {
-          let targetModel = 'gemini-1.5-pro';
-          if (brand.ai_tier === 'standard') {
-            targetModel = 'gemini-2.5-flash';
-          } else if (brand.ai_tier === 'enterprise') {
-            targetModel = 'deep-research-pro-preview';
-          }
+          let targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
 
           const prompt = `You are a premium e-commerce copywriter. Refer to this Brand Performance Marketing Protocol / Playbook:
 ${brand.marketing_protocol}
