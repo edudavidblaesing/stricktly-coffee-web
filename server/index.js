@@ -7219,7 +7219,7 @@ app.get('/api/global/marketing-campaigns/:id/causal-lift', verifyAdminToken, asy
 // POST generate ad copy with AI Copywriter Studio (tailored to segment & tone)
 app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, async (req, res) => {
   try {
-    const { productId, segmentation, tone, campaignType } = req.body;
+    const { productId, segmentation, tone, creativeDirection, campaignType } = req.body;
     const brandId = resolveBrandId(req);
     if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
     
@@ -7247,11 +7247,12 @@ ${brand.marketing_protocol}
 Write a high-converting performance marketing ad copy (headline, primary ad body copy, and 3 key benefits) for the product "${prodName}" (Price: ${prodPrice}).
 Target Segmentation: ${segmentation}
 Tone: ${tone}
+Creative Direction / Copywriting Angle: Focus heavily on the "${creativeDirection || 'General'}" copywriting direction/angle from Section 4 of the playbook (e.g. Emotional / Aesthetic vs Logical / Data & Science vs Utility / Workflow & Durability).
 Campaign Type: ${campaignType || 'conversion'}
 
 Return ONLY a JSON object in this format:
 {
-  "headline": "A short, catchy, action-oriented headline including emojis.",
+  "headline": "A short, catchy, action-oriented headline.",
   "ad_copy": "A high-converting ad body text containing the value proposition, targeted hooks, and CTA.",
   "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"]
 }`;

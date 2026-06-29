@@ -825,17 +825,28 @@
                         </div>
 
                         <!-- AI Copywriter Studio Panel (Only visible on English variant) -->
-                        <div v-if="campaignContentLang === 'en'" style="background: rgba(96,165,250,0.03); border: 1px solid rgba(96,165,250,0.15); border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main);">🤖 AI Tone:</span>
-                                <select v-model="selectedTone" style="font-size: 0.72rem; padding: 4px 20px 4px 8px !important; border-radius: 6px; height: 28px; width: 120px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
-                                    <option value="friendly">☕ Friendly</option>
-                                    <option value="bold">🔥 Bold & Urgent</option>
-                                    <option value="creative">✨ Creative</option>
-                                    <option value="professional">💼 Professional</option>
-                                </select>
+                        <div v-if="campaignContentLang === 'en'" style="background: rgba(96,165,250,0.03); border: 1px solid rgba(96,165,250,0.15); border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%; box-sizing: border-box;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main);">🤖 Tone:</span>
+                                    <select v-model="selectedTone" style="font-size: 0.72rem; padding: 4px 20px 4px 8px !important; border-radius: 6px; height: 28px; width: 105px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); cursor: pointer; outline: none; margin: 0;">
+                                        <option value="friendly">☕ Friendly</option>
+                                        <option value="bold">🔥 Bold & Urgent</option>
+                                        <option value="creative">✨ Creative</option>
+                                        <option value="professional">💼 Professional</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main);">🎯 Direction:</span>
+                                    <select v-model="selectedCreativeDirection" style="font-size: 0.72rem; padding: 4px 20px 4px 8px !important; border-radius: 6px; height: 28px; width: 175px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); cursor: pointer; outline: none; margin: 0;">
+                                        <option value="General">General Playbook Style</option>
+                                        <option value="Logical">Logical (Data & Science)</option>
+                                        <option value="Emotional">Emotional (Tactile/Aesthetic)</option>
+                                        <option value="Utility">Utility (Workflow/Durability)</option>
+                                    </select>
+                                </div>
                             </div>
-                            <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
+                            <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0; flex-shrink: 0;">
                                 <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
                                 <span v-else-if="generatingAICopy">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                 <span v-else>Write Copy [{{ getAiModelDisplay(getAiModelName) }}]</span>
@@ -2180,6 +2191,7 @@ export default {
             agentConflictLogs: {},
             causalLiftData: {},
             selectedTone: 'friendly',
+            selectedCreativeDirection: 'General',
             generatingAICopy: false,
             abVariantPreview: 'A',
             generatingABVariants: false,
@@ -3571,6 +3583,7 @@ export default {
                         productId: this.selectedProductId || null,
                         segmentation: this.newCampaign.segmentation,
                         tone: this.selectedTone,
+                        creativeDirection: this.selectedCreativeDirection,
                         campaignType: this.newCampaign.campaign_type
                     })
                 });
