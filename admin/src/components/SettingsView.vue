@@ -728,8 +728,8 @@
 
                     <!-- Generator Action Button -->
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;" v-if="settingsBrand.protocol_status !== 'generating'">
-                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
-                            <span v-if="isGeneratingProtocol">⏳ Generating (via {{ activeManuscriptModelName }})...</span>
+                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-ai-button" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
+                            <span v-if="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                             <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
                         </button>
 
@@ -1335,12 +1335,16 @@ export default {
                     if (!this.liveTickerInterval) {
                         this.startLiveTicker();
                     }
+                    if (!this.app.aiTicker.active) {
+                        this.app.startAiTicker(this.activeManuscriptModelName);
+                    }
                     console.log('[AI Settings View] Polling brand list to check generation progress...');
                     await this.app.loadBrands();
                     if (this.settingsBrand.protocol_status !== 'generating') {
                         // Status changed, reload usage metrics as well
                         this.loadAiUsage();
                         this.stopLiveTicker();
+                        this.app.stopAiTicker();
                         if (this.settingsBrand.protocol_status === 'completed') {
                             this.showNotification('AI Brand Performance Marketing Manuscript successfully generated!');
                         } else if (this.settingsBrand.protocol_status === 'failed') {
@@ -1349,6 +1353,7 @@ export default {
                     }
                 } else {
                     this.stopLiveTicker();
+                    this.app.stopAiTicker();
                 }
             }, 5000);
         },
@@ -1401,6 +1406,7 @@ export default {
         },
         async generateMarketingProtocol() {
             this.isGeneratingProtocol = true;
+            this.app.startAiTicker(this.activeManuscriptModelName);
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/generate-protocol`, {
                     method: 'POST',
@@ -1423,13 +1429,16 @@ export default {
                         this.startProtocolPolling();
                         this.showNotification('AI strategy playbook generation started in the background.');
                     } else {
+                        this.app.stopAiTicker();
                         throw new Error(data.error || 'Failed to generate manuscript');
                     }
                 } else {
+                    this.app.stopAiTicker();
                     const errText = await response.text();
                     throw new Error(errText);
                 }
             } catch (err) {
+                this.app.stopAiTicker();
                 console.error('Error generating protocol:', err);
                 this.showNotification(`Error: ${err.message}`);
             } finally {

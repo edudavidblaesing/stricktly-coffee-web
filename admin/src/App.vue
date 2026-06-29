@@ -1121,6 +1121,12 @@ export default {
                     funnelChartType: 'bar',
                     analyticsStartDate: '',
                     showDemoData: true,
+                    aiTicker: {
+                        active: false,
+                        tokens: 0,
+                        cost: 0.0,
+                        intervalId: null
+                    },
                     trafficStats: [],
                     newTransactionModal: {
                         open: false,
@@ -2631,6 +2637,37 @@ export default {
                 },
                 closeSystemStatusModal() {
                     this.systemStatusModalOpen = false;
+                },
+                startAiTicker(modelName) {
+                    if (this.aiTicker.intervalId) {
+                        clearInterval(this.aiTicker.intervalId);
+                    }
+                    this.aiTicker.active = true;
+                    this.aiTicker.tokens = 0;
+                    this.aiTicker.cost = 0.0;
+
+                    let ratePerToken = 0.0000002; // Flash default ($0.20 per million)
+                    let stepTokens = 15;
+                    let stepSpeed = 80;
+
+                    const lowerModel = (modelName || '').toLowerCase();
+                    if (lowerModel.includes('pro') || lowerModel.includes('deep')) {
+                        ratePerToken = 0.000003; // Pro default ($3.00 per million)
+                        stepTokens = 8;
+                        stepSpeed = 120;
+                    }
+
+                    this.aiTicker.intervalId = setInterval(() => {
+                        this.aiTicker.tokens += Math.floor(stepTokens * (0.8 + Math.random() * 0.4));
+                        this.aiTicker.cost = this.aiTicker.tokens * ratePerToken;
+                    }, stepSpeed);
+                },
+                stopAiTicker() {
+                    if (this.aiTicker.intervalId) {
+                        clearInterval(this.aiTicker.intervalId);
+                        this.aiTicker.intervalId = null;
+                    }
+                    this.aiTicker.active = false;
                 },
                 async loadSystemStatus() {
                     this.systemStatusLoading = true;

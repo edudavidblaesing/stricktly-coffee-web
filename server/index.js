@@ -12,19 +12,50 @@ import nodemailer from 'nodemailer';
 
 dotenv.config();
 
+// AbortControllers map for cancelable background jobs
+const activeAborts = new Map();
+
 // Global Fetch Interceptor to translate invalid/experimental model names to active Google API ones
 const originalFetch = globalThis.fetch;
 globalThis.fetch = function(url, options) {
+  let urlStr = '';
   if (typeof url === 'string') {
-    if (url.includes('models/gemini-2.5-flash')) {
-      url = url.replace('models/gemini-2.5-flash', 'models/gemini-1.5-flash');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-flash for: ${url}`);
-    } else if (url.includes('models/gemini-3.1-pro')) {
-      url = url.replace('models/gemini-3.1-pro', 'models/gemini-1.5-pro');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${url}`);
-    } else if (url.includes('models/deep-research-pro-preview')) {
-      url = url.replace('models/deep-research-pro-preview', 'models/gemini-1.5-pro');
-      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${url}`);
+    urlStr = url;
+  } else if (url && typeof url === 'object' && url.href) {
+    urlStr = url.href;
+  } else if (url && typeof url === 'object' && url.url) {
+    urlStr = url.url;
+  }
+
+  if (urlStr) {
+    let replacedStr = urlStr;
+    if (urlStr.includes('models/gemini-2.5-flash')) {
+      replacedStr = urlStr.replace('models/gemini-2.5-flash', 'models/gemini-1.5-flash');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-flash for: ${urlStr}`);
+    } else if (urlStr.includes('models/gemini-3.1-pro')) {
+      replacedStr = urlStr.replace('models/gemini-3.1-pro', 'models/gemini-1.5-pro');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${urlStr}`);
+    } else if (urlStr.includes('models/deep-research-pro-preview')) {
+      replacedStr = urlStr.replace('models/deep-research-pro-preview', 'models/gemini-1.5-pro');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${urlStr}`);
+    }
+
+    if (replacedStr !== urlStr) {
+      if (typeof url === 'string') {
+        url = replacedStr;
+      } else if (url && typeof url === 'object' && url.href) {
+        try {
+          url = new URL(replacedStr);
+        } catch (e) {
+          url.href = replacedStr;
+        }
+      } else if (url && typeof url === 'object' && url.url) {
+        try {
+          url = new Request(replacedStr, url);
+        } catch (e) {
+          url.url = replacedStr;
+        }
+      }
     }
   }
   return originalFetch(url, options);
@@ -3941,32 +3972,6 @@ app.post('/api/global/users/invite', verifyAdminToken, async (req, res) => {
   }
 });
 
-// Delete portal user
-app.delete('/api/global/users/:id', verifyAdminToken, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const userToDelete = await getQuery('SELECT email, role, brand_id FROM users WHERE id = $1', [id]);
-    if (!userToDelete) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    if (userToDelete.email === req.user.email) {
-      return res.status(400).json({ error: 'Cannot remove your own active account.' });
-    }
-
-    // Merchants can only delete users of the same brand
-    if (req.user.role.toLowerCase() === 'merchant' && userToDelete.brand_id !== req.user.brand_id) {
-      return res.status(403).json({ error: 'Access Denied. You can only remove operators within your own brand.' });
-    }
-
-    await runQuery('DELETE FROM users WHERE id = $1', [id]);
-    addAuditLog("Operator Removed", "success", `Removed user account: ${userToDelete.email}.`);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Bulk delete portal users
 app.delete('/api/global/users/bulk-delete', verifyAdminToken, async (req, res) => {
   const { ids } = req.body;
@@ -3998,6 +4003,34 @@ app.delete('/api/global/users/bulk-delete', verifyAdminToken, async (req, res) =
     res.status(500).json({ error: err.message });
   }
 });
+
+// Delete portal user
+app.delete('/api/global/users/:id', verifyAdminToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const userToDelete = await getQuery('SELECT email, role, brand_id FROM users WHERE id = $1', [id]);
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (userToDelete.email === req.user.email) {
+      return res.status(400).json({ error: 'Cannot remove your own active account.' });
+    }
+
+    // Merchants can only delete users of the same brand
+    if (req.user.role.toLowerCase() === 'merchant' && userToDelete.brand_id !== req.user.brand_id) {
+      return res.status(403).json({ error: 'Access Denied. You can only remove operators within your own brand.' });
+    }
+
+    await runQuery('DELETE FROM users WHERE id = $1', [id]);
+    addAuditLog("Operator Removed", "success", `Removed user account: ${userToDelete.email}.`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk delete portal users handled above
 
 // Get system alerts and platform status audits diagnostic metrics
 app.get('/api/global/system-status', verifyAdminToken, async (req, res) => {
@@ -4131,6 +4164,54 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
 
     addAuditLog("Catalog Product Create", "success", `Product "${title}" (SKU: ${sku || 'N/A'}) manually added to brand ${brand_id}.`);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk update products active state
+app.put('/api/global/products/bulk-active', verifyAdminToken, async (req, res) => {
+  const { ids, active } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0 || active === undefined) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+  try {
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
+    let query = `UPDATE products SET active = $1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
+    let params = [active, ...ids];
+    
+    if (req.user.role === 'merchant') {
+      query += ` AND brand_id = $${ids.length + 2}`;
+      params.push(req.user.brand_id);
+    }
+    
+    await runQuery(query, params);
+    addAuditLog("Catalog Product Bulk Active Toggle", "success", `Product visibility toggled to ${active} for ${ids.length} items.`);
+    res.json({ success: true, updated: ids.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk delete products
+app.delete('/api/global/products/bulk-delete', verifyAdminToken, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+  try {
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+    let query = `DELETE FROM products WHERE id IN (${placeholders})`;
+    let params = [...ids];
+    
+    if (req.user.role === 'merchant') {
+      query += ` AND brand_id = $${ids.length + 1}`;
+      params.push(req.user.brand_id);
+    }
+    
+    await runQuery(query, params);
+    addAuditLog("Catalog Product Bulk Delete", "success", `Deleted ${ids.length} products manually from catalog.`);
+    res.json({ success: true, deleted: ids.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -4408,53 +4489,7 @@ app.delete('/api/global/orders/bulk-delete', verifyAdminToken, async (req, res) 
   }
 });
 
-// Bulk update products active state
-app.put('/api/global/products/bulk-active', verifyAdminToken, async (req, res) => {
-  const { ids, active } = req.body;
-  if (!Array.isArray(ids) || ids.length === 0 || active === undefined) {
-    return res.status(400).json({ error: 'Invalid payload' });
-  }
-  try {
-    const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
-    let query = `UPDATE products SET active = $1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`;
-    let params = [active, ...ids];
-    
-    if (req.user.role === 'merchant') {
-      query += ` AND brand_id = $${ids.length + 2}`;
-      params.push(req.user.brand_id);
-    }
-    
-    await runQuery(query, params);
-    addAuditLog("Catalog Product Bulk Active Toggle", "success", `Product visibility toggled to ${active} for ${ids.length} items.`);
-    res.json({ success: true, updated: ids.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Bulk delete products
-app.delete('/api/global/products/bulk-delete', verifyAdminToken, async (req, res) => {
-  const { ids } = req.body;
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'Invalid payload' });
-  }
-  try {
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
-    let query = `DELETE FROM products WHERE id IN (${placeholders})`;
-    let params = [...ids];
-    
-    if (req.user.role === 'merchant') {
-      query += ` AND brand_id = $${ids.length + 1}`;
-      params.push(req.user.brand_id);
-    }
-    
-    await runQuery(query, params);
-    addAuditLog("Catalog Product Bulk Delete", "success", `Deleted ${ids.length} products manually from catalog.`);
-    res.json({ success: true, deleted: ids.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Bulk products operations handled above
 
 // Bulk void coupons
 app.put('/api/global/coupons/bulk-void', verifyAdminToken, async (req, res) => {
@@ -4488,7 +4523,7 @@ app.delete('/api/global/campaigns/bulk-delete', verifyAdminToken, async (req, re
   }
   try {
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
-    let query = `DELETE FROM campaigns WHERE id IN (${placeholders})`;
+    let query = `DELETE FROM marketing_campaigns WHERE id IN (${placeholders})`;
     let params = [...ids];
     
     if (req.user.role === 'merchant') {

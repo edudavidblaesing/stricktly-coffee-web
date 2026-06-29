@@ -526,9 +526,9 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">📝 Ad Copy Details ({{ campaignContentLang.toUpperCase() }} variant)</span>
                             <!-- Translate button if not default 'en' -->
-                            <button v-if="campaignContentLang !== 'en'" type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="triggerCampaignTranslation(campaignContentLang)" :disabled="translatingCampaign">
-                                <span v-if="translatingCampaign" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate</span>
+                            <button v-if="campaignContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 3px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="triggerCampaignTranslation(campaignContentLang)" :disabled="translatingCampaign">
+                                <span v-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate</span>
+                                <span v-else-if="translatingCampaign">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                 <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                             </button>
                         </div>
@@ -544,9 +544,9 @@
                                     <option value="professional">💼 Professional</option>
                                 </select>
                             </div>
-                            <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="btn btn-primary" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
-                                <span v-if="generatingAICopy" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
-                                <span v-else-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
+                            <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
+                                <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
+                                <span v-else-if="generatingAICopy">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                 <span v-else>Write Copy [Gemini 2.5 Flash] [~$0.0004]</span>
                             </button>
                         </div>

@@ -137,8 +137,9 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
-                                    <button type="button" @click="generateAiSeo('new')" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                                    <button type="button" @click="generateAiSeo('new')" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;" :disabled="generatingSeo">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
+                                        <span v-else-if="generatingSeo">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                         <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
                                 </div>
@@ -316,8 +317,9 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
-                                    <button type="button" @click="generateAiSeo('edit')" :disabled="editingProduct.details_source === 'external'" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+                                    <button type="button" @click="generateAiSeo('edit')" :disabled="editingProduct.details_source === 'external' || generatingSeo" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
+                                        <span v-else-if="generatingSeo">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                         <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
                                 </div>
@@ -874,6 +876,7 @@ export default {
             }
             
             this.generatingSeo = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/products/generate-seo`, {
                     method: 'POST',
@@ -908,6 +911,7 @@ export default {
                 alert(`Error generating AI content: ${err.message}`);
             } finally {
                 this.generatingSeo = false;
+                this.app.stopAiTicker();
             }
         },
         getTranslationRef(mode, lang) {
