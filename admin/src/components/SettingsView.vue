@@ -835,6 +835,46 @@
                         <div style="margin-top: 4px; font-size: 0.76rem; color: var(--accent);">Formulating marketing segments, ad hooks, and competitor matrices... This might take up to 30-45 seconds.</div>
                     </div>
 
+                    <!-- Manuscript Version History List -->
+                    <div v-if="manuscripts.length > 0 && !isGeneratingProtocol && !isEditingProtocol" style="margin-top: 15px; margin-bottom: 15px; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 15px;">
+                        <h5 style="margin: 0 0 10px 0; color: var(--accent); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            📚 Manuscript Version History ({{ manuscripts.length }})
+                        </h5>
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+                            <div v-for="m in manuscripts" :key="m.id" 
+                                 :style="{ border: m.is_active ? '1px solid var(--accent)' : '1px solid var(--border)', background: m.is_active ? 'rgba(197, 160, 89, 0.03)' : 'rgba(0,0,0,0.1)' }"
+                                 style="padding: 10px 12px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">
+                                            📅 Generated on {{ new Date(m.created_at).toLocaleString() }}
+                                        </span>
+                                        <span v-if="m.is_active" style="font-size: 0.65rem; font-weight: 800; background: var(--accent); color: var(--workspace-bg); padding: 1px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Active
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 0.74rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 500px;">
+                                        {{ m.summary || 'Strategic manuscript draft...' }}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                    <button v-if="!m.is_active" type="button" class="btn btn-accent" 
+                                            style="font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; font-weight: bold;" 
+                                            :disabled="activatingManuscriptId !== null" 
+                                            @click="activateManuscript(m.id)">
+                                        <span v-if="activatingManuscriptId === m.id">⏳</span>
+                                        <span v-else>Activate</span>
+                                    </button>
+                                    <button v-if="!m.is_active" type="button" class="btn" 
+                                            style="font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.15);" 
+                                            @click="deleteManuscript(m.id)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Playbook Viewer -->
                     <div v-else-if="settingsBrand.marketing_protocol && !isEditingProtocol" style="background: #0f1311; border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-height: 450px; overflow-y: auto; font-family: Outfit, sans-serif; font-size: 0.88rem; line-height: 1.6; color: var(--text-main); white-space: pre-wrap; margin-top: 15px; position: relative;">
                         <!-- Custom copy button -->
@@ -1226,8 +1266,10 @@ export default {
             stripeConnectStatus: 'unlinked',
             loadingStripeConnect: false,
             cardLinked: false,
-            loadingCardSetup: false,
-            showCustomStripeKeys: false
+            showCustomStripeKeys: false,
+            manuscripts: [],
+            loadingManuscripts: false,
+            activatingManuscriptId: null
         }
     },
     watch: {
@@ -1248,6 +1290,7 @@ export default {
             this.loadRealtimeLimits();
             this.startProtocolPolling();
             this.loadStripeConnectStatus();
+            this.loadManuscripts();
         },
         settingsBrand: {
             immediate: true,
@@ -1271,6 +1314,7 @@ export default {
                 this.loadRealtimeLimits();
                 this.startProtocolPolling();
                 this.loadStripeConnectStatus();
+                this.loadManuscripts();
             } else {
                 this.stopProtocolPolling();
             }
@@ -1424,6 +1468,65 @@ export default {
         this.stopLiveTicker();
     },
     methods: {
+        async loadManuscripts() {
+            if (!this.settingsBrand || !this.settingsBrand.id) return;
+            this.loadingManuscripts = true;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/manuscripts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.manuscripts = await response.json();
+                }
+            } catch (e) {
+                console.error('Error loading manuscripts:', e);
+            } finally {
+                this.loadingManuscripts = false;
+            }
+        },
+        async activateManuscript(manuscriptId) {
+            if (!this.settingsBrand || !this.settingsBrand.id) return;
+            this.activatingManuscriptId = manuscriptId;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/manuscripts/${manuscriptId}/activate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.app.showNotification('✨ Manuscript version successfully activated!');
+                    await this.app.loadBrands();
+                    await this.loadManuscripts();
+                } else {
+                    const err = await response.json();
+                    alert('Activation error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Activation network error: ' + e.message);
+            } finally {
+                this.activatingManuscriptId = null;
+            }
+        },
+        async deleteManuscript(manuscriptId) {
+            if (!confirm('Are you sure you want to delete this historical manuscript version? This cannot be undone.')) return;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/manuscripts/${manuscriptId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.app.showNotification('Manuscript version deleted.');
+                    await this.loadManuscripts();
+                } else {
+                    const err = await response.json();
+                    alert('Delete error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Delete network error: ' + e.message);
+            }
+        },
         async loadStripeConnectStatus() {
             if (!this.settingsBrand || !this.settingsBrand.id) {
                 this.stripeConnectStatus = 'unlinked';
@@ -1636,6 +1739,7 @@ export default {
                         this.app.stopAiTicker();
                         if (this.settingsBrand.protocol_status === 'completed') {
                             this.showNotification('AI Brand Performance Marketing Manuscript successfully generated!');
+                            this.loadManuscripts();
                         } else if (this.settingsBrand.protocol_status === 'failed') {
                             this.showNotification(`AI strategy playbook generation failed: ${this.settingsBrand.protocol_error || 'Unknown error'}`);
                         }

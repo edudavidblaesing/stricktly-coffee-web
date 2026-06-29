@@ -445,6 +445,17 @@ async function initializeDatabase() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS brand_manuscripts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        brand_id VARCHAR(50) NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        summary TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT FALSE
+      )
+    `);
+
     await client.query('COMMIT');
     console.log('✅ PostgreSQL database tables initialized successfully.');
 
@@ -460,6 +471,23 @@ async function initializeDatabase() {
 }
 
 async function seedDefaultData() {
+  // Migrate existing marketing_protocols to brand_manuscripts
+  try {
+    const oldProtocols = await allQuery("SELECT id, marketing_protocol FROM brands WHERE marketing_protocol IS NOT NULL AND marketing_protocol != ''");
+    if (oldProtocols && oldProtocols.length > 0) {
+      for (let row of oldProtocols) {
+        const existing = await getQuery("SELECT id FROM brand_manuscripts WHERE brand_id = $1 LIMIT 1", [row.id]);
+        if (!existing) {
+          let summary = row.marketing_protocol.substring(0, 150).replace(/\r?\n/g, ' ') + '...';
+          await runQuery("INSERT INTO brand_manuscripts (brand_id, content, summary, is_active) VALUES ($1, $2, $3, TRUE)", [row.id, row.marketing_protocol, summary]);
+          console.log(`[Database Migration] Migrated existing marketing protocol for brand ${row.id} to version history.`);
+        }
+      }
+    }
+  } catch (migErr) {
+    console.error('[Database Migration] Error migrating old marketing protocols:', migErr.message);
+  }
+
   const shouldSeedMock = false;
 
   // Seed Superadmin user (always required)

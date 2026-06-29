@@ -3505,6 +3505,19 @@ Output the complete Markdown document directly. Write all ad copy and email temp
 * **Body**: Thank you for choosing premium brewing gears. Use code WELCOME10 for 10% off your first order!`;
         }
 
+        let summary = '';
+        const narrativeMatch = generatedProtocol.match(/### 1\.\s+The Technical Narrative\s*\n+([\s\S]+?)(?=\n+###|\n+##|$)/i);
+        if (narrativeMatch) {
+          summary = narrativeMatch[1].trim().split('\n')[0].substring(0, 160);
+        } else {
+          summary = generatedProtocol.substring(0, 160).trim().replace(/\r?\n/g, ' ');
+        }
+        if (summary && !summary.endsWith('...')) summary += '...';
+        if (!summary) summary = 'DTC strategy manuscript...';
+
+        await runQuery('UPDATE brand_manuscripts SET is_active = FALSE WHERE brand_id = $1', [brandId]);
+        await runQuery('INSERT INTO brand_manuscripts (brand_id, content, summary, is_active) VALUES ($1, $2, $3, TRUE)', [brandId, generatedProtocol, summary]);
+
         await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed', protocol_error = NULL WHERE id = $2", [generatedProtocol, brandId]);
         addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
         activeAborts.delete(brandId);
@@ -3546,6 +3559,81 @@ app.post('/api/global/brands/:id/cancel-protocol', verifyAdminToken, async (req,
   // If not currently in memory, reset database state to failed/aborted
   await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = 'Generation cancelled by user.' WHERE id = $1", [brandId]);
   res.json({ success: true, message: 'Strategy playbook generation status reset.' });
+});
+
+// GET Retrieve all manuscripts for a brand (metadata/thumbnails)
+app.get('/api/global/brands/:id/manuscripts', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  try {
+    const rows = await allQuery('SELECT id, brand_id, summary, created_at, is_active FROM brand_manuscripts WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Retrieve a specific manuscript's content
+app.get('/api/global/brands/:id/manuscripts/:manuscriptId', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const manuscriptId = req.params.manuscriptId;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  try {
+    const row = await getQuery('SELECT * FROM brand_manuscripts WHERE id = $1 AND brand_id = $2', [manuscriptId, brandId]);
+    if (!row) return res.status(404).json({ error: 'Manuscript not found.' });
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Activate a specific manuscript version
+app.post('/api/global/brands/:id/manuscripts/:manuscriptId/activate', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const manuscriptId = req.params.manuscriptId;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  try {
+    const manuscript = await getQuery('SELECT content FROM brand_manuscripts WHERE id = $1 AND brand_id = $2', [manuscriptId, brandId]);
+    if (!manuscript) return res.status(404).json({ error: 'Manuscript not found.' });
+
+    await runQuery('UPDATE brand_manuscripts SET is_active = FALSE WHERE brand_id = $1', [brandId]);
+    await runQuery('UPDATE brand_manuscripts SET is_active = TRUE WHERE id = $1 AND brand_id = $2', [manuscriptId, brandId]);
+    
+    // Sync the activated manuscript to the main brands marketing_protocol text column
+    await runQuery('UPDATE brands SET marketing_protocol = $1 WHERE id = $2', [manuscript.content, brandId]);
+
+    res.json({ success: true, message: 'Manuscript version successfully activated and synchronized.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE a specific manuscript version
+app.delete('/api/global/brands/:id/manuscripts/:manuscriptId', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const manuscriptId = req.params.manuscriptId;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  try {
+    const manuscript = await getQuery('SELECT is_active FROM brand_manuscripts WHERE id = $1 AND brand_id = $2', [manuscriptId, brandId]);
+    if (!manuscript) return res.status(404).json({ error: 'Manuscript not found.' });
+
+    if (manuscript.is_active) {
+      return res.status(400).json({ error: 'Cannot delete the active manuscript. Please activate another version first.' });
+    }
+
+    await runQuery('DELETE FROM brand_manuscripts WHERE id = $1 AND brand_id = $2', [manuscriptId, brandId]);
+    res.json({ success: true, message: 'Manuscript version successfully deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST Compile brand prompt with scraped data for manual copy pasting
