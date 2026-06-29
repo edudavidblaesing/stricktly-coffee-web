@@ -27,8 +27,9 @@ globalThis.fetch = async function(url, options) {
     urlStr = url.url;
   }
 
+  let replacedStr = urlStr;
+
   if (urlStr) {
-    let replacedStr = urlStr;
     if (urlStr.includes('models/gemini-2.5-flash')) {
       replacedStr = urlStr.replace('models/gemini-2.5-flash', 'models/gemini-1.5-flash');
       console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-flash for: ${urlStr}`);
@@ -62,8 +63,8 @@ globalThis.fetch = async function(url, options) {
   let res = await originalFetch(url, options);
 
   // Auto fallback to gemini-1.5-flash if gemini-1.5-pro returns 404/400 (not supported / not found / key restrictions)
-  if (!res.ok && (res.status === 404 || res.status === 400) && urlStr && urlStr.includes('models/gemini-1.5-pro')) {
-    const fallbackStr = urlStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
+  if (!res.ok && (res.status === 404 || res.status === 400) && replacedStr && replacedStr.includes('models/gemini-1.5-pro')) {
+    const fallbackStr = replacedStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
     console.warn(`[AI Fetch Interceptor] gemini-1.5-pro call failed with status ${res.status}. Falling back transparently to gemini-1.5-flash: ${fallbackStr}`);
     
     let fallbackUrl = url;

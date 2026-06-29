@@ -2113,6 +2113,7 @@
             align-items: center !important;
             justify-content: center !important;
             flex-shrink: 0 !important;
+            border-radius: 8px !important;
         }
         .sc-ai-button:hover {
             background: #f4f5f6 !important;
