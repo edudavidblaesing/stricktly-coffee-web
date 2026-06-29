@@ -1138,6 +1138,7 @@ export default {
                     tierFeaturesList: [],
                     orders: [],
                     products: [],
+                    campaigns: [],
                     activityLogs: [],
 
                     // Auth state
@@ -2439,6 +2440,7 @@ export default {
                     this.loadOrders();
                     this.loadProducts();
                     this.loadUsers();
+                    this.loadCampaigns();
                 },
                 discardAndLeave() {
                     if (this.activeView === 'designer' && this.$refs.designerView) {
@@ -2791,6 +2793,22 @@ export default {
                         }
                     } catch (err) {
                         console.error('Failed to load traffic stats:', err);
+                    }
+                },
+                async loadCampaigns() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/marketing-campaigns`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
+                        if (response.ok) {
+                            this.campaigns = await response.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load campaigns:', err);
                     }
                 },
                 // Fetch Products List

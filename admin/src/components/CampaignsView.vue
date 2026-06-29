@@ -1899,6 +1899,7 @@ export default {
                 });
                 if (response.ok) {
                     this.campaigns = await response.json();
+                    this.app.campaigns = this.campaigns;
                     this.loadAttributionData();
                     this.loadCohortData();
                     this.loadAgentInsights();
