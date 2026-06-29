@@ -558,7 +558,7 @@
                         <template v-if="['overview', 'reports', 'campaigns'].includes(activeView) && currentEnv !== 'prod'">
                             <!-- Demo data mode toggle switch -->
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 700; height: 40px; margin-right: 8px; background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 0 12px; border-radius: 8px; user-select: none; white-space: nowrap; flex-shrink: 0;">
-                                <input type="checkbox" v-model="showDemoData" @change="renderAnalyticsCharts" style="width: 16px; height: 16px; margin: 0; cursor: pointer; flex-shrink: 0;">
+                                <input type="checkbox" v-model="showDemoData" @change="toggleDemoDataMode" style="width: 16px; height: 16px; margin: 0; cursor: pointer; flex-shrink: 0;">
                                 <span style="color: var(--accent); white-space: nowrap;">⚡ Demo Data Mode</span>
                             </label>
 
@@ -3301,6 +3301,13 @@ export default {
                     if (status === 'paid' || status === 'sent_to_warehouse' || status === 'shipped') return 'status-success';
                     if (status === 'pending_payment') return 'status-pending';
                     return 'status-refunded';
+                },
+                toggleDemoDataMode() {
+                    this.renderAnalyticsCharts();
+                    this.loadCampaigns();
+                    if (this.$refs.campaignsView && typeof this.$refs.campaignsView.loadCampaigns === 'function') {
+                        this.$refs.campaignsView.loadCampaigns();
+                    }
                 },
                 // Rendering Sales and Category Trends charts
                 renderAnalyticsCharts() {
