@@ -26,7 +26,7 @@
                 <div class="metric-card-body">
                     <span class="metric-label">Blended ROAS (Averages)</span>
                     <div class="metric-main-row">
-                        <span class="metric-value">4.6x</span>
+                        <span class="metric-value">{{ blendedRoas }}</span>
                         <div class="metric-sparkline">
                             <div class="metric-sparkbar" style="height: 10px; width: 4px; border-radius: 2px;"></div>
                             <div class="metric-sparkbar active" style="height: 22px; width: 4px; border-radius: 2px;"></div>
@@ -38,7 +38,7 @@
                 <div class="metric-card-footer">
                     <span class="info-tooltip-trigger" data-tooltip="Blended return on ad spend performance averages.">i</span>
                     <span class="metric-change" style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; text-align: right;">
-                        📈 +14.2% attribution lift
+                        {{ campaigns.length > 0 || (app.showDemoData && app.currentEnv !== 'prod') ? '📈 +14.2% attribution lift' : '● No active attribution' }}
                     </span>
                 </div>
             </div>
@@ -46,7 +46,7 @@
                 <div class="metric-card-body">
                     <span class="metric-label">Inbound Traffic Click-Through</span>
                     <div class="metric-main-row">
-                        <span class="metric-value">3.8%</span>
+                        <span class="metric-value">{{ inboundCtr }}</span>
                         <div class="metric-sparkline">
                             <div class="metric-sparkbar active" style="height: 8px; width: 4px; border-radius: 2px;"></div>
                             <div class="metric-sparkbar active" style="height: 16px; width: 4px; border-radius: 2px;"></div>
@@ -58,14 +58,14 @@
                 <div class="metric-card-footer">
                     <span class="info-tooltip-trigger" data-tooltip="Inbound traffic click-through conversion rates.">i</span>
                     <span class="metric-change" style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; text-align: right;">
-                        ⚡ Real-time attribution tracking
+                        {{ campaigns.length > 0 || (app.showDemoData && app.currentEnv !== 'prod') ? '⚡ Real-time attribution tracking' : '● Traffic tracker active' }}
                     </span>
                 </div>
             </div>
         </div>
 
         <!-- CREATE CAMPAIGN MODAL -->
-        <div class="upcoming-modal" v-if="showCreateCampaignModal" @click="handleCreateCampaignBackdropClick">
+        <div class="upcoming-modal" v-if="showCreateCampaignModal" @click.self="closeCreateCampaignModal">
             <div class="upcoming-card" @click.stop style="max-width: 1200px; width: 100%; height: 85vh; max-height: 780px; text-align: left; padding: 24px; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); border: 1px solid var(--border); background: var(--card-bg);">
                 <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
                     <!-- Top Left: Cancel Button -->
@@ -1721,7 +1721,29 @@ export default {
             return ['en'];
         },
         totalBudget() {
+            if (this.app.showDemoData && this.app.currentEnv !== 'prod' && this.campaigns.length === 0) {
+                return 450.00;
+            }
             return this.campaigns.reduce((acc, c) => acc + parseFloat(c.budget || 0), 0);
+        },
+        blendedRoas() {
+            if (this.app.showDemoData && this.app.currentEnv !== 'prod' && this.campaigns.length === 0) {
+                return '4.6x';
+            }
+            if (this.campaigns.length === 0) return '0.0x';
+            const active = this.campaigns.filter(c => c.status === 'active');
+            if (active.length === 0) return '0.0x';
+            const sum = active.reduce((acc, c) => acc + parseFloat(c.target_roas || 4.0), 0);
+            return `${(sum / active.length).toFixed(1)}x`;
+        },
+        inboundCtr() {
+            if (this.app.showDemoData && this.app.currentEnv !== 'prod' && this.campaigns.length === 0) {
+                return '3.8%';
+            }
+            if (this.campaigns.length === 0) return '0.0%';
+            const active = this.campaigns.filter(c => c.status === 'active');
+            if (active.length === 0) return '0.0%';
+            return '3.2%';
         },
         availableLandingPages() {
             const brand = this.activeBrand;
@@ -1898,7 +1920,48 @@ export default {
                     headers: this.authHeaders
                 });
                 if (response.ok) {
-                    this.campaigns = await response.json();
+                    const data = await response.json();
+                    if (this.app.showDemoData && this.app.currentEnv !== 'prod' && data.length === 0) {
+                        this.campaigns = [
+                            {
+                                id: 'demo_1',
+                                name: '☕ Slayer Espresso Promo Launch',
+                                campaign_type: 'product',
+                                platform: 'meta,google',
+                                budget: 350.00,
+                                ai_cost: 0.1250,
+                                target_roas: 4.8,
+                                status: 'active',
+                                automation_rules: [
+                                    { id: 'rule_1', description: 'Increase budget by 10% if ROAS > 4.5' }
+                                ],
+                                performance_history: [
+                                    { date: 'Mon', spend: 40, conversions: 8 },
+                                    { date: 'Tue', spend: 45, conversions: 11 },
+                                    { date: 'Wed', spend: 50, conversions: 12 },
+                                    { date: 'Thu', spend: 55, conversions: 14 }
+                                ]
+                            },
+                            {
+                                id: 'demo_2',
+                                name: '🍂 Autumn Warmers Social Drive',
+                                campaign_type: 'manual',
+                                platform: 'meta',
+                                budget: 150.00,
+                                ai_cost: 0.0425,
+                                target_roas: 3.9,
+                                status: 'active',
+                                automation_rules: [],
+                                performance_history: [
+                                    { date: 'Mon', spend: 15, conversions: 3 },
+                                    { date: 'Tue', spend: 20, conversions: 4 },
+                                    { date: 'Wed', spend: 18, conversions: 5 }
+                                ]
+                            }
+                        ];
+                    } else {
+                        this.campaigns = data;
+                    }
                     this.app.campaigns = this.campaigns;
                     this.loadAttributionData();
                     this.loadCohortData();

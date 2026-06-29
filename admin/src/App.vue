@@ -555,11 +555,11 @@
 
                     <!-- Right: Quick Filters & Actions -->
                     <div class="header-actions-row" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
-                        <template v-if="activeView === 'overview'">
+                        <template v-if="['overview', 'reports', 'campaigns'].includes(activeView) && currentEnv !== 'prod'">
                             <!-- Demo data mode toggle switch -->
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 700; height: 40px; margin-right: 8px; background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 0 12px; border-radius: 8px; user-select: none;">
-                                <input type="checkbox" v-model="showDemoData" @change="renderAnalyticsCharts" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                                <span style="color: var(--accent);">⚡ Demo Data Mode</span>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 700; height: 40px; margin-right: 8px; background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 0 12px; border-radius: 8px; user-select: none; white-space: nowrap; flex-shrink: 0;">
+                                <input type="checkbox" v-model="showDemoData" @change="renderAnalyticsCharts" style="width: 16px; height: 16px; margin: 0; cursor: pointer; flex-shrink: 0;">
+                                <span style="color: var(--accent); white-space: nowrap;">⚡ Demo Data Mode</span>
                             </label>
 
                             <!-- Timeframe select dropdown -->
@@ -1501,7 +1501,7 @@ export default {
                     return list;
                 },
                 calculatedConversionRate() {
-                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && this.filteredOrders.length === 0) {
                         return '3.9';
                     }
                     const ordersCount = this.filteredOrders.length;
@@ -1522,20 +1522,20 @@ export default {
                     return Math.min(100, (ordersCount / visitors) * 100).toFixed(1);
                 },
                 dashboardOrdersCount() {
-                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && this.filteredOrders.length === 0) {
                         return 1204;
                     }
                     return this.filteredOrders.length;
                 },
                 uniqueCustomersCount() {
-                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && this.filteredOrders.length === 0) {
                         return 842;
                     }
                     const emails = this.filteredOrders.map(o => o.customer_email).filter(Boolean);
                     return [...new Set(emails)].length;
                 },
                 dashboardUniqueVisitors() {
-                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && this.filteredOrders.length === 0) {
                         return 31250;
                     }
                     if (this.activeShopFilter === 'all') {
@@ -1546,7 +1546,7 @@ export default {
                     }
                 },
                 formattedSalesTotal() {
-                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && this.filteredOrders.length === 0) {
                         return '€45,230.85';
                     }
                     const paid = this.filteredOrders.filter(o => o.status !== 'pending_payment');
@@ -3325,7 +3325,7 @@ export default {
                             existingUsersData[day] += total * 0.35;
                         });
                         
-                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && this.currentEnv !== 'prod' && newUsersData.every(v => v === 0)) {
                             newUsersData = [120, 150, 180, 90, 200, 310, 160];
                             existingUsersData = [80, 100, 120, 60, 110, 190, 100];
                         }
@@ -3342,7 +3342,7 @@ export default {
                             existingUsersData[w] += total * 0.35;
                         });
                         
-                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && this.currentEnv !== 'prod' && newUsersData.every(v => v === 0)) {
                             newUsersData = [800, 1200, 1500, 1100];
                             existingUsersData = [500, 700, 900, 600];
                         }
@@ -3362,7 +3362,7 @@ export default {
                             }
                         });
                         
-                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && this.currentEnv !== 'prod' && newUsersData.every(v => v === 0)) {
                             newUsersData = [120000, 145000, 180000, 210000, 245000];
                             existingUsersData = [80000, 95000, 110000, 130000, 155000];
                         }
@@ -3380,7 +3380,7 @@ export default {
                         });
 
                         const hasData = newUsersData.some(v => v > 0);
-                        if (!hasData && this.showDemoData) {
+                        if (!hasData && this.showDemoData && this.currentEnv !== 'prod') {
                             newUsersData = [10000, 14000, 17000, 12000, 20000, 38000, 24000, 18000, 16000, 21000, 14000, 17000];
                             existingUsersData = [6000, 8000, 10000, 6000, 11000, 18000, 12000, 9000, 8000, 10000, 6000, 8000];
                         }
@@ -3464,7 +3464,7 @@ export default {
 
                     const labelsBrands = Object.keys(brandSalesMap);
                     const dataBrands = Object.values(brandSalesMap);
-                    if (this.showDemoData && (dataBrands.length === 0 || dataBrands.every(v => v === 0))) {
+                    if (this.showDemoData && this.currentEnv !== 'prod' && (dataBrands.length === 0 || dataBrands.every(v => v === 0))) {
                         labelsBrands.splice(0, 12, 'Espresso', 'Accessories', 'Filter Tools', 'Cleaning');
                         dataBrands.splice(0, 12, 14200, 9800, 7500, 5200);
                     }

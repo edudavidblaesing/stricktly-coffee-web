@@ -290,7 +290,43 @@ export default {
         filteredOrders() { return this.app.filteredOrders; },
         brands() { return this.app.brands; },
         orders() { return this.app.orders; },
-        campaigns() { return this.app.campaigns; },
+        campaigns() {
+            if (this.app.showDemoData && this.app.currentEnv !== 'prod' && this.app.campaigns.length === 0) {
+                return [
+                    {
+                        id: 'demo_1',
+                        name: '☕ Slayer Espresso Promo Launch',
+                        campaign_type: 'product',
+                        platform: 'meta,google',
+                        budget: 350.00,
+                        ai_cost: 0.1250,
+                        target_roas: 4.8,
+                        status: 'active'
+                    },
+                    {
+                        id: 'demo_2',
+                        name: '🍂 Autumn Warmers Social Drive',
+                        campaign_type: 'manual',
+                        platform: 'meta',
+                        budget: 150.00,
+                        ai_cost: 0.0425,
+                        target_roas: 3.9,
+                        status: 'active'
+                    },
+                    {
+                        id: 'demo_3',
+                        name: '🎁 Coffee Maker Holiday Gift Guide',
+                        campaign_type: 'page',
+                        platform: 'google,x',
+                        budget: 600.00,
+                        ai_cost: 0.2180,
+                        target_roas: 5.2,
+                        status: 'draft'
+                    }
+                ];
+            }
+            return this.app.campaigns;
+        },
         aov() {
             const paidOrders = this.filteredOrders.filter(o => o.status !== 'pending_payment');
             if (paidOrders.length === 0) return '0.00';
