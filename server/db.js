@@ -387,25 +387,6 @@ async function initializeDatabase() {
       )
     `);
 
-    // Provision/Update slayerespresso brand record
-    await client.query(`
-      INSERT INTO brands (id, name, subdomain, status, billing_type, platform_take_rate)
-      VALUES ('slayerespresso', 'Make Coffee Better', 'slayerespresso.stricktlycoffee.be', 'active_external', 'external_split', 0.15)
-      ON CONFLICT (id) DO UPDATE SET 
-        status = 'active_external',
-        billing_type = 'external_split',
-        platform_take_rate = 0.15
-    `);
-
-    // Seed default subscription for slayerespresso
-    const subCheck = await client.query(`SELECT id FROM merchant_subscriptions WHERE brand_id = 'slayerespresso' AND name = 'marketing_listing_fee'`);
-    if (subCheck.rowCount === 0) {
-      await client.query(`
-        INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, next_charge_at)
-        VALUES ('slayerespresso', 'marketing_listing_fee', 49.00, 'monthly', 'active', CURRENT_TIMESTAMP)
-      `);
-    }
-
     // campaign agent migrations
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS agent_mode VARCHAR(50) DEFAULT 'recommendation'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_guardrails TEXT DEFAULT '{"max_budget_change_pct":20,"min_roas_floor":1.8,"max_spend_ceiling":500}'`);

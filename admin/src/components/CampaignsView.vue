@@ -97,7 +97,7 @@
                     </h3>
                 </div>
 
-                <form id="campaign-creation-form" @submit.prevent="saveCampaign" style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px;">
+                <form id="campaign-creation-form" @submit.prevent="saveCampaign" style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 8px;">
                     <!-- Campaign Focus / Goal Selector -->
                     <div style="margin-bottom: 16px;">
                         <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">
@@ -697,7 +697,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn" style="width: 100%; font-weight: 700;">🚀 Launch Marketing Campaign</button>
+                    <!-- Removed bottom duplicate button -->
                 </form>
             </div>
 
@@ -2008,8 +2008,7 @@ export default {
             this.showCreateCampaignModal = false;
         },
         handleCreateCampaignBackdropClick(e) {
-            if (!document.contains(e.target)) return;
-            if (e.target.closest('.upcoming-card')) return;
+            if (e.target !== e.currentTarget) return;
             this.closeCreateCampaignModal();
         },
         async saveCampaign() {
