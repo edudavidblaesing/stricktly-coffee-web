@@ -2399,13 +2399,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         req.body.custom_domain = existing.custom_domain;
         req.body.stripe_secret_key = existing.stripe_secret_key;
         req.body.stripe_webhook_secret = existing.stripe_webhook_secret;
-        req.body.ai_tier = existing.ai_tier;
         req.body.ai_free_tier = existing.ai_free_tier;
         req.body.price_markup = existing.price_markup;
         req.body.billing_type = existing.billing_type;
         req.body.platform_take_rate = existing.platform_take_rate;
         req.body.stripe_connect_account_id = existing.stripe_connect_account_id;
-        req.body.subscription_billing_method = existing.subscription_billing_method;
         req.body.stripe_customer_id = existing.stripe_customer_id;
       } else {
         // Support initial self-onboarding subscription tier select
@@ -2502,7 +2500,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     const finalBillingType = billing_type !== undefined ? billing_type : (existing ? existing.billing_type : 'standard');
     const finalPlatformTakeRate = platform_take_rate !== undefined ? parseFloat(platform_take_rate) : (existing ? parseFloat(existing.platform_take_rate) : 0.15);
 
-    const finalBillingMethod = subscription_billing_method !== undefined ? subscription_billing_method : (existing ? existing.subscription_billing_method : 'ledger');
+    const finalBillingMethod = (subscription_billing_method && subscription_billing_method !== '') ? subscription_billing_method : (existing && existing.subscription_billing_method ? existing.subscription_billing_method : 'ledger');
 
     await runQuery(`
       INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id)
@@ -2606,6 +2604,44 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       ]);
 
       console.log(`[Subscription Engine] Self-onboarding charged initial first-month subscription for brand ${brandId} (${finalAiTier}: €${subAmount})`);
+    }
+
+    // Update active subscription if user upgrades/downgrades AI Operation Tier
+    if (existing && existing.ai_tier !== finalAiTier) {
+      let subAmount = 49.00;
+      if (finalAiTier === 'none') subAmount = 0.00;
+      else if (finalAiTier === 'standard') subAmount = 49.00;
+      else if (finalAiTier === 'professional') subAmount = 99.00;
+      else if (finalAiTier === 'enterprise') subAmount = 199.00;
+
+      if (finalAiTier === 'none') {
+        // Cancel subscription
+        await runQuery(`UPDATE merchant_subscriptions SET status = 'cancelled' WHERE brand_id = $1`, [brandId]);
+        console.log(`[Subscription Engine] Cancelled AI subscription for brand ${brandId} (Tier changed to none)`);
+      } else {
+        // Find existing active subscription
+        const hasSub = await getQuery(`SELECT id FROM merchant_subscriptions WHERE brand_id = $1 AND status = 'active'`, [brandId]);
+        if (hasSub) {
+          await runQuery(`
+            UPDATE merchant_subscriptions 
+            SET name = $1, amount = $2
+            WHERE brand_id = $3 AND status = 'active'
+          `, [`ai_subscription_${finalAiTier}`, subAmount, brandId]);
+          console.log(`[Subscription Engine] Updated active AI subscription for brand ${brandId} to ${finalAiTier} (€${subAmount})`);
+        } else {
+          // If no active sub found, create one
+          await runQuery(`
+            INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, last_charged_at, next_charge_at)
+            VALUES ($1, $2, $3, 'monthly', 'active', CURRENT_TIMESTAMP, $4)
+          `, [
+            brandId,
+            `ai_subscription_${finalAiTier}`,
+            subAmount,
+            new Date(Date.now() + 30 * 24 * 3600 * 1000)
+          ]);
+          console.log(`[Subscription Engine] Provisioned new active AI subscription for brand ${brandId} for ${finalAiTier} (€${subAmount})`);
+        }
+      }
     }
 
     // If user had no brand_id associated, link it now and generate updated token
@@ -3175,8 +3211,15 @@ app.post('/api/global/brands/:id/ai-rewrite', verifyAdminToken, async (req, res)
       return res.status(400).json({ error: 'Gemini General API key not configured.' });
     }
 
-    const brand = await getQuery('SELECT name FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT name, ai_tier FROM brands WHERE id = $1', [brandId]);
     const brandName = brand ? brand.name : 'our cafe';
+
+    let targetModel = 'gemini-1.5-pro';
+    if (brand && brand.ai_tier === 'standard') {
+      targetModel = 'gemini-2.5-flash';
+    } else if (brand && brand.ai_tier === 'enterprise') {
+      targetModel = 'deep-research-pro-preview';
+    }
 
     let instruction = 'Rewrite the following storefront copy string to make it more engaging, premium, and high-converting.';
     if (tone === 'punchy') instruction = 'Rewrite this storefront copy text to be more punchy, modern, vibrant, and engaging. Keep it brief and match its length.';
@@ -3190,7 +3233,7 @@ For brand name context: "${brandName}".
 Original text for field "${field || 'copy'}": "${text}"
 Return ONLY the rewritten string without quotes, markdown formatting, or explanations.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3202,7 +3245,7 @@ Return ONLY the rewritten string without quotes, markdown formatting, or explana
       const result = await response.json();
       const rewrittenText = (result.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
       if (result.usageMetadata) {
-        await logAiUsage(brandId, 'AI Copy Rewrite', 'gemini-2.5-flash', result.usageMetadata);
+        await logAiUsage(brandId, 'AI Copy Rewrite', targetModel, result.usageMetadata);
       }
       res.json({ success: true, text: rewrittenText });
     } else {

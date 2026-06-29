@@ -3169,6 +3169,7 @@ export default {
                                 shopify_access_token: '',
                                 stripe_secret_key: '',
                                 stripe_webhook_secret: '',
+                                subscription_billing_method: brand.subscription_billing_method || 'ledger',
                                 languages: langs
                             };
                             this.originalSettingsBrand = JSON.parse(JSON.stringify(this.settingsBrand));

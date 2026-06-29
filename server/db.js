@@ -72,6 +72,7 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS price_markup NUMERIC(5, 2) DEFAULT 0.00`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR(255)`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_billing_method VARCHAR(50) DEFAULT 'ledger'`);
+    await client.query(`UPDATE brands SET subscription_billing_method = 'ledger' WHERE subscription_billing_method IS NULL OR subscription_billing_method = ''`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);

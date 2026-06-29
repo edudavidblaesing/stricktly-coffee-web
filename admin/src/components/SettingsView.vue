@@ -345,7 +345,7 @@
 
                     <div class="form-group">
                         <label>AI Operation Tier (Limits & Capabilities)</label>
-                        <select v-model="settingsBrand.ai_tier" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        <select v-model="settingsBrand.ai_tier" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                             <option value="none">No AI / Basic Tier (No AI Access)</option>
                             <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
                             <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>

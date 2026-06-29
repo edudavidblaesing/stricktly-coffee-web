@@ -917,6 +917,100 @@
                             {{ previewAdCopy }}
                         </p>
                     </div>
+
+                    <!-- TIKTOK AD PREVIEW -->
+                    <div v-else-if="previewChannel === 'tiktok'" style="width: 100%; max-width: 300px; height: 400px; background: #010101; color: #ffffff; border-radius: 20px; border: 4px solid #2f3030; position: relative; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                        <!-- Video simulation backdrop -->
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;">
+                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
+                            <div v-else style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #121212; color: #777;">
+                                <span style="font-size: 2.5rem; margin-bottom: 8px;">🎵</span>
+                                <span style="font-size: 0.75rem;">Vertical Ad Asset</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Overlay elements -->
+                        <div style="position: relative; z-index: 2; padding: 16px; background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%); text-align: left;">
+                            <!-- Creator Profile -->
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <img :src="activeBrand.logo || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #fff; object-fit: cover;">
+                                <div>
+                                    <strong style="font-size: 0.8rem; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">@{{ activeBrand.name.toLowerCase().replace(/\s/g, '') }}</strong>
+                                    <span style="font-size: 0.65rem; color: #25f4ee; font-weight: 700; background: rgba(0,0,0,0.5); padding: 1px 4px; border-radius: 3px; margin-left: 4px;">Sponsored</span>
+                                </div>
+                            </div>
+                            <!-- Ad text -->
+                            <p style="font-size: 0.76rem; line-height: 1.3; margin: 0 0 12px 0; color: #f1f1f1; text-shadow: 0 1px 2px rgba(0,0,0,0.8); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                {{ previewAdCopy }}
+                            </p>
+                            <!-- CTA Button -->
+                            <div style="background: #ff0050; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; font-size: 0.78rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; letter-spacing: 0.05em;">
+                                Shop Now
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LINKEDIN AD PREVIEW -->
+                    <div v-else-if="previewChannel === 'linkedin'" style="width: 100%; max-width: 340px; background: #ffffff; color: rgba(0,0,0,0.9); border-radius: 8px; border: 1px solid #e0e0e0; font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: left;">
+                        <!-- Header -->
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 12px;">
+                            <img :src="activeBrand.logo || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 36px; height: 36px; border-radius: 4px; object-fit: cover;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <strong style="font-size: 0.85rem; color: rgba(0,0,0,0.9);">{{ activeBrand.name }}</strong>
+                                    <span style="font-size: 0.72rem; color: rgba(0,0,0,0.6);">• 1st</span>
+                                </div>
+                                <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6); display: block;">Coffee storefront</span>
+                                <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6); display: flex; align-items: center; gap: 3px;">
+                                    Promoted · 🌐
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Intro text -->
+                        <div style="padding: 0 12px 8px 12px; font-size: 0.8rem; line-height: 1.4; color: rgba(0,0,0,0.9);">{{ previewAdCopy }}</div>
+                        
+                        <!-- Image creative -->
+                        <div style="position: relative; background: #f3f6f8; width: 100%; height: 160px; display: flex; align-items: center; justify-content: center;">
+                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div v-else style="color: rgba(0,0,0,0.5); text-align: center;">
+                                <span style="font-size: 1.8rem; display: block;">💼</span>
+                                <span style="font-size: 0.72rem;">LinkedIn Update Image</span>
+                            </div>
+                        </div>
+                        
+                        <!-- CTA Bar -->
+                        <div style="padding: 12px; background: #f3f6f8; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="max-width: 65%;">
+                                <div style="font-size: 0.82rem; font-weight: 600; color: rgba(0,0,0,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</div>
+                                <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6);">{{ getDestinationDomain }}</span>
+                            </div>
+                            <button type="button" style="background: transparent; border: 1px solid #0a66c2; color: #0a66c2; padding: 4px 12px; border-radius: 16px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">Shop Now</button>
+                        </div>
+                    </div>
+
+                    <!-- PINTEREST AD PREVIEW -->
+                    <div v-else-if="previewChannel === 'pinterest'" style="width: 100%; max-width: 240px; background: #ffffff; color: #111111; border-radius: 16px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #efefef; text-align: left;">
+                        <!-- Pin Media -->
+                        <div style="position: relative; background: #f0f0f0; width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div v-else style="color: #767676; text-align: center; padding: 12px;">
+                                <span style="font-size: 2rem; display: block;">📌</span>
+                                <span style="font-size: 0.72rem;">Promoted Pin Creative</span>
+                            </div>
+                            <span style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: #fff; padding: 3px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold;">Promoted</span>
+                        </div>
+                        
+                        <!-- Description & Creator -->
+                        <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+                            <strong style="font-size: 0.8rem; color: #111111; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">{{ previewHeadline }}</strong>
+                            <p style="font-size: 0.72rem; color: #5f5f5f; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">{{ previewAdCopy }}</p>
+                            
+                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; border-top: 1px solid #f0f0f0; padding-top: 8px;">
+                                <img :src="activeBrand.logo || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;">
+                                <span style="font-size: 0.7rem; color: #111111; font-weight: 600;">{{ activeBrand.name }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             </div>
@@ -2798,6 +2892,15 @@ export default {
                 if (platform === 'google') {
                     return !!theme.connected_channels['Google']?.active;
                 }
+                if (platform === 'tiktok') {
+                    return !!theme.connected_channels['TikTok']?.active;
+                }
+                if (platform === 'linkedin') {
+                    return !!theme.connected_channels['LinkedIn']?.active;
+                }
+                if (platform === 'pinterest') {
+                    return !!theme.connected_channels['Pinterest']?.active;
+                }
             } catch (e) {}
             return false;
         },
@@ -2834,6 +2937,33 @@ export default {
                 scopesHtml = `
                     <li>Manage Google Merchant Center inventories</li>
                     <li>Publish active products on Shopping tabs</li>
+                `;
+            } else if (platform === 'tiktok') {
+                dbPlatformName = 'TikTok';
+                title = 'TikTok For Business Connector';
+                desc = 'Connect your TikTok Ads Manager to automatically publish video ads and track pixel events.';
+                icon = '🎵';
+                scopesHtml = `
+                    <li>Access TikTok Ads Manager campaign logs</li>
+                    <li>Publish video creatives directly into ads repository</li>
+                `;
+            } else if (platform === 'linkedin') {
+                dbPlatformName = 'LinkedIn';
+                title = 'LinkedIn Campaign Manager Connection';
+                desc = 'Authorize Strickly Coffee to manage Sponsored Content ads and Lead Gen Forms on LinkedIn.';
+                icon = '💼';
+                scopesHtml = `
+                    <li>Manage Sponsored Updates & creative uploads</li>
+                    <li>Sync professional profile lead collections</li>
+                `;
+            } else if (platform === 'pinterest') {
+                dbPlatformName = 'Pinterest';
+                title = 'Pinterest Ads Manager Integration';
+                desc = 'Connect Pinterest Ads Manager to run Promoted Pins campaigns and sync shoppable product pins.';
+                icon = '📌';
+                scopesHtml = `
+                    <li>Publish shoppable catalog Product Pins</li>
+                    <li>Retrieve conversion tag metrics & CTR performance</li>
                 `;
             }
 
