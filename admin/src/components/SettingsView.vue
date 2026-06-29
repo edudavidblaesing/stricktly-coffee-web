@@ -733,7 +733,7 @@
                             <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
                         </button>
 
-                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
+                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-secondary" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
                             <span v-if="isCompilingPrompt">⏳ Compiling Contextual Prompt...</span>
                             <span v-else>📋 Compile Strategy Prompt (via Scraper)</span>
                         </button>
@@ -1004,56 +1004,6 @@
             </div>
         </div>
 
-        <!-- Profile & Preferences Panel (Always Visible) -->
-        <div class="panel">
-            <div class="panel-header">
-                <h3 class="panel-title">Operator Profile & Preferences</h3>
-            </div>
-            <form @submit.prevent style="margin-top: 15px;">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>First Name</label>
-                        <input type="text" v-model="operatorFirstName" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Last Name</label>
-                        <input type="text" v-model="operatorLastName" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Portal Interface Theme</label>
-                        <select v-model="appTheme" @change="applyTheme(appTheme)">
-                            <option value="system">System Default Theme</option>
-                            <option value="light">Light Mode Theme</option>
-                            <option value="dark">Dark Mode Theme</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Profile Avatar Image</label>
-                        <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px;">
-                            <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--border); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);">
-                                <img v-if="operatorAvatarSrc" :src="operatorAvatarSrc" style="width: 100%; height: 100%; object-fit: cover;" />
-                                <div v-else style="font-weight: 800; font-size: 0.95rem; color: var(--text-muted); text-transform: uppercase; user-select: none;">{{ operatorInitials }}</div>
-                            </div>
-                            <input type="file" ref="avatarInput" @change="onAvatarFileChange" style="display: none;" accept="image/*">
-                            <button type="button" class="btn" @click="$refs.avatarInput.click()" style="padding: 6px 12px; font-size: 0.78rem;">Upload Photo</button>
-                            <button type="button" class="btn" v-if="operatorAvatarSrc" @click="removeAvatar" style="padding: 6px 12px; font-size: 0.78rem; background: var(--border); color: var(--text-main); border-color: var(--border);">Remove</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Current Password</label>
-                        <input type="password" placeholder="••••••••">
-                    </div>
-                    <div class="form-group">
-                        <label>New Password</label>
-                        <input type="password" placeholder="Min 8 characters">
-                    </div>
-                </div>
-                <div class="panel-footer">
-                    <button type="button" class="btn btn-accent" style="margin: 0;" @click="saveProfile">Update Profile Details</button>
-                </div>
-            </form>
-        </div>
-
         <div class="panel" id="no-shop-selected-settings" v-if="!isValidBrandSelected"
             style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
             <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and
@@ -1227,20 +1177,6 @@ export default {
                     this.settingsBrand.custom_domain = '';
                 }
             }
-        },
-        operatorFirstName: {
-            get() { return this.app.operatorFirstName; },
-            set(val) { this.app.operatorFirstName = val; }
-        },
-        operatorLastName: {
-            get() { return this.app.operatorLastName; },
-            set(val) { this.app.operatorLastName = val; }
-        },
-        operatorInitials() { return this.app.operatorInitials; },
-        operatorAvatarSrc() { return this.app.operatorAvatarSrc; },
-        appTheme: {
-            get() { return this.app.appTheme; },
-            set(val) { this.app.appTheme = val; }
         },
         subdomainSlug: {
             get() {
@@ -1655,16 +1591,6 @@ export default {
             }
         },
         showNotification(msg) { return this.app.showNotification(msg); },
-        saveProfile() {
-            localStorage.setItem('sc_operator_first_name', this.operatorFirstName);
-            localStorage.setItem('sc_operator_last_name', this.operatorLastName);
-            if (this.operatorAvatarSrc) {
-                localStorage.setItem('sc_operator_avatar', this.operatorAvatarSrc);
-            } else {
-                localStorage.removeItem('sc_operator_avatar');
-            }
-            this.showNotification('Profile and preferences updated successfully.');
-        },
         updateBrandSettings() { return this.app.updateBrandSettings(); },
         async verifyDns() {
             if (!this.settingsBrand.subdomain) {
@@ -1734,24 +1660,6 @@ export default {
         },
         deleteStore() {
             this.app.deOnboardBrand(this.settingsBrand.id);
-        },
-        onAvatarFileChange(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    this.app.operatorAvatarSrc = event.target.result;
-                    this.showNotification('Avatar photo uploaded successfully.');
-                };
-                reader.readAsDataURL(file);
-            }
-        },
-        removeAvatar() {
-            this.app.operatorAvatarSrc = null;
-            this.showNotification('Avatar photo removed.');
-        },
-        applyTheme(theme) {
-            this.app.applyTheme(theme);
         },
         async fetchBrandStylesFromShopify() {
             let shopUrl = this.settingsBrand.shopify_shop_name || '';

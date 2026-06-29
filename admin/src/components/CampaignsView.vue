@@ -2530,6 +2530,7 @@ export default {
         },
         async generateAICopy() {
             this.generatingAICopy = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 const response = await fetch('/api/global/marketing-campaigns/generate-copy', {
                     method: 'POST',
@@ -2566,6 +2567,7 @@ export default {
                 alert(`Error generating copy: ${err.message}`);
             } finally {
                 this.generatingAICopy = false;
+                this.app.stopAiTicker();
             }
         },
         async loadAIProposals(campaignId) {
@@ -2951,6 +2953,7 @@ export default {
             }
             
             this.translatingCampaign = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 if (this.newCampaign.headline) {
                     const response = await fetch('/api/global/translate', {
@@ -2996,6 +2999,7 @@ export default {
                 alert('AI translation error: ' + e.message);
             } finally {
                 this.translatingCampaign = false;
+                this.app.stopAiTicker();
             }
         }
     }

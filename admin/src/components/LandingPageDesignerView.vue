@@ -161,8 +161,8 @@
                             <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">📝 Landing Page Copy ({{ landingPageContentLang.toUpperCase() }} variant)</span>
                             <!-- Translate button if not default 'en' -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-premium-ai-btn" style="font-size: 0.7rem; padding: 4px 8px; height: auto; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateLandingPageWithAI(landingPageContentLang)" :disabled="translatingLandingPage">
-                                    <span v-if="translatingLandingPage" style="display: inline-block; width: 10px; height: 10px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateLandingPageWithAI(landingPageContentLang)" :disabled="translatingLandingPage">
+                                    <span v-if="translatingLandingPage">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                     <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                                 </button>
                                 <span v-if="translateAiStats && translateAiStats.calls_count > 0" style="font-size: 0.65rem; color: var(--text-muted);">
@@ -337,8 +337,8 @@
                     <div style="display: flex; flex-direction: column; align-items: stretch; gap: 8px;">
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button type="button" class="btn" style="margin: 0; height: 36px; border: 1px solid var(--border);" @click="showAIModal = false" :disabled="generatingAIPage">Cancel</button>
-                            <button type="button" class="sc-premium-ai-btn" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="generatingAIPage || !aiModalPrompt" @click="generateAIPage">
-                                <span v-if="generatingAIPage">⏳ Writing Copy & Layout...</span>
+                            <button type="button" class="sc-ai-button" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="generatingAIPage || !aiModalPrompt" @click="generateAIPage">
+                                <span v-if="generatingAIPage">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                 <span v-else>✨ Generate & Add Page [Gemini 2.5 Flash] [~$0.0006]</span>
                             </button>
                         </div>
@@ -591,6 +591,7 @@ export default {
         async generateAIPage() {
             if (!this.designerBrand || !this.designerBrand.id) return;
             this.generatingAIPage = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-page`, {
                     method: 'POST',
@@ -631,6 +632,7 @@ export default {
                 alert('AI landing page generation network error: ' + e.message);
             } finally {
                 this.generatingAIPage = false;
+                this.app.stopAiTicker();
             }
         },
         triggerAIPageBuilder() {
@@ -925,6 +927,7 @@ export default {
             }
             
             this.translatingLandingPage = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 const fields = ['headline', 'subheadline', 'cta', 'features'];
                 for (const field of fields) {
@@ -955,6 +958,7 @@ export default {
                 alert('AI translation error: ' + e.message);
             } finally {
                 this.translatingLandingPage = false;
+                this.app.stopAiTicker();
             }
         }
     }

@@ -247,8 +247,8 @@
 
                         <!-- Bulk translation button -->
                         <div style="margin-top: 4px; margin-bottom: 8px;">
-                            <button type="button" class="sc-premium-ai-btn" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" :disabled="isBulkTranslating" @click="runAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
-                                <span v-if="isBulkTranslating">⏳ AI Translating storefront pages...</span>
+                            <button type="button" class="sc-ai-button" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" :disabled="isBulkTranslating" @click="runAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
+                                <span v-if="isBulkTranslating">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                                 <span v-else-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [~$0.0028]</span>
                                 <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [~$0.0028]</span>
                             </button>
@@ -590,8 +590,8 @@
                             The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
                         </div>
 
-                        <button type="button" class="sc-premium-ai-btn" style="margin: 0; height: 38px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
-                            <span v-if="isGeneratingLayout">⏳ Tuning Layout Colors & Styles...</span>
+                        <button type="button" class="sc-ai-button" style="margin: 0; height: 38px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
+                            <span v-if="isGeneratingLayout">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                             <span v-else>✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [~$0.0005]</span>
                         </button>
                         
@@ -1406,6 +1406,7 @@ export default {
         },
         async generateAILookAlikeLayout() {
             this.isGeneratingLayout = true;
+            this.app.startAiTicker('gemini-2.5-flash');
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-layout`, {
                     method: 'POST',
@@ -1445,6 +1446,7 @@ export default {
                 alert('AI Layout generation network error: ' + e.message);
             } finally {
                 this.isGeneratingLayout = false;
+                this.app.stopAiTicker();
             }
         },
         applyAILayoutPreset(preset) {
@@ -1822,6 +1824,7 @@ export default {
         },
         async runAIBulkTranslate(targetLang) {
             this.isBulkTranslating = true;
+            this.app.startAiTicker('gemini-1.5-flash');
             this.app.showNotification(targetLang 
                 ? `✨ AI is translating all storefront copy to ${targetLang.toUpperCase()}...` 
                 : '✨ AI is translating all storefront copy to all languages in background...'
@@ -1854,6 +1857,7 @@ export default {
                 alert('AI translation network error: ' + e.message);
             } finally {
                 this.isBulkTranslating = false;
+                this.app.stopAiTicker();
             }
         },
         toggleFullscreen() {
