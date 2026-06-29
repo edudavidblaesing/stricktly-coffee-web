@@ -14,11 +14,11 @@
                 </div>
                 <div class="login-logo"
                     style="color: #ffffff; font-size: 1.8rem; font-weight: 800; font-family: var(--font-display); text-transform: uppercase; margin-bottom: 8px;">
-                    Warehouse Admin
+                    {{ authMode === 'login' ? 'Warehouse Admin' : 'Register Merchant' }}
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px; font-weight: 500;">
-                    Enterprise Management Portal Authentication</p>
-                <form @submit.prevent="handleLogin">
+                    {{ authMode === 'login' ? 'Enterprise Management Portal Authentication' : 'Create a new Brand owner account' }}</p>
+                <form @submit.prevent="authMode === 'login' ? handleLogin() : handleRegister()">
                     <div class="form-group" style="margin-bottom: 16px; text-align: left;">
                         <label
                             style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">Operator
@@ -32,20 +32,47 @@
                             Password</label>
                         <input type="password" v-model="loginPassword" required autocomplete="current-password" placeholder="••••••••">
                     </div>
-                    <button type="submit" class="btn" style="width: 100%;">Authenticate & Launch</button>
-                    <div style="color: #ef4444; font-size: 0.8rem; margin-top: 14px;" v-if="loginError">
+                    <button type="submit" class="btn btn-accent" style="width: 100%; font-weight: 700; height: 42px;">
+                        {{ authMode === 'login' ? 'Authenticate & Launch' : 'Create Account' }}
+                    </button>
+                    <div style="margin-top: 16px; text-align: center;">
+                        <a href="#" @click.prevent="authMode = (authMode === 'login' ? 'register' : 'login'); loginError = '';" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none;">
+                            {{ authMode === 'login' ? "Don't have an account? Register here" : "Already have an account? Log in here" }}
+                        </a>
+                    </div>
+                    <div style="color: #ef4444; font-size: 0.8rem; margin-top: 14px; text-align: center;" v-if="loginError">
                         {{ loginError }}
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Touch overlay to close mobile sidebar -->
-        <div class="mobile-sidebar-overlay" :class="{ open: mobileSidebarOpen }" @click="mobileSidebarOpen = false">
+        <!-- FULLSCREEN BRAND ONBOARDING WIZARD -->
+        <div v-else-if="needsOnboarding" style="display: flex; flex-direction: column; width: 100vw; min-height: 100vh; background: var(--bg-color); padding: 40px; box-sizing: border-box; overflow-y: auto; z-index: 10;">
+             <!-- Header branding bar -->
+             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; max-width: 900px; width: 100%; margin-left: auto; margin-right: auto;">
+                  <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.02em;">
+                      <span>⚡ Onboard Your Brand Shop</span>
+                  </div>
+                  <button type="button" @click="handleLogout" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-weight: 600; padding: 6px 14px; margin: 0; font-size: 0.8rem; cursor: pointer;">
+                      🚪 Log Out
+                  </button>
+             </div>
+             
+             <!-- Onboarding wizard component container -->
+             <div style="max-width: 900px; width: 100%; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); box-sizing: border-box;">
+                  <!-- We render the onboarding wizard right here! -->
+                  <BrandsView ref="brandsViewOnboarding" :force-create-wizard="true" />
+             </div>
         </div>
 
-        <!-- SIDEBAR NAVIGATION MENU -->
-        <aside :class="{ open: mobileSidebarOpen }" v-if="isLoggedIn">
+        <div v-else style="display: flex; min-height: 100vh; width: 100%;">
+            <!-- Touch overlay to close mobile sidebar -->
+            <div class="mobile-sidebar-overlay" :class="{ open: mobileSidebarOpen }" @click="mobileSidebarOpen = false">
+            </div>
+
+            <!-- SIDEBAR NAVIGATION MENU -->
+            <aside :class="{ open: mobileSidebarOpen }" v-if="isLoggedIn">
             <!-- Top Workspace / Context Selector -->
             <div style="position: relative; margin-bottom: 24px;">
                 <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
@@ -267,18 +294,6 @@
                             Channels
                         </button>
                     </li>
-
-                    <li>
-                        <button class="nav-link-btn" @click="switchView('orders')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="9" cy="21" r="1"></circle>
-                                <circle cx="20" cy="21" r="1"></circle>
-                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                            </svg>
-                            Order Management
-                        </button>
-                    </li>
                 </ul>
             </div>
 
@@ -308,7 +323,7 @@
                             Billing & Subscription
                         </button>
                     </li>
-                    <li>
+                    <li v-if="userRole.toLowerCase() !== 'superadmin' || activeShopFilter !== 'all'">
                         <button class="nav-link-btn" :class="{ active: activeView === 'settings' }"
                             @click="switchView('settings')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -349,7 +364,7 @@
                             Help Center
                         </button>
                     </li>
-                    <li>
+                    <li v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all'">
                         <button class="nav-link-btn" :class="{ active: activeView === 'settings' }" @click="switchView('settings')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -379,6 +394,10 @@
                 <!-- If superadmin and a specific brand is selected, allow acting as brand admin -->
                 <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
                     👤 Act as {{ activeWorkspaceName }} Admin
+                </button>
+                
+                <button class="profile-dropdown-item" @click.stop="openProfileModal">
+                    👤 Profile Settings
                 </button>
                 
                 <div class="profile-dropdown-divider"></div>
@@ -537,6 +556,12 @@
                     <!-- Right: Quick Filters & Actions -->
                     <div class="header-actions-row" style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
                         <template v-if="activeView === 'overview'">
+                            <!-- Demo data mode toggle switch -->
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 700; height: 40px; margin-right: 8px; background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 0 12px; border-radius: 8px; user-select: none;">
+                                <input type="checkbox" v-model="showDemoData" @change="renderAnalyticsCharts" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                                <span style="color: var(--accent);">⚡ Demo Data Mode</span>
+                            </label>
+
                             <!-- Timeframe select dropdown -->
                             <select v-model="analyticsTimeframe" @change="renderAnalyticsCharts"
                                 style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.85rem; height: 40px; cursor: pointer; outline: none; font-family: var(--font-display);">
@@ -584,7 +609,7 @@
                         </button>
 
                         <!-- Spin Up New Brand Shop button for channels -->
-                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'brands' && userRole.toLowerCase() === 'superadmin' && !isCreatingBrand && brandsSubView === 'list'" @click="$refs.brandsView && $refs.brandsView.startBrandCreation()">
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'brands' && userRole.toLowerCase() === 'superadmin' && !isCreatingBrand && brandsSubView === 'list' && (!$refs.brandsView || $refs.brandsView.activeSubView === 'list')" @click="$refs.brandsView && $refs.brandsView.startBrandCreation()">
                             ➕ Spin Up New Brand Shop
                         </button>
 
@@ -927,6 +952,94 @@
             <span style="color: var(--text-main); font-weight: bold; font-size: 1.1rem;">✔</span>
             <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-main);">{{ toastMessage }}</span>
         </div>
+
+        <!-- User Profile Settings Modal -->
+        <div v-if="profileModalOpen" class="modal-overlay" @click.self="profileModalOpen = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(10px);">
+            <div class="panel" style="width: 100%; max-width: 450px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        👤 User Profile Settings
+                    </h3>
+                    <button @click="profileModalOpen = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer; transition: color 0.2s; padding: 0;">&times;</button>
+                </div>
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                    <!-- User Details -->
+                    <div style="display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); padding: 15px; border-radius: 8px;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; justify-content: center; text-transform: uppercase;">
+                            {{ operatorInitials }}
+                        </div>
+                        <div style="text-align: left;">
+                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">{{ operatorName }}</div>
+                            <div style="font-size: 0.76rem; color: var(--text-muted); font-family: monospace;">{{ loginEmail }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Details Fields -->
+                    <div style="text-align: left;">
+                        <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Active Account Role</label>
+                        <input type="text" :value="operatorRole" disabled style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; cursor: not-allowed;" />
+                    </div>
+
+                    <form @submit.prevent="updateUserProfile" style="text-align: left; display: flex; flex-direction: column; gap: 15px;">
+                        <!-- First & Last Name Fields -->
+                        <div style="display: flex; gap: 15px;">
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">First Name</label>
+                                <input type="text" v-model="operatorFirstName" required style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" />
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Last Name</label>
+                                <input type="text" v-model="operatorLastName" required style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">New Password</label>
+                            <input type="password" v-model="profilePassword" placeholder="Enter new password (min 6 chars)" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" />
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Confirm New Password</label>
+                            <input type="password" v-model="profilePasswordConfirm" placeholder="Confirm new password" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" />
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" @click="profileModalOpen = false" class="btn btn-secondary" style="height: 38px; padding: 0 15px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; background: transparent; border: 1px solid var(--border); color: var(--text-main); cursor: pointer;">Cancel</button>
+                            <button type="submit" class="btn btn-accent" style="height: 38px; padding: 0 20px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; background: var(--accent); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                💾 Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        </div>
+        
+        <!-- Unsaved Changes Alert Dialog Overlay -->
+        <div v-if="showUnsavedChangesModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 11000; backdrop-filter: blur(10px);">
+            <div class="panel" style="width: 100%; max-width: 420px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
+                <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border); text-align: left;">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        ⚠️ Unsaved Changes
+                    </h3>
+                </div>
+                <div style="padding: 20px; text-align: left; display: flex; flex-direction: column; gap: 12px;">
+                    <p style="margin: 0; font-size: 0.88rem; color: var(--text-main); line-height: 1.5;">
+                        You have modified parameters in this view. Leaving this form now will discard your unsaved configurations.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                        <button @click="saveAndLeave" class="btn btn-accent" style="height: 38px; width: 100%; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0;">
+                            💾 Save & Continue
+                        </button>
+                        <button @click="discardAndLeave" class="btn btn-secondary" style="height: 38px; width: 100%; font-weight: 700; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; cursor: pointer; margin: 0;">
+                            🗑️ Discard Changes & Leave
+                        </button>
+                        <button @click="showUnsavedChangesModal = false" class="btn" style="height: 38px; width: 100%; font-weight: 700; background: transparent; color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; margin: 0;">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
   </div>
 </template>
 
@@ -988,11 +1101,17 @@ export default {
                     operatorFirstName: localStorage.getItem('sc_operator_first_name') || 'Salung',
                     operatorLastName: localStorage.getItem('sc_operator_last_name') || 'Prastyo',
                     profileDropdownOpen: false,
+                    profileModalOpen: false,
+                    profilePassword: '',
+                    profilePasswordConfirm: '',
                     appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
                     requestedInitialView: 'overview',
                     currentEnv: 'local',
                     activeShopFilter: 'all',
+                    originalSettingsBrand: null,
+                    showUnsavedChangesModal: false,
+                    pendingNavigationTargetView: '',
                     workspaceDropdownOpen: false,
                     productsSearchQuery: '',
                     customerSearchQuery: '',
@@ -1001,6 +1120,8 @@ export default {
                     salesChartType: 'bar',
                     funnelChartType: 'bar',
                     analyticsStartDate: '',
+                    showDemoData: true,
+                    trafficStats: [],
                     newTransactionModal: {
                         open: false,
                         brand_id: '',
@@ -1013,6 +1134,7 @@ export default {
 
                     // Datasets
                     brands: [],
+                    brandsLoaded: false,
                     tierFeaturesList: [],
                     orders: [],
                     products: [],
@@ -1020,6 +1142,7 @@ export default {
 
                     // Auth state
                     isLoggedIn: false,
+                    authMode: 'login',
                     loginEmail: '',
                     loginPassword: '',
                     loginError: '',
@@ -1053,7 +1176,13 @@ export default {
                         favicon: '',
                         font_family: 'Outfit',
                         languages: ['en'],
-                        ai_tier: 'professional'
+                        ai_tier: 'professional',
+                        price_markup: 0.00,
+                        billing_type: '',
+                        platform_take_rate: 0.15,
+                        stripe_connect_account_id: '',
+                        subscription_billing_method: '',
+                        stripe_customer_id: null
                     },
                     newProduct: {
                         brand_id: '',
@@ -1091,7 +1220,12 @@ export default {
                         logo: '',
                         favicon: '',
                         stripe_enabled: false,
-                        languages: ['en']
+                        languages: ['en'],
+                        billing_type: '',
+                        platform_take_rate: 0.15,
+                        stripe_connect_account_id: '',
+                        subscription_billing_method: '',
+                        stripe_customer_id: null
                     },
 
                     // Shopify Importer
@@ -1135,6 +1269,12 @@ export default {
                 };
             },
             computed: {
+                needsOnboarding() {
+                    return this.isLoggedIn && 
+                           this.userRole.toLowerCase() === 'merchant' && 
+                           (!this.activeShopFilter || this.activeShopFilter === 'all') &&
+                           this.brands.length === 0;
+                },
                 operatorRole() {
                     if (!this.isLoggedIn) return 'Guest';
                     if (this.userRole && this.userRole.toLowerCase() === 'superadmin') {
@@ -1360,15 +1500,54 @@ export default {
                     return list;
                 },
                 calculatedConversionRate() {
-                    if (this.filteredOrders.length === 0) return '3.9';
-                    const paid = this.filteredOrders.filter(o => o.status !== 'pending_payment').length;
-                    return ((paid / (this.filteredOrders.length * 15)) * 100).toFixed(1);
+                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                        return '3.9';
+                    }
+                    const ordersCount = this.filteredOrders.length;
+                    if (ordersCount === 0) return '0.0';
+                    
+                    let visitors = 0;
+                    if (this.activeShopFilter === 'all') {
+                        visitors = this.trafficStats.reduce((sum, t) => sum + (parseInt(t.visitors) || 0), 0);
+                    } else {
+                        const stat = this.trafficStats.find(t => t.brand_id === this.activeShopFilter);
+                        visitors = stat ? (parseInt(stat.visitors) || 0) : 0;
+                    }
+                    
+                    if (visitors === 0) {
+                        const paid = this.filteredOrders.filter(o => o.status !== 'pending_payment').length;
+                        return ((paid / (ordersCount * 15)) * 100).toFixed(1);
+                    }
+                    return Math.min(100, (ordersCount / visitors) * 100).toFixed(1);
+                },
+                dashboardOrdersCount() {
+                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                        return 1204;
+                    }
+                    return this.filteredOrders.length;
                 },
                 uniqueCustomersCount() {
+                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                        return 842;
+                    }
                     const emails = this.filteredOrders.map(o => o.customer_email).filter(Boolean);
                     return [...new Set(emails)].length;
                 },
+                dashboardUniqueVisitors() {
+                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                        return 31250;
+                    }
+                    if (this.activeShopFilter === 'all') {
+                        return this.trafficStats.reduce((sum, t) => sum + (parseInt(t.visitors) || 0), 0);
+                    } else {
+                        const stat = this.trafficStats.find(t => t.brand_id === this.activeShopFilter);
+                        return stat ? (parseInt(stat.visitors) || 0) : 0;
+                    }
+                },
                 formattedSalesTotal() {
+                    if (this.showDemoData && this.filteredOrders.length === 0) {
+                        return '€45,230.85';
+                    }
                     const paid = this.filteredOrders.filter(o => o.status !== 'pending_payment');
                     const total = paid.reduce((sum, o) => sum + parseFloat(o.total), 0);
                     return `€${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1482,6 +1661,15 @@ export default {
                 },
                 operatorName() {
                     return `${this.operatorFirstName} ${this.operatorLastName}`.trim();
+                },
+                hasGlobalUnsavedChanges() {
+                    if (this.activeView === 'designer' && this.$refs.designerView && this.$refs.designerView.hasUnsavedChanges) {
+                        return true;
+                    }
+                    if (this.activeView === 'settings' && this.$refs.settingsView && this.$refs.settingsView.hasSettingsChanged) {
+                        return true;
+                    }
+                    return false;
                 }
             },
             watch: {
@@ -1490,6 +1678,7 @@ export default {
                     if (newVal && newVal !== 'all') {
                         localStorage.setItem('sc_admin_brand_id', newVal);
                         this.previewActiveBrandId = newVal;
+                        this.isCreatingBrand = false;
                     } else {
                         localStorage.removeItem('sc_admin_brand_id');
                     }
@@ -1542,6 +1731,7 @@ export default {
                     this.activeShopFilter = brandId || 'all';
                     this.bootDashboard();
                     this.resolveRouteFromURL();
+                    this.fetchCurrentProfile();
                 }
 
                 // Set up popstate and beforeunload listeners
@@ -1550,6 +1740,39 @@ export default {
 
                 // Apply theme setting
                 this.applyTheme(this.appTheme);
+
+                // Parse Stripe Connect and Setup URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const stripeConnectParam = urlParams.get('stripe_connect');
+                const stripeSetupParam = urlParams.get('stripe_setup');
+                const stripeBrandId = urlParams.get('brandId');
+                const sessionId = urlParams.get('session_id');
+
+                if (stripeConnectParam && stripeBrandId) {
+                    if (stripeConnectParam === 'success') {
+                        this.showNotification('Stripe Connect onboarding completed successfully!');
+                    } else if (stripeConnectParam === 'refresh') {
+                        this.showNotification('Stripe Connect onboarding refreshed.');
+                    }
+                    
+                    // Clear the query params from the URL cleanly
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                    
+                    // Switch view to billing subscription and select the correct brand
+                    this.activeShopFilter = stripeBrandId;
+                    this.switchView('billing-subscription');
+                } else if (stripeSetupParam && stripeBrandId) {
+                    if (stripeSetupParam === 'success' && sessionId) {
+                        this.verifyStripeCardSetup(stripeBrandId, sessionId);
+                    } else if (stripeSetupParam === 'cancel') {
+                        this.showNotification('Credit card linking cancelled.');
+                        const cleanUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        this.activeShopFilter = stripeBrandId;
+                        this.switchView('billing-subscription');
+                    }
+                }
 
                 // Setup global key listener for ⌘ K and click outside
                 window.addEventListener('keydown', this.handleGlobalKeydowns);
@@ -1562,6 +1785,32 @@ export default {
                 window.removeEventListener('beforeunload', this.handleBeforeUnload);
             },
             methods: {
+                async verifyStripeCardSetup(brandId, sessionId) {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/billing/setup-complete?brandId=${brandId}&sessionId=${sessionId}`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        const data = await response.json();
+                        if (response.ok) {
+                            this.showNotification('Credit card linked successfully for subscription auto-renewal!');
+                        } else {
+                            alert('Card linking validation failed: ' + (data.error || 'unknown error'));
+                        }
+                    } catch (err) {
+                        alert('Card linking validation error: ' + err.message);
+                    } finally {
+                        // Clear the query params from the URL cleanly
+                        const cleanUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        
+                        // Switch view to billing subscription and select the correct brand
+                        this.activeShopFilter = brandId;
+                        this.switchView('billing-subscription');
+                        
+                        // Reload brand details to synchronize fields
+                        await this.loadBrands();
+                    }
+                },
                 getBrandSubdomain(brand) {
                     if (!brand) return '';
                     if (brand.custom_domain) return brand.custom_domain;
@@ -1576,6 +1825,10 @@ export default {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/users`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
                         if (response.ok) {
                             this.users = await response.json();
                         }
@@ -1699,6 +1952,74 @@ export default {
                     localStorage.setItem('sc_admin_role', this.userRole);
                     this.showNotification(`Assumed role as Store Administrator for ${this.activeWorkspaceName}`);
                     this.profileDropdownOpen = false;
+                },
+                openProfileModal() {
+                    this.profilePassword = '';
+                    this.profilePasswordConfirm = '';
+                    this.profileModalOpen = true;
+                    this.profileDropdownOpen = false;
+                },
+                async updateUserProfile() {
+                    // Update names locally
+                    localStorage.setItem('sc_operator_first_name', this.operatorFirstName);
+                    localStorage.setItem('sc_operator_last_name', this.operatorLastName);
+
+                    if (this.profilePassword && this.profilePassword.trim()) {
+                        if (this.profilePassword.trim().length < 6) {
+                            alert('Password must be at least 6 characters.');
+                            return;
+                        }
+                        if (this.profilePassword !== this.profilePasswordConfirm) {
+                            alert('Passwords do not match.');
+                            return;
+                        }
+                    }
+
+                    try {
+                        const bodyData = {
+                            firstName: this.operatorFirstName,
+                            lastName: this.operatorLastName
+                        };
+                        if (this.profilePassword && this.profilePassword.trim()) {
+                            bodyData.password = this.profilePassword;
+                        }
+
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/users/update-profile`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                            },
+                            body: JSON.stringify(bodyData)
+                        });
+                        const data = await response.json();
+                        if (!response.ok) {
+                            alert(data.error || 'Failed to update profile.');
+                            return;
+                        }
+                    } catch (err) {
+                        alert(`Error updating profile: ${err.message}`);
+                        return;
+                    }
+
+                    this.showNotification('Profile updated successfully.');
+                    this.profileModalOpen = false;
+                },
+                async fetchCurrentProfile() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/users/me`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.operatorFirstName = data.first_name || '';
+                            this.operatorLastName = data.last_name || '';
+                            localStorage.setItem('sc_operator_first_name', data.first_name || '');
+                            localStorage.setItem('sc_operator_last_name', data.last_name || '');
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch profile info:', e);
+                    }
                 },
                 applyTheme(theme) {
                     this.appTheme = theme;
@@ -2008,6 +2329,31 @@ export default {
                         return String(prod.compatibility);
                     }
                 },
+                async handleRegister() {
+                    this.loginError = '';
+                    if (this.loginPassword.length < 6) {
+                        this.loginError = 'Password must be at least 6 characters.';
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/auth/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: this.loginEmail, password: this.loginPassword })
+                        });
+
+                        if (response.ok) {
+                            this.showNotification('✨ Account registered successfully! Please log in.');
+                            this.authMode = 'login';
+                            this.loginPassword = '';
+                        } else {
+                            const err = await response.json();
+                            this.loginError = err.error || 'Failed to register account.';
+                        }
+                    } catch (err) {
+                        this.loginError = `Server connection refused: ${err.message}`;
+                    }
+                },
                 // Authenticate Superadmin login
                 async handleLogin() {
                     this.loginError = '';
@@ -2023,6 +2369,8 @@ export default {
                             localStorage.setItem('sc_admin_token', result.token);
                             localStorage.setItem('sc_admin_email', result.email);
                             localStorage.setItem('sc_admin_role', result.role);
+                            localStorage.setItem('sc_operator_first_name', result.first_name || '');
+                            localStorage.setItem('sc_operator_last_name', result.last_name || '');
                             if (result.brand_id) {
                                 localStorage.setItem('sc_admin_brand_id', result.brand_id);
                             } else {
@@ -2031,6 +2379,8 @@ export default {
 
                             this.userRole = result.role;
                             this.userEmail = result.email;
+                            this.operatorFirstName = result.first_name || '';
+                            this.operatorLastName = result.last_name || '';
                             this.activeShopFilter = result.brand_id || 'all';
                             this.isLoggedIn = true;
                             this.showNotification('Authentication successful.');
@@ -2042,6 +2392,16 @@ export default {
                     } catch (err) {
                         this.loginError = `Server connection refused: ${err.message}`;
                     }
+                },
+                handleUnauthorizedSession() {
+                    localStorage.removeItem('sc_admin_token');
+                    localStorage.removeItem('sc_admin_email');
+                    localStorage.removeItem('sc_admin_role');
+                    localStorage.removeItem('sc_admin_brand_id');
+                    this.isLoggedIn = false;
+                    this.userEmail = '';
+                    this.loginPassword = '';
+                    this.showNotification('Your session has expired or is invalid. Please sign in again.');
                 },
                  handleLogout() {
                     if (confirm('Log out of Enterprise Portal?')) {
@@ -2080,7 +2440,59 @@ export default {
                     this.loadProducts();
                     this.loadUsers();
                 },
+                discardAndLeave() {
+                    if (this.activeView === 'designer' && this.$refs.designerView) {
+                        this.$refs.designerView.designerBrand = JSON.parse(JSON.stringify(this.$refs.designerView.originalBrandSettings));
+                        this.$refs.designerView.inheritStyles = this.$refs.designerView.originalBrandSettings.inherit;
+                    }
+                    if (this.activeView === 'settings' && this.$refs.settingsView) {
+                        this.settingsBrand = JSON.parse(JSON.stringify(this.originalSettingsBrand));
+                    }
+                    this.showUnsavedChangesModal = false;
+                    const nextView = this.pendingNavigationTargetView;
+                    this.pendingNavigationTargetView = '';
+                    // Disable check temporarily to switch view
+                    const cachedHasUnsaved = this.hasGlobalUnsavedChanges;
+                    // Force navigation
+                    this.activeView = nextView;
+                    this.mobileSidebarOpen = false;
+                    if (nextView === 'brands' && this.$refs.brandsView) {
+                        this.$refs.brandsView.activeSubView = 'list';
+                    }
+                    this.updateURL();
+                },
+                async saveAndLeave() {
+                    let success = false;
+                    if (this.activeView === 'designer' && this.$refs.designerView) {
+                        success = await this.$refs.designerView.saveDesignSettings();
+                    }
+                    if (this.activeView === 'settings' && this.$refs.settingsView) {
+                        success = await this.updateBrandSettings();
+                    }
+                    if (success) {
+                        this.showUnsavedChangesModal = false;
+                        const nextView = this.pendingNavigationTargetView;
+                        this.pendingNavigationTargetView = '';
+                        this.activeView = nextView;
+                        this.mobileSidebarOpen = false;
+                        if (nextView === 'brands' && this.$refs.brandsView) {
+                            this.$refs.brandsView.activeSubView = 'list';
+                        }
+                        this.updateURL();
+                    }
+                },
                 switchView(viewId) {
+                    if (this.brandsLoaded && this.brands.length === 0 && viewId !== 'brands' && viewId !== 'help') {
+                        alert('No coffee brands have been registered yet. Please create and register your first brand storefront under the "Shops" tab first.');
+                        this.activeView = 'brands';
+                        this.updateURL();
+                        return;
+                    }
+                    if (this.hasGlobalUnsavedChanges) {
+                        this.pendingNavigationTargetView = viewId;
+                        this.showUnsavedChangesModal = true;
+                        return;
+                    }
                     if (this.activeView === 'brands' && this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) {
                         const confirmExit = confirm("Are you sure you want to exit the setup wizard? Unsaved brand shop details may be lost.");
                         if (!confirmExit) return;
@@ -2302,6 +2714,10 @@ export default {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/brands`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
                         if (!response.ok) throw new Error(`API error: ${response.status}`);
                         this.brands = await response.json();
                         this.updateSettingsContext();
@@ -2328,8 +2744,16 @@ export default {
                                 this.previewActiveBrandId = this.brands[0].id;
                             }
                         }
+
+                        // Redirect if no brands exist
+                        if (this.brands.length === 0 && this.activeView !== 'brands' && this.activeView !== 'help') {
+                            this.activeView = 'brands';
+                            this.updateURL();
+                        }
                     } catch (err) {
                         console.error('Failed to load brands:', err);
+                    } finally {
+                        this.brandsLoaded = true;
                     }
                 },
                 // Fetch Orders List
@@ -2338,13 +2762,35 @@ export default {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/orders`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
                         if (!response.ok) throw new Error();
                         this.orders = await response.json();
+                        await this.loadTrafficStats();
                         nextTick(() => {
                             this.renderAnalyticsCharts();
                         });
                     } catch (err) {
                         console.error('Failed to load orders:', err);
+                    }
+                },
+                async loadTrafficStats() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/analytics/traffic`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.trafficStats = data.traffic || [];
+                        }
+                    } catch (err) {
+                        console.error('Failed to load traffic stats:', err);
                     }
                 },
                 // Fetch Products List
@@ -2353,6 +2799,10 @@ export default {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/products`, {
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                         });
+                        if (response.status === 401 || response.status === 403) {
+                            this.handleUnauthorizedSession();
+                            return;
+                        }
                         if (!response.ok) throw new Error();
                         this.products = await response.json();
                     } catch (err) {
@@ -2410,7 +2860,7 @@ export default {
 
                         if (response.ok) {
                             this.showNotification(`Shop ${this.newBrand.name} onboarded successfully!`);
-                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'], ai_tier: 'professional' };
+                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'], ai_tier: 'professional', price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15 };
                             await this.loadBrands();
                             this.switchView('overview');
                         } else {
@@ -2666,6 +3116,7 @@ export default {
                                 stripe_webhook_secret: '',
                                 languages: langs
                             };
+                            this.originalSettingsBrand = JSON.parse(JSON.stringify(this.settingsBrand));
                         }
                     }
                 },
@@ -2719,12 +3170,41 @@ export default {
 
                         if (response.ok) {
                             this.showNotification('Shop integrations updated successfully.');
+                            
+                            // Check if any new language was added
+                            const origLangs = Array.isArray(this.originalSettingsBrand?.languages) ? this.originalSettingsBrand.languages : [];
+                            const curLangs = Array.isArray(this.settingsBrand?.languages) ? this.settingsBrand.languages : [];
+                            const addedLangs = curLangs.filter(l => l !== 'en' && !origLangs.includes(l));
+                            
+                            if (addedLangs.length > 0) {
+                                const confirmTranslate = confirm(`✨ You added new language(s): ${addedLangs.join(', ').toUpperCase()}. Would you like the AI to automatically translate all storefront pages/copy into these new languages now? (Practically free, uses a fraction of a cent in tokens)`);
+                                if (confirmTranslate) {
+                                    this.showNotification(`✨ AI is auto-translating all storefront copy to ${addedLangs.join(', ').toUpperCase()}...`);
+                                    fetch(`${this.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/ai-translate-all`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({})
+                                    }).then(res => {
+                                        if (res.ok) {
+                                            this.showNotification('✨ All storefront content translated successfully!');
+                                        }
+                                    }).catch(err => console.error('Auto-translate error:', err));
+                                }
+                            }
+                            
                             this.loadBrands();
+                            this.originalSettingsBrand = JSON.parse(JSON.stringify(this.settingsBrand));
+                            return true;
                         } else {
                             alert('Error updating integrations.');
+                            return false;
                         }
                     } catch (err) {
                         alert(`Error: ${err.message}`);
+                        return false;
                     }
                 },
                 // Shopify integration manual dynamic downloader
@@ -2827,7 +3307,7 @@ export default {
                             existingUsersData[day] += total * 0.35;
                         });
                         
-                        if (newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
                             newUsersData = [120, 150, 180, 90, 200, 310, 160];
                             existingUsersData = [80, 100, 120, 60, 110, 190, 100];
                         }
@@ -2844,7 +3324,7 @@ export default {
                             existingUsersData[w] += total * 0.35;
                         });
                         
-                        if (newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
                             newUsersData = [800, 1200, 1500, 1100];
                             existingUsersData = [500, 700, 900, 600];
                         }
@@ -2864,7 +3344,7 @@ export default {
                             }
                         });
                         
-                        if (newUsersData.every(v => v === 0)) {
+                        if (this.showDemoData && newUsersData.every(v => v === 0)) {
                             newUsersData = [120000, 145000, 180000, 210000, 245000];
                             existingUsersData = [80000, 95000, 110000, 130000, 155000];
                         }
@@ -2882,7 +3362,7 @@ export default {
                         });
 
                         const hasData = newUsersData.some(v => v > 0);
-                        if (!hasData) {
+                        if (!hasData && this.showDemoData) {
                             newUsersData = [10000, 14000, 17000, 12000, 20000, 38000, 24000, 18000, 16000, 21000, 14000, 17000];
                             existingUsersData = [6000, 8000, 10000, 6000, 11000, 18000, 12000, 9000, 8000, 10000, 6000, 8000];
                         }
@@ -2966,7 +3446,7 @@ export default {
 
                     const labelsBrands = Object.keys(brandSalesMap);
                     const dataBrands = Object.values(brandSalesMap);
-                    if (dataBrands.length === 0 || dataBrands.every(v => v === 0)) {
+                    if (this.showDemoData && (dataBrands.length === 0 || dataBrands.every(v => v === 0))) {
                         labelsBrands.splice(0, 12, 'Espresso', 'Accessories', 'Filter Tools', 'Cleaning');
                         dataBrands.splice(0, 12, 14200, 9800, 7500, 5200);
                     }

@@ -8,8 +8,27 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import { runQuery, getQuery, allQuery } from './db.js';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
+
+// Global Fetch Interceptor to translate invalid/experimental model names to active Google API ones
+const originalFetch = globalThis.fetch;
+globalThis.fetch = function(url, options) {
+  if (typeof url === 'string') {
+    if (url.includes('models/gemini-2.5-flash')) {
+      url = url.replace('models/gemini-2.5-flash', 'models/gemini-1.5-flash');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-flash for: ${url}`);
+    } else if (url.includes('models/gemini-3.1-pro')) {
+      url = url.replace('models/gemini-3.1-pro', 'models/gemini-1.5-pro');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${url}`);
+    } else if (url.includes('models/deep-research-pro-preview')) {
+      url = url.replace('models/deep-research-pro-preview', 'models/gemini-1.5-pro');
+      console.log(`[AI Fetch Interceptor] Rewrote model path to gemini-1.5-pro for: ${url}`);
+    }
+  }
+  return originalFetch(url, options);
+};
 
 import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
 
@@ -129,6 +148,15 @@ app.use(cors({
 // Stripe Instances Cache per brand
 const stripeInstances = {};
 function getStripeInstance(brand) {
+  if ((brand.billing_type === 'external_split' || brand.billing_type === 'free') && !brand.stripe_secret_key) {
+    if (process.env.STRIPE_SECRET_KEY) {
+      if (!stripeInstances['platform_master']) {
+        stripeInstances['platform_master'] = new stripeLib(process.env.STRIPE_SECRET_KEY);
+      }
+      return stripeInstances['platform_master'];
+    }
+    return null;
+  }
   if (!brand.stripe_secret_key) return null;
   if (!stripeInstances[brand.id]) {
     stripeInstances[brand.id] = new stripeLib(brand.stripe_secret_key);
@@ -822,7 +850,8 @@ async function scrapeWooCommerceProducts(shopUrl) {
         image: image,
         description: description || 'Premium WooCommerce coffee product.',
         sku: `WC-${slug.toUpperCase()}`,
-        external_id: `woocommerce-rss-${slug}`
+        external_id: `woocommerce-rss-${slug}`,
+        original_link: link
       });
       idCounter++;
     }
@@ -979,7 +1008,10 @@ app.post('/api/webhook/stripe/:brandId', express.raw({ type: 'application/json' 
     }
 
     const stripe = getStripeInstance(brand);
-    const endpointSecret = brand.stripe_webhook_secret;
+    let endpointSecret = brand.stripe_webhook_secret;
+    if ((brand.billing_type === 'external_split' || brand.billing_type === 'free') && !endpointSecret) {
+      endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    }
 
     let event;
 
@@ -1091,6 +1123,37 @@ function estimateGeminiCost(model, promptTokens, completionTokens) {
   return parseFloat(cost.toFixed(6));
 }
 
+// Helper to verify brand has not exceeded its monthly subscription AI spend limit
+async function checkAiLimits(brandId) {
+  if (!brandId) return true;
+  try {
+    const brand = await getQuery('SELECT ai_tier, ai_free_tier, pay_as_you_go_enabled FROM brands WHERE id = $1', [brandId]);
+    if (!brand) return true;
+    if (brand.ai_free_tier) return true;
+    if (brand.pay_as_you_go_enabled) return true;
+    
+    const currentMonthCost = await getQuery(`
+      SELECT COALESCE(SUM(estimated_cost_usd), 0.0) as cost 
+      FROM ai_usage_logs 
+      WHERE brand_id = $1 AND created_at >= date_trunc('month', CURRENT_DATE)
+    `, [brandId]);
+    
+    const limits = {
+      standard: 10.00,
+      professional: 50.00,
+      enterprise: 200.00
+    };
+    
+    const limit = limits[brand.ai_tier || 'professional'] || 50.00;
+    if (parseFloat(currentMonthCost.cost) >= limit) {
+      throw new Error(`Monthly AI subscription spend limit exceeded ($${parseFloat(currentMonthCost.cost).toFixed(2)} / $${limit.toFixed(2)} USD). Please upgrade your subscription tier.`);
+    }
+    return true;
+  } catch (err) {
+    throw err;
+  }
+}
+
 // Helper to log AI usage to database
 async function logAiUsage(brandId, operation, model, usageMetadata) {
   if (!brandId) return;
@@ -1144,7 +1207,76 @@ app.post('/api/auth/login', async (req, res) => {
     const token = `${payloadBase64}.${signature}`;
 
     addAuditLog("Operator Login", "success", `JWT session token issued for ${user.email} (${user.role}).`);
-    res.json({ success: true, email: user.email, role: user.role, brand_id: user.brand_id, token });
+    res.json({ success: true, email: user.email, role: user.role, brand_id: user.brand_id, first_name: user.first_name, last_name: user.last_name, token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// User registration endpoint (public/outside)
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  if (password.trim().length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
+  try {
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    // Check if user already exists
+    const existingUser = await getQuery('SELECT id FROM users WHERE email = $1', [trimmedEmail]);
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this email address already exists.' });
+    }
+
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    await runQuery(`
+      INSERT INTO users (email, password_hash, role, brand_id)
+      VALUES ($1, $2, 'merchant', NULL)
+    `, [trimmedEmail, passwordHash]);
+
+    addAuditLog("Merchant Registration", "success", `New merchant user registered: ${trimmedEmail}`);
+    res.json({ success: true, message: 'Account registered successfully. You can now log in.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retrieve current operator profile details
+app.get('/api/global/users/me', verifyAdminToken, async (req, res) => {
+  try {
+    const user = await getQuery('SELECT id, email, role, brand_id, first_name, last_name, created_at FROM users WHERE email = $1', [req.user.email]);
+    if (!user) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update operator user profile details (e.g. password)
+app.post('/api/global/users/update-profile', verifyAdminToken, async (req, res) => {
+  const { password, firstName, lastName } = req.body;
+  
+  try {
+    if (password && password.trim()) {
+      if (password.trim().length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+      }
+      const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+      await runQuery('UPDATE users SET password_hash = $1, first_name = $2, last_name = $3 WHERE email = $4', [passwordHash, firstName || null, lastName || null, req.user.email]);
+    } else {
+      await runQuery('UPDATE users SET first_name = $1, last_name = $2 WHERE email = $3', [firstName || null, lastName || null, req.user.email]);
+    }
+    
+    addAuditLog("Update Profile", "success", `Operator profile successfully updated for ${req.user.email}`);
+    res.json({ success: true, message: 'Profile updated successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1445,11 +1577,11 @@ app.post('/api/checkout', async (req, res) => {
     // Create Order in pending state
     await runQuery(`
       INSERT INTO orders (
-        id, brand_id, stripe_session_id, customer_name, customer_email, items, subtotal, total, status,
+        id, brand_id, stripe_session_id, customer_name, customer_email, items, subtotal, total, total_amount, status,
         utm_source, utm_medium, utm_campaign, utm_term, utm_content, coupon_code, discount_amount,
         first_touch_url, last_touch_url, referrer, browser_info, attribution_channel, language
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
     `, [
       orderId,
       req.brand.id,
@@ -1459,6 +1591,7 @@ app.post('/api/checkout', async (req, res) => {
       JSON.stringify(validatedItems),
       subtotal,
       total,
+      total, // total_amount
       'pending_payment',
       utm_source || null,
       utm_medium || null,
@@ -1472,6 +1605,7 @@ app.post('/api/checkout', async (req, res) => {
       referrer || null,
       browser_info || null,
       attribution_channel || 'Direct',
+      language || 'en'
     ]);
 
     addAuditLog("Order Created", "success", `Pending checkout session for ${customerName} (${orderId}) created, total: €${total.toFixed(2)}.`);
@@ -1490,7 +1624,7 @@ app.post('/api/checkout', async (req, res) => {
         quantity: item.quantity
       }));
 
-      const session = await stripe.checkout.sessions.create({
+      const sessionConfig = {
         payment_method_types: ['card'],
         line_items: lineItems,
         mode: 'payment',
@@ -1501,7 +1635,24 @@ app.post('/api/checkout', async (req, res) => {
         },
         success_url: `${req.headers.origin}/track.html?orderId=${orderId}&status=success`,
         cancel_url: `${req.headers.origin}/index.html`
-      });
+      };
+
+      // If split billing is configured with Stripe Connect, split the payment
+      if (req.brand.billing_type === 'external_split' && req.brand.stripe_connect_account_id) {
+        const totalAmountCents = lineItems.reduce((sum, item) => sum + (item.price_data.unit_amount * item.quantity), 0);
+        const takeRate = req.brand.platform_take_rate !== null && req.brand.platform_take_rate !== undefined ? parseFloat(req.brand.platform_take_rate) : 0.15;
+        const appFeeCents = Math.round(totalAmountCents * takeRate);
+        
+        sessionConfig.payment_intent_data = {
+          application_fee_amount: appFeeCents,
+          transfer_data: {
+            destination: req.brand.stripe_connect_account_id,
+          },
+        };
+        console.log(`[Stripe Connect Split Checkout] Configured Destination Charge. Connected ID: ${req.brand.stripe_connect_account_id}, App Fee: €${(appFeeCents / 100).toFixed(2)}`);
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
 
       // Update order with the real session ID
       await runQuery('UPDATE orders SET stripe_session_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [session.id, orderId]);
@@ -2088,10 +2239,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, protocol_status, protocol_error FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, protocol_status, protocol_error FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2203,12 +2354,13 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     return res.status(400).json({ error: 'Missing required field: id' });
   }
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== reqId) {
+  // Permit brand creation if merchant has no brand associated yet (self-onboarding flow)
+  if (req.user.role !== 'superadmin' && req.user.brand_id && req.user.brand_id !== reqId) {
     return res.status(403).json({ error: 'Permission denied. Superadmin access or brand operator permission required.' });
   }
 
   try {
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier FROM brands WHERE id = $1', [reqId]);
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id FROM brands WHERE id = $1', [reqId]);
 
     if (req.user.role !== 'superadmin') {
       if (existing) {
@@ -2218,13 +2370,26 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         req.body.stripe_webhook_secret = existing.stripe_webhook_secret;
         req.body.ai_tier = existing.ai_tier;
         req.body.ai_free_tier = existing.ai_free_tier;
+        req.body.price_markup = existing.price_markup;
+        req.body.billing_type = existing.billing_type;
+        req.body.platform_take_rate = existing.platform_take_rate;
+        req.body.stripe_connect_account_id = existing.stripe_connect_account_id;
+        req.body.subscription_billing_method = existing.subscription_billing_method;
+        req.body.stripe_customer_id = existing.stripe_customer_id;
       } else {
-        req.body.ai_tier = 'professional';
+        // Support initial self-onboarding subscription tier select
+        req.body.ai_tier = req.body.ai_tier || 'professional';
         req.body.ai_free_tier = false;
+        req.body.price_markup = req.body.price_markup || 0.00;
+        req.body.billing_type = req.body.billing_type || 'standard';
+        req.body.platform_take_rate = 0.15;
+        req.body.stripe_connect_account_id = null;
+        req.body.subscription_billing_method = 'ledger';
+        req.body.stripe_customer_id = null;
       }
     }
 
-    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier } = req.body;
+    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id } = req.body;
 
     if (!id || !name || !subdomain) {
       return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -2293,10 +2458,24 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
 
     const finalAiTier = ai_tier || 'professional';
     const finalAiFreeTier = ai_free_tier === true || ai_free_tier === 'true';
+    const finalPayAsYouGo = pay_as_you_go_enabled === true || pay_as_you_go_enabled === 'true';
+    let finalCompetitors = existing ? existing.competitors : null;
+    if (competitors !== undefined) {
+      finalCompetitors = Array.isArray(competitors) ? competitors.join(', ') : (competitors || null);
+    }
+    let finalAutoFind = existing ? existing.auto_find_competitors : true;
+    if (auto_find_competitors !== undefined) {
+      finalAutoFind = auto_find_competitors === true || auto_find_competitors === 'true';
+    }
+    const finalPriceMarkup = price_markup !== undefined ? parseFloat(price_markup) : (existing ? parseFloat(existing.price_markup) : 0.00);
+    const finalBillingType = billing_type !== undefined ? billing_type : (existing ? existing.billing_type : 'standard');
+    const finalPlatformTakeRate = platform_take_rate !== undefined ? parseFloat(platform_take_rate) : (existing ? parseFloat(existing.platform_take_rate) : 0.15);
+
+    const finalBillingMethod = subscription_billing_method !== undefined ? subscription_billing_method : (existing ? existing.subscription_billing_method : 'ledger');
 
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -2316,6 +2495,15 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         marketing_protocol = EXCLUDED.marketing_protocol,
         ai_tier = EXCLUDED.ai_tier,
         ai_free_tier = EXCLUDED.ai_free_tier,
+        pay_as_you_go_enabled = EXCLUDED.pay_as_you_go_enabled,
+        competitors = EXCLUDED.competitors,
+        auto_find_competitors = EXCLUDED.auto_find_competitors,
+        price_markup = EXCLUDED.price_markup,
+        billing_type = EXCLUDED.billing_type,
+        platform_take_rate = EXCLUDED.platform_take_rate,
+        stripe_connect_account_id = EXCLUDED.stripe_connect_account_id,
+        subscription_billing_method = EXCLUDED.subscription_billing_method,
+        stripe_customer_id = EXCLUDED.stripe_customer_id,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -2336,11 +2524,227 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalLangs,
       marketing_protocol || null,
       finalAiTier,
-      finalAiFreeTier
+      finalAiFreeTier,
+      finalPayAsYouGo,
+      finalCompetitors,
+      finalAutoFind,
+      finalPriceMarkup,
+      finalBillingType,
+      finalPlatformTakeRate,
+      stripe_connect_account_id || null,
+      finalBillingMethod,
+      stripe_customer_id || null
     ]);
 
-    res.json({ success: true, brandId });
+    // If price_markup changed, update all external synced products' prices
+    if (existing && parseFloat(existing.price_markup) !== parseFloat(finalPriceMarkup)) {
+      console.log(`[Price Markup Change] Recalculating prices for brand ${brandId} from ${existing.price_markup}% to ${finalPriceMarkup}%`);
+      await runQuery(`
+        UPDATE products 
+        SET price = ROUND(original_price * (1 + $1 / 100), 2)
+        WHERE brand_id = $2 AND price_source = 'external' AND original_price IS NOT NULL
+      `, [finalPriceMarkup, brandId]);
+    }
+
+    // Provision subscription fee charges if paid tier selected and brand is being created for the first time
+    if (!existing && finalAiTier && finalAiTier !== 'none') {
+      let subAmount = 49.00;
+      if (finalAiTier === 'professional') subAmount = 99.00;
+      if (finalAiTier === 'enterprise') subAmount = 199.00;
+
+      // 1. Create merchant subscription record
+      await runQuery(`
+        INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, last_charged_at, next_charge_at)
+        VALUES ($1, $2, $3, 'monthly', 'active', CURRENT_TIMESTAMP, $4)
+      `, [
+        brandId,
+        `ai_subscription_${finalAiTier}`,
+        subAmount,
+        new Date(Date.now() + 30 * 24 * 3600 * 1000) // 30 days from now
+      ]);
+
+      // 2. Perform immediate first charge deduction in the payout ledger (reduces payout balance)
+      await runQuery(`
+        INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
+        VALUES ($1, NULL, $2, $2, $3, 'subscription_fee', $4)
+      `, [
+        brandId,
+        subAmount,
+        -subAmount,
+        `Immediate charge for initial ${finalAiTier} tier subscription`
+      ]);
+
+      console.log(`[Subscription Engine] Self-onboarding charged initial first-month subscription for brand ${brandId} (${finalAiTier}: €${subAmount})`);
+    }
+
+    // If user had no brand_id associated, link it now and generate updated token
+    let newToken = null;
+    if (!req.user.brand_id) {
+      await runQuery('UPDATE users SET brand_id = $1 WHERE email = $2', [brandId, req.user.email]);
+      console.log(`[User Onboarding] Linked user ${req.user.email} to newly created brand ${brandId}`);
+      
+      const payload = { email: req.user.email, role: req.user.role, brand_id: brandId, time: Date.now() };
+      const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString('base64');
+      const secret = process.env.JWT_SECRET || 'fallback-auth-secret-key-12984-sc';
+      const signature = crypto.createHmac('sha256', secret).update(payloadBase64).digest('hex');
+      newToken = `${payloadBase64}.${signature}`;
+    }
+
+    res.json({ success: true, brandId, token: newToken });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Create or Retrieve Stripe Connect Onboarding Account Link URL
+app.post('/api/global/brands/:id/stripe-connect-link', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT stripe_connect_account_id FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
+    }
+
+    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+    let accountId = brand.stripe_connect_account_id;
+
+    if (!accountId) {
+      // Create new Express Connected Account
+      console.log(`[Stripe Connect] Creating new Express account for brand: ${brandId}...`);
+      const account = await stripe.accounts.create({
+        type: 'express',
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true }
+        },
+        metadata: {
+          brand_id: brandId
+        }
+      });
+      accountId = account.id;
+
+      // Save the account ID in the database
+      await runQuery('UPDATE brands SET stripe_connect_account_id = $1 WHERE id = $2', [accountId, brandId]);
+    }
+
+    // Generate onboarding link
+    console.log(`[Stripe Connect] Creating account onboarding link for account: ${accountId}...`);
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${req.headers.origin}/admin/index.html?stripe_connect=refresh&brandId=${brandId}`,
+      return_url: `${req.headers.origin}/admin/index.html?stripe_connect=success&brandId=${brandId}`,
+      type: 'account_onboarding'
+    });
+
+    res.json({ success: true, url: accountLink.url });
+  } catch (err) {
+    console.error(`[Stripe Connect Link Error] Brand ${brandId}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Create Stripe Setup Session for Card-on-File
+app.post('/api/global/brands/:id/stripe-setup-session', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT name, contact_email, stripe_customer_id FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
+    }
+
+    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+    let customerId = brand.stripe_customer_id;
+
+    // Create a Stripe Customer if not already created
+    if (!customerId) {
+      console.log(`[Stripe Billing] Creating Customer object for brand: ${brandId}...`);
+      const customer = await stripe.customers.create({
+        email: brand.contact_email || `${brandId}@stricktlycoffee.be`,
+        name: brand.name,
+        metadata: { brand_id: brandId }
+      });
+      customerId = customer.id;
+      
+      // Save it in DB
+      await runQuery('UPDATE brands SET stripe_customer_id = $1 WHERE id = $2', [customerId, brandId]);
+    }
+
+    // Create Setup Session
+    console.log(`[Stripe Billing] Creating Card Setup Session for Customer: ${customerId}...`);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'setup',
+      payment_method_types: ['card'],
+      customer: customerId,
+      success_url: `${req.headers.origin}/admin/index.html?stripe_setup=success&brandId=${brandId}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.origin}/admin/index.html?stripe_setup=cancel&brandId=${brandId}`
+    });
+
+    res.json({ success: true, url: session.url });
+  } catch (err) {
+    console.error(`[Stripe Card Setup Session Error] Brand ${brandId}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Setup Complete Callback verification
+app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res) => {
+  const { brandId, sessionId } = req.query;
+  if (!brandId || !sessionId) {
+    return res.status(400).json({ error: 'Missing required parameters: brandId, sessionId' });
+  }
+
+  try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
+    }
+
+    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+    
+    // Retrieve Setup Checkout Session
+    console.log(`[Stripe Billing] Verifying Setup Checkout Session: ${sessionId}...`);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['setup_intent', 'setup_intent.payment_method']
+    });
+
+    if (session.status === 'complete' && session.setup_intent) {
+      const customerId = session.customer;
+      const paymentMethodId = session.setup_intent.payment_method?.id || session.setup_intent.payment_method;
+      
+      if (paymentMethodId) {
+        console.log(`[Stripe Billing] Setting payment method ${paymentMethodId} as default for Customer ${customerId}...`);
+        await stripe.customers.update(customerId, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId
+          }
+        });
+        
+        res.json({ success: true, message: 'Card linked successfully!' });
+      } else {
+        res.status(400).json({ error: 'No payment method returned in setup intent.' });
+      }
+    } else {
+      res.status(400).json({ error: `Setup Checkout Session is not complete (Status: ${session.status}).` });
+    }
+  } catch (err) {
+    console.error(`[Stripe Card Setup Complete Error] Brand ${brandId}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -2348,13 +2752,14 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
 // POST Generate brand marketing protocol manuscript via AI Analysis
 app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  const { url, competitors } = req.body;
+  const { url, competitors, auto_find_competitors } = req.body;
 
   if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
   try {
+    await checkAiLimits(brandId);
     const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found.' });
@@ -2362,6 +2767,10 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
 
     // Set status to generating immediately and reset error
     await runQuery("UPDATE brands SET protocol_status = 'generating', protocol_error = NULL WHERE id = $1", [brandId]);
+
+    // Setup AbortController for cancelability
+    const controller = new AbortController();
+    activeAborts.set(brandId, controller);
 
     // Send immediate response
     res.json({ success: true, message: 'Brand protocol generation started in the background.' });
@@ -2379,7 +2788,7 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
         if (targetUrl) {
           try {
             console.log(`[AI Protocol Generator] Scraping brand site: ${targetUrl}`);
-            const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const pageRes = await fetch(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal });
             if (pageRes.ok) {
               const html = await pageRes.text();
               homepageText = extractCleanText(html);
@@ -2389,12 +2798,62 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
           }
         }
 
+        const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
+        const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+        const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+
+        // Auto-find competitors if enabled and none provided
+        let autoDiscoveredCompetitors = [];
+        const shouldAutoFind = auto_find_competitors === true || auto_find_competitors === 'true' || brand.auto_find_competitors;
+        if (shouldAutoFind && (!competitors || (Array.isArray(competitors) ? competitors.length === 0 : !String(competitors).trim())) && apiKey) {
+          console.log(`[AI Protocol Generator] Auto-discovering competitors for brand: ${brand.name}`);
+          try {
+            const discoverPrompt = `You are a market research AI. Based on the following brand details and product catalog, identify exactly 3 real competitor website domains in their industry segment.
+Brand Name: ${brand.name}
+Primary Shop URL/Subdomain: ${targetUrl || 'Not available'}
+Clean homepage text snippet: ${homepageText.substring(0, 1000)}
+Catalog sample products:
+${catalogContext.substring(0, 1000) || 'None'}
+
+Return ONLY a comma-separated list of the 3 competitor domains (e.g. "competitor1.com, competitor2.com, competitor3.com"). Do not return any other text, markdown formatting, or explanation.`;
+
+            const discRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: discoverPrompt }] }]
+              }),
+              signal: controller.signal
+            });
+            if (discRes.ok) {
+              const discJson = await discRes.json();
+              const discText = discJson.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              console.log(`[AI Protocol Generator] Raw discovered competitors: ${discText}`);
+              const parsedComps = discText.split(',').map(s => s.replace(/['"`]/g, '').trim()).filter(s => s.includes('.') && !s.includes(' '));
+              if (parsedComps.length > 0) {
+                autoDiscoveredCompetitors = parsedComps;
+                console.log(`[AI Protocol Generator] Auto-discovered competitor domains: ${autoDiscoveredCompetitors.join(', ')}`);
+                // Update the competitors list in the database for the brand
+                await runQuery('UPDATE brands SET competitors = $1 WHERE id = $2', [autoDiscoveredCompetitors.join(', '), brandId]);
+              }
+            }
+          } catch (discErr) {
+            console.error('[AI Protocol Generator] Error auto-discovering competitors:', discErr.message);
+          }
+        }
+
         let competitorTexts = [];
-        if (competitors) {
-          const compUrls = Array.isArray(competitors)
+        let compUrls = [];
+        if (competitors && (Array.isArray(competitors) ? competitors.length > 0 : String(competitors).trim())) {
+          compUrls = Array.isArray(competitors)
             ? competitors
             : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
+        } else if (autoDiscoveredCompetitors.length > 0) {
+          compUrls = autoDiscoveredCompetitors;
+        }
 
+        if (compUrls.length > 0) {
           for (let compUrl of compUrls) {
             let fullCompUrl = compUrl;
             if (!fullCompUrl.startsWith('http')) {
@@ -2402,7 +2861,7 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
             }
             try {
               console.log(`[AI Protocol Generator] Scraping competitor site: ${fullCompUrl}`);
-              const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+              const compRes = await fetch(fullCompUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal });
               if (compRes.ok) {
                 const compHtml = await compRes.text();
                 const cleanCompText = extractCleanText(compHtml);
@@ -2413,11 +2872,6 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
             }
           }
         }
-
-        const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
-        const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
-
-        const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
 
         if (apiKey) {
           const prompt = `You are a premium Performance Marketing Director and Brand Strategist.
@@ -2451,7 +2905,7 @@ Generate a thorough, structured, and complete brand manuscript / protocol in Mar
 Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
 
           // Determine Gemini model based on brand's AI tier
-          let targetModel = 'gemini-3.1-pro';
+          let targetModel = 'gemini-1.5-pro';
           if (brand.ai_tier === 'standard') {
             targetModel = 'gemini-2.5-flash';
           } else if (brand.ai_tier === 'enterprise') {
@@ -2464,19 +2918,21 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }]
-            })
+            }),
+            signal: controller.signal
           });
 
           // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
           if (!geminiRes.ok && brand.ai_tier === 'enterprise') {
-            console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-3.1-pro');
-            targetModel = 'gemini-3.1-pro';
-            geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`, {
+            console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-1.5-pro');
+            targetModel = 'gemini-1.5-pro';
+            geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }]
-              })
+              }),
+              signal: controller.signal
             });
           }
 
@@ -2527,16 +2983,45 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
 
         await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed', protocol_error = NULL WHERE id = $2", [generatedProtocol, brandId]);
         addAuditLog("Marketing Protocol Generated", "success", `Generated AI marketing manuscript for brand ${brandId}.`);
+        activeAborts.delete(brandId);
       } catch (backgroundErr) {
-        console.error('[AI Protocol Generator] Background generation failed:', backgroundErr.message);
-        await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = $1 WHERE id = $2", [backgroundErr.message, brandId]);
-        addAuditLog("Marketing Protocol Generation Failed", "failed", `Error: ${backgroundErr.message}`);
+        activeAborts.delete(brandId);
+        if (backgroundErr.name === 'AbortError') {
+          console.log(`[AI Protocol Generator] Strategist generation aborted by user for brand: ${brandId}`);
+          await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = 'Generation aborted by user.' WHERE id = $1", [brandId]);
+          addAuditLog("Marketing Protocol Generation Aborted", "failed", `Strategy generation aborted for brand ${brandId}.`);
+        } else {
+          console.error('[AI Protocol Generator] Background generation failed:', backgroundErr.message);
+          await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = $1 WHERE id = $2", [backgroundErr.message, brandId]);
+          addAuditLog("Marketing Protocol Generation Failed", "failed", `Error: ${backgroundErr.message}`);
+        }
       }
     })();
   } catch (err) {
     console.error('[AI Protocol Generator] Failed to initialize background task:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// POST Cancel ongoing protocol generation
+app.post('/api/global/brands/:id/cancel-protocol', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  const controller = activeAborts.get(brandId);
+  if (controller) {
+    console.log(`[AI Protocol Generator] Aborting ongoing generation for brand: ${brandId}`);
+    controller.abort();
+    activeAborts.delete(brandId);
+    return res.json({ success: true, message: 'Strategy playbook generation successfully cancelled.' });
+  }
+
+  // If not currently in memory, reset database state to failed/aborted
+  await runQuery("UPDATE brands SET protocol_status = 'failed', protocol_error = 'Generation cancelled by user.' WHERE id = $1", [brandId]);
+  res.json({ success: true, message: 'Strategy playbook generation status reset.' });
 });
 
 // POST Compile brand prompt with scraped data for manual copy pasting
@@ -2574,10 +3059,11 @@ app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, 
     }
 
     let competitorTexts = [];
-    if (competitors) {
-      const compUrls = Array.isArray(competitors)
-        ? competitors
-        : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
+    const activeCompetitors = competitors || brand.competitors;
+    if (activeCompetitors) {
+      const compUrls = Array.isArray(activeCompetitors)
+        ? activeCompetitors
+        : String(activeCompetitors).split(',').map(s => s.trim()).filter(Boolean);
 
       for (let compUrl of compUrls) {
         let fullCompUrl = compUrl;
@@ -2638,6 +3124,263 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
 });
 
 // POST Generate AI look-alike storefront layout styling configurations
+// POST AI copywriting rewrite helper
+app.post('/api/global/brands/:id/ai-rewrite', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { text, field, tone } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  if (!text) {
+    return res.status(400).json({ error: 'Missing required field: text' });
+  }
+
+  try {
+    await checkAiLimits(brandId);
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const brand = await getQuery('SELECT name FROM brands WHERE id = $1', [brandId]);
+    const brandName = brand ? brand.name : 'our cafe';
+
+    let instruction = 'Rewrite the following storefront copy string to make it more engaging, premium, and high-converting.';
+    if (tone === 'punchy') instruction = 'Rewrite this storefront copy text to be more punchy, modern, vibrant, and engaging. Keep it brief and match its length.';
+    else if (tone === 'professional') instruction = 'Rewrite this storefront copy text to sound highly professional, luxury, trustworthy, and high-end. Keep the character length similar.';
+    else if (tone === 'hype') instruction = 'Turn this storefront copy text into a high-converting, premium marketing hook or CTA. Make it sound exciting.';
+    else if (tone === 'shorten') instruction = 'Shorten this storefront copy to be as concise as possible while retaining its core meaning.';
+    else if (tone === 'lengthen') instruction = 'Elaborate slightly on this storefront copy to sound highly premium, detailed, and description-rich.';
+
+    const systemPrompt = `You are an expert luxury brand copywriter. ${instruction}
+For brand name context: "${brandName}".
+Original text for field "${field || 'copy'}": "${text}"
+Return ONLY the rewritten string without quotes, markdown formatting, or explanations.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }]
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const rewrittenText = (result.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      if (result.usageMetadata) {
+        await logAiUsage(brandId, 'AI Copy Rewrite', 'gemini-2.5-flash', result.usageMetadata);
+      }
+      res.json({ success: true, text: rewrittenText });
+    } else {
+      const errText = await response.text();
+      res.status(500).json({ error: `Gemini API returned error: ${errText}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST AI copywriting translate single field helper
+app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { text, targetLang, field } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  if (!text || !targetLang) {
+    return res.status(400).json({ error: 'Missing required fields: text, targetLang' });
+  }
+
+  try {
+    await checkAiLimits(brandId);
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const systemPrompt = `You are an expert translator. Translate the following storefront copy string into the language code "${targetLang}". Keep it natural, idiomatic, and premium in style. Preserve placeholders like {brandName} or [brandName] exactly.
+Original text for field "${field || 'copy'}": "${text}"
+Return ONLY the translated string without quotes or markdown.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }]
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const translatedText = (result.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      if (result.usageMetadata) {
+        await logAiUsage(brandId, 'AI Copy Translation', 'gemini-2.5-flash', result.usageMetadata);
+      }
+      res.json({ success: true, text: translatedText });
+    } else {
+      const errText = await response.text();
+      res.status(500).json({ error: `Gemini API returned error: ${errText}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST AI bulk translate-all storefront pages copy helper
+app.post('/api/global/brands/:id/ai-translate-all', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { targetLang } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    await checkAiLimits(brandId);
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const brand = await getQuery('SELECT theme_settings, languages FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found.' });
+    }
+
+    const availableLangs = (brand.languages || 'en').split(',').map(l => l.trim().toLowerCase());
+    const langsToTranslate = targetLang 
+      ? [targetLang.toLowerCase()] 
+      : availableLangs.filter(l => l !== 'en');
+
+    if (langsToTranslate.length === 0) {
+      return res.json({ success: true, message: 'No translation target languages found.' });
+    }
+
+    let theme = {};
+    if (brand.theme_settings) {
+      try {
+        theme = JSON.parse(brand.theme_settings);
+      } catch (e) {}
+    }
+
+    // Assemble English source strings
+    const englishStrings = {
+      text_hero_headline: theme.text_hero_headline || '',
+      text_hero_subheadline: theme.text_hero_subheadline || '',
+      text_hero_cta: theme.text_hero_cta || '',
+      announcement_text: theme.announcement_text || '',
+      text_404_headline: theme.text_404_headline || '',
+      text_404_subheadline: theme.text_404_subheadline || '',
+      text_404_cta: theme.text_404_cta || '',
+      text_track_headline: theme.text_track_headline || '',
+      text_track_subheadline: theme.text_track_subheadline || '',
+      text_track_placeholder: theme.text_track_placeholder || '',
+      text_track_cta: theme.text_track_cta || '',
+      landing_pages: {}
+    };
+
+    if (theme.landing_pages && Array.isArray(theme.landing_pages)) {
+      theme.landing_pages.forEach(p => {
+        englishStrings.landing_pages[p.id] = {
+          headline: p.headline || '',
+          subheadline: p.subheadline || '',
+          cta: p.cta || '',
+          features: p.features || ''
+        };
+      });
+    }
+
+    if (!theme.content_translations) {
+      theme.content_translations = {};
+    }
+
+    for (const lang of langsToTranslate) {
+      console.log(`[AI Bulk Translate] Translating all pages to "${lang}" for brand: ${brandId}`);
+      const systemPrompt = `You are an expert translator. Translate the following storefront copywriting strings from English into the target language: "${lang}".
+Preserve all keys exactly. Preserve placeholders like {brandName} or [brandName] exactly. Keep it natural, idiomatic, and premium in style.
+
+Return ONLY a valid JSON object matching the exact structure of the input strings:
+${JSON.stringify(englishStrings, null, 2)}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: { responseMimeType: 'application/json' }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        
+        let translatedData = {};
+        try {
+          // Remove potential markdown code wraps from response
+          const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          translatedData = JSON.parse(cleanText);
+        } catch (jsonErr) {
+          console.error('[AI Bulk Translate] JSON parse error for translation response:', text);
+          continue;
+        }
+
+        if (result.usageMetadata) {
+          await logAiUsage(brandId, `AI Copy Bulk Translation (${lang})`, 'gemini-2.5-flash', result.usageMetadata);
+        }
+
+        // Merge back into theme content_translations
+        theme.content_translations[lang] = {
+          text_hero_headline: translatedData.text_hero_headline || '',
+          text_hero_subheadline: translatedData.text_hero_subheadline || '',
+          text_hero_cta: translatedData.text_hero_cta || '',
+          announcement_text: translatedData.announcement_text || '',
+          text_404_headline: translatedData.text_404_headline || '',
+          text_404_subheadline: translatedData.text_404_subheadline || '',
+          text_404_cta: translatedData.text_404_cta || '',
+          text_track_headline: translatedData.text_track_headline || '',
+          text_track_subheadline: translatedData.text_track_subheadline || '',
+          text_track_placeholder: translatedData.text_track_placeholder || '',
+          text_track_cta: translatedData.text_track_cta || ''
+        };
+
+        // Merge custom page translations back
+        if (theme.landing_pages && Array.isArray(theme.landing_pages)) {
+          theme.landing_pages.forEach(p => {
+            const pageTrans = translatedData.landing_pages?.[p.id];
+            if (pageTrans) {
+              if (!p.translations) {
+                p.translations = {};
+              }
+              p.translations[lang] = {
+                headline: pageTrans.headline || '',
+                subheadline: pageTrans.subheadline || '',
+                cta: pageTrans.cta || '',
+                features: pageTrans.features || ''
+              };
+            }
+          });
+        }
+      } else {
+        const errText = await response.text();
+        console.error(`[AI Bulk Translate] Gemini translation error: ${errText}`);
+      }
+    }
+
+    const updatedSettings = JSON.stringify(theme);
+    await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [updatedSettings, brandId]);
+
+    res.json({ success: true, theme_settings: theme });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
@@ -2646,6 +3389,7 @@ app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (r
   }
 
   try {
+    await checkAiLimits(brandId);
     const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found.' });
@@ -2660,13 +3404,20 @@ app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (r
       return res.status(400).json({ error: 'Gemini General API key not configured.' });
     }
 
-    const prompt = `You are a premium digital Brand Designer and Frontend Art Director.
+    const { prompt: userPrompt } = req.body;
+
+    let promptInstructions = `You are a premium digital Brand Designer and Frontend Art Director.
 Analyze the following Brand Strategy Playbook:
 
 [BRAND PLAYBOOK]
 ${brand.marketing_protocol}
+`;
 
-Determine a highly professional, visually stunning, cohesive color scheme, button border radius, font family, and hero copywriting blocks that perfectly matches the brand's voice and customer personas.
+    if (userPrompt) {
+      promptInstructions += `\n[USER DESIGN PROMPT/REQUEST]\nThe user wants the storefront layout to match this creative direction / prompt request:\n"${userPrompt}"\n`;
+    }
+
+    promptInstructions += `\nDetermine a highly professional, visually stunning, cohesive color scheme, button border radius, font family, and hero copywriting blocks that perfectly matches the brand's voice, customer personas, and the user's custom design request.
 
 Return ONLY a JSON object matching this structure:
 {
@@ -2683,12 +3434,12 @@ Return ONLY a JSON object matching this structure:
   "text_hero_cta": "Action-oriented CTA text e.g. Explore Precision Gear"
 }`;
 
-    console.log(`[AI Layout Generator] Analyzing brand strategy to design storefront look-alike for: ${brandId}`);
+    console.log(`[AI Layout Generator] Analyzing brand strategy & user prompt for: ${brandId}`);
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: promptInstructions }] }],
         generationConfig: { responseMimeType: 'application/json' }
       })
     });
@@ -2726,6 +3477,7 @@ app.post('/api/global/brands/:id/generate-ai-page', verifyAdminToken, async (req
   }
 
   try {
+    await checkAiLimits(brandId);
     const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found.' });
@@ -3145,9 +3897,9 @@ app.get('/api/global/users', verifyAdminToken, async (req, res) => {
   try {
     let rows;
     if (req.user.role.toLowerCase() === 'merchant') {
-      rows = await allQuery('SELECT id, email, role, brand_id, created_at FROM users WHERE brand_id = $1 ORDER BY email ASC', [req.user.brand_id]);
+      rows = await allQuery('SELECT id, email, role, brand_id, first_name, last_name, created_at FROM users WHERE brand_id = $1 ORDER BY email ASC', [req.user.brand_id]);
     } else {
-      rows = await allQuery('SELECT id, email, role, brand_id, created_at FROM users ORDER BY email ASC');
+      rows = await allQuery('SELECT id, email, role, brand_id, first_name, last_name, created_at FROM users ORDER BY email ASC');
     }
     res.json(rows);
   } catch (err) {
@@ -3326,7 +4078,7 @@ app.get('/api/global/products', verifyAdminToken, async (req, res) => {
 
 // Add new product to specific brand
 app.post('/api/global/products', verifyAdminToken, async (req, res) => {
-  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details } = req.body;
+  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price } = req.body;
 
   if (!brand_id || !title || !price) {
     return res.status(400).json({ error: 'Missing required fields: brand_id, title, price' });
@@ -3338,10 +4090,15 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const brand = await getQuery('SELECT id FROM brands WHERE id = $1', [brand_id]);
+    const brand = await getQuery('SELECT id, price_markup FROM brands WHERE id = $1', [brand_id]);
     if (!brand) {
       return res.status(400).json({ error: `Brand ${brand_id} does not exist.` });
     }
+
+    const markup = brand ? parseFloat(brand.price_markup) : 0;
+    const finalPriceSource = price_source || (external_id ? 'external' : 'manual');
+    const finalOriginalPrice = original_price !== undefined ? parseFloat(original_price) : parseFloat(price);
+    const finalPrice = markup > 0 && finalPriceSource === 'external' ? finalOriginalPrice * (1 + markup / 100) : parseFloat(price);
 
     const featuresJson = Array.isArray(features) ? JSON.stringify(features) : features || '[]';
     const compatibilityJson = Array.isArray(compatibility) ? JSON.stringify(compatibility) : compatibility || '[]';
@@ -3349,12 +4106,12 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
     const metaDetailsJson = meta_details ? (typeof meta_details === 'string' ? meta_details : JSON.stringify(meta_details)) : null;
 
     await runQuery(`
-      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     `, [
       brand_id,
       title,
-      price,
+      parseFloat(finalPrice.toFixed(2)),
       currency || 'EUR',
       image || null,
       description || null,
@@ -3366,7 +4123,10 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
       sku || null,
       external_id || null,
       translationsJson,
-      metaDetailsJson
+      metaDetailsJson,
+      finalPriceSource,
+      details_source || (external_id ? 'external' : 'manual'),
+      finalOriginalPrice
     ]);
 
     addAuditLog("Catalog Product Create", "success", `Product "${title}" (SKU: ${sku || 'N/A'}) manually added to brand ${brand_id}.`);
@@ -3406,6 +4166,13 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   }
 
   const brandId = resolveBrandId(req);
+  if (brandId) {
+    try {
+      await checkAiLimits(brandId);
+    } catch (err) {
+      return res.status(429).json({ error: err.message });
+    }
+  }
   let brand = null;
   if (brandId) {
     try {
@@ -3484,10 +4251,10 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
 // Update product in catalog
 app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
   const { id } = req.params;
-  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details } = req.body;
+  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details, price_source, details_source, original_price } = req.body;
 
   try {
-    const product = await getQuery('SELECT brand_id FROM products WHERE id = $1', [parseInt(id, 10)]);
+    const product = await getQuery('SELECT brand_id, price, original_price, price_source FROM products WHERE id = $1', [parseInt(id, 10)]);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
@@ -3495,6 +4262,17 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
     // Scope validation for merchants
     if (req.user.role === 'merchant' && req.user.brand_id !== product.brand_id) {
       return res.status(403).json({ error: 'Permission denied. Cannot update product of other brands.' });
+    }
+
+    const brand = await getQuery('SELECT price_markup FROM brands WHERE id = $1', [product.brand_id]);
+    const markup = brand ? parseFloat(brand.price_markup) : 0;
+
+    let finalPrice = parseFloat(price);
+    const finalPriceSource = price_source || product.price_source || 'external';
+    const finalOriginalPrice = original_price !== undefined ? parseFloat(original_price) : (product.original_price !== null ? parseFloat(product.original_price) : parseFloat(price));
+
+    if (finalPriceSource === 'external') {
+      finalPrice = markup > 0 ? finalOriginalPrice * (1 + markup / 100) : finalOriginalPrice;
     }
 
     const featuresJson = Array.isArray(features) ? JSON.stringify(features) : features || '[]';
@@ -3519,11 +4297,14 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
           active = $13,
           translations = $14,
           meta_details = $15,
+          price_source = $16,
+          details_source = $17,
+          original_price = $18,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $16
+      WHERE id = $19
     `, [
       title,
-      price,
+      parseFloat(finalPrice.toFixed(2)),
       currency || 'EUR',
       image || null,
       description || null,
@@ -3537,6 +4318,9 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
       active !== undefined ? active : 1,
       translationsJson,
       metaDetailsJson,
+      finalPriceSource,
+      details_source || 'external',
+      finalOriginalPrice,
       parseInt(id, 10)
     ]);
 
@@ -3740,6 +4524,31 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
 
     const order = await getQuery('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!order) return;
+
+    // Split-Payment Split Engine for external merchants
+    if (brand.billing_type === 'external_split' || brand.billing_type === 'free') {
+      const existingLedger = await getQuery('SELECT id FROM merchant_payout_ledger WHERE order_id = $1', [orderId]);
+      if (!existingLedger) {
+        const grossAmount = parseFloat(order.total) || 0;
+        const takeRate = brand.billing_type === 'free' ? 0.00 : (brand.platform_take_rate !== null && brand.platform_take_rate !== undefined ? parseFloat(brand.platform_take_rate) : 0.15);
+        const platformMargin = Math.round(grossAmount * takeRate * 100) / 100;
+        const netAmount = grossAmount - platformMargin;
+
+        await runQuery(`
+          INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          brand.id,
+          orderId,
+          grossAmount,
+          platformMargin,
+          netAmount,
+          'sale',
+          `Split payment for order ${orderId} (${brand.name}). Platform take-rate: ${(takeRate * 100).toFixed(1)}%`
+        ]);
+        console.log(`[Split Engine] Logged ledger sale for brand ${brand.id}, order ${orderId}. Gross: €${grossAmount}, Platform margin: €${platformMargin}, Net: €${netAmount}`);
+      }
+    }
 
     const hasShopify = !!brand.shopify_shop_name && !!brand.shopify_access_token;
     if (hasShopify) {
@@ -4151,7 +4960,7 @@ app.post('/api/global/woocommerce/callback', async (req, res) => {
 
 // Import product from Shopify into brand catalog
 app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
-  const { brandId, title, price, image, description, sku, external_id, translations, original_link } = req.body;
+  const { brandId, title, price, image, description, sku, external_id, translations, original_link, price_source, details_source, original_price } = req.body;
 
   if (!brandId || !title || !price) {
     return res.status(400).json({ error: 'Brand ID, Title, and Price are required.' });
@@ -4164,14 +4973,20 @@ app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
   try {
     const translationsJson = translations ? (typeof translations === 'string' ? translations : JSON.stringify(translations)) : null;
 
+    const brand = await getQuery('SELECT price_markup FROM brands WHERE id = $1', [brandId]);
+    const markup = brand ? parseFloat(brand.price_markup) : 0;
+    const basePrice = parseFloat(original_price !== undefined ? original_price : price);
+    const finalPriceSource = price_source || 'external';
+    const finalPrice = markup > 0 && finalPriceSource === 'external' ? basePrice * (1 + markup / 100) : basePrice;
+
     // Insert imported item into DB
     await runQuery(`
-      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, price_source, details_source, original_price)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     `, [
       brandId,
       title,
-      price,
+      parseFloat(finalPrice.toFixed(2)),
       'EUR',
       image || '',
       description || '',
@@ -4182,7 +4997,10 @@ app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
       JSON.stringify(['Commercial 58mm filter baskets']),
       sku || null,
       external_id || null,
-      translationsJson
+      translationsJson,
+      finalPriceSource,
+      details_source || 'external',
+      basePrice
     ]);
 
     res.json({ success: true });
@@ -4204,19 +5022,26 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
   }
 
   try {
+    const brand = await getQuery('SELECT price_markup FROM brands WHERE id = $1', [brandId]);
+    const markup = brand ? parseFloat(brand.price_markup) : 0;
+
     for (const p of products) {
       const featuresJson = Array.isArray(p.features) ? JSON.stringify(p.features) : p.features || '[]';
       const compatibilityJson = Array.isArray(p.compatibility) ? JSON.stringify(p.compatibility) : p.compatibility || '[]';
       const translationsJson = p.translations ? (typeof p.translations === 'string' ? p.translations : JSON.stringify(p.translations)) : null;
       const metaDetailsJson = p.meta_details ? (typeof p.meta_details === 'string' ? p.meta_details : JSON.stringify(p.meta_details)) : null;
 
+      const basePrice = parseFloat(p.original_price !== undefined ? p.original_price : p.price || 55.00);
+      const finalPriceSource = p.price_source || 'external';
+      const finalPrice = markup > 0 && finalPriceSource === 'external' ? basePrice * (1 + markup / 100) : parseFloat(p.price || 55.00);
+
       await runQuery(`
-        INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       `, [
         brandId,
         p.title,
-        p.price || 55.00,
+        parseFloat(finalPrice.toFixed(2)),
         'EUR',
         p.image || '',
         p.description || '',
@@ -4228,7 +5053,10 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
         p.sku || null,
         p.external_id || null,
         translationsJson,
-        metaDetailsJson
+        metaDetailsJson,
+        finalPriceSource,
+        p.details_source || 'external',
+        basePrice
       ]);
     }
 
@@ -4417,6 +5245,46 @@ app.get('/api/global/coupon-emails', verifyAdminToken, async (req, res) => {
   }
 });
 
+// SMTP Mailer Transporter Helper (Simulates delivery if SMTP environment is unconfigured)
+async function sendMailHelper(to, subject, bodyHtml, bodyText) {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || 'Strictly Coffee Platform <noreply@stricktlycoffee.be>';
+
+  if (host && user && pass) {
+    try {
+      console.log(`[SMTP Mailer] Initializing SMTP connection to ${host}:${port}...`);
+      const transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465, // True for 465, false for other ports
+        auth: { user, pass }
+      });
+
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text: bodyText || bodyHtml.replace(/<[^>]*>/g, ''),
+        html: bodyHtml
+      });
+
+      console.log(`[SMTP Mailer] Email sent successfully to ${to}. Message ID: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+    } catch (err) {
+      console.error(`[SMTP Mailer] Failed to deliver email to ${to}:`, err.message);
+      return { success: false, error: err.message };
+    }
+  } else {
+    console.log(`[SMTP Mailer Simulator] SMTP unconfigured. Simulated delivery of email to ${to}:
+    Subject: "${subject}"
+    Body Preview: "${(bodyText || bodyHtml).substring(0, 100)}..."`);
+    return { success: true, simulated: true };
+  }
+}
+
 // Force send all pending emails now (Simulation Trigger)
 app.post('/api/global/coupon-emails/send-pending', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
@@ -4426,6 +5294,17 @@ app.post('/api/global/coupon-emails/send-pending', verifyAdminToken, async (req,
     const pending = await allQuery('SELECT * FROM coupon_emails WHERE brand_id = $1 AND sent_at IS NULL AND scheduled_for <= NOW()', [brandId]);
     let count = 0;
     for (const email of pending) {
+      const bodyHtml = `
+        <div style="font-family: sans-serif; padding: 20px; line-height: 1.6; color: #111111;">
+          <h2>${email.email_subject}</h2>
+          <div style="white-space: pre-wrap; margin-bottom: 20px;">${email.email_body}</div>
+          <hr style="border: none; border-top: 1px solid #eeeeee;" />
+          <p style="font-size: 0.8rem; color: #767676;">
+            This email was sent on behalf of your coffee provider via the Stricktly Coffee Platform.
+          </p>
+        </div>
+      `;
+      await sendMailHelper(email.customer_email, email.email_subject, bodyHtml, email.email_body);
       await runQuery('UPDATE coupon_emails SET sent_at = CURRENT_TIMESTAMP WHERE id = $1', [email.id]);
       count++;
     }
@@ -4440,6 +5319,17 @@ setInterval(async () => {
   try {
     const pending = await allQuery('SELECT * FROM coupon_emails WHERE sent_at IS NULL AND scheduled_for <= NOW()');
     for (const email of pending) {
+      const bodyHtml = `
+        <div style="font-family: sans-serif; padding: 20px; line-height: 1.6; color: #111111;">
+          <h2>${email.email_subject}</h2>
+          <div style="white-space: pre-wrap; margin-bottom: 20px;">${email.email_body}</div>
+          <hr style="border: none; border-top: 1px solid #eeeeee;" />
+          <p style="font-size: 0.8rem; color: #767676;">
+            This email was sent on behalf of your coffee provider via the Stricktly Coffee Platform.
+          </p>
+        </div>
+      `;
+      await sendMailHelper(email.customer_email, email.email_subject, bodyHtml, email.email_body);
       await runQuery('UPDATE coupon_emails SET sent_at = CURRENT_TIMESTAMP WHERE id = $1', [email.id]);
       console.log(`[Referral System] Auto-delivered scheduled email ID ${email.id} to ${email.customer_email} with code ${email.coupon_code}`);
     }
@@ -4447,6 +5337,247 @@ setInterval(async () => {
     console.error('[Scheduler] Error in background coupon email scheduler:', err);
   }
 }, 30000); // Check every 30 seconds
+
+// Subscription/fee billing engine
+async function processDueSubscriptions() {
+  try {
+    // Find all active subscriptions that are due for billing (next_charge_at <= NOW())
+    const dueSubscriptions = await allQuery(`
+      SELECT s.*, b.name as brand_name, b.subscription_billing_method, b.stripe_customer_id
+      FROM merchant_subscriptions s
+      JOIN brands b ON s.brand_id = b.id
+      WHERE s.status = 'active' AND (s.next_charge_at IS NULL OR s.next_charge_at <= NOW())
+    `);
+
+    for (const sub of dueSubscriptions) {
+      const amount = parseFloat(sub.amount) || 0;
+      let cardChargeSuccess = false;
+      let chargeDescription = `Charged active subscription fee for: ${sub.name}`;
+      let netBalanceEffect = -amount; // default: reduces ledger balance
+
+      // If they configured Stripe card billing and have a linked customer ID
+      if (sub.subscription_billing_method === 'stripe_card' && sub.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+        try {
+          console.log(`[Subscription Engine] Attempting off-session credit card payment for brand: ${sub.brand_id} (Customer: ${sub.stripe_customer_id})...`);
+          const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+          
+          // Execute payment intent off-session using customer's default payment method
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(amount * 100),
+            currency: 'eur',
+            customer: sub.stripe_customer_id,
+            confirm: true,
+            off_session: true,
+            payment_method_types: ['card'],
+            description: `Auto-renewal: subscription fee for ${sub.name}`
+          });
+
+          if (paymentIntent.status === 'succeeded') {
+            cardChargeSuccess = true;
+            netBalanceEffect = 0.00; // Payout balance remains unaffected since payment was direct
+            chargeDescription = `Direct Card Payment Succeeded: subscription fee for ${sub.name}`;
+            console.log(`[Subscription Engine] Stripe payment succeeded for brand ${sub.brand_id}. Intent: ${paymentIntent.id}`);
+          }
+        } catch (err) {
+          // If direct card billing fails, log error and fall back to ledger deduction
+          console.error(`[Subscription Engine] Card payment failed for brand ${sub.brand_id} (Falling back to ledger deduction):`, err.message);
+          chargeDescription = `Card Payment Failed: subscription fee for ${sub.name} (debited from balance)`;
+        }
+      }
+      
+      // Create a ledger debit record for the subscription fee
+      await runQuery(`
+        INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
+        VALUES ($1, NULL, $2, $3, $4, $5, $6)
+      `, [
+        sub.brand_id,
+        amount,
+        amount, // Platform margin gets 100% of sub fee
+        netBalanceEffect,
+        'subscription_fee',
+        chargeDescription
+      ]);
+
+      // Calculate next charge time (default 1 month)
+      let nextCharge = new Date();
+      if (sub.interval === 'weekly') {
+        nextCharge.setDate(nextCharge.getDate() + 7);
+      } else {
+        nextCharge.setMonth(nextCharge.getMonth() + 1);
+      }
+
+      await runQuery(`
+        UPDATE merchant_subscriptions 
+        SET last_charged_at = CURRENT_TIMESTAMP, next_charge_at = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [nextCharge, sub.id]);
+
+      console.log(`[Subscription Engine] Charged brand ${sub.brand_id} subscription fee €${amount} for '${sub.name}'. Method: ${sub.subscription_billing_method || 'ledger'}. Next charge scheduled for ${nextCharge.toISOString()}`);
+    }
+  } catch (err) {
+    console.error('[Subscription Engine] Error processing subscriptions:', err);
+  }
+}
+
+// Background scheduler checking every 60 seconds
+setInterval(processDueSubscriptions, 60000);
+
+// GET Payout Ledger and calculated balance for a brand
+app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res) => {
+  const { brandId } = req.params;
+  try {
+    const brand = await getQuery('SELECT stripe_connect_account_id, subscription_billing_method, stripe_customer_id FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const ledger = await allQuery('SELECT * FROM merchant_payout_ledger WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    const balanceResult = await getQuery('SELECT SUM(net_amount) as balance FROM merchant_payout_ledger WHERE brand_id = $1', [brandId]);
+    const currentBalance = parseFloat(balanceResult?.balance) || 0.00;
+
+    let stripeConnectStatus = 'unlinked';
+    if (brand.stripe_connect_account_id && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+        const acc = await stripe.accounts.retrieve(brand.stripe_connect_account_id);
+        if (acc.details_submitted) {
+          stripeConnectStatus = 'active';
+        } else {
+          stripeConnectStatus = 'incomplete';
+        }
+      } catch (err) {
+        console.error(`[Stripe Connect Status Check] Brand ${brandId} retrieve error:`, err.message);
+        stripeConnectStatus = 'error';
+      }
+    }
+
+    let hasCardLinked = false;
+    if (brand.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+        const customer = await stripe.customers.retrieve(brand.stripe_customer_id);
+        if (customer.invoice_settings && customer.invoice_settings.default_payment_method) {
+          hasCardLinked = true;
+        }
+      } catch (err) {
+        console.error(`[Stripe Customer Retrieve Error] Brand ${brandId}:`, err.message);
+      }
+    }
+    
+    res.json({
+      brand_id: brandId,
+      balance: currentBalance,
+      ledger,
+      stripe_connect_status: stripeConnectStatus,
+      subscription_billing_method: brand.subscription_billing_method || 'ledger',
+      stripe_customer_id: brand.stripe_customer_id || null,
+      card_linked: hasCardLinked
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Public Storefront pageview tracking
+app.post('/api/analytics/pageview', async (req, res) => {
+  const { brandId, page, sessionId } = req.body;
+  if (!brandId) return res.status(400).json({ error: 'Missing brandId parameter.' });
+  try {
+    await runQuery(
+      'INSERT INTO storefront_traffic (brand_id, page_path, session_id) VALUES ($1, $2, $3)',
+      [brandId, page || '/', sessionId || null]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[Analytics tracking error] Brand ${brandId}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Authenticated admin dashboard traffic stats query
+app.get('/api/global/analytics/traffic', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  try {
+    let query = `
+      SELECT brand_id, COUNT(*) as pageviews, COUNT(DISTINCT session_id) as visitors
+      FROM storefront_traffic
+    `;
+    let params = [];
+    if (brandId && brandId !== 'all') {
+      query += ` WHERE brand_id = $1`;
+      params.push(brandId);
+    }
+    query += ` GROUP BY brand_id`;
+    
+    const rows = await allQuery(query, params);
+    res.json({ success: true, traffic: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Manual Process of Due Subscriptions
+app.post('/api/global/billing/process-subscriptions', verifyAdminToken, async (req, res) => {
+  try {
+    await processDueSubscriptions();
+    res.json({ success: true, message: 'Processed due subscriptions.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Manual Payout logic (logging a payout to the ledger)
+app.post('/api/global/billing/payout', verifyAdminToken, async (req, res) => {
+  const { brandId, amount, description } = req.body;
+  if (!brandId || !amount) {
+    return res.status(400).json({ error: 'Missing brandId or amount' });
+  }
+  try {
+    const payoutAmount = parseFloat(amount);
+    
+    // Check if the merchant has enough balance for payout
+    const balanceResult = await getQuery('SELECT SUM(net_amount) as balance FROM merchant_payout_ledger WHERE brand_id = $1', [brandId]);
+    const currentBalance = parseFloat(balanceResult?.balance) || 0.00;
+    
+    await runQuery(`
+      INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
+      VALUES ($1, NULL, $2, 0.0, $3, $4, $5)
+    `, [
+      brandId,
+      payoutAmount,
+      -payoutAmount, // Reduces the ledger balance
+      'payout',
+      description || `Disbursement payout of €${payoutAmount.toFixed(2)}`
+    ]);
+    
+    res.json({
+      success: true,
+      message: `Successfully processed payout of €${payoutAmount.toFixed(2)}. Remaining balance: €${(currentBalance - payoutAmount).toFixed(2)}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Manual Subscription creation or fee charge
+app.post('/api/global/billing/subscriptions', verifyAdminToken, async (req, res) => {
+  const { brandId, name, amount, interval } = req.body;
+  if (!brandId || !name || !amount) {
+    return res.status(400).json({ error: 'Missing brandId, name, or amount' });
+  }
+  try {
+    const subAmount = parseFloat(amount);
+    
+    await runQuery(`
+      INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, next_charge_at)
+      VALUES ($1, $2, $3, $4, 'active', CURRENT_TIMESTAMP)
+    `, [brandId, name, subAmount, interval || 'monthly']);
+    
+    res.json({ success: true, message: `Subscription '${name}' created successfully.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Helper to generate mock performance history data for campaigns over multiple days
 function generateMockPerformanceHistory(startDateStr, endDateStr, budget, budgetType) {
@@ -4495,7 +5626,8 @@ app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =>
       carousel_cards: r.carousel_cards ? (typeof r.carousel_cards === 'string' ? JSON.parse(r.carousel_cards) : r.carousel_cards) : [],
       translations: r.translations ? (typeof r.translations === 'string' ? JSON.parse(r.translations) : r.translations) : null,
       performance_history: r.performance_history ? (typeof r.performance_history === 'string' ? JSON.parse(r.performance_history) : r.performance_history) : [],
-      automation_rules: r.automation_rules ? (typeof r.automation_rules === 'string' ? JSON.parse(r.automation_rules) : r.automation_rules) : []
+      automation_rules: r.automation_rules ? (typeof r.automation_rules === 'string' ? JSON.parse(r.automation_rules) : r.automation_rules) : [],
+      autopilot_guardrails: r.autopilot_guardrails ? (typeof r.autopilot_guardrails === 'string' ? JSON.parse(r.autopilot_guardrails) : r.autopilot_guardrails) : { max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 }
     }));
     res.json(parsedRows);
   } catch (err) {
@@ -4512,7 +5644,7 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
     id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
     carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
     start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-    automation_rules, autopilot_enabled, ai_cost
+    automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails
   } = req.body;
 
   if (!name || !platform || !budget) {
@@ -4540,9 +5672,9 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         id, brand_id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
         carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
         start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-        automation_rules, autopilot_enabled, ai_cost
+        automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         platform = EXCLUDED.platform,
@@ -4568,7 +5700,9 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         status = EXCLUDED.status,
         automation_rules = EXCLUDED.automation_rules,
         autopilot_enabled = EXCLUDED.autopilot_enabled,
-        ai_cost = EXCLUDED.ai_cost
+        ai_cost = EXCLUDED.ai_cost,
+        agent_mode = EXCLUDED.agent_mode,
+        autopilot_guardrails = EXCLUDED.autopilot_guardrails
     `, [
       campaignId,
       brandId,
@@ -4596,9 +5730,352 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
       status || 'active',
       rulesJson,
       autopilot_enabled === true || autopilot_enabled === 'true',
-      resolvedAiCost
+      resolvedAiCost,
+      agent_mode || 'recommendation',
+      autopilot_guardrails ? (typeof autopilot_guardrails === 'string' ? autopilot_guardrails : JSON.stringify(autopilot_guardrails)) : JSON.stringify({ max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 })
     ]);
     res.json({ success: true, campaignId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Campaign Agent Recommendations
+app.get('/api/global/marketing-campaigns/:id/agent-recommendations', verifyAdminToken, async (req, res) => {
+  const campaignId = req.params.id;
+  try {
+    const recommendations = await allQuery('SELECT * FROM campaign_agent_recommendations WHERE campaign_id = $1 ORDER BY created_at DESC', [campaignId]);
+    res.json({ success: true, recommendations });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Apply Campaign Recommendation
+app.post('/api/global/marketing-campaigns/:id/recommendations/:recId/apply', verifyAdminToken, async (req, res) => {
+  const campaignId = req.params.id;
+  const recId = req.params.recId;
+
+  try {
+    const rec = await getQuery('SELECT * FROM campaign_agent_recommendations WHERE id = $1 AND campaign_id = $2', [recId, campaignId]);
+    if (!rec) {
+      return res.status(404).json({ error: 'Recommendation not found.' });
+    }
+    if (rec.status !== 'pending') {
+      return res.status(400).json({ error: `Recommendation is already ${rec.status}.` });
+    }
+
+    const campaign = await getQuery('SELECT budget, status FROM marketing_campaigns WHERE id = $1', [campaignId]);
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found.' });
+    }
+
+    if (rec.action === 'pause') {
+      await runQuery("UPDATE marketing_campaigns SET status = 'paused' WHERE id = $1", [campaignId]);
+    } else if (rec.action === 'increase_budget') {
+      const changePct = parseFloat(rec.action_value) || 0;
+      const newBudget = parseFloat(campaign.budget) * (1 + changePct / 100);
+      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(newBudget.toFixed(2)), campaignId]);
+    } else if (rec.action === 'reduce_budget') {
+      const changePct = parseFloat(rec.action_value) || 0;
+      const newBudget = parseFloat(campaign.budget) * (1 - changePct / 100);
+      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(newBudget.toFixed(2)), campaignId]);
+    }
+
+    await runQuery("UPDATE campaign_agent_recommendations SET status = 'applied', applied_at = CURRENT_TIMESTAMP WHERE id = $1", [recId]);
+    addAuditLog("Campaign Recommendation Applied", "success", `Applied recommendation ID ${recId} to campaign ${campaignId}.`);
+
+    res.json({ success: true, message: 'Recommendation applied successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Dismiss Campaign Recommendation
+app.post('/api/global/marketing-campaigns/:id/recommendations/:recId/dismiss', verifyAdminToken, async (req, res) => {
+  const campaignId = req.params.id;
+  const recId = req.params.recId;
+
+  try {
+    await runQuery("UPDATE campaign_agent_recommendations SET status = 'dismissed' WHERE id = $1 AND campaign_id = $2", [recId, campaignId]);
+    res.json({ success: true, message: 'Recommendation dismissed.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Trigger AI Campaign Agent Run
+app.post('/api/global/marketing-campaigns/trigger-agent-run', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+
+  try {
+    await runAutopilotAgentAnalysis(brandId);
+    res.json({ success: true, message: 'AI Campaign Strategist run completed.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function runAutopilotAgentAnalysis(brandId) {
+  console.log(`[AI Chief Coordinator] Starting campaign analysis for brand: ${brandId}...`);
+  const campaigns = await allQuery("SELECT * FROM marketing_campaigns WHERE brand_id = $1 AND status = 'active'", [brandId]);
+  const brand = await getQuery("SELECT contact_email FROM brands WHERE id = $1", [brandId]);
+  const emailTo = brand?.contact_email || 'merchant@stricktlycoffee.be';
+
+  for (const c of campaigns) {
+    const rules = c.automation_rules ? (typeof c.automation_rules === 'string' ? JSON.parse(c.automation_rules) : c.automation_rules) : [];
+    if (!rules || rules.length === 0) continue;
+
+    const history = c.performance_history ? (typeof c.performance_history === 'string' ? JSON.parse(c.performance_history) : c.performance_history) : [];
+    if (!history || history.length === 0) continue;
+
+    const latest = history[history.length - 1];
+    if (!latest) continue;
+
+    const currentROAS = parseFloat(latest.roas) || 0;
+    const currentSpend = parseFloat(latest.spend) || 0;
+    const currentConversions = parseInt(latest.conversions) || 0;
+
+    const guardrails = c.autopilot_guardrails ? (typeof c.autopilot_guardrails === 'string' ? JSON.parse(c.autopilot_guardrails) : c.autopilot_guardrails) : { max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 };
+    const maxBudgetChangePct = parseFloat(guardrails.max_budget_change_pct) || 20;
+    const minRoasFloor = parseFloat(guardrails.min_roas_floor) || 1.8;
+    const maxSpendCeiling = parseFloat(guardrails.max_spend_ceiling) || 500;
+
+    const mode = c.agent_mode || 'recommendation';
+
+    // 1. Safety Director Agent Evaluation
+    let safetyAlert = false;
+    let safetyReason = "";
+    if (currentROAS < minRoasFloor) {
+      safetyAlert = true;
+      safetyReason = `ROAS (${currentROAS}x) fell below absolute safety floor (${minRoasFloor}x)`;
+    }
+
+    if (safetyAlert) {
+      const triggerMsg = safetyReason;
+      if (mode === 'autonomous') {
+        await runQuery("UPDATE marketing_campaigns SET status = 'paused' WHERE id = $1", [c.id]);
+        await runQuery(`
+          INSERT INTO campaign_agent_recommendations (campaign_id, metric, operator, trigger_value, current_value, action, action_value, status, agent_role, performance_impact)
+          VALUES ($1, 'roas', 'lt', $2, $3, 'pause', NULL, 'auto_executed', 'safety_director', $4)
+        `, [c.id, minRoasFloor, currentROAS, JSON.stringify({ budget_saved: currentSpend, roas_lift: 0.0 })]);
+        addAuditLog("Campaign Safety Floor Autopilot Triggered", "success", `Safety Director paused campaign ${c.id}: ${triggerMsg}`);
+        
+        await sendMailHelper(
+          emailTo,
+          `⚠️ [AUTOPILOT] Campaign Paused: Safety Floor Breached`,
+          `<div style="font-family: sans-serif; padding: 20px;">
+             <h2>⚠️ Campaign Autopilot Action</h2>
+             <p>Your campaign <strong>${c.name}</strong> was automatically paused because its ROAS (${currentROAS}x) fell below your minimum safety floor of ${minRoasFloor}x.</p>
+           </div>`
+        );
+      } else {
+        const existing = await getQuery("SELECT id FROM campaign_agent_recommendations WHERE campaign_id = $1 AND action = 'pause' AND status = 'pending'", [c.id]);
+        if (!existing) {
+          await runQuery(`
+            INSERT INTO campaign_agent_recommendations (campaign_id, metric, operator, trigger_value, current_value, action, action_value, status, agent_role, performance_impact)
+            VALUES ($1, 'roas', 'lt', $2, $3, 'pause', NULL, 'pending', 'safety_director', $4)
+          `, [c.id, minRoasFloor, currentROAS, JSON.stringify({ budget_saved: currentSpend, roas_lift: 0.0 })]);
+          
+          await sendMailHelper(
+            emailTo,
+            `💡 [CO-PILOT] Recommendation: Pause Campaign`,
+            `<div style="font-family: sans-serif; padding: 20px;">
+               <h2>💡 Campaign Strategy Recommendation</h2>
+               <p>We recommend pausing campaign <strong>${c.name}</strong> because its ROAS (${currentROAS}x) fell below your safety floor of ${minRoasFloor}x. Tap in your dashboard to apply this.</p>
+             </div>`
+          );
+        }
+      }
+      continue;
+    }
+
+    // 2. Specialized Agent Suggestion Loop
+    const suggestions = [];
+
+    for (const rule of rules) {
+      let isTriggered = false;
+      let curVal = 0;
+
+      if (rule.metric === 'roas') {
+        curVal = currentROAS;
+        isTriggered = rule.operator === 'lt' ? (currentROAS < rule.value) : (currentROAS > rule.value);
+      } else if (rule.metric === 'spend') {
+        curVal = currentSpend;
+        isTriggered = rule.operator === 'lt' ? (currentSpend < rule.value) : (currentSpend > rule.value);
+      } else if (rule.metric === 'conversions') {
+        curVal = currentConversions;
+        isTriggered = rule.operator === 'lt' ? (currentConversions < rule.value) : (currentConversions > rule.value);
+      }
+
+      if (isTriggered) {
+        let agentRole = 'budget_allocator';
+        if (rule.metric === 'conversions') {
+          agentRole = 'creative_critic';
+        }
+
+        suggestions.push({ rule, curVal, agentRole });
+      }
+    }
+
+    // 3. Chief Coordinator Consensus & Conflict Resolution Loop
+    for (const sugg of suggestions) {
+      const { rule, curVal, agentRole } = sugg;
+      let actionVal = parseFloat(rule.action_value) || 0;
+      let isBlocked = false;
+      let resolutionReason = "";
+
+      if (rule.action === 'increase_budget' && currentROAS < (minRoasFloor * 1.25)) {
+        isBlocked = true;
+        resolutionReason = `Budget Allocator suggested scaling spend, but Safety Director blocked it because current ROAS (${currentROAS}x) is close to safety floor (${minRoasFloor}x)`;
+      }
+
+      if (isBlocked) {
+        console.log(`[AI Chief Coordinator] Conflict Resolved: Blocked scaling because ROAS is near floor.`);
+        await runQuery(`
+          INSERT INTO agent_conflict_logs (campaign_id, conflicting_agents, conflict_description, resolution)
+          VALUES ($1, 'budget_allocator & safety_director', $2, 'blocked_budget_increase')
+        `, [c.id, resolutionReason]);
+        continue;
+      }
+
+      if (rule.action !== 'pause' && actionVal > maxBudgetChangePct) {
+        actionVal = maxBudgetChangePct;
+      }
+
+      const mockImpact = {
+        roas_lift: rule.action === 'increase_budget' ? 0.35 : 0.15,
+        budget_saved: rule.action === 'reduce_budget' ? currentSpend * (actionVal / 100) : 0.0
+      };
+
+      if (mode === 'autonomous') {
+        let updatedBudget = parseFloat(c.budget);
+        if (rule.action === 'pause') {
+          await runQuery("UPDATE marketing_campaigns SET status = 'paused' WHERE id = $1", [c.id]);
+        } else if (rule.action === 'increase_budget') {
+          updatedBudget = Math.min(updatedBudget * (1 + actionVal / 100), maxSpendCeiling);
+          await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(updatedBudget.toFixed(2)), c.id]);
+        } else if (rule.action === 'reduce_budget') {
+          updatedBudget = updatedBudget * (1 - actionVal / 100);
+          await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(updatedBudget.toFixed(2)), c.id]);
+        }
+
+        await runQuery(`
+          INSERT INTO campaign_agent_recommendations (campaign_id, metric, operator, trigger_value, current_value, action, action_value, status, agent_role, performance_impact)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'auto_executed', $8, $9)
+        `, [c.id, rule.metric, rule.operator, rule.value, curVal, rule.action, actionVal, agentRole, JSON.stringify(mockImpact)]);
+
+        addAuditLog("Campaign Autopilot Rule Executed", "success", `Autopilot executed ${rule.action} (${actionVal}%) on campaign ${c.id}`);
+
+        await sendMailHelper(
+          emailTo,
+          `⚡ [AUTOPILOT] Campaign Updated: Rule Triggered`,
+          `<div style="font-family: sans-serif; padding: 20px;">
+             <h2>⚡ Campaign Autopilot Action Executed</h2>
+             <p>Your campaign <strong>${c.name}</strong> was automatically optimized.</p>
+             <ul>
+               <li><strong>Trigger:</strong> ${rule.metric.toUpperCase()} is ${rule.operator === 'lt' ? 'less than' : 'greater than'} ${rule.value} (Current: ${curVal})</li>
+               <li><strong>Action:</strong> ${rule.action === 'pause' ? 'Paused Campaign' : 'Updated Budget to €' + updatedBudget.toFixed(2)}</li>
+             </ul>
+           </div>`
+        );
+      } else {
+        const existing = await getQuery(`
+          SELECT id FROM campaign_agent_recommendations 
+          WHERE campaign_id = $1 AND metric = $2 AND action = $3 AND status = 'pending'
+        `, [c.id, rule.metric, rule.action]);
+
+        if (!existing) {
+          await runQuery(`
+            INSERT INTO campaign_agent_recommendations (campaign_id, metric, operator, trigger_value, current_value, action, action_value, status, agent_role, performance_impact)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+          `, [c.id, rule.metric, rule.operator, rule.value, curVal, rule.action, actionVal, agentRole, JSON.stringify(mockImpact)]);
+
+          await sendMailHelper(
+            emailTo,
+            `💡 [CO-PILOT] New Performance Suggestion`,
+            `<div style="font-family: sans-serif; padding: 20px;">
+               <h2>💡 Campaign Strategy Recommendation</h2>
+               <p>An optimization suggestion is ready for campaign <strong>${c.name}</strong>:</p>
+               <ul>
+                 <li><strong>Condition:</strong> ${rule.metric.toUpperCase()} is ${rule.operator === 'lt' ? 'less than' : 'greater than'} ${rule.value} (Current: ${curVal})</li>
+                 <li><strong>Recommended Action:</strong> ${rule.action === 'pause' ? 'Pause Campaign' : 'Adjust budget by ' + actionVal + '%'}</li>
+               </ul>
+               <p>Tap in your dashboard to approve and apply this suggestion.</p>
+             </div>`
+          );
+        }
+      }
+    }
+  }
+}
+
+// GET Campaign Agent Performance Insights
+app.get('/api/global/marketing-campaigns/agent-performance-insights', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+
+  try {
+    const recs = await allQuery(`
+      SELECT r.* FROM campaign_agent_recommendations r
+      JOIN marketing_campaigns c ON r.campaign_id = c.id
+      WHERE c.brand_id = $1
+    `, [brandId]);
+
+    const totalDecisions = recs.length;
+    const approvedDecisions = recs.filter(r => r.status === 'applied').length;
+    const autoExecuted = recs.filter(r => r.status === 'auto_executed').length;
+    const dismissedDecisions = recs.filter(r => r.status === 'dismissed').length;
+
+    const alignmentRate = totalDecisions > 0 
+      ? Math.round(((approvedDecisions + autoExecuted) / (totalDecisions - dismissedDecisions || 1)) * 100) 
+      : 100;
+
+    let totalBudgetSaved = 0;
+    let totalRoasLift = 0;
+    let liftCount = 0;
+
+    recs.forEach(r => {
+      if (r.status === 'applied' || r.status === 'auto_executed') {
+        try {
+          const impact = r.performance_impact ? JSON.parse(r.performance_impact) : null;
+          if (impact) {
+            totalBudgetSaved += parseFloat(impact.budget_saved) || 0;
+            if (impact.roas_lift) {
+              totalRoasLift += parseFloat(impact.roas_lift);
+              liftCount++;
+            }
+          }
+        } catch(e) {
+          // Ignore parse errors
+        }
+      }
+    });
+
+    const averageRoasLift = liftCount > 0 ? parseFloat((totalRoasLift / liftCount).toFixed(2)) : 0.0;
+
+    res.json({
+      success: true,
+      totalDecisions,
+      approvedDecisions,
+      autoExecuted,
+      dismissedDecisions,
+      alignmentRate: Math.min(alignmentRate, 100),
+      totalBudgetSaved: parseFloat(totalBudgetSaved.toFixed(2)),
+      averageRoasLift
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Campaign Agent Conflict Logs
+app.get('/api/global/marketing-campaigns/:id/agent-conflict-logs', verifyAdminToken, async (req, res) => {
+  const campaignId = req.params.id;
+  try {
+    const logs = await allQuery('SELECT * FROM agent_conflict_logs WHERE campaign_id = $1 ORDER BY created_at DESC', [campaignId]);
+    res.json({ success: true, logs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -4888,6 +6365,8 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
     const { productId, segmentation, tone, campaignType } = req.body;
     const brandId = resolveBrandId(req);
     if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+    
+    await checkAiLimits(brandId);
     
     let product = null;
     if (productId) {

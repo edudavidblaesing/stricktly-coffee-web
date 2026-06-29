@@ -62,7 +62,17 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS marketing_protocol TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_tier VARCHAR(20) DEFAULT 'professional'`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS ai_free_tier BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS pay_as_you_go_enabled BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS protocol_status VARCHAR(20) DEFAULT 'idle'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS protocol_error TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS competitors TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS auto_find_competitors BOOLEAN DEFAULT TRUE`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_type VARCHAR(50) DEFAULT 'standard'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS platform_take_rate NUMERIC(5, 4) DEFAULT 0.15`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS price_markup NUMERIC(5, 2) DEFAULT 0.00`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_billing_method VARCHAR(50) DEFAULT 'ledger'`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 
@@ -95,6 +105,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS price_source VARCHAR(20) DEFAULT 'external'`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS translations TEXT`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS details_source VARCHAR(20) DEFAULT 'external'`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price NUMERIC(10, 2)`);
+    await client.query(`UPDATE products SET original_price = price WHERE original_price IS NULL`);
     await client.query(`UPDATE products SET price_source = 'manual', details_source = 'manual' WHERE external_id IS NULL`);
 
     // 3. Create Orders Table
@@ -139,6 +151,12 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS utm_content VARCHAR(100)`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0.00`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10, 2)`);
+    await client.query(`UPDATE orders SET total_amount = total WHERE total_amount IS NULL`);
+
+    // Add first_name and last_name columns to users table
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)`);
 
     // 6. Create Coupons Table
     await client.query(`
@@ -331,10 +349,105 @@ async function initializeDatabase() {
     await client.query(`
       INSERT INTO ai_tier_features (tier, allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization)
       VALUES 
+        ('none', FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
         ('standard', TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
         ('professional', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
         ('enterprise', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
       ON CONFLICT (tier) DO NOTHING
+    `);
+
+    // Create Payout Ledger Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS merchant_payout_ledger (
+        id SERIAL PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        order_id VARCHAR(100) REFERENCES orders(id) ON DELETE SET NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        platform_margin NUMERIC(10, 2) NOT NULL,
+        net_amount NUMERIC(10, 2) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Merchant Subscriptions Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS merchant_subscriptions (
+        id SERIAL PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        interval VARCHAR(20) DEFAULT 'monthly',
+        status VARCHAR(20) DEFAULT 'active',
+        last_charged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        next_charge_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Provision/Update slayerespresso brand record
+    await client.query(`
+      INSERT INTO brands (id, name, subdomain, status, billing_type, platform_take_rate)
+      VALUES ('slayerespresso', 'Make Coffee Better', 'slayerespresso.stricktlycoffee.be', 'active_external', 'external_split', 0.15)
+      ON CONFLICT (id) DO UPDATE SET 
+        status = 'active_external',
+        billing_type = 'external_split',
+        platform_take_rate = 0.15
+    `);
+
+    // Seed default subscription for slayerespresso
+    const subCheck = await client.query(`SELECT id FROM merchant_subscriptions WHERE brand_id = 'slayerespresso' AND name = 'marketing_listing_fee'`);
+    if (subCheck.rowCount === 0) {
+      await client.query(`
+        INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, next_charge_at)
+        VALUES ('slayerespresso', 'marketing_listing_fee', 49.00, 'monthly', 'active', CURRENT_TIMESTAMP)
+      `);
+    }
+
+    // campaign agent migrations
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS agent_mode VARCHAR(50) DEFAULT 'recommendation'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_guardrails TEXT DEFAULT '{"max_budget_change_pct":20,"min_roas_floor":1.8,"max_spend_ceiling":500}'`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS campaign_agent_recommendations (
+        id SERIAL PRIMARY KEY,
+        campaign_id VARCHAR(100) REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        metric VARCHAR(50) NOT NULL,
+        operator VARCHAR(10) NOT NULL,
+        trigger_value NUMERIC(10, 2) NOT NULL,
+        current_value NUMERIC(10, 2) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        action_value NUMERIC(10, 2),
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        applied_at TIMESTAMP
+      )
+    `);
+
+    await client.query(`ALTER TABLE campaign_agent_recommendations ADD COLUMN IF NOT EXISTS agent_role VARCHAR(50) DEFAULT 'budget_allocator'`);
+    await client.query(`ALTER TABLE campaign_agent_recommendations ADD COLUMN IF NOT EXISTS performance_impact TEXT`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS agent_conflict_logs (
+        id SERIAL PRIMARY KEY,
+        campaign_id VARCHAR(100) REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        conflicting_agents VARCHAR(100) NOT NULL,
+        conflict_description TEXT NOT NULL,
+        resolution VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS storefront_traffic (
+        id SERIAL PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        session_id VARCHAR(100),
+        page_path VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     await client.query('COMMIT');
@@ -353,20 +466,6 @@ async function initializeDatabase() {
 
 async function seedDefaultData() {
   const shouldSeedMock = false;
-
-  // If we shouldn't seed mock data and we are in a remote stack, let's clean up default mock data if it is present!
-  if (!shouldSeedMock) {
-    console.log('[Database Seed] Running in remote/production mode. Ensuring mock seed data is removed.');
-    try {
-      await runQuery(`DELETE FROM orders WHERE brand_id = $1`, ['pesado']);
-      await runQuery(`DELETE FROM products WHERE brand_id = $1`, ['pesado']);
-      await runQuery(`DELETE FROM users WHERE email = $1`, ['merchant@davidblaesing.com']);
-      await runQuery(`DELETE FROM brands WHERE id = $1`, ['pesado']);
-      console.log('✅ Remote mock data cleanup completed.');
-    } catch (e) {
-      console.error('Error during mock data cleanup:', e.message);
-    }
-  }
 
   // Seed Superadmin user (always required)
   const adminCheckUser = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);

@@ -67,9 +67,24 @@
         <!-- CREATE CAMPAIGN MODAL -->
         <div class="upcoming-modal" v-if="showCreateCampaignModal" @click="handleCreateCampaignBackdropClick">
             <div class="upcoming-card" @click.stop style="max-width: 1200px; width: 100%; height: 85vh; max-height: 780px; text-align: left; padding: 24px; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); border: 1px solid var(--border); background: var(--card-bg);">
-                <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
-                    <span>🚀 Launch New Marketing Campaign</span>
-                    <span @click="closeCreateCampaignModal" style="cursor: pointer; font-size: 1.1rem; color: var(--text-muted);">&times;</span>
+                <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                    <!-- Top Left: Cancel Button -->
+                    <button type="button" @click="closeCreateCampaignModal" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; gap: 4px;">
+                        ✕ Cancel
+                    </button>
+                    
+                    <!-- Center: Title -->
+                    <span style="font-size: 1.25rem;">🚀 Launch Omnichannel Campaign</span>
+                    
+                    <!-- Top Right: Actions -->
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" @click="saveCampaignAsDraft" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; gap: 4px;">
+                            💾 Save Draft
+                        </button>
+                        <button type="submit" form="campaign-creation-form" class="btn btn-accent" style="font-size: 0.76rem; padding: 6px 16px; height: 32px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 4px;">
+                            🚀 Publish Campaign
+                        </button>
+                    </div>
                 </h3>
 
                 <div class="dashboard-layout-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 0; flex: 1; min-height: 0; display: grid;">
@@ -82,10 +97,13 @@
                     </h3>
                 </div>
 
-                <form @submit.prevent="saveCampaign" style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px;">
+                <form id="campaign-creation-form" @submit.prevent="saveCampaign" style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px;">
                     <!-- Campaign Focus / Goal Selector -->
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Campaign Focus / Goal</label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">
+                            <span>Campaign Focus / Goal</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Select the core goal of your campaign: custom copy promo, highlighting a specific catalog product, or driving traffic to a custom landing page.">i</span>
+                        </label>
                         <div style="display: flex; gap: 8px;">
                             <button type="button" class="btn" style="flex: 1; margin: 0; padding: 8px; font-size: 0.76rem; font-weight: 700; border-radius: 6px; transition: 0.2s;" :style="newCampaign.campaign_type === 'manual' ? 'background: var(--primary); color: var(--bg-color); border-color: var(--primary);' : 'background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main);'" @click="setCampaignType('manual')">
                                 ✍️ Custom Promo
@@ -101,7 +119,10 @@
 
                     <!-- Target Product Catalog Item select -->
                     <div v-if="newCampaign.campaign_type === 'product'" class="form-group" style="margin-bottom: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
-                        <label style="font-weight: 700; display: block; margin-bottom: 6px;">Select Product to Promote</label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 6px;">
+                            <span>Select Product to Promote</span>
+                            <span class="info-tooltip-trigger" data-tooltip="The target catalog product that the generated ads will link to and track conversions for.">i</span>
+                        </label>
                         <select v-model="selectedProductId" @change="applyProductCatalogDetails" style="width: 100%; border-radius: 6px; padding: 8px; font-size: 0.85rem;" required>
                             <option value="">-- Choose a Product --</option>
                             <option v-for="p in app.products" :key="p.id" :value="p.id">
@@ -112,7 +133,10 @@
 
                     <!-- Target Campaign Landing Page select -->
                     <div v-if="newCampaign.campaign_type === 'page'" class="form-group" style="margin-bottom: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
-                        <label style="font-weight: 700; display: block; margin-bottom: 6px;">Select Target Landing Page</label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 6px;">
+                            <span>Select Target Landing Page</span>
+                            <span class="info-tooltip-trigger" data-tooltip="The specific custom landing page destination where users will be redirected upon clicking your ad.">i</span>
+                        </label>
                         <select v-model="selectedLandingPageId" @change="applyLandingPageDetails" style="width: 100%; border-radius: 6px; padding: 8px; font-size: 0.85rem;" required>
                             <option value="">-- Choose a Landing Page --</option>
                             <option v-for="page in availableLandingPages" :key="page.id" :value="page.id">
@@ -122,13 +146,19 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 12px;">
-                        <label>Campaign Title</label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <span>Campaign Title</span>
+                            <span class="info-tooltip-trigger" data-tooltip="A friendly internal label to identify this campaign in your dashboard reports.">i</span>
+                        </label>
                         <input type="text" v-model="newCampaign.name" placeholder="e.g. Summer Special Coffee Offer" required
                             style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                     </div>
 
                     <div style="margin-bottom: 12px;">
-                        <label style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Ad Publishing Channels (Omnichannel Multi-Select)</label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">
+                            <span>Ad Publishing Channels (Omnichannel Multi-Select)</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Select the ad networks where our AI agent will automatically construct and publish your campaign creatives.">i</span>
+                        </label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                             <!-- Meta Ads Option -->
                             <div :style="{
@@ -233,12 +263,18 @@
                     <!-- Date & Budget Row -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div class="form-group">
-                            <label>Budget Limit (€)</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Budget Limit (€)</span>
+                                <span class="info-tooltip-trigger" data-tooltip="The maximum total ad spend limit allocated to this campaign. Campaigns automatically pause once this limit is reached.">i</span>
+                            </label>
                             <input type="number" v-model.number="newCampaign.budget" required min="10"
                                 style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                         </div>
                         <div class="form-group">
-                            <label>Budget Type</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Budget Type</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Lifetime Budget spends the limit evenly across the entire duration. Daily Budget Cap limits maximum spend per day.">i</span>
+                            </label>
                             <select v-model="newCampaign.budget_type" style="width: 100%;">
                                 <option value="lifetime">Lifetime Budget</option>
                                 <option value="daily">Daily Budget Cap</option>
@@ -249,12 +285,18 @@
                     <!-- Scheduling Row -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div class="form-group">
-                            <label>Start Date</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Start Date</span>
+                                <span class="info-tooltip-trigger" data-tooltip="The starting date when the campaign goes active and ad publishing begins.">i</span>
+                            </label>
                             <input type="date" v-model="newCampaign.start_date" required
                                 style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                         </div>
                         <div class="form-group">
-                            <label>End Date</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>End Date</span>
+                                <span class="info-tooltip-trigger" data-tooltip="The ending date when the campaign automatically pauses.">i</span>
+                            </label>
                             <input type="date" v-model="newCampaign.end_date" required
                                 style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                         </div>
@@ -263,7 +305,10 @@
                     <!-- Bidding Strategy Row -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div class="form-group">
-                            <label>Bidding Strategy</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Bidding Strategy</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Manual Bidding: You set cost-per-click caps. Maximize Conversions: AI bids to get the most conversions. Target ROAS: AI bids to hit a specific return on ad spend.">i</span>
+                            </label>
                             <select v-model="newCampaign.bidding_strategy" style="width: 100%;">
                                 <option value="manual">Manual Bidding</option>
                                 <option value="max_conversions">Maximize Conversions</option>
@@ -272,12 +317,18 @@
                         </div>
                         <div class="form-group">
                             <template v-if="newCampaign.bidding_strategy === 'target_roas'">
-                                <label>Target ROAS (x)</label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                    <span>Target ROAS (x)</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="The Target Return on Ad Spend multiplier (e.g. 3.5 means €3.50 in sales generated per €1.00 spent on advertising).">i</span>
+                                </label>
                                 <input type="number" step="0.1" min="0.5" max="15.0" v-model.number="newCampaign.target_roas" required
                                     style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                             </template>
                             <template v-else>
-                                <label>Audience Target Segment</label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                    <span>Audience Target Segment</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="Select the customer cohort targeted by this campaign. High Spenders (CLV > €100), Dormant (no purchases > 30 days), Repeat (>= 2 orders), Lookalike (cold traffic matches).">i</span>
+                                </label>
                                 <select v-model="newCampaign.segmentation" style="width: 100%;">
                                     <option value="All Customers">All Store Customers</option>
                                     <option value="Repeat Customers">Repeat Customers (>= 2 orders)</option>
@@ -292,7 +343,10 @@
                     <!-- Additional targeting criteria segment option (rendered if target_roas is active) -->
                     <div v-if="newCampaign.bidding_strategy === 'target_roas'" style="margin-bottom: 12px;">
                         <div class="form-group">
-                            <label>Audience Target Segment</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Audience Target Segment</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Select the customer cohort targeted by this campaign. High Spenders (CLV > €100), Dormant (no purchases > 30 days), Repeat (>= 2 orders), Lookalike (cold traffic matches).">i</span>
+                            </label>
                             <select v-model="newCampaign.segmentation" style="width: 100%;">
                                 <option value="All Customers">All Store Customers</option>
                                 <option value="Repeat Customers">Repeat Customers (>= 2 orders)</option>
@@ -338,7 +392,10 @@
 
                     <div v-if="newCampaign.campaign_type === 'manual'" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                         <div class="form-group">
-                            <label>Destination Target</label>
+                            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                <span>Destination Target</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Choose where users land after clicking your ad: Storefront Homepage, specific Campaign Landing Page, or a custom target URL.">i</span>
+                            </label>
                             <select v-model="newCampaign.destination_type" style="width: 100%;">
                                 <option value="homepage">Storefront Homepage</option>
                                 <option value="landing_page">Campaign Landing Page</option>
@@ -347,12 +404,18 @@
                         </div>
                         <div class="form-group">
                             <template v-if="newCampaign.destination_type === 'custom_url'">
-                                <label>Custom Target URL</label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                    <span>Custom Target URL</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="The absolute web URL where users will be redirected (e.g. an Instagram link, external shop, or custom page).">i</span>
+                                </label>
                                 <input type="text" v-model="newCampaign.custom_url" placeholder="e.g. https://instagram.com/my-page" required
                                     style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                             </template>
                             <template v-else>
-                                <label>Select Landing Page</label>
+                                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                    <span>Select Landing Page</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="Choose one of your active built-in landing pages to redirect traffic to.">i</span>
+                                </label>
                                 <select v-model="newCampaign.landing_page_id" style="width: 100%;" :disabled="newCampaign.destination_type !== 'landing_page'">
                                     <option value="">-- Choose Landing Page --</option>
                                     <option v-for="page in availableLandingPages" :key="page.id" :value="page.id">
@@ -365,7 +428,10 @@
 
                     <!-- Target Languages based on active brand locales -->
                     <div class="form-group" style="margin-bottom: 12px;">
-                        <label style="display: block; margin-bottom: 6px;">Target Locales (Languages)</label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <span>Target Locales (Languages)</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Select the languages to publish the ad copy in. The AI will automatically localize copywriting to match target user preferences.">i</span>
+                        </label>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                             <label v-for="lang in availableLocales" :key="lang" style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; color: var(--text-main);">
                                 <input type="checkbox" :value="lang" v-model="newCampaign.languages" style="margin: 0;">
@@ -375,7 +441,10 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 12px;">
-                        <label>Ad Format</label>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <span>Ad Format</span>
+                            <span class="info-tooltip-trigger" data-tooltip="The layout and style of the ad post: Single Image, Video Variant, or a multi-product swipeable Carousel.">i</span>
+                        </label>
                         <select v-model="newCampaign.format" style="width: 100%;">
                             <option value="Image">Single Image Ad</option>
                             <option value="Video">Video Ad Variant</option>
@@ -484,7 +553,10 @@
 
                         <!-- Ad Headline Copy for the active tab -->
                         <div class="form-group" style="margin-bottom: 12px;">
-                            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Ad Headline Copy</label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+                                <span>Ad Headline Copy</span>
+                                <span class="info-tooltip-trigger" data-tooltip="The main bold title text displayed on the ad post (e.g. Try Our Premium Special Roasts Today!).">i</span>
+                            </label>
                             <input v-if="campaignContentLang === 'en'" type="text" v-model="newCampaign.headline" placeholder="e.g. Try Our Premium Special Roasts Today!"
                                 style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
                             <input v-else type="text" v-model="newCampaign.translations[campaignContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Probieren Sie noch heute unsere Premium-Röstungen!'"
@@ -493,7 +565,10 @@
 
                         <!-- Body Description for the active tab -->
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block;">Body Description Text</label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+                                <span>Body Description Text</span>
+                                <span class="info-tooltip-trigger" data-tooltip="The primary body text/copywriting that details the offer and convinces readers to click.">i</span>
+                            </label>
                             <textarea v-if="campaignContentLang === 'en'" v-model="newCampaign.ad_copy" rows="3" placeholder="Write compelling marketing ad descriptions..."
                                 style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
                             <textarea v-else v-model="newCampaign.translations[campaignContentLang].ad_copy" rows="3" :placeholder="'[AI Translation Pending] e.g. Schreiben Sie hier ansprechende Werbebeschreibungen...'"
@@ -505,28 +580,41 @@
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.8rem; cursor: pointer; margin-bottom: 8px;">
                                 <input type="checkbox" id="enableABTesting" v-model="newCampaign.enable_ab_testing" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
                                 <span>🏆 Enable Creative A/B split-testing Tournament</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Instructs the ad networks to distribute traffic between different headline variants to automatically discover the best performer.">i</span>
                             </label>
                             
                             <div v-if="newCampaign.enable_ab_testing" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px solid var(--border); margin-top: 8px;">
                                 <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Alternative Tournament Headline A</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                        <span>Alternative Tournament Headline A</span>
+                                        <span class="info-tooltip-trigger" data-tooltip="The first alternative headline variant to split test in the performance tournament.">i</span>
+                                    </label>
                                     <input type="text" v-model="newCampaign.headlines[0]" placeholder="e.g. Sip Better Coffee Today ☕"
                                         style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; height: 32px;">
                                 </div>
                                 <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Alternative Tournament Headline B</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                        <span>Alternative Tournament Headline B</span>
+                                        <span class="info-tooltip-trigger" data-tooltip="The second alternative headline variant to split test in the performance tournament.">i</span>
+                                    </label>
                                     <input type="text" v-model="newCampaign.headlines[1]" placeholder="e.g. Save 20% on Expert Coffee Gear!"
                                         style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; height: 32px;">
                                 </div>
                                 
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Tournament Warm-up (Days)</label>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                            <span>Tournament Warm-up (Days)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The active warm-up duration to gather baseline variant performance data.">i</span>
+                                        </label>
                                         <input type="number" v-model.number="newCampaign.warmup_days"
                                             style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.8rem; height: 32px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: block;">Budget Split (% for testing)</label>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                            <span>Budget Split (% for testing)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The percentage of campaign budget dedicated to testing alternative variants.">i</span>
+                                        </label>
                                         <input type="number" v-model.number="newCampaign.warmup_budget_percent"
                                             style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.8rem; height: 32px;">
                                     </div>
@@ -568,6 +656,43 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                                 <input type="text" v-model="card.image" placeholder="Card Image URL" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
                                 <input type="text" v-model="card.title" placeholder="Card Headline" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Campaign Agent Optimizer (Optional Setup) -->
+                    <div style="border-top: 1px dashed var(--border); margin-top: 16px; padding-top: 16px; margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--accent); font-size: 0.82rem; cursor: pointer; margin-bottom: 8px;">
+                            <input type="checkbox" v-model="newCampaign.autopilot_enabled" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+                            <span>🤖 Activate Campaign AI Agent Optimizer</span>
+                        </label>
+                        <p style="margin: 0 0 10px 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
+                            Enable AI specialists to optimize copy variants, adjust budgets, and implement safety floors in real-time.
+                        </p>
+
+                        <div v-if="newCampaign.autopilot_enabled" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Agent Execution Mode</label>
+                                <select v-model="newCampaign.agent_mode" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem;">
+                                    <option value="recommendation">Co-Pilot (Recommendation Mode)</option>
+                                    <option value="autonomous">Autopilot (Autonomous Mode)</option>
+                                </select>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Max Budget Change (%)</label>
+                                    <input type="number" v-model.number="newCampaign.autopilot_guardrails.max_budget_change_pct" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
+                                </div>
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Min ROAS Floor</label>
+                                    <input type="number" step="0.1" v-model.number="newCampaign.autopilot_guardrails.min_roas_floor" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="margin: 0;">
+                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Max Daily Spend Ceiling (€)</label>
+                                <input type="number" v-model.number="newCampaign.autopilot_guardrails.max_spend_ceiling" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
                             </div>
                         </div>
                     </div>
@@ -870,6 +995,78 @@
             <!-- TAB 2: Auto-Pilot Content -->
             <template v-if="activeTab === 'autopilot'">
                 <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Run Strategy Check Banner -->
+                    <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 0.95rem; color: var(--accent); font-weight: bold;">⚡ AI Campaign Strategist Console</h4>
+                            <p style="margin: 4px 0 0 0; font-size: 0.76rem; color: var(--text-muted);">
+                                Analyze ad CTRs, daily budget velocities, and conversion funnel dropoffs to trigger automated guardrails.
+                            </p>
+                        </div>
+                        <button type="button" @click="triggerAgentRun" class="btn btn-primary" style="font-size: 0.78rem; padding: 8px 16px; height: auto;">
+                            🤖 Run Strategy Analysis
+                        </button>
+                    </div>
+
+                    <!-- AI Specialist Agent Health & Alignment Hub -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <h4 style="margin: 0; font-size: 0.9rem; color: var(--text-main); font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                            <span>🤖 AI Agent Health & Insights Panel</span>
+                        </h4>
+                        
+                        <!-- Pulse States of cooperating specialist agents -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981;"></div>
+                                <div>
+                                    <strong style="font-size: 0.78rem; color: var(--text-main); display: block;">Chief Coordinator Agent</strong>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">Consensus & Conflict Resolution</span>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981;"></div>
+                                <div>
+                                    <strong style="font-size: 0.78rem; color: var(--text-main); display: block;">Budget Allocator Agent</strong>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">Spend Velocity & Scaling</span>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981;"></div>
+                                <div>
+                                    <strong style="font-size: 0.78rem; color: var(--text-main); display: block;">Creative Critic Agent</strong>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">CTR Tournaments & Copy Swaps</span>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 10px; height: 10px; background-color: #3b82f6; border-radius: 50%; box-shadow: 0 0 8px #3b82f6;"></div>
+                                <div>
+                                    <strong style="font-size: 0.78rem; color: var(--text-main); display: block;">Safety Director Agent</strong>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">ROAS Floors & Clamping</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-time aggregate statistics -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; border-top: 1px dashed var(--border); padding-top: 16px;">
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block;">Alignment Rate</span>
+                                <strong style="font-size: 1.15rem; color: var(--accent); margin-top: 4px; display: block;">{{ agentInsights.alignmentRate }}%</strong>
+                            </div>
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block;">Average ROAS Lift</span>
+                                <strong style="font-size: 1.15rem; color: #10b981; margin-top: 4px; display: block;">+{{ agentInsights.averageRoasLift }}x</strong>
+                            </div>
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block;">Total Budget Saved</span>
+                                <strong style="font-size: 1.15rem; color: var(--text-main); margin-top: 4px; display: block;">€{{ agentInsights.totalBudgetSaved }}</strong>
+                            </div>
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block;">Decisions Managed</span>
+                                <strong style="font-size: 1.15rem; color: var(--text-main); margin-top: 4px; display: block;">{{ agentInsights.totalDecisions }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
                     <div v-for="c in campaigns" :key="c.id" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                             <div>
@@ -883,6 +1080,46 @@
                             <button type="button" @click="toggleAutopilot(c)" class="btn" :class="c.autopilot_enabled ? 'btn-secondary' : 'btn-primary'" style="font-size: 0.75rem; padding: 6px 12px; height: auto;">
                                 {{ c.autopilot_enabled ? 'Deactivate Autopilot' : 'Activate Autopilot' }}
                             </button>
+                        </div>
+
+                        <!-- Mode & Guardrails Segment -->
+                        <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">Agent Mode:</span>
+                                    <select v-model="c.agent_mode" @change="saveCampaignSettings(c)" style="padding: 4px 24px 4px 8px !important; font-size: 0.75rem; border-radius: 6px; height: 30px; width: 190px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                        <option value="recommendation">Co-Pilot (Recommendation)</option>
+                                        <option value="autonomous">Autopilot (Autonomous)</option>
+                                    </select>
+                                </div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">
+                                    {{ c.agent_mode === 'autonomous' ? '⚡ Will execute budget updates immediately and notify operator via email.' : '💡 Will queue proposals for your review before applying.' }}
+                                </span>
+                            </div>
+
+                            <div v-if="c.autopilot_guardrails" style="border-top: 1px dashed var(--border); padding-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                                <div>
+                                    <label style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Max Budget Change (%)</label>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <input type="number" v-model.number="c.autopilot_guardrails.max_budget_change_pct" @change="saveCampaignSettings(c)" style="width: 100%; height: 30px; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Minimum ROAS Safety Floor</label>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <input type="number" step="0.1" v-model.number="c.autopilot_guardrails.min_roas_floor" @change="saveCampaignSettings(c)" style="width: 100%; height: 30px; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">x</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Max Daily Budget Ceiling</label>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <input type="number" v-model.number="c.autopilot_guardrails.max_spend_ceiling" @change="saveCampaignSettings(c)" style="width: 100%; height: 30px; padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">€</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Rule Creator for Campaign -->
@@ -922,9 +1159,56 @@
                             <div v-for="rule in c.automation_rules" :key="rule.id" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; color: var(--text-main);">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="color: var(--accent);">⚙</span>
-                                    <span>If campaign <strong>{{ rule.metric.toUpperCase() }}</strong> is <strong>{{ rule.operator === 'lt' ? '<' : '>' }} {{ rule.value }}</strong>, then <strong>{{ rule.action === 'pause' ? 'Pause Campaign' : (rule.action === 'increase_budget' ? 'Increase Budget by ' + rule.action_value + '%' : 'Decrease Budget by ' + rule.action_value + '%') }}</strong>.</span>
+                                    <span>If campaign <strong>{{ rule.metric.toUpperCase() }}</strong> is <strong>{{ rule.operator === 'lt' ? '&lt;' : '&gt;' }} {{ rule.value }}</strong>, then <strong>{{ rule.action === 'pause' ? 'Pause Campaign' : (rule.action === 'increase_budget' ? 'Increase Budget by ' + rule.action_value + '%' : 'Decrease Budget by ' + rule.action_value + '%') }}</strong>.</span>
                                 </div>
                                 <button type="button" @click="removeAutomationRule(c, rule.id)" style="background: transparent; border: none; color: var(--danger); font-size: 0.75rem; cursor: pointer; font-weight: bold;">Remove</button>
+                            </div>
+                        </div>
+
+                        <!-- AI Recommendations & Automated Log Section -->
+                        <div v-if="agentRecommendations[c.id] && agentRecommendations[c.id].length > 0" style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px;">
+                            <h5 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--accent); display: flex; align-items: center; gap: 6px;">
+                                <span>📝 AI Strategy Recommendations & Action Logs</span>
+                            </h5>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div v-for="rec in agentRecommendations[c.id]" :key="rec.id" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                            <span v-if="rec.status === 'pending'" style="background: rgba(197, 160, 89, 0.15); color: var(--accent); font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Proposal</span>
+                                            <span v-else-if="rec.status === 'applied'" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Applied</span>
+                                            <span v-else-if="rec.status === 'auto_executed'" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Auto-Executed</span>
+                                            <span v-else style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">{{ rec.status }}</span>
+                                            <span style="color: var(--text-muted); font-size: 0.65rem; background: rgba(255,255,255,0.04); padding: 1px 4px; border-radius: 3px; font-family: monospace;">{{ rec.agent_role }}</span>
+                                            <span style="color: var(--text-muted); font-size: 0.72rem;">{{ new Date(rec.created_at).toLocaleTimeString() }}</span>
+                                        </div>
+                                        <p style="margin: 4px 0 0 0; color: var(--text-main); font-size: 0.78rem;">
+                                            If campaign <strong>{{ rec.metric.toUpperCase() }}</strong> is <strong>{{ rec.operator === 'lt' ? 'less than' : 'greater than' }} {{ rec.trigger_value }}</strong> (Current: {{ rec.current_value }}), then <strong>{{ rec.action === 'pause' ? 'Pause Campaign' : (rec.action === 'increase_budget' ? 'Increase Budget by ' + rec.action_value + '%' : 'Decrease Budget by ' + rec.action_value + '%') }}</strong>.
+                                        </p>
+                                    </div>
+                                    <div v-if="rec.status === 'pending'" style="display: flex; gap: 8px;">
+                                        <button type="button" @click="applyAgentRecommendation(c.id, rec.id)" class="btn btn-primary" style="font-size: 0.7rem; padding: 4px 8px; height: auto;">Approve & Apply</button>
+                                        <button type="button" @click="dismissAgentRecommendation(c.id, rec.id)" class="btn btn-secondary" style="font-size: 0.7rem; padding: 4px 8px; height: auto; border: 1px solid var(--border);">Dismiss</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Coordinator Conflict Resolution Stream -->
+                        <div style="border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 8px;">
+                            <h5 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                <span>🛡️ Chief Coordinator Conflict Resolution Log</span>
+                            </h5>
+                            <div v-if="agentConflictLogs[c.id] && agentConflictLogs[c.id].length > 0" style="display: flex; flex-direction: column; gap: 6px;">
+                                <div v-for="log in agentConflictLogs[c.id]" :key="log.id" style="background: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.2); padding: 8px 12px; border-radius: 8px; font-size: 0.76rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 8px;">
+                                    <span style="color: #ef4444; font-weight: bold; margin-top: 1px;">⚠️</span>
+                                    <div>
+                                        <span style="color: var(--text-muted); font-size: 0.7rem; display: block; margin-bottom: 2px;">Resolved Action: {{ log.resolution.toUpperCase() }} | {{ new Date(log.created_at).toLocaleTimeString() }}</span>
+                                        <strong>{{ log.conflicting_agents.toUpperCase() }} Clash:</strong> {{ log.conflict_description }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else style="background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.2); padding: 8px 12px; border-radius: 8px; font-size: 0.74rem; color: #10b981; display: flex; align-items: center; gap: 6px;">
+                                <span>🛡️ No conflicts active. Specialized agents are executing in unified consensus.</span>
                             </div>
                         </div>
 
@@ -1331,6 +1615,9 @@ export default {
             loadingAttribution: false,
             loadingCreative: false,
             aiProposals: {},
+            agentRecommendations: {},
+            agentInsights: { alignmentRate: 100, averageRoasLift: 0.0, totalBudgetSaved: 0.0, totalDecisions: 0 },
+            agentConflictLogs: {},
             causalLiftData: {},
             selectedTone: 'friendly',
             generatingAICopy: false,
@@ -1365,7 +1652,15 @@ export default {
                 headlines: ['', ''],
                 warmup_days: 3,
                 warmup_budget_percent: 15,
-                ai_cost: 0.0
+                ai_cost: 0.0,
+                autopilot_enabled: false,
+                agent_mode: 'recommendation',
+                status: 'active',
+                autopilot_guardrails: {
+                    max_budget_change_pct: 20,
+                    min_roas_floor: 1.8,
+                    max_spend_ceiling: 500
+                }
             }
         };
     },
@@ -1606,11 +1901,14 @@ export default {
                     this.campaigns = await response.json();
                     this.loadAttributionData();
                     this.loadCohortData();
+                    this.loadAgentInsights();
                     if (this.campaigns.length > 0) {
                         this.campaigns.forEach(c => {
                             this.loadCreativeStats(c.id);
                             this.loadAIProposals(c.id);
                             this.loadCausalLiftData(c.id);
+                            this.loadAgentRecommendations(c.id);
+                            this.loadConflictLogs(c.id);
                         });
                     }
                 }
@@ -1662,6 +1960,14 @@ export default {
             return 'background: var(--border); color: var(--text-main);';
         },
         openCreateCampaignModal() {
+            if (this.app.brands.length === 0) {
+                alert('You must onboard at least one coffee brand storefront under the "Shops" tab before you can launch campaigns.');
+                return;
+            }
+            if (this.app.activeShopFilter === 'all') {
+                alert('Please select a specific coffee brand from the top dropdown to manage and launch its campaigns.');
+                return;
+            }
             this.newCampaign = {
                 id: '',
                 name: '',
@@ -1684,7 +1990,15 @@ export default {
                     { image: '', title: '', link: '' },
                     { image: '', title: '', link: '' },
                     { image: '', title: '', link: '' }
-                ]
+                ],
+                status: 'active',
+                autopilot_enabled: false,
+                agent_mode: 'recommendation',
+                autopilot_guardrails: {
+                    max_budget_change_pct: 20,
+                    min_roas_floor: 1.8,
+                    max_spend_ceiling: 500
+                }
             };
             this.campaignContentLang = 'en';
             this.showCreateCampaignModal = true;
@@ -1750,7 +2064,15 @@ export default {
                         budget_type: 'lifetime',
                         bidding_strategy: 'manual',
                         target_roas: 4.0,
-                        ai_cost: 0.0
+                        ai_cost: 0.0,
+                        status: 'active',
+                        autopilot_enabled: false,
+                        agent_mode: 'recommendation',
+                        autopilot_guardrails: {
+                            max_budget_change_pct: 20,
+                            min_roas_floor: 1.8,
+                            max_spend_ceiling: 500
+                        }
                     };
                     this.campaignContentLang = 'en';
                     this.showCreateCampaignModal = false;
@@ -1761,6 +2083,10 @@ export default {
             } catch (err) {
                 alert(`Error: ${err.message}`);
             }
+        },
+        async saveCampaignAsDraft() {
+            this.newCampaign.status = 'paused';
+            await this.saveCampaign();
         },
         async deleteCampaign(id) {
             if (!confirm('Are you sure you want to void this marketing ad campaign?')) return;
@@ -2016,6 +2342,111 @@ export default {
                 if (response.ok) {
                     this.app.showNotification(updated.autopilot_enabled ? 'Portfolio Auto-Pilot activated!' : 'Auto-Pilot deactivated.');
                     this.loadCampaigns();
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async saveCampaignSettings(campaign) {
+            try {
+                const response = await fetch('/api/global/marketing-campaigns', {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(campaign)
+                });
+                if (response.ok) {
+                    this.app.showNotification('Campaign settings updated.');
+                    this.loadCampaigns();
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async loadAgentRecommendations(campaignId) {
+            try {
+                const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/agent-recommendations`, {
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.agentRecommendations = { ...this.agentRecommendations, [campaignId]: data.recommendations || [] };
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async applyAgentRecommendation(campaignId, recId) {
+            try {
+                const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/recommendations/${recId}/apply`, {
+                    method: 'POST',
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    this.app.showNotification('Recommendation applied successfully!');
+                    await this.loadCampaigns();
+                    await this.loadAgentRecommendations(campaignId);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async dismissAgentRecommendation(campaignId, recId) {
+            try {
+                const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/recommendations/${recId}/dismiss`, {
+                    method: 'POST',
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    this.app.showNotification('Recommendation dismissed.');
+                    await this.loadAgentRecommendations(campaignId);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async loadAgentInsights() {
+            try {
+                const response = await fetch('/api/global/marketing-campaigns/agent-performance-insights', {
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    this.agentInsights = await response.json();
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async loadConflictLogs(campaignId) {
+            try {
+                const response = await fetch(`/api/global/marketing-campaigns/${campaignId}/agent-conflict-logs`, {
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.agentConflictLogs = { ...this.agentConflictLogs, [campaignId]: data.logs || [] };
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        },
+        async triggerAgentRun() {
+            try {
+                const response = await fetch('/api/global/marketing-campaigns/trigger-agent-run', {
+                    method: 'POST',
+                    headers: this.authHeaders
+                });
+                if (response.ok) {
+                    this.app.showNotification('AI Agent Strategy analysis completed!');
+                    await this.loadCampaigns();
+                    if (this.campaigns.length > 0) {
+                        for (const c of this.campaigns) {
+                            await this.loadAgentRecommendations(c.id);
+                            await this.loadConflictLogs(c.id);
+                        }
+                    }
                 }
             } catch(e) {
                 console.error(e);

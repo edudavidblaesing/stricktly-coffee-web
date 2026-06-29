@@ -60,14 +60,7 @@
                 background-color: var(--bg-color);
             }
 
-            .nav-link-btn.active {
-                color: #1a1d1f !important;
-                background-color: #ffffff !important;
-            }
 
-            .nav-link-btn.active svg {
-                stroke: #1a1d1f !important;
-            }
 
             .nav-link-btn:hover {
                 background: #272b30 !important;
@@ -107,10 +100,17 @@
             display: flex !important;
             flex-direction: column;
             flex: 1;
+            width: 100%;
+            box-sizing: border-box;
             padding: 0 40px 32px 40px;
         }
 
         .admin-view.active.inset-view {
+            display: flex !important;
+            flex-direction: column;
+            flex: 1;
+            width: 100%;
+            box-sizing: border-box;
             height: calc(100vh - 160px);
             overflow: hidden !important;
             padding: 0 40px 32px 40px;
@@ -373,12 +373,21 @@
             background: var(--bg-color);
         }
 
+        .nav-link-btn:focus,
+        .nav-link-btn:focus-visible,
+        .nav-link-btn:active {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
         .nav-link-btn.active {
             color: var(--text-main) !important;
-            background-color: var(--card-bg) !important;
+            background-color: var(--bg-color) !important;
             font-weight: 700;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-            border: 1px solid var(--border) !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
         }
 
         .nav-link-btn.active svg {
@@ -445,6 +454,7 @@
         /* Workspace Layout */
         main {
             margin-left: 260px;
+            width: calc(100% - 260px);
             background: var(--bg-color);
             height: 100vh;
             display: flex;
@@ -1664,6 +1674,7 @@
 
             main {
                 margin-left: 76px !important;
+                width: calc(100% - 76px) !important;
             }
         }
 
@@ -1782,7 +1793,7 @@
             cursor: pointer;
             color: var(--text-muted);
             font-size: 0.65rem;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             width: 14px;
@@ -1792,6 +1803,8 @@
             font-weight: 700;
             line-height: 1;
             user-select: none;
+            margin-left: 6px;
+            vertical-align: middle;
         }
 
         .info-tooltip-trigger::after {
@@ -2007,6 +2020,83 @@
                 border-radius: 12px;
                 padding: 10px 15px;
             }
+        }
+
+        /* Premium AI Button and Animation */
+        @keyframes sc-gear-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .sc-generating-gear {
+            display: inline-block;
+            animation: sc-gear-spin 3s linear infinite;
+        }
+
+        .sc-premium-ai-btn {
+            position: relative;
+            background: linear-gradient(135deg, rgba(197, 160, 89, 0.12), rgba(197, 160, 89, 0.03));
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 10px rgba(197, 160, 89, 0.05), inset 0 0 10px rgba(197, 160, 89, 0.02);
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            outline: none;
+        }
+        .sc-premium-ai-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            transition: 0.5s;
+        }
+        .sc-premium-ai-btn:hover::before {
+            left: 100%;
+        }
+        .sc-premium-ai-btn:hover {
+            background: linear-gradient(135deg, var(--accent), #e5b869);
+            color: #0b0d0c;
+            box-shadow: 0 0 20px rgba(197, 160, 89, 0.3);
+            transform: translateY(-1px);
+        }
+        .sc-premium-ai-btn:active {
+            transform: translateY(1px);
+        }
+        .sc-premium-ai-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Custom visible scrollbars for forms inside modals */
+        .upcoming-card form::-webkit-scrollbar {
+            width: 8px;
+            display: block !important;
+        }
+        .upcoming-card form::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02) !important;
+            border-radius: 4px !important;
+        }
+        .upcoming-card form::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-radius: 4px !important;
+            border: 2px solid var(--card-bg) !important;
+        }
+        .upcoming-card form::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
         }
 
 
