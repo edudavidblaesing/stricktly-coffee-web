@@ -1766,6 +1766,9 @@ export default {
                 this.settingsBrand.competitors = this.competitorTags.join(', ');
                 this.settingsBrand.auto_find_competitors = this.autoFindCompetitors;
             }
+            if (this.generationMethod === 'manual' && this.compiledPrompt) {
+                this.compileManualPrompt();
+            }
         },
         async loadAiUsage() {
             if (!this.settingsBrand || !this.settingsBrand.id || this.settingsBrand.id === 'all') {

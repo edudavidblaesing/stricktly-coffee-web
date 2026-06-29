@@ -3271,10 +3271,11 @@ Return ONLY a comma-separated list of the 3 competitor domains (e.g. "competitor
 
         let competitorTexts = [];
         let compUrls = [];
-        if (competitors && (Array.isArray(competitors) ? competitors.length > 0 : String(competitors).trim())) {
-          compUrls = Array.isArray(competitors)
-            ? competitors
-            : String(competitors).split(',').map(s => s.trim()).filter(Boolean);
+        const activeCompetitors = (competitors !== undefined) ? competitors : brand.competitors;
+        if (activeCompetitors && (Array.isArray(activeCompetitors) ? activeCompetitors.length > 0 : String(activeCompetitors).trim())) {
+          compUrls = Array.isArray(activeCompetitors)
+            ? activeCompetitors
+            : String(activeCompetitors).split(',').map(s => s.trim()).filter(Boolean);
         } else if (autoDiscoveredCompetitors.length > 0) {
           compUrls = autoDiscoveredCompetitors;
         }
@@ -3480,7 +3481,7 @@ app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, 
     }
 
     let competitorTexts = [];
-    const activeCompetitors = competitors || brand.competitors;
+    const activeCompetitors = (competitors !== undefined) ? competitors : brand.competitors;
     if (activeCompetitors) {
       const compUrls = Array.isArray(activeCompetitors)
         ? activeCompetitors
