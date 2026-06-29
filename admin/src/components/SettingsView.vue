@@ -380,19 +380,7 @@
                         </div>
                     </template>
 
-                    <!-- Direct Stripe Credentials (Visible when Standard Billing Model is selected) -->
-                    <template v-if="settingsBrand.billing_type === 'standard'">
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
-                            <input type="password" v-model="settingsBrand.stripe_secret_key"
-                                placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$">
-                        </div>
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
-                            <input type="password" v-model="settingsBrand.stripe_webhook_secret"
-                                placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$">
-                        </div>
-                    </template>
+
 
                     <!-- Subscription Billing Method choice (Merchant & Admin adjustable) -->
                     <div class="form-group">
@@ -454,6 +442,40 @@
                                         <span v-else-if="cardLinked">💳 Update Card on File</span>
                                         <span v-else>💳 Link Credit Card on File</span>
                                     </button>
+                                </div>
+                            </div>
+
+                            <!-- Custom Stripe API Keys Onboarding Alternative -->
+                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Custom API Keys:</span>
+                                    <span v-if="settingsBrand.stripe_secret_key || settingsBrand.stripe_webhook_secret" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
+                                        ✓ Configured
+                                    </span>
+                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
+                                        Not Configured
+                                    </span>
+                                </div>
+
+                                <!-- Toggle Button to show/hide credentials fields -->
+                                <div style="margin-top: 4px;">
+                                    <button type="button" @click="showCustomStripeKeys = !showCustomStripeKeys" class="btn btn-secondary" style="width: 100%; font-weight: 600; background: transparent; border: 1px dashed var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; color: var(--text-main); margin: 0; display: flex; align-items: center; justify-content: center;">
+                                        {{ showCustomStripeKeys ? '🙈 Hide Custom API Keys Configuration' : '🔑 Configure Custom Stripe API Keys (Alternative)' }}
+                                    </button>
+                                </div>
+
+                                <!-- Collapsible Direct Stripe Credentials Fields -->
+                                <div v-if="showCustomStripeKeys" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 6px;">
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
+                                        <input type="password" v-model="settingsBrand.stripe_secret_key"
+                                            placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                    </div>
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
+                                        <input type="password" v-model="settingsBrand.stripe_webhook_secret"
+                                            placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1204,7 +1226,8 @@ export default {
             stripeConnectStatus: 'unlinked',
             loadingStripeConnect: false,
             cardLinked: false,
-            loadingCardSetup: false
+            loadingCardSetup: false,
+            showCustomStripeKeys: false
         }
     },
     watch: {
@@ -1237,6 +1260,11 @@ export default {
                         this.competitorTags = [];
                     }
                     this.autoFindCompetitors = newVal.auto_find_competitors !== false;
+                    
+                    // Auto-expand custom keys form if standard billing is active or keys are already populated
+                    if (newVal.billing_type === 'standard' || newVal.stripe_secret_key || newVal.stripe_webhook_secret) {
+                        this.showCustomStripeKeys = true;
+                    }
                 }
             }
         },
