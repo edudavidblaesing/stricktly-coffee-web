@@ -445,8 +445,8 @@
                                 </div>
                             </div>
 
-                            <!-- Custom Stripe API Keys Onboarding Alternative -->
-                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
+                            <!-- Custom Stripe API Keys Onboarding Alternative (Hidden if officially connected via Stripe Connect) -->
+                            <div v-if="stripeConnectStatus !== 'active'" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="color: var(--text-muted); font-size: 0.8rem;">Custom API Keys:</span>
                                     <span v-if="settingsBrand.stripe_secret_key || settingsBrand.stripe_webhook_secret" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
@@ -1260,11 +1260,6 @@ export default {
                         this.competitorTags = [];
                     }
                     this.autoFindCompetitors = newVal.auto_find_competitors !== false;
-                    
-                    // Auto-expand custom keys form if standard billing is active or keys are already populated
-                    if (newVal.billing_type === 'standard' || newVal.stripe_secret_key || newVal.stripe_webhook_secret) {
-                        this.showCustomStripeKeys = true;
-                    }
                 }
             }
         },
