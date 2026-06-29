@@ -401,7 +401,62 @@
                             <option value="" disabled>Please select a billing method...</option>
                             <option value="ledger">Deduct from Payout Ledger Balance</option>
                             <option value="stripe_card">Charge Credit Card on File</option>
+                            <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
                         </select>
+                    </div>
+
+                    <!-- Seamless Frictionless Stripe Connection Panel -->
+                    <div v-if="isValidBrandSelected" class="form-group form-full" style="margin-top: 15px;">
+                        <div style="background: rgba(99, 91, 255, 0.05); border: 1px solid rgba(99, 91, 255, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
+                                <span v-html="getStripeLogoSvg()"></span>
+                                <span>Stripe Connection & Billing Integration</span>
+                            </div>
+
+                            <!-- Stripe Connect Section (for external_split billing or split payouts) -->
+                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Stripe Connect Status:</span>
+                                    <span v-if="stripeConnectStatus === 'active'" style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px; font-size: 0.8rem;">
+                                        ✓ Connected & Payout-Ready
+                                    </span>
+                                    <span v-else-if="stripeConnectStatus === 'incomplete'" style="color: #f59e0b; font-weight: 700; font-size: 0.8rem;">
+                                        ⚠️ Incomplete Setup
+                                    </span>
+                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
+                                        Not Linked
+                                    </span>
+                                </div>
+                                <div style="margin-top: 4px;">
+                                    <button type="button" @click="initiateStripeConnect" :disabled="loadingStripeConnect" class="btn" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border: 1px solid #635bff; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; margin: 0; display: flex; align-items: center; justify-content: center;">
+                                        <span v-if="loadingStripeConnect">⏳ Generating Link...</span>
+                                        <span v-else-if="stripeConnectStatus === 'active'">🔗 Reconnect / Update Stripe Account</span>
+                                        <span v-else-if="stripeConnectStatus === 'incomplete'">⚠️ Complete Stripe Connect Onboarding</span>
+                                        <span v-else>🔗 Link Stripe Connect Account (Frictionless)</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Credit Card Setup Section (when using Credit Card billing method) -->
+                            <div v-if="settingsBrand.subscription_billing_method === 'stripe_card'" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Credit Card Status:</span>
+                                    <span v-if="cardLinked" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
+                                        ✓ Active Card on File
+                                    </span>
+                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
+                                        No Card Linked
+                                    </span>
+                                </div>
+                                <div style="margin-top: 4px;">
+                                    <button type="button" @click="initiateStripeCardSetup" :disabled="loadingCardSetup" class="btn" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border: 1px solid #635bff; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; margin: 0; display: flex; align-items: center; justify-content: center;">
+                                        <span v-if="loadingCardSetup">⏳ Loading Setup...</span>
+                                        <span v-else-if="cardLinked">💳 Update Card on File</span>
+                                        <span v-else>💳 Link Credit Card on File</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Unified storefront domain row with suffix dropdown -->
@@ -1145,7 +1200,11 @@ export default {
             subModalTargetTier: 'professional',
             subCalcResult: null,
             calculatingSub: false,
-            applyingSub: false
+            applyingSub: false,
+            stripeConnectStatus: 'unlinked',
+            loadingStripeConnect: false,
+            cardLinked: false,
+            loadingCardSetup: false
         }
     },
     watch: {
@@ -1165,6 +1224,7 @@ export default {
             this.loadAiUsage();
             this.loadRealtimeLimits();
             this.startProtocolPolling();
+            this.loadStripeConnectStatus();
         },
         settingsBrand: {
             immediate: true,
@@ -1187,6 +1247,7 @@ export default {
                 this.loadSuperadminAiUsage();
                 this.loadRealtimeLimits();
                 this.startProtocolPolling();
+                this.loadStripeConnectStatus();
             } else {
                 this.stopProtocolPolling();
             }
@@ -1331,6 +1392,7 @@ export default {
             this.loadSuperadminAiUsage();
             this.loadRealtimeLimits();
             this.startProtocolPolling();
+            this.loadStripeConnectStatus();
         }
     },
     beforeDestroy() {
@@ -1339,6 +1401,77 @@ export default {
         this.stopLiveTicker();
     },
     methods: {
+        async loadStripeConnectStatus() {
+            if (!this.settingsBrand || !this.settingsBrand.id) {
+                this.stripeConnectStatus = 'unlinked';
+                this.cardLinked = false;
+                return;
+            }
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/billing/ledger/${this.settingsBrand.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.stripeConnectStatus = data.stripe_connect_status || 'unlinked';
+                    this.cardLinked = data.card_linked || false;
+                } else {
+                    this.stripeConnectStatus = 'unlinked';
+                    this.cardLinked = false;
+                }
+            } catch (e) {
+                console.error(e);
+                this.stripeConnectStatus = 'unlinked';
+                this.cardLinked = false;
+            }
+        },
+        async initiateStripeConnect() {
+            try {
+                this.loadingStripeConnect = true;
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/stripe-connect-link`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert('Failed to generate connection link: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Connection error: ' + err.message);
+            } finally {
+                this.loadingStripeConnect = false;
+            }
+        },
+        async initiateStripeCardSetup() {
+            try {
+                this.loadingCardSetup = true;
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/stripe-setup-session`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert('Failed to generate card setup link: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Connection error: ' + err.message);
+            } finally {
+                this.loadingCardSetup = false;
+            }
+        },
         onAiTierChange(newTier) {
             this.subModalTargetTier = newTier;
             this.subModalInterval = 'monthly';

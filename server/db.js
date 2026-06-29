@@ -396,6 +396,15 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS agent_mode VARCHAR(50) DEFAULT 'recommendation'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_guardrails TEXT DEFAULT '{"max_budget_change_pct":20,"min_roas_floor":1.8,"max_spend_ceiling":500}'`);
 
+    // A/B Testing columns migration
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS enable_ab_testing BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ab_test_headlines TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ab_test_descriptions TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ab_test_links TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ab_test_media_urls TEXT DEFAULT '[]'`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS warmup_days INTEGER DEFAULT 3`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS warmup_budget_percent INTEGER DEFAULT 15`);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS campaign_agent_recommendations (
         id SERIAL PRIMARY KEY,

@@ -206,6 +206,14 @@ app.use(cors({
   credentials: true
 }));
 
+// Helper to determine AI model based on brand's AI tier
+function getTargetModel(aiTier) {
+  const tier = aiTier || 'professional';
+  if (tier === 'standard') return 'gemini-2.5-flash';
+  if (tier === 'enterprise') return 'deep-research-pro-preview';
+  return 'gemini-3.1-pro';
+}
+
 // Stripe Instances Cache per brand
 const stripeInstances = {};
 function getStripeInstance(brand) {
@@ -3249,13 +3257,8 @@ Generate a thorough, structured, and complete brand manuscript / protocol in Mar
 Output the markdown manuscript directly. Do not wrap the response in a JSON object or triple backticks unless standard. Return only raw markdown content.`;
 
           // Determine Gemini model based on brand's AI tier
-          let targetModel = 'gemini-1.5-pro';
-          if (brand.ai_tier === 'standard') {
-            targetModel = 'gemini-2.5-flash';
-          } else if (brand.ai_tier === 'enterprise') {
-            targetModel = 'deep-research-pro-preview';
-          }
-
+          let targetModel = getTargetModel(brand.ai_tier);
+ 
           console.log(`[AI Protocol Generator] Querying Gemini for brand: ${brandId} using model: ${targetModel}`);
           let geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
             method: 'POST',
@@ -3265,12 +3268,12 @@ Output the markdown manuscript directly. Do not wrap the response in a JSON obje
             }),
             signal: controller.signal
           });
-
+ 
           // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
           if (!geminiRes.ok && brand.ai_tier === 'enterprise') {
-            console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-1.5-pro');
-            targetModel = 'gemini-1.5-pro';
-            geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+            console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-3.1-pro');
+            targetModel = 'gemini-3.1-pro';
+            geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -3658,15 +3661,16 @@ app.post('/api/global/brands/:id/ai-translate-all', verifyAdminToken, async (req
       theme.content_translations = {};
     }
 
+    const targetModel = getTargetModel(brand.ai_tier);
     for (const lang of langsToTranslate) {
-      console.log(`[AI Bulk Translate] Translating all pages to "${lang}" for brand: ${brandId}`);
+      console.log(`[AI Bulk Translate] Translating all pages to "${lang}" for brand: ${brandId} using model: ${targetModel}`);
       const systemPrompt = `You are an expert translator. Translate the following storefront copywriting strings from English into the target language: "${lang}".
 Preserve all keys exactly. Preserve placeholders like {brandName} or [brandName] exactly. Keep it natural, idiomatic, and premium in style.
 
 Return ONLY a valid JSON object matching the exact structure of the input strings:
 ${JSON.stringify(englishStrings, null, 2)}`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3690,7 +3694,7 @@ ${JSON.stringify(englishStrings, null, 2)}`;
         }
 
         if (result.usageMetadata) {
-          await logAiUsage(brandId, `AI Copy Bulk Translation (${lang})`, 'gemini-2.5-flash', result.usageMetadata);
+          await logAiUsage(brandId, `AI Copy Bulk Translation (${lang})`, targetModel, result.usageMetadata);
         }
 
         // Merge back into theme content_translations
@@ -3793,8 +3797,9 @@ Return ONLY a JSON object matching this structure:
   "text_hero_cta": "Action-oriented CTA text e.g. Explore Precision Gear"
 }`;
 
-    console.log(`[AI Layout Generator] Analyzing brand strategy & user prompt for: ${brandId}`);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const targetModel = getTargetModel(brand.ai_tier);
+    console.log(`[AI Layout Generator] Analyzing brand strategy & user prompt for: ${brandId} using model: ${targetModel}`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3809,7 +3814,7 @@ Return ONLY a JSON object matching this structure:
       const layoutSettings = JSON.parse(text);
 
       if (result.usageMetadata) {
-        await logAiUsage(brandId, 'Brand Style Layout Generation', 'gemini-2.5-flash', result.usageMetadata);
+        await logAiUsage(brandId, 'Brand Style Layout Generation', targetModel, result.usageMetadata);
       }
 
       res.json({ success: true, layout: layoutSettings });
@@ -3881,8 +3886,9 @@ Return ONLY a JSON object representing the page structure and copy content:
   "features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Precision Shower Screen\n☕ Zero Channeling Guarantee\n📦 Worldwide Express Shipping"
 }`;
 
-    console.log(`[AI Page Generator] Drafting campaign landing page structure for brand: ${brandId}`);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const targetModel = getTargetModel(brand.ai_tier);
+    console.log(`[AI Page Generator] Drafting campaign landing page structure for brand: ${brandId} using model: ${targetModel}`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3897,7 +3903,7 @@ Return ONLY a JSON object representing the page structure and copy content:
       const pageDraft = JSON.parse(text);
 
       if (result.usageMetadata) {
-        await logAiUsage(brandId, 'Campaign Page Structure Generation', 'gemini-2.5-flash', result.usageMetadata);
+        await logAiUsage(brandId, 'Campaign Page Structure Generation', targetModel, result.usageMetadata);
       }
 
       // Automatically persist/save to the brand's landing_pages array inside theme_settings!
@@ -4585,7 +4591,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   let brand = null;
   if (brandId) {
     try {
-      brand = await getQuery('SELECT name, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+      brand = await getQuery('SELECT name, marketing_protocol, ai_tier FROM brands WHERE id = $1', [brandId]);
     } catch (e) {
       console.warn('[SEO Generator] Error querying brand info:', e.message);
     }
@@ -4594,6 +4600,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
+      const targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
       let prompt = `You are a premium e-commerce copywriter. Write a high-converting, SEO-optimized short description, detailed description, key features (up to 5 bullet points), and machine compatibility (up to 4 items) for a product titled "${title}". Description/Details: "${description || ''}".`;
       
       if (brand && brand.marketing_protocol) {
@@ -4607,7 +4614,8 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
   "compatibility": ["Compatible Machine 1", "Compatible Machine 2"]
 }`;
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      console.log(`[SEO Generator] Querying Gemini for SEO optimization using model: ${targetModel}`);
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4622,7 +4630,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
         const parsed = JSON.parse(text);
         
         if (result.usageMetadata && brandId) {
-          await logAiUsage(brandId, 'Product SEO Content Generation', 'gemini-2.5-flash', result.usageMetadata);
+          await logAiUsage(brandId, 'Product SEO Content Generation', targetModel, result.usageMetadata);
         }
 
         return res.json({ success: true, ...parsed });
@@ -6017,7 +6025,11 @@ app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =>
       translations: r.translations ? (typeof r.translations === 'string' ? JSON.parse(r.translations) : r.translations) : null,
       performance_history: r.performance_history ? (typeof r.performance_history === 'string' ? JSON.parse(r.performance_history) : r.performance_history) : [],
       automation_rules: r.automation_rules ? (typeof r.automation_rules === 'string' ? JSON.parse(r.automation_rules) : r.automation_rules) : [],
-      autopilot_guardrails: r.autopilot_guardrails ? (typeof r.autopilot_guardrails === 'string' ? JSON.parse(r.autopilot_guardrails) : r.autopilot_guardrails) : { max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 }
+      autopilot_guardrails: r.autopilot_guardrails ? (typeof r.autopilot_guardrails === 'string' ? JSON.parse(r.autopilot_guardrails) : r.autopilot_guardrails) : { max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 },
+      ab_test_headlines: r.ab_test_headlines ? (typeof r.ab_test_headlines === 'string' ? JSON.parse(r.ab_test_headlines) : r.ab_test_headlines) : [],
+      ab_test_descriptions: r.ab_test_descriptions ? (typeof r.ab_test_descriptions === 'string' ? JSON.parse(r.ab_test_descriptions) : r.ab_test_descriptions) : [],
+      ab_test_links: r.ab_test_links ? (typeof r.ab_test_links === 'string' ? JSON.parse(r.ab_test_links) : r.ab_test_links) : [],
+      ab_test_media_urls: r.ab_test_media_urls ? (typeof r.ab_test_media_urls === 'string' ? JSON.parse(r.ab_test_media_urls) : r.ab_test_media_urls) : []
     }));
     res.json(parsedRows);
   } catch (err) {
@@ -6025,7 +6037,6 @@ app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =>
   }
 });
 
-// Create/Update marketing campaign
 app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
@@ -6034,7 +6045,9 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
     id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
     carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
     start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-    automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails
+    automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails,
+    enable_ab_testing, ab_test_headlines, ab_test_descriptions, ab_test_links, ab_test_media_urls,
+    warmup_days, warmup_budget_percent
   } = req.body;
 
   if (!name || !platform || !budget) {
@@ -6062,9 +6075,11 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         id, brand_id, name, platform, budget, segmentation, languages, format, ad_copy, headline, media_url,
         carousel_cards, destination_type, landing_page_id, campaign_type, custom_url, translations,
         start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
-        automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails
+        automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails,
+        enable_ab_testing, ab_test_headlines, ab_test_descriptions, ab_test_links, ab_test_media_urls,
+        warmup_days, warmup_budget_percent
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         platform = EXCLUDED.platform,
@@ -6092,7 +6107,14 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         autopilot_enabled = EXCLUDED.autopilot_enabled,
         ai_cost = EXCLUDED.ai_cost,
         agent_mode = EXCLUDED.agent_mode,
-        autopilot_guardrails = EXCLUDED.autopilot_guardrails
+        autopilot_guardrails = EXCLUDED.autopilot_guardrails,
+        enable_ab_testing = EXCLUDED.enable_ab_testing,
+        ab_test_headlines = EXCLUDED.ab_test_headlines,
+        ab_test_descriptions = EXCLUDED.ab_test_descriptions,
+        ab_test_links = EXCLUDED.ab_test_links,
+        ab_test_media_urls = EXCLUDED.ab_test_media_urls,
+        warmup_days = EXCLUDED.warmup_days,
+        warmup_budget_percent = EXCLUDED.warmup_budget_percent
     `, [
       campaignId,
       brandId,
@@ -6122,7 +6144,14 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
       autopilot_enabled === true || autopilot_enabled === 'true',
       resolvedAiCost,
       agent_mode || 'recommendation',
-      autopilot_guardrails ? (typeof autopilot_guardrails === 'string' ? autopilot_guardrails : JSON.stringify(autopilot_guardrails)) : JSON.stringify({ max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 })
+      autopilot_guardrails ? (typeof autopilot_guardrails === 'string' ? autopilot_guardrails : JSON.stringify(autopilot_guardrails)) : JSON.stringify({ max_budget_change_pct: 20, min_roas_floor: 1.8, max_spend_ceiling: 500 }),
+      enable_ab_testing === true || enable_ab_testing === 'true',
+      ab_test_headlines ? (typeof ab_test_headlines === 'string' ? ab_test_headlines : JSON.stringify(ab_test_headlines)) : '[]',
+      ab_test_descriptions ? (typeof ab_test_descriptions === 'string' ? ab_test_descriptions : JSON.stringify(ab_test_descriptions)) : '[]',
+      ab_test_links ? (typeof ab_test_links === 'string' ? ab_test_links : JSON.stringify(ab_test_links)) : '[]',
+      ab_test_media_urls ? (typeof ab_test_media_urls === 'string' ? ab_test_media_urls : JSON.stringify(ab_test_media_urls)) : '[]',
+      parseInt(warmup_days || 3),
+      parseInt(warmup_budget_percent || 15)
     ]);
     res.json({ success: true, campaignId });
   } catch (err) {

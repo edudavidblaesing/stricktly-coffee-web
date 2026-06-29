@@ -673,43 +673,76 @@
                             <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.8rem; cursor: pointer; margin-bottom: 8px;">
                                 <input type="checkbox" id="enableABTesting" v-model="newCampaign.enable_ab_testing" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
                                 <span>🏆 Enable Creative A/B split-testing Tournament</span>
-                                <span class="info-tooltip-trigger" data-tooltip="Instructs the ad networks to distribute traffic between different headline variants to automatically discover the best performer.">i</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Instructs the ad networks to distribute traffic between different headline, copy, link, and asset variants to automatically discover the best performer.">i</span>
                             </label>
                             
-                            <div v-if="newCampaign.enable_ab_testing" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px solid var(--border); margin-top: 8px;">
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
-                                        <span>Alternative Tournament Headline A</span>
-                                        <span class="info-tooltip-trigger" data-tooltip="The first alternative headline variant to split test in the performance tournament.">i</span>
-                                    </label>
-                                    <input type="text" v-model="newCampaign.headlines[0]" placeholder="e.g. Sip Better Coffee Today ☕"
-                                        style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; height: 32px;">
+                            <div v-if="newCampaign.enable_ab_testing" style="display: flex; flex-direction: column; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid var(--border); margin-top: 8px;">
+                                <!-- AI Generator Button -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 10px;">
+                                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-main);">🎯 A/B Experiment Dimensions</span>
+                                    <button type="button" @click="generateABVariantsWithAI" :disabled="generatingABVariants" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; margin: 0; line-height: 1; display: flex; align-items: center; gap: 4px;">
+                                        <span v-if="generatingABVariants">⏳ Generating...</span>
+                                        <span v-else>✨ AI Generate Variant B</span>
+                                    </button>
                                 </div>
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
-                                        <span>Alternative Tournament Headline B</span>
-                                        <span class="info-tooltip-trigger" data-tooltip="The second alternative headline variant to split test in the performance tournament.">i</span>
-                                    </label>
-                                    <input type="text" v-model="newCampaign.headlines[1]" placeholder="e.g. Save 20% on Expert Coffee Gear!"
-                                        style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; height: 32px;">
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px;">
+
+                                <!-- 1. HEADLINES -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
-                                            <span>Tournament Warm-up (Days)</span>
-                                            <span class="info-tooltip-trigger" data-tooltip="The active warm-up duration to gather baseline variant performance data.">i</span>
-                                        </label>
-                                        <input type="number" v-model.number="newCampaign.warmup_days"
-                                            style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.8rem; height: 32px;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Headline Variant A (Base)</label>
+                                        <input type="text" v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
-                                            <span>Budget Split (% for testing)</span>
-                                            <span class="info-tooltip-trigger" data-tooltip="The percentage of campaign budget dedicated to testing alternative variants.">i</span>
-                                        </label>
-                                        <input type="number" v-model.number="newCampaign.warmup_budget_percent"
-                                            style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.8rem; height: 32px;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Headline Variant B</label>
+                                        <input type="text" v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                    </div>
+                                </div>
+
+                                <!-- 2. DESCRIPTIONS -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Description Variant A (Base)</label>
+                                        <textarea v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Description Variant B</label>
+                                        <textarea v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- 3. DESTINATION LINKS -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Link Variant A (Base)</label>
+                                        <input type="text" v-model="newCampaign.ab_test_links[0]" placeholder="Link A URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Link Variant B</label>
+                                        <input type="text" v-model="newCampaign.ab_test_links[1]" placeholder="Link B URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                    </div>
+                                </div>
+
+                                <!-- 4. MEDIA ASSETS -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Media Variant A (Base)</label>
+                                        <input type="text" v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Media Variant B</label>
+                                        <input type="text" v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                    </div>
+                                </div>
+
+                                <!-- 5. TEST SETTINGS (WARMUP & BUDGET) -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Tournament Warm-up (Days)</label>
+                                        <input type="number" v-model.number="newCampaign.warmup_days" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.78rem; height: 30px;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Budget Split (% for testing)</label>
+                                        <input type="number" v-model.number="newCampaign.warmup_budget_percent" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.78rem; height: 30px;">
                                     </div>
                                 </div>
                             </div>
@@ -797,14 +830,24 @@
             <!-- Right: Real-Time Omnichannel Live Ad Previews -->
             <div class="panel" style="display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;">
                 <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; flex-wrap: wrap; gap: 10px;">
-                    <h3 class="panel-title" style="margin: 0;">📱 Live Creative Preview</h3>
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                        <h3 class="panel-title" style="margin: 0;">📱 Live Creative Preview</h3>
+                        <div v-if="newCampaign.enable_ab_testing" style="display: flex; gap: 2px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-top: 4px;">
+                            <button type="button" @click="abVariantPreview = 'A'" :style="abVariantPreview === 'A' ? 'background: var(--accent); color: var(--bg-color); font-weight: 700;' : 'background: transparent; color: var(--text-muted);'" style="border: 0; border-radius: 4px; font-size: 0.62rem; padding: 2px 8px; cursor: pointer; transition: all 0.2s;">
+                                Variant A (Base)
+                            </button>
+                            <button type="button" @click="abVariantPreview = 'B'" :style="abVariantPreview === 'B' ? 'background: var(--accent); color: var(--bg-color); font-weight: 700;' : 'background: transparent; color: var(--text-muted);'" style="border: 0; border-radius: 4px; font-size: 0.62rem; padding: 2px 8px; cursor: pointer; transition: all 0.2s;">
+                                Variant B
+                            </button>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                        <button v-if="newCampaign.platforms.includes('meta')" class="btn btn-secondary" :class="{ active: previewChannel === 'meta' }" @click="previewChannel = 'meta'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Meta</button>
-                        <button v-if="newCampaign.platforms.includes('google')" class="btn btn-secondary" :class="{ active: previewChannel === 'google' }" @click="previewChannel = 'google'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Google</button>
-                        <button v-if="newCampaign.platforms.includes('x')" class="btn btn-secondary" :class="{ active: previewChannel === 'x' }" @click="previewChannel = 'x'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">X</button>
-                        <button v-if="newCampaign.platforms.includes('tiktok')" class="btn btn-secondary" :class="{ active: previewChannel === 'tiktok' }" @click="previewChannel = 'tiktok'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">TikTok</button>
-                        <button v-if="newCampaign.platforms.includes('linkedin')" class="btn btn-secondary" :class="{ active: previewChannel === 'linkedin' }" @click="previewChannel = 'linkedin'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">LinkedIn</button>
-                        <button v-if="newCampaign.platforms.includes('pinterest')" class="btn btn-secondary" :class="{ active: previewChannel === 'pinterest' }" @click="previewChannel = 'pinterest'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Pinterest</button>
+                        <button v-if="newCampaign.platforms.includes('meta')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'meta' }" @click="previewChannel = 'meta'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Meta</button>
+                        <button v-if="newCampaign.platforms.includes('google')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'google' }" @click="previewChannel = 'google'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Google</button>
+                        <button v-if="newCampaign.platforms.includes('x')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'x' }" @click="previewChannel = 'x'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">X</button>
+                        <button v-if="newCampaign.platforms.includes('tiktok')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'tiktok' }" @click="previewChannel = 'tiktok'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">TikTok</button>
+                        <button v-if="newCampaign.platforms.includes('linkedin')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'linkedin' }" @click="previewChannel = 'linkedin'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">LinkedIn</button>
+                        <button v-if="newCampaign.platforms.includes('pinterest')" type="button" class="btn btn-secondary" :class="{ active: previewChannel === 'pinterest' }" @click="previewChannel = 'pinterest'" style="font-size: 0.72rem; padding: 4px 8px; height: 28px; margin: 0; line-height: 1;">Pinterest</button>
                     </div>
                 </div>
 
@@ -834,7 +877,7 @@
                         <div style="position: relative; background: #f2f3f5; width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-top: 1px solid #e5e5e5;">
                             <!-- Format: Image/Video -->
                             <template v-if="newCampaign.format !== 'Carousel'">
-                                <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                                <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                                 <div v-else style="color: #8d949e; text-align: center; padding: 12px;">
                                     <span style="font-size: 2rem; display: block;">🖼️</span>
                                     <span style="font-size: 0.75rem;">Media Asset Preview</span>
@@ -862,7 +905,7 @@
                         <!-- CTA bar -->
                         <div v-if="newCampaign.format !== 'Carousel'" style="display: flex; justify-content: space-between; align-items: center; background: #f2f3f5; padding: 10px 12px; border-top: 1px solid #e5e5e5;">
                             <div style="max-width: 65%;">
-                                <span style="font-size: 0.7rem; color: #606770; text-transform: uppercase;">{{ getDestinationDomain }}</span>
+                                <span style="font-size: 0.7rem; color: #606770; text-transform: uppercase;">{{ previewDestinationUrl }}</span>
                                 <strong style="font-size: 0.85rem; color: #1c1e21; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</strong>
                             </div>
                             <button type="button" style="background: #e4e6eb; color: #050505; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; text-transform: none;">Shop Now</button>
@@ -886,14 +929,14 @@
                                 <!-- Card Attachment -->
                                 <div style="border: 1px solid #2f3336; border-radius: 16px; overflow: hidden; margin-top: 10px; background: #000;">
                                     <div style="position: relative; height: 180px; display: flex; align-items: center; justify-content: center; background: #15181c;">
-                                        <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                                        <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                                         <div v-else style="color: #71767b; text-align: center;">
                                             <span style="font-size: 1.8rem; display: block;">🐦</span>
                                             <span style="font-size: 0.72rem;">X Card Image Asset</span>
                                         </div>
                                     </div>
                                     <div style="padding: 10px; border-top: 1px solid #2f3336;">
-                                        <span style="font-size: 0.72rem; color: #71767b;">{{ getDestinationDomain }}</span>
+                                        <span style="font-size: 0.72rem; color: #71767b;">{{ previewDestinationUrl }}</span>
                                         <div style="font-size: 0.85rem; font-weight: 700; color: #e7e9ea; margin-top: 2px;">{{ previewHeadline }}</div>
                                     </div>
                                 </div>
@@ -907,7 +950,7 @@
                             <div style="background: #f1f3f4; color: #202124; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">Ad</div>
                             <div>
                                 <span style="font-size: 0.75rem; color: #202124; display: block; font-weight: 500;">Sponsor: {{ activeBrand.name }}</span>
-                                <span style="font-size: 0.7rem; color: #5f6368; display: block;">https://{{ getDestinationDomain }}</span>
+                                <span style="font-size: 0.7rem; color: #5f6368; display: block;">https://{{ previewDestinationUrl }}</span>
                             </div>
                         </div>
                         <h4 style="font-size: 1.15rem; color: #1a0dab; font-weight: 400; line-height: 1.3; margin: 4px 0; cursor: pointer; text-decoration: none;">
@@ -922,7 +965,7 @@
                     <div v-else-if="previewChannel === 'tiktok'" style="width: 100%; max-width: 300px; height: 400px; background: #010101; color: #ffffff; border-radius: 20px; border: 4px solid #2f3030; position: relative; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
                         <!-- Video simulation backdrop -->
                         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;">
-                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
+                            <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.85;">
                             <div v-else style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #121212; color: #777;">
                                 <span style="font-size: 2.5rem; margin-bottom: 8px;">🎵</span>
                                 <span style="font-size: 0.75rem;">Vertical Ad Asset</span>
@@ -971,7 +1014,7 @@
                         
                         <!-- Image creative -->
                         <div style="position: relative; background: #f3f6f8; width: 100%; height: 160px; display: flex; align-items: center; justify-content: center;">
-                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                             <div v-else style="color: rgba(0,0,0,0.5); text-align: center;">
                                 <span style="font-size: 1.8rem; display: block;">💼</span>
                                 <span style="font-size: 0.72rem;">LinkedIn Update Image</span>
@@ -982,7 +1025,7 @@
                         <div style="padding: 12px; background: #f3f6f8; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
                             <div style="max-width: 65%;">
                                 <div style="font-size: 0.82rem; font-weight: 600; color: rgba(0,0,0,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</div>
-                                <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6);">{{ getDestinationDomain }}</span>
+                                <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6);">{{ previewDestinationUrl }}</span>
                             </div>
                             <button type="button" style="background: transparent; border: 1px solid #0a66c2; color: #0a66c2; padding: 4px 12px; border-radius: 16px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">Shop Now</button>
                         </div>
@@ -992,7 +1035,7 @@
                     <div v-else-if="previewChannel === 'pinterest'" style="width: 100%; max-width: 240px; background: #ffffff; color: #111111; border-radius: 16px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #efefef; text-align: left;">
                         <!-- Pin Media -->
                         <div style="position: relative; background: #f0f0f0; width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
-                            <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
+                            <img v-if="previewMediaUrl" :src="previewMediaUrl" style="width: 100%; height: 100%; object-fit: cover;">
                             <div v-else style="color: #767676; text-align: center; padding: 12px;">
                                 <span style="font-size: 2rem; display: block;">📌</span>
                                 <span style="font-size: 0.72rem;">Promoted Pin Creative</span>
@@ -1831,6 +1874,8 @@ export default {
             causalLiftData: {},
             selectedTone: 'friendly',
             generatingAICopy: false,
+            abVariantPreview: 'A',
+            generatingABVariants: false,
             newCampaign: {
                 id: '',
                 name: '',
@@ -1859,7 +1904,12 @@ export default {
                 budget_type: 'lifetime',
                 bidding_strategy: 'manual',
                 target_roas: 4.0,
+                enable_ab_testing: false,
                 headlines: ['', ''],
+                ab_test_headlines: ['', ''],
+                ab_test_descriptions: ['', ''],
+                ab_test_links: ['', ''],
+                ab_test_media_urls: ['', ''],
                 warmup_days: 3,
                 warmup_budget_percent: 15,
                 ai_cost: 0.0,
@@ -1997,6 +2047,18 @@ export default {
         },
         previewHeadline() {
             const lang = this.campaignContentLang;
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline_b) {
+                    return this.newCampaign.translations[lang].headline_b;
+                }
+                return this.newCampaign.ab_test_headlines[1] || this.newCampaign.headlines[1] || 'Headline Variant B';
+            }
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline) {
+                    return this.newCampaign.translations[lang].headline;
+                }
+                return this.newCampaign.ab_test_headlines[0] || this.newCampaign.headline || 'Headline Variant A';
+            }
             if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline) {
                 return this.newCampaign.translations[lang].headline;
             }
@@ -2004,10 +2066,40 @@ export default {
         },
         previewAdCopy() {
             const lang = this.campaignContentLang;
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy_b) {
+                    return this.newCampaign.translations[lang].ad_copy_b;
+                }
+                return this.newCampaign.ab_test_descriptions[1] || 'Ad Copy Variant B description...';
+            }
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy) {
+                    return this.newCampaign.translations[lang].ad_copy;
+                }
+                return this.newCampaign.ab_test_descriptions[0] || this.newCampaign.ad_copy || 'Ad Copy Variant A description...';
+            }
             if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy) {
                 return this.newCampaign.translations[lang].ad_copy;
             }
             return this.newCampaign.ad_copy || 'Write some compelling copy here for your audience to see in their social feeds...';
+        },
+        previewMediaUrl() {
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
+                return this.newCampaign.ab_test_media_urls[1] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80';
+            }
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+                return this.newCampaign.ab_test_media_urls[0] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
+            }
+            return this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
+        },
+        previewDestinationUrl() {
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
+                return this.newCampaign.ab_test_links[1] || this.getDestinationDomain;
+            }
+            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+                return this.newCampaign.ab_test_links[0] || this.getDestinationDomain;
+            }
+            return this.getDestinationDomain;
         },
         projectedMetrics() {
             if (!this.selectedCampaign) return null;
@@ -2113,9 +2205,77 @@ export default {
             if (newVal === 'library') {
                 this.loadMediaLibrary();
             }
+        },
+        'newCampaign.enable_ab_testing': {
+            handler(newVal) {
+                if (newVal) {
+                    if (!this.newCampaign.ab_test_headlines[0]) this.newCampaign.ab_test_headlines[0] = this.newCampaign.headline || '';
+                    if (!this.newCampaign.ab_test_descriptions[0]) this.newCampaign.ab_test_descriptions[0] = this.newCampaign.ad_copy || '';
+                    if (!this.newCampaign.ab_test_links[0]) this.newCampaign.ab_test_links[0] = this.getDestinationDomain || '';
+                    if (!this.newCampaign.ab_test_media_urls[0]) this.newCampaign.ab_test_media_urls[0] = this.newCampaign.media_url || '';
+                }
+            }
         }
     },
     methods: {
+        async generateABVariantsWithAI() {
+            if (!this.newCampaign.headline || !this.newCampaign.ad_copy) {
+                alert('Please fill out the main Headline and Description first, so the AI has context to generate variations.');
+                return;
+            }
+            this.generatingABVariants = true;
+            this.app.startAiTicker(this.getAiModelName);
+            try {
+                // 1. Generate Alternative Headline B
+                const resHead = await fetch(`/api/global/brands/${this.app.activeShopFilter}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: this.newCampaign.headline,
+                        tone: 'punchy',
+                        field: 'Headline variant'
+                    })
+                });
+                if (resHead.ok) {
+                    const dataHead = await resHead.json();
+                    this.newCampaign.ab_test_headlines[0] = this.newCampaign.headline;
+                    this.newCampaign.ab_test_headlines[1] = dataHead.text;
+                    this.newCampaign.headlines[0] = this.newCampaign.headline;
+                    this.newCampaign.headlines[1] = dataHead.text;
+                }
+
+                // 2. Generate Alternative Description B
+                const resCopy = await fetch(`/api/global/brands/${this.app.activeShopFilter}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: { ...this.authHeaders, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: this.newCampaign.ad_copy,
+                        tone: 'creative',
+                        field: 'Ad copy variant'
+                    })
+                });
+                if (resCopy.ok) {
+                    const dataCopy = await resCopy.json();
+                    this.newCampaign.ab_test_descriptions[0] = this.newCampaign.ad_copy;
+                    this.newCampaign.ab_test_descriptions[1] = dataCopy.text;
+                }
+
+                // Initialize other A/B fields if empty
+                if (!this.newCampaign.ab_test_links[0]) this.newCampaign.ab_test_links[0] = this.getDestinationDomain;
+                if (!this.newCampaign.ab_test_links[1]) this.newCampaign.ab_test_links[1] = this.getDestinationDomain + '?variant=b';
+                
+                if (!this.newCampaign.ab_test_media_urls[0]) this.newCampaign.ab_test_media_urls[0] = this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
+                if (!this.newCampaign.ab_test_media_urls[1]) this.newCampaign.ab_test_media_urls[1] = this.newCampaign.media_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80';
+
+                this.app.showNotification('Alternative A/B variants generated successfully using AI!');
+            } catch (e) {
+                console.error(e);
+                this.app.showNotification('Error generating A/B variants.');
+            } finally {
+                this.generatingABVariants = false;
+                this.app.stopAiTicker();
+            }
+        },
         toggleSelectCampaign(id) {
             const idx = this.selectedCampaignIds.indexOf(id);
             if (idx > -1) {
@@ -2284,6 +2444,10 @@ export default {
                 agent_mode: 'recommendation',
                 enable_ab_testing: false,
                 headlines: ['', ''],
+                ab_test_headlines: ['', ''],
+                ab_test_descriptions: ['', ''],
+                ab_test_links: ['', ''],
+                ab_test_media_urls: ['', ''],
                 warmup_days: 3,
                 warmup_budget_percent: 15,
                 autopilot_guardrails: {
@@ -3302,6 +3466,45 @@ export default {
                     if (response.ok) {
                         const res = await response.json();
                         this.newCampaign.translations[targetLang].ad_copy = res.translatedText;
+                    }
+                }
+
+                if (this.newCampaign.enable_ab_testing) {
+                    if (this.newCampaign.ab_test_headlines[1]) {
+                        const response = await fetch('/api/global/translate', {
+                            method: 'POST',
+                            headers: {
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.newCampaign.ab_test_headlines[1],
+                                targetLang: targetLang,
+                                sourceLang: 'en'
+                            })
+                        });
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.newCampaign.translations[targetLang].headline_b = res.translatedText;
+                        }
+                    }
+                    if (this.newCampaign.ab_test_descriptions[1]) {
+                        const response = await fetch('/api/global/translate', {
+                            method: 'POST',
+                            headers: {
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.newCampaign.ab_test_descriptions[1],
+                                targetLang: targetLang,
+                                sourceLang: 'en'
+                            })
+                        });
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.newCampaign.translations[targetLang].ad_copy_b = res.translatedText;
+                        }
                     }
                 }
                 
