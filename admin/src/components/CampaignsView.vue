@@ -87,7 +87,7 @@
                     </div>
                 </h3>
 
-                <div class="dashboard-layout-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 0; flex: 1; min-height: 0; display: grid;">
+                <div class="dashboard-layout-grid" style="grid-template-columns: 1.25fr 0.75fr; gap: 24px; margin-bottom: 0; flex: 1; min-height: 0; display: grid;">
             <!-- Left: Omnichannel Campaign Creator -->
             <div class="panel" style="display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;">
                 <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
@@ -545,7 +545,7 @@
                         </select>
                     </div>
 
-                    <div class="form-group" style="margin-bottom: 15px;">
+                    <div v-if="newCampaign.format !== 'Carousel'" class="form-group" style="margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <label style="margin: 0; font-weight: 700; font-size: 0.85rem;">Ad Creative Graphic (Media)</label>
                             <!-- Tab toggle pills -->
@@ -604,15 +604,72 @@
                         </div>
                     </div>
 
-                    <!-- Tab row for target language copy variants -->
-                    <div v-if="newCampaign.languages && newCampaign.languages.length > 1" style="margin-bottom: 12px;">
-                        <label style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Edit Ad Copy for Targeted Language:</label>
-                        <div class="tab-track" style="display: inline-flex;">
-                            <button v-for="lang in newCampaign.languages" :key="lang" type="button" @click="campaignContentLang = lang"
-                                    class="tab-pill" :class="{ active: campaignContentLang === lang }" style="font-size: 0.72rem; padding: 6px 12px; font-weight: 700;">
-                                {{ lang.toUpperCase() }}
-                            </button>
+                    <!-- Carousel cards setup if Carousel format is active -->
+                    <div v-if="newCampaign.format === 'Carousel'" class="form-group" style="margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--bg-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 4px;">
+                                <span>🎠 Carousel Cards</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Manage the individual cards in this swipeable product carousel. Link each card directly to store products.">i</span>
+                            </span>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 6px; height: auto;" @click="autofillCarousel">
+                                    ⚡ Fill from Catalog
+                                </button>
+                                <button type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 2px 6px; height: auto; background: var(--accent); color: var(--bg-color); border: none;" @click="addCarouselCard" :disabled="newCampaign.carousel_cards.length >= 10">
+                                    ➕ Add Card
+                                </button>
+                            </div>
                         </div>
+                        <div v-for="(card, idx) in newCampaign.carousel_cards" :key="idx" style="margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: rgba(0,0,0,0.15); position: relative;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">Card #{{ idx+1 }}</span>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <!-- File upload trigger for this card -->
+                                    <label :for="'card-upload-' + idx" style="font-size: 0.68rem; color: var(--primary); cursor: pointer; text-decoration: underline; margin: 0; font-weight: 600;">
+                                        Upload Image
+                                    </label>
+                                    <input type="file" :id="'card-upload-' + idx" style="display: none;" @change="uploadCarouselCardMedia(idx, $event)" accept="image/*">
+                                    
+                                    <!-- Remove Card Button -->
+                                    <button v-if="newCampaign.carousel_cards.length > 2" type="button" @click="removeCarouselCard(idx)" style="background: none; border: none; color: #ef4444; font-size: 0.68rem; cursor: pointer; padding: 0; font-weight: bold;">
+                                        ✕ Remove
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Inline Product Linker -->
+                            <div style="margin-bottom: 6px;">
+                                <select @change="onCarouselProductSelect(idx, $event)" style="width: 100%; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                    <option value="">-- Link to a Store Product --</option>
+                                    <option v-for="p in app.products" :key="p.id" :value="p.id">
+                                        🔗 {{ p.title }} (Price: €{{ parseFloat(p.price).toFixed(2) }})
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <input type="text" v-model="card.image" placeholder="Card Image URL" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                <input type="text" v-model="card.title" placeholder="Card Headline" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab row for target language copy variants -->
+                    <div v-if="newCampaign.languages && newCampaign.languages.length > 1" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Edit Ad Copy for Targeted Language:</label>
+                            <div class="tab-track" style="display: inline-flex;">
+                                <button v-for="lang in newCampaign.languages" :key="lang" type="button" @click="campaignContentLang = lang"
+                                        class="tab-pill" :class="{ active: campaignContentLang === lang }" style="font-size: 0.72rem; padding: 6px 12px; font-weight: 700;">
+                                    {{ lang.toUpperCase() }}
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" @click="translateAllCampaignLanguages" :disabled="translatingCampaign" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
+                            <span v-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate All</span>
+                            <span v-else-if="translatingCampaign">⏳ Translating...</span>
+                            <span v-else>✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales)</span>
+                        </button>
                     </div>
 
                     <div style="margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: rgba(255,255,255,0.01);">
@@ -689,11 +746,17 @@
                                 <!-- 1. HEADLINES -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Headline Variant A (Base)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Headline Variant A (Base)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The baseline headline variant.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Headline Variant B</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Headline Variant B</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The alternative headline variant to split test.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                 </div>
@@ -701,11 +764,17 @@
                                 <!-- 2. DESCRIPTIONS -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Description Variant A (Base)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Description Variant A (Base)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The baseline description variant.">i</span>
+                                        </label>
                                         <textarea v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Description Variant B</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Description Variant B</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The alternative description variant to split test.">i</span>
+                                        </label>
                                         <textarea v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
                                     </div>
                                 </div>
@@ -713,11 +782,17 @@
                                 <!-- 3. DESTINATION LINKS -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Link Variant A (Base)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Link Variant A (Base)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The baseline destination link.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_links[0]" placeholder="Link A URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Link Variant B</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Link Variant B</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The alternative destination link to split test.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_links[1]" placeholder="Link B URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                 </div>
@@ -725,11 +800,17 @@
                                 <!-- 4. MEDIA ASSETS -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Media Variant A (Base)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Media Variant A (Base)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The baseline visual media asset URL.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Media Variant B</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Media Variant B</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The alternative visual media asset URL to split test.">i</span>
+                                        </label>
                                         <input type="text" v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
                                     </div>
                                 </div>
@@ -737,51 +818,20 @@
                                 <!-- 5. TEST SETTINGS (WARMUP & BUDGET) -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px;">
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Tournament Warm-up (Days)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Tournament Warm-up (Days)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="The initial phase in days during which both variants run before the system identifies the winner.">i</span>
+                                        </label>
                                         <input type="number" v-model.number="newCampaign.warmup_days" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.78rem; height: 30px;">
                                     </div>
                                     <div class="form-group" style="margin: 0;">
-                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: block;">Budget Split (% for testing)</label>
+                                        <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                            <span>Budget Split (% for testing)</span>
+                                            <span class="info-tooltip-trigger" data-tooltip="Percentage of budget allocated specifically to Variant B during the tournament phase.">i</span>
+                                        </label>
                                         <input type="number" v-model.number="newCampaign.warmup_budget_percent" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 4px 8px; font-size: 0.78rem; height: 30px;">
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Carousel cards setup if Carousel format is active -->
-                    <div v-if="newCampaign.format === 'Carousel'" class="form-group" style="margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--bg-color);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">🎠 Carousel Cards (Max 3)</span>
-                            <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 6px; height: auto;" @click="autofillCarousel">
-                                ⚡ Fill from Shop Catalog
-                            </button>
-                        </div>
-                        <div v-for="(card, idx) in newCampaign.carousel_cards" :key="idx" style="margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 12px; &:last-child { border: 0; padding: 0; margin: 0; }">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">Card #{{ idx+1 }}</span>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <!-- File upload trigger for this card -->
-                                    <label :for="'card-upload-' + idx" style="font-size: 0.68rem; color: var(--primary); cursor: pointer; text-decoration: underline; margin: 0; font-weight: 600;">
-                                        📁 Upload Image
-                                    </label>
-                                    <input type="file" :id="'card-upload-' + idx" style="display: none;" @change="uploadCarouselCardMedia(idx, $event)" accept="image/*">
-                                </div>
-                            </div>
-                            
-                            <!-- Inline Product Linker -->
-                            <div style="margin-bottom: 6px;">
-                                <select @change="onCarouselProductSelect(idx, $event)" style="width: 100%; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
-                                    <option value="">-- Link to a Store Product --</option>
-                                    <option v-for="p in app.products" :key="p.id" :value="p.id">
-                                        🔗 {{ p.title }} (Price: €{{ parseFloat(p.price).toFixed(2) }})
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                <input type="text" v-model="card.image" placeholder="Card Image URL" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
-                                <input type="text" v-model="card.title" placeholder="Card Headline" style="font-size: 0.72rem; padding: 6px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
                             </div>
                         </div>
                     </div>
@@ -791,6 +841,7 @@
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--accent); font-size: 0.82rem; cursor: pointer; margin-bottom: 8px;">
                             <input type="checkbox" v-model="newCampaign.autopilot_enabled" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
                             <span>🤖 Activate Campaign AI Agent Optimizer</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Delegates campaign performance tweaks, budget reallocations, and translation checks to active AI Agent specialists.">i</span>
                         </label>
                         <p style="margin: 0 0 10px 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
                             Enable AI specialists to optimize copy variants, adjust budgets, and implement safety floors in real-time.
@@ -798,7 +849,10 @@
 
                         <div v-if="newCampaign.autopilot_enabled" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px;">
                             <div class="form-group" style="margin: 0;">
-                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Agent Execution Mode</label>
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                    <span>Agent Execution Mode</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="Co-Pilot: Suggests adjustments for your manual approval. Autopilot: Automatically executes optimizations in real-time.">i</span>
+                                </label>
                                 <select v-model="newCampaign.agent_mode" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem;">
                                     <option value="recommendation">Co-Pilot (Recommendation Mode)</option>
                                     <option value="autonomous">Autopilot (Autonomous Mode)</option>
@@ -807,17 +861,26 @@
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <div class="form-group" style="margin: 0;">
-                                    <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Max Budget Change (%)</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                        <span>Max Budget Change (%)</span>
+                                        <span class="info-tooltip-trigger" data-tooltip="The maximum percentage variation the AI can increase or decrease the budget per day.">i</span>
+                                    </label>
                                     <input type="number" v-model.number="newCampaign.autopilot_guardrails.max_budget_change_pct" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
                                 </div>
                                 <div class="form-group" style="margin: 0;">
-                                    <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Min ROAS Floor</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                        <span>Min ROAS Floor</span>
+                                        <span class="info-tooltip-trigger" data-tooltip="The safety threshold ROAS. If a campaign drops below this floor, the AI immediately pauses or alerts.">i</span>
+                                    </label>
                                     <input type="number" step="0.1" v-model.number="newCampaign.autopilot_guardrails.min_roas_floor" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
                                 </div>
                             </div>
                             
                             <div class="form-group" style="margin: 0;">
-                                <label style="display: block; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">Max Daily Spend Ceiling (€)</label>
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: bold; color: var(--text-muted); margin-bottom: 4px;">
+                                    <span>Max Daily Spend Ceiling (€)</span>
+                                    <span class="info-tooltip-trigger" data-tooltip="An absolute hard limit on how much the AI can spend in a single day, regardless of bidding opportunity.">i</span>
+                                </label>
                                 <input type="number" v-model.number="newCampaign.autopilot_guardrails.max_spend_ceiling" style="width: 100%; border-radius: 6px; padding: 6px; font-size: 0.78rem; height: 32px;">
                             </div>
                         </div>
@@ -1841,8 +1904,21 @@ export default {
     data() {
         return {
             selectedCampaignIds: [],
-            campaigns: [],
-            showCreateCampaignModal: false,
+            isCreatingCampaign: false,
+            showLandingPageBuilder: false,
+            generatingAutopilot: false,
+            autopilotStatusTicks: [],
+            landingPageAiGenerating: false,
+            newLandingPage: {
+                id: '',
+                title: '',
+                headline: '',
+                subheadline: '',
+                cta: '',
+                coupon_code: '',
+                features: '',
+                product_id: ''
+            },
             previewChannel: 'meta',
             selectedLandingPageId: '',
             mediaTab: 'upload',
@@ -2383,19 +2459,34 @@ export default {
         },
         autofillCarousel() {
             if (this.app.products && this.app.products.length >= 2) {
-                const count = Math.min(this.app.products.length, 3);
+                const count = Math.min(this.app.products.length, 10);
+                this.newCampaign.carousel_cards = [];
                 for (let i = 0; i < count; i++) {
                     const p = this.app.products[i];
-                    this.newCampaign.carousel_cards[i] = {
+                    this.newCampaign.carousel_cards.push({
                         image: p.image || '',
                         title: p.title || '',
                         link: `/store/${this.activeBrand.id}?product=${p.id}`
-                    };
+                    });
                 }
-                this.app.showNotification('Autofilled Carousel cards from active product catalog listings.');
+                this.app.showNotification(`Autofilled ${count} Carousel cards from active product catalog listings.`);
             } else {
                 this.app.showNotification('Catalog needs at least 2 products to autofill a carousel.');
             }
+        },
+        addCarouselCard() {
+            if (this.newCampaign.carousel_cards.length >= 10) {
+                alert('Maximum 10 carousel cards are allowed.');
+                return;
+            }
+            this.newCampaign.carousel_cards.push({ image: '', title: '', link: '' });
+        },
+        removeCarouselCard(idx) {
+            if (this.newCampaign.carousel_cards.length <= 2) {
+                alert('A carousel ad must contain at least 2 cards.');
+                return;
+            }
+            this.newCampaign.carousel_cards.splice(idx, 1);
         },
         parseLanguages(langs) {
             if (!langs) return ['en'];
@@ -3509,6 +3600,119 @@ export default {
                 }
                 
                 this.app.showNotification(`Successfully auto-translated text to ${targetLang.toUpperCase()}!`);
+            } catch(e) {
+                console.error(e);
+                alert('AI translation error: ' + e.message);
+            } finally {
+                this.translatingCampaign = false;
+                this.app.stopAiTicker();
+            }
+        },
+        async translateAllCampaignLanguages() {
+            const targets = this.newCampaign.languages.filter(l => l !== 'en');
+            if (targets.length === 0) {
+                alert('No target locales besides English selected to translate to.');
+                return;
+            }
+            if (!this.newCampaign.headline && !this.newCampaign.ad_copy) {
+                alert('Please enter a headline or description in English first to translate.');
+                return;
+            }
+            
+            this.translatingCampaign = true;
+            this.app.startAiTicker(this.getAiModelName);
+            try {
+                // Initialize translations objects if they don't exist
+                if (!this.newCampaign.translations) {
+                    this.newCampaign.translations = {};
+                }
+                
+                for (const targetLang of targets) {
+                    if (!this.newCampaign.translations[targetLang]) {
+                        this.newCampaign.translations[targetLang] = { headline: '', ad_copy: '' };
+                    }
+                    
+                    // Translate headline A
+                    if (this.newCampaign.headline) {
+                        const response = await fetch('/api/global/translate', {
+                            method: 'POST',
+                            headers: {
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.newCampaign.headline,
+                                targetLang: targetLang,
+                                sourceLang: 'en'
+                            })
+                        });
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.newCampaign.translations[targetLang].headline = res.translatedText;
+                        }
+                    }
+                    
+                    // Translate description A
+                    if (this.newCampaign.ad_copy) {
+                        const response = await fetch('/api/global/translate', {
+                            method: 'POST',
+                            headers: {
+                                ...this.authHeaders,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.newCampaign.ad_copy,
+                                targetLang: targetLang,
+                                sourceLang: 'en'
+                            })
+                        });
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.newCampaign.translations[targetLang].ad_copy = res.translatedText;
+                        }
+                    }
+
+                    // Translate A/B Variant B if enabled
+                    if (this.newCampaign.enable_ab_testing) {
+                        if (this.newCampaign.ab_test_headlines[1]) {
+                            const response = await fetch('/api/global/translate', {
+                                method: 'POST',
+                                headers: {
+                                    ...this.authHeaders,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    text: this.newCampaign.ab_test_headlines[1],
+                                    targetLang: targetLang,
+                                    sourceLang: 'en'
+                                })
+                            });
+                            if (response.ok) {
+                                const res = await response.json();
+                                this.newCampaign.translations[targetLang].headline_b = res.translatedText;
+                            }
+                        }
+                        if (this.newCampaign.ab_test_descriptions[1]) {
+                            const response = await fetch('/api/global/translate', {
+                                method: 'POST',
+                                headers: {
+                                    ...this.authHeaders,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    text: this.newCampaign.ab_test_descriptions[1],
+                                    targetLang: targetLang,
+                                    sourceLang: 'en'
+                                })
+                            });
+                            if (response.ok) {
+                                const res = await response.json();
+                                this.newCampaign.translations[targetLang].ad_copy_b = res.translatedText;
+                            }
+                        }
+                    }
+                }
+                this.app.showNotification(`Successfully auto-translated all variants to: ${targets.map(t => t.toUpperCase()).join(', ')}!`);
             } catch(e) {
                 console.error(e);
                 alert('AI translation error: ' + e.message);

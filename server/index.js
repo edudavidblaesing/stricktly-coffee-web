@@ -62,10 +62,43 @@ globalThis.fetch = async function(url, options) {
 
   let res = await originalFetch(url, options);
 
+  // If call to v1beta fails with 404 or 400, retry using stable v1 version first
+  let currentUrlStr = replacedStr;
+  if (!res.ok && (res.status === 404 || res.status === 400) && currentUrlStr && currentUrlStr.includes('/v1beta/')) {
+    const stableStr = currentUrlStr.replace('/v1beta/', '/v1/');
+    console.log(`[AI Fetch Interceptor] Request failed on v1beta. Retrying with stable v1 endpoint: ${stableStr}`);
+    let stableUrl = url;
+    if (typeof url === 'string') {
+      stableUrl = stableStr;
+    } else if (url && typeof url === 'object' && url.href) {
+      try {
+        stableUrl = new URL(stableStr);
+      } catch (e) {
+        url.href = stableStr;
+        stableUrl = url;
+      }
+    } else if (url && typeof url === 'object' && url.url) {
+      try {
+        stableUrl = new Request(stableStr, url);
+      } catch (e) {
+        url.url = stableStr;
+        stableUrl = url;
+      }
+    }
+    res = await originalFetch(stableUrl, options);
+    if (res.ok) {
+      return res; // succeeded!
+    }
+    currentUrlStr = stableStr; // update url string for potential next fallbacks
+  }
+
   // Auto fallback to gemini-1.5-flash if gemini-1.5-pro returns 404/400 (not supported / not found / key restrictions)
-  if (!res.ok && (res.status === 404 || res.status === 400) && replacedStr && replacedStr.includes('models/gemini-1.5-pro')) {
-    const fallbackStr = replacedStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
-    console.warn(`[AI Fetch Interceptor] gemini-1.5-pro call failed with status ${res.status}. Falling back transparently to gemini-1.5-flash: ${fallbackStr}`);
+  if (!res.ok && (res.status === 404 || res.status === 400) && currentUrlStr && currentUrlStr.includes('models/gemini-1.5-pro')) {
+    let fallbackStr = currentUrlStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
+    if (fallbackStr.includes('/v1beta/')) {
+      fallbackStr = fallbackStr.replace('/v1beta/', '/v1/'); // try v1 stable Flash
+    }
+    console.warn(`[AI Fetch Interceptor] gemini-1.5-pro call failed. Falling back transparently to gemini-1.5-flash: ${fallbackStr}`);
     
     let fallbackUrl = url;
     if (typeof url === 'string') {
@@ -2931,14 +2964,26 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
       res.json({ success: true, message: `Successfully upgraded to ${target_tier} tier. Prorated charge applied.` });
     } else {
       if (sub) {
-        await runQuery(`
-          UPDATE merchant_subscriptions 
-          SET pending_tier = $1, pending_interval = $2, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $3
-        `, [target_tier, target_interval, sub.id]);
-        
-        addAuditLog("Subscription Downgrade Scheduled", "success", `Brand ${brandId} scheduled downgrade to ${target_tier} tier (${target_interval}) for ${nextChargeAt.toISOString().split('T')[0]}`);
-        res.json({ success: true, message: `Downgrade scheduled. Your current plan remains active until ${nextChargeAt.toISOString().split('T')[0]}.` });
+        if (process.env.NODE_ENV !== 'production') {
+          // Dev/Local instant downgrade bypass
+          await runQuery(`
+            UPDATE merchant_subscriptions 
+            SET name = $1, amount = $2, interval = $3, pending_tier = NULL, pending_interval = NULL, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4
+          `, [`ai_subscription_${target_tier}`, newAmount, target_interval, sub.id]);
+          await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+          addAuditLog("Subscription Downgraded (Instant Dev Mode)", "success", `Brand ${brandId} instantly downgraded to ${target_tier} tier (${target_interval}) in dev environment.`);
+          res.json({ success: true, message: `[Dev Mode] Plan downgraded instantly to ${target_tier} tier.` });
+        } else {
+          await runQuery(`
+            UPDATE merchant_subscriptions 
+            SET pending_tier = $1, pending_interval = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+          `, [target_tier, target_interval, sub.id]);
+          
+          addAuditLog("Subscription Downgrade Scheduled", "success", `Brand ${brandId} scheduled downgrade to ${target_tier} tier (${target_interval}) for ${nextChargeAt.toISOString().split('T')[0]}`);
+          res.json({ success: true, message: `Downgrade scheduled. Your current plan remains active until ${nextChargeAt.toISOString().split('T')[0]}.` });
+        }
       } else {
         await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
         res.json({ success: true, message: `Settings updated to ${target_tier} tier.` });
@@ -3529,6 +3574,91 @@ Return ONLY the rewritten string without quotes, markdown formatting, or explana
         await logAiUsage(brandId, 'AI Copy Rewrite', targetModel, result.usageMetadata);
       }
       res.json({ success: true, text: rewrittenText });
+    } else {
+      const errText = await response.text();
+      res.status(500).json({ error: `Gemini API returned error: ${errText}` });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST AI generate campaign from a goal prompt
+app.post('/api/global/brands/:id/ai-generate-campaign', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { goal } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  if (!goal) {
+    return res.status(400).json({ error: 'Missing required field: goal' });
+  }
+
+  try {
+    await checkAiLimits(brandId);
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini General API key not configured.' });
+    }
+
+    const brand = await getQuery('SELECT name, ai_tier, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+    const brandName = brand ? brand.name : 'our cafe';
+
+    let targetModel = 'gemini-1.5-pro';
+    if (brand && brand.ai_tier === 'standard') {
+      targetModel = 'gemini-2.5-flash';
+    } else if (brand && brand.ai_tier === 'enterprise') {
+      targetModel = 'deep-research-pro-preview';
+    }
+
+    const systemPrompt = `You are an elite omnichannel ad campaign director and luxury brand copywriter.
+Generate a structured, cohesive ad campaign and matching landing page content based on the following brand context and campaign goal.
+
+Brand Name: "${brandName}"
+Brand Voice & Guidelines:
+${brand ? brand.marketing_protocol : 'Default premium coffee brand.'}
+
+Campaign Goal / Topic: "${goal}"
+
+You must return a valid, parseable JSON object matching the exact structure below. Do NOT wrap the JSON in markdown code blocks or add any markdown formatting. Verify that your response can be parsed cleanly.
+
+Expected JSON structure:
+{
+  "name": "A premium descriptive campaign name",
+  "headline": "Variant A Headline (compelling callout, max 50 chars)",
+  "ad_copy": "Variant A Description Body (marketing hook, max 150 chars)",
+  "headline_b": "Variant B Headline (alternative hook, max 50 chars)",
+  "ad_copy_b": "Variant B Description Body (alternative description, max 150 chars)",
+  "suggested_platforms": ["meta", "google", "x"],
+  "suggested_budget": 150,
+  "suggested_roas": 3.0,
+  "landing_page_title": "Descriptive title for the landing page",
+  "landing_page_headline": "An attention-grabbing hero headline for the landing page matching the campaign goal",
+  "landing_page_subheadline": "A supporting subheadline matching the brand voice",
+  "landing_page_cta": "Call to action button text",
+  "landing_page_coupon_code": "Coupon code matching this campaign, e.g. FRESH15",
+  "landing_page_features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Rich Aroma\\n☕ Perfect Crema\\n🌱 Responsibly Sourced"
+}`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const text = (result.candidates?.[0]?.content?.parts?.[0]?.text || '{}').trim();
+      const generatedCampaign = JSON.parse(text);
+      if (result.usageMetadata) {
+        await logAiUsage(brandId, 'AI Campaign Generation', targetModel, result.usageMetadata);
+      }
+      res.json({ success: true, campaign: generatedCampaign });
     } else {
       const errText = await response.text();
       res.status(500).json({ error: `Gemini API returned error: ${errText}` });
