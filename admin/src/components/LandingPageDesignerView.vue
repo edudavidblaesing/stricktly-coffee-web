@@ -161,8 +161,9 @@
                             <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">📝 Landing Page Copy ({{ landingPageContentLang.toUpperCase() }} variant)</span>
                             <!-- Translate button if not default 'en' -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="translateLandingPageWithAI(landingPageContentLang)" :disabled="translatingLandingPage">
-                                    <span v-if="translatingLandingPage">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="toggleTranslateLandingPage(landingPageContentLang)">
+                                    <span v-if="translatingLandingPage">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                    <span v-else-if="lastTranslatingLandingPageCost">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingLandingPageCost.toFixed(4) }}]</span>
                                     <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
                                 </button>
                                 <span v-if="translateAiStats && translateAiStats.calls_count > 0" style="font-size: 0.65rem; color: var(--text-muted);">
@@ -337,8 +338,9 @@
                     <div style="display: flex; flex-direction: column; align-items: stretch; gap: 8px;">
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button type="button" class="btn" style="margin: 0; height: 36px; border: 1px solid var(--border);" @click="showAIModal = false" :disabled="generatingAIPage">Cancel</button>
-                            <button type="button" class="sc-ai-button" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="generatingAIPage || !aiModalPrompt" @click="generateAIPage">
-                                <span v-if="generatingAIPage">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                            <button type="button" class="sc-ai-button" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="!aiModalPrompt" @click="toggleGenerateAIPage">
+                                <span v-if="generatingAIPage">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                <span v-else-if="lastGeneratingAIPageCost">✨ Generate & Add Page [Gemini 2.5 Flash] [Last: €{{ lastGeneratingAIPageCost.toFixed(4) }}]</span>
                                 <span v-else>✨ Generate & Add Page [Gemini 2.5 Flash] [~$0.0006]</span>
                             </button>
                         </div>
@@ -385,11 +387,13 @@ export default {
             edit_primary_color: '#111111',
             landingPageContentLang: 'en',
             translatingLandingPage: false,
+            lastTranslatingLandingPageCost: null,
             edit_translations: {},
             showAIModal: false,
             aiModalPrompt: '',
             aiModalProductId: '',
             generatingAIPage: false,
+            lastGeneratingAIPageCost: null,
             autoUpdatePreview: true,
             aiUsageBreakdown: []
         };
@@ -588,9 +592,20 @@ export default {
             if (this.app.activeShopFilter === 'all') return '#';
             return `/store/${this.app.activeShopFilter}/${slug}`;
         },
+        toggleGenerateAIPage() {
+            if (this.generatingAIPage) {
+                if (this.pageAbortController) {
+                    this.pageAbortController.abort();
+                    this.pageAbortController = null;
+                }
+            } else {
+                this.generateAIPage();
+            }
+        },
         async generateAIPage() {
             if (!this.designerBrand || !this.designerBrand.id) return;
             this.generatingAIPage = true;
+            this.pageAbortController = new AbortController();
             const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
             let modelName = 'gemini-3.1-pro';
             if (tier === 'standard') modelName = 'gemini-2.5-flash';
@@ -606,7 +621,8 @@ export default {
                     body: JSON.stringify({
                         prompt: this.aiModalPrompt,
                         productId: this.aiModalProductId
-                    })
+                    }),
+                    signal: this.pageAbortController.signal
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -633,10 +649,17 @@ export default {
                     alert('AI landing page generation error: ' + (err.error || 'Unknown error'));
                 }
             } catch (e) {
+                if (e.name === 'AbortError') {
+                    this.lastGeneratingAIPageCost = null;
+                    this.app.showNotification('AI page generation stopped.');
+                    return;
+                }
                 alert('AI landing page generation network error: ' + e.message);
             } finally {
                 this.generatingAIPage = false;
+                this.lastGeneratingAIPageCost = this.app.aiTicker.cost * 0.92;
                 this.app.stopAiTicker();
+                this.pageAbortController = null;
             }
         },
         triggerAIPageBuilder() {
@@ -924,6 +947,16 @@ export default {
                 this.heroUploading = false;
             }
         },
+        toggleTranslateLandingPage(targetLang) {
+            if (this.translatingLandingPage) {
+                if (this.translateAbortController) {
+                    this.translateAbortController.abort();
+                    this.translateAbortController = null;
+                }
+            } else {
+                this.translateLandingPageWithAI(targetLang);
+            }
+        },
         async translateLandingPageWithAI(targetLang) {
             if (!this.edit_headline && !this.edit_subheadline && !this.edit_cta && !this.edit_features) {
                 alert('Please enter some text in English first to translate.');
@@ -931,6 +964,7 @@ export default {
             }
             
             this.translatingLandingPage = true;
+            this.translateAbortController = new AbortController();
             const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
             let modelName = 'gemini-3.1-pro';
             if (tier === 'standard') modelName = 'gemini-2.5-flash';
@@ -951,7 +985,8 @@ export default {
                                 text: val,
                                 targetLang: targetLang,
                                 sourceLang: 'en'
-                            })
+                            }),
+                            signal: this.translateAbortController.signal
                         });
                         if (response.ok) {
                             const res = await response.json();
@@ -962,11 +997,18 @@ export default {
                 this.app.showNotification(`Successfully auto-translated landing page copy to ${targetLang.toUpperCase()}!`);
                 this.loadAiUsage();
             } catch(e) {
+                if (e.name === 'AbortError') {
+                    this.lastTranslatingLandingPageCost = null;
+                    this.app.showNotification('AI Translation stopped.');
+                    return;
+                }
                 console.error(e);
                 alert('AI translation error: ' + e.message);
             } finally {
                 this.translatingLandingPage = false;
+                this.lastTranslatingLandingPageCost = this.app.aiTicker.cost * 0.92;
                 this.app.stopAiTicker();
+                this.translateAbortController = null;
             }
         }
     }

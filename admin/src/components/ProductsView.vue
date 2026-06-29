@@ -137,11 +137,13 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
-                                    <button type="button" @click="generateAiSeo('new')" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;" :disabled="generatingSeo">
+                                    <button type="button" @click="toggleAiSeo('new')" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
-                                        <span v-else-if="generatingSeo">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                        <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                        <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
                                         <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
+                                    <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo" operation="Product SEO Content Generation" :inputText="newProduct.long_description || newProduct.title" />
                                 </div>
                                 <textarea v-model="newProduct.description" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
                             </div>
@@ -317,11 +319,13 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
-                                    <button type="button" @click="generateAiSeo('edit')" :disabled="editingProduct.details_source === 'external' || generatingSeo" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
+                                    <button type="button" @click="toggleAiSeo('edit')" :disabled="editingProduct.details_source === 'external'" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
-                                        <span v-else-if="generatingSeo">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                        <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                        <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
                                         <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
                                     </button>
+                                    <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo && editingProduct.details_source !== 'external'" operation="Product SEO Content Generation" :inputText="editingProduct.long_description || editingProduct.title" />
                                 </div>
                                 <textarea v-model="editingProduct.description" :disabled="editingProduct.details_source === 'external'" rows="2" placeholder="Brief summary of the precision tool..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
                             </div>
@@ -384,7 +388,31 @@
                     </div>
                 </div>
             </div>
-            <div class="table-responsive">
+            <div v-if="filteredProducts.length === 0" style="padding: 50px 30px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-top: 1px dashed var(--border); margin-top: 12px; background: rgba(255,255,255,0.005); border-radius: 8px;">
+                <div style="font-size: 3rem; animation: pulse 2s infinite;">📦</div>
+                <div style="max-width: 500px;">
+                    <h4 style="color: var(--text-main); font-size: 1rem; font-weight: 700; margin: 0 0 8px 0;">Your Product Catalog is Empty</h4>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; margin: 0;">
+                        To launch high-converting omnichannel marketing campaigns, you need products in your catalog. Connect your Shopify or WooCommerce store to automatically sync products in one click, or add products manually.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 10px;">
+                    <button v-if="isStoreConnected" type="button" class="btn btn-accent" style="margin: 0; height: 38px; padding: 0 20px; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); border: none; color: white;" 
+                            @click="triggerStoreWideProductImport" :disabled="importingStoreWide">
+                        <span v-if="importingStoreWide">⏳ Importing store...</span>
+                        <span v-else>🔌 1-Click eCommerce Import</span>
+                    </button>
+                    <button v-else type="button" class="btn btn-accent" style="margin: 0; height: 38px; padding: 0 20px; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border: none; color: white;" 
+                            @click="app.switchView('brands')">
+                        🔌 Connect Store
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="margin: 0; height: 38px; padding: 0 20px; font-weight: 700; font-size: 0.8rem;" 
+                            @click="openAddProductModal">
+                        ➕ Add Manual Product
+                    </button>
+                </div>
+            </div>
+            <div v-else class="table-responsive">
                 <table>
                     <thead>
                         <tr>
@@ -512,7 +540,9 @@ export default {
             showEditProductModal: false,
             productUploading: false,
             generatingSeo: false,
+            lastSeoCost: null,
             activeLangTab: 'en',
+            importingStoreWide: false,
             editingProduct: {
                 id: null,
                 brand_id: '',
@@ -544,6 +574,12 @@ export default {
             return this.searchedProducts.length > 0 && this.searchedProducts.every(p => this.selectedProductIds.includes(p.id));
         },
         brands() { return this.app.brands; },
+        activeBrand() {
+            return this.brands.find(b => b.id === this.activeShopFilter) || null;
+        },
+        isStoreConnected() {
+            return !!(this.activeBrand && (this.activeBrand.shopify_shop_name || this.activeBrand.woocommerce_shop_url));
+        },
         newProduct() { return this.app.newProduct; },
         uploadingMedia() { return this.app.uploadingMedia; },
         shopifyProducts() { return this.app.shopifyProducts; },
@@ -622,6 +658,55 @@ export default {
             }
             this.activeLangTab = this.activeLanguages[0] || 'en';
             this.handleBrandChange();
+        },
+        async triggerStoreWideProductImport() {
+            let brandId = this.activeShopFilter;
+            if (!brandId || brandId === 'all') {
+                if (this.brands.length > 0) {
+                    brandId = this.brands[0].id;
+                } else {
+                    alert('Please connect a shop under the "Shops" tab first.');
+                    return;
+                }
+            }
+            this.importingStoreWide = true;
+            try {
+                this.app.showNotification('🔌 Connecting to eCommerce store & syncing products...');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/shopify-import?brandId=${brandId}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const products = data.products || [];
+                    if (products.length === 0) {
+                        this.app.showNotification('⚠️ No products found in connected storefront to import.');
+                        return;
+                    }
+                    
+                    const batchResponse = await fetch(`${this.app.apiBaseUrl}/api/global/shopify-import/batch`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                        },
+                        body: JSON.stringify({ brandId, products })
+                    });
+                    if (batchResponse.ok) {
+                        this.app.showNotification(`🎉 Successfully synced & imported ${products.length} products!`);
+                        await this.app.loadBrands();
+                        await this.app.loadProducts(); // reload products lists to update view instantly
+                    } else {
+                        const err = await batchResponse.json();
+                        alert('Import failed: ' + (err.error || 'Unknown error'));
+                    }
+                } else {
+                    alert('Failed to connect to storefront catalog integration.');
+                }
+            } catch (e) {
+                alert('Import error: ' + e.message);
+            } finally {
+                this.importingStoreWide = false;
+            }
         },
         closeAddProductModal() {
             this.showAddProductModal = false;
@@ -864,6 +949,16 @@ export default {
                 conversionRate
             };
         },
+        toggleAiSeo(mode) {
+            if (this.generatingSeo) {
+                if (this.seoAbortController) {
+                    this.seoAbortController.abort();
+                    this.seoAbortController = null;
+                }
+            } else {
+                this.generateAiSeo(mode);
+            }
+        },
         async generateAiSeo(mode) {
             if (!this.app.isFeatureAllowed('allow_seo')) {
                 alert('🔒 Feature Locked: Please upgrade your subscription to Professional or Enterprise Tier to unlock the AI Catalog SEO Pitcher.');
@@ -876,6 +971,7 @@ export default {
             }
             
             this.generatingSeo = true;
+            this.seoAbortController = new AbortController();
             const brandId = prod.brand_id || this.app.activeShopFilter;
             const brand = this.app.brands.find(b => b.id === brandId);
             const tier = brand ? brand.ai_tier : 'professional';
@@ -893,7 +989,8 @@ export default {
                     body: JSON.stringify({
                         title: prod.title,
                         description: prod.long_description || prod.description
-                    })
+                    }),
+                    signal: this.seoAbortController.signal
                 });
                 
                 if (response.ok) {
@@ -914,10 +1011,17 @@ export default {
                     alert(`AI generation failed: ${err.error}`);
                 }
             } catch (err) {
+                if (err.name === 'AbortError') {
+                    this.lastSeoCost = null;
+                    this.app.showNotification('AI Generation stopped.');
+                    return;
+                }
                 alert(`Error generating AI content: ${err.message}`);
             } finally {
                 this.generatingSeo = false;
+                this.lastSeoCost = this.app.aiTicker.cost * 0.92;
                 this.app.stopAiTicker();
+                this.seoAbortController = null;
             }
         },
         getTranslationRef(mode, lang) {

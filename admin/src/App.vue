@@ -72,7 +72,7 @@
             </div>
 
             <!-- SIDEBAR NAVIGATION MENU -->
-            <aside :class="{ open: mobileSidebarOpen }" v-if="isLoggedIn">
+            <aside :class="{ open: mobileSidebarOpen }" v-if="isLoggedIn && !isCampaignCreatorFullscreen">
             <!-- Top Workspace / Context Selector -->
             <div style="position: relative; margin-bottom: 24px;">
                 <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
@@ -168,7 +168,22 @@
                         </button>
                     </li>
                     <li>
+                        <button class="nav-link-btn" :class="{ active: activeView === 'brand-center', 'generating-purple-glow': isStrategyGenerating }"
+                            :disabled="isSidebarLinkDisabled('brand-center')"
+                            :style="{ opacity: isSidebarLinkDisabled('brand-center') ? 0.35 : 1, cursor: isSidebarLinkDisabled('brand-center') ? 'not-allowed' : 'pointer' }"
+                            @click="switchView('brand-center')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                            </svg>
+                            Brand Center <span v-if="isSidebarLinkDisabled('brand-center')">🔒</span>
+                        </button>
+                    </li>
+                    <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'products' }"
+                            :disabled="isSidebarLinkDisabled('products')"
+                            :style="{ opacity: isSidebarLinkDisabled('products') ? 0.35 : 1, cursor: isSidebarLinkDisabled('products') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('products')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -178,11 +193,13 @@
                                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
                             </svg>
-                            Products
+                            Products <span v-if="isSidebarLinkDisabled('products')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'media' }"
+                            :disabled="isSidebarLinkDisabled('media')"
+                            :style="{ opacity: isSidebarLinkDisabled('media') ? 0.35 : 1, cursor: isSidebarLinkDisabled('media') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('media')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -190,22 +207,26 @@
                                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
                                 <polyline points="21 15 16 10 5 21"></polyline>
                             </svg>
-                            Media Library
+                            Media Library <span v-if="isSidebarLinkDisabled('media')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'orders' }"
+                            :disabled="isSidebarLinkDisabled('orders')"
+                            :style="{ opacity: isSidebarLinkDisabled('orders') ? 0.35 : 1, cursor: isSidebarLinkDisabled('orders') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('orders')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
                                 <line x1="1" y1="10" x2="23" y2="10"></line>
                             </svg>
-                            Transactions
+                            Transactions <span v-if="isSidebarLinkDisabled('orders')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'reports' }"
+                            :disabled="isSidebarLinkDisabled('reports')"
+                            :style="{ opacity: isSidebarLinkDisabled('reports') ? 0.35 : 1, cursor: isSidebarLinkDisabled('reports') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('reports')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -213,21 +234,25 @@
                                 <line x1="12" y1="20" x2="12" y2="4"></line>
                                 <line x1="6" y1="20" x2="6" y2="14"></line>
                             </svg>
-                            Reports & Analytics
+                            Reports & Analytics <span v-if="isSidebarLinkDisabled('reports')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'messages' }"
+                            :disabled="isSidebarLinkDisabled('messages')"
+                            :style="{ opacity: isSidebarLinkDisabled('messages') ? 0.35 : 1, cursor: isSidebarLinkDisabled('messages') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('messages')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                             </svg>
-                            Messages
+                            Messages <span v-if="isSidebarLinkDisabled('messages')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'team-performance' }"
+                            :disabled="isSidebarLinkDisabled('team-performance')"
+                            :style="{ opacity: isSidebarLinkDisabled('team-performance') ? 0.35 : 1, cursor: isSidebarLinkDisabled('team-performance') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('team-performance')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -236,11 +261,13 @@
                                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                             </svg>
-                            Team Performance
+                            Team Performance <span v-if="isSidebarLinkDisabled('team-performance')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'campaigns' }"
+                            :disabled="isSidebarLinkDisabled('campaigns')"
+                            :style="{ opacity: isSidebarLinkDisabled('campaigns') ? 0.35 : 1, cursor: isSidebarLinkDisabled('campaigns') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('campaigns')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -248,11 +275,27 @@
                                 <path d="M2 17l10 5 10-5"></path>
                                 <path d="M2 12l10 5 10-5"></path>
                             </svg>
-                            Ad Studio
+                            Ad Studio <span v-if="isSidebarLinkDisabled('campaigns')">🔒</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-link-btn" :class="{ active: activeView === 'learning' }"
+                            :disabled="isSidebarLinkDisabled('learning')"
+                            :style="{ opacity: isSidebarLinkDisabled('learning') ? 0.35 : 1, cursor: isSidebarLinkDisabled('learning') ? 'not-allowed' : 'pointer' }"
+                            @click="switchView('learning')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 16v-4"></path>
+                                <path d="M12 8h.01"></path>
+                            </svg>
+                            AI Learning Center <span v-if="isSidebarLinkDisabled('learning')">🔒</span>
                         </button>
                     </li>
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'coupons' }"
+                            :disabled="isSidebarLinkDisabled('coupons')"
+                            :style="{ opacity: isSidebarLinkDisabled('coupons') ? 0.35 : 1, cursor: isSidebarLinkDisabled('coupons') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('coupons')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -261,7 +304,7 @@
                                 <line x1="7" y1="12" x2="17" y2="12"></line>
                                 <line x1="7" y1="16" x2="13" y2="16"></line>
                             </svg>
-                            Coupons
+                            Coupons <span v-if="isSidebarLinkDisabled('coupons')">🔒</span>
                         </button>
                     </li>
                 </ul>
@@ -273,13 +316,15 @@
                 <ul class="nav-links">
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'customers' }"
+                            :disabled="isSidebarLinkDisabled('customers')"
+                            :style="{ opacity: isSidebarLinkDisabled('customers') ? 0.35 : 1, cursor: isSidebarLinkDisabled('customers') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('customers')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="12" cy="7" r="4"></circle>
                             </svg>
-                            Customer List
+                            Customer List <span v-if="isSidebarLinkDisabled('customers')">🔒</span>
                         </button>
                     </li>
                     <li>
@@ -303,13 +348,15 @@
                 <ul class="nav-links">
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'roles-permissions' }"
+                            :disabled="isSidebarLinkDisabled('roles-permissions')"
+                            :style="{ opacity: isSidebarLinkDisabled('roles-permissions') ? 0.35 : 1, cursor: isSidebarLinkDisabled('roles-permissions') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('roles-permissions')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                             </svg>
-                            Roles & Permissions
+                            Roles & Permissions <span v-if="isSidebarLinkDisabled('roles-permissions')">🔒</span>
                         </button>
                     </li>
                     <li>
@@ -321,6 +368,25 @@
                                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                             </svg>
                             Billing & Subscription
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-link-btn" :class="{ active: activeView === 'ai-analytics' }"
+                            @click="switchView('ai-analytics')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="4" width="16" height="16" rx="2" />
+                                <rect x="9" y="9" width="6" height="6" />
+                                <line x1="9" y1="1" x2="9" y2="4" />
+                                <line x1="15" y1="1" x2="15" y2="4" />
+                                <line x1="9" y1="20" x2="9" y2="23" />
+                                <line x1="15" y1="20" x2="15" y2="23" />
+                                <line x1="20" y1="9" x2="23" y2="9" />
+                                <line x1="20" y1="15" x2="23" y2="15" />
+                                <line x1="1" y1="9" x2="4" y2="9" />
+                                <line x1="1" y1="15" x2="4" y2="15" />
+                            </svg>
+                            AI Console & Analytics
                         </button>
                     </li>
                     <li v-if="userRole.toLowerCase() !== 'superadmin' || activeShopFilter !== 'all'">
@@ -342,6 +408,8 @@
                 <ul class="nav-links">
                     <li>
                         <button class="nav-link-btn" :class="{ active: activeView === 'customer-support' }"
+                            :disabled="isSidebarLinkDisabled('customer-support')"
+                            :style="{ opacity: isSidebarLinkDisabled('customer-support') ? 0.35 : 1, cursor: isSidebarLinkDisabled('customer-support') ? 'not-allowed' : 'pointer' }"
                             @click="switchView('customer-support')">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -349,7 +417,7 @@
                                     d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
                                 </path>
                             </svg>
-                            Customer Support
+                            Customer Support <span v-if="isSidebarLinkDisabled('customer-support')">🔒</span>
                         </button>
                     </li>
                     <li>
@@ -466,10 +534,10 @@
         </div>
 
         <!-- MAIN WORKSPACE -->
-        <main v-if="isLoggedIn">
+        <main v-if="isLoggedIn" :style="isCampaignCreatorFullscreen ? { marginLeft: 0, width: '100%' } : {}">
             <!-- Top Navigation Header -->
             <!-- Top Navigation Header -->
-            <header>
+            <header v-if="!isCampaignCreatorFullscreen">
                 <!-- TOP ROW: BREADCRUMBS & TOP NAV CONTROLS -->
                 <div class="header-top-row">
                     <!-- Left: Breadcrumbs -->
@@ -621,6 +689,68 @@
                 </div>
             </header>
 
+            <div v-if="brands.length > 0 && activeView !== 'designer' && !isCampaignCreatorFullscreen && campaigns.length === 0" class="onboarding-walkthrough-bar" style="margin: 0 30px 20px 30px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.1rem;">🧭</span>
+                    <div>
+                        <strong style="font-size: 0.82rem; color: var(--accent); display: block; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2;">Brand Walkthrough Progress</strong>
+                        <span style="font-size: 0.76rem; color: var(--text-muted);">Complete these 4 configuration steps to launch your store campaigns.</span>
+                    </div>
+                </div>
+                
+                <!-- Steps Indicators -->
+                <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+                    <!-- Step 1: Channel Setup -->
+                    <div style="display: flex; align-items: center; gap: 6px; opacity: 1;">
+                        <span style="background: #22c55e; color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">✓</span>
+                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">1. Store Setup</span>
+                    </div>
+
+                    <!-- Line connector -->
+                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+
+                    <!-- Step 2: Brand Strategy -->
+                    <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 2 ? 1 : 0.4 }">
+                        <span v-if="onboardingStep > 2" style="background: #22c55e; color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">✓</span>
+                        <span v-else-if="onboardingStep === 2" style="background: var(--accent); color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--accent);">2</span>
+                        <span v-else style="background: transparent; color: var(--text-muted); width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--border);">2</span>
+                        <span style="font-size: 0.8rem; font-weight: 700;" :style="{ color: onboardingStep === 2 ? 'var(--accent)' : (onboardingStep > 2 ? 'var(--text-main)' : 'var(--text-muted)') }">2. Brand Strategy</span>
+                    </div>
+
+                    <!-- Line connector -->
+                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+
+                    <!-- Step 3: Catalog Setup -->
+                    <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 3 ? 1 : 0.4 }">
+                        <span v-if="onboardingStep > 3" style="background: #22c55e; color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">✓</span>
+                        <span v-else-if="onboardingStep === 3" style="background: var(--accent); color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--accent);">3</span>
+                        <span v-else style="background: transparent; color: var(--text-muted); width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--border);">3</span>
+                        <span style="font-size: 0.8rem; font-weight: 700;" :style="{ color: onboardingStep === 3 ? 'var(--accent)' : (onboardingStep > 3 ? 'var(--text-main)' : 'var(--text-muted)') }">3. Import Catalog</span>
+                    </div>
+
+                    <!-- Line connector -->
+                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+
+                    <!-- Step 4: Ad Studio Campaign -->
+                    <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 4 ? 1 : 0.4 }">
+                        <span v-if="onboardingStep > 4" style="background: #22c55e; color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">✓</span>
+                        <span v-else-if="onboardingStep === 4" style="background: var(--accent); color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--accent);">4</span>
+                        <span v-else style="background: transparent; color: var(--text-muted); width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 1px solid var(--border);">4</span>
+                        <span style="font-size: 0.8rem; font-weight: 700;" :style="{ color: onboardingStep === 4 ? 'var(--accent)' : (onboardingStep > 4 ? 'var(--text-main)' : 'var(--text-muted)') }">4. Launch Ads</span>
+                    </div>
+                </div>
+                
+                <!-- Action Guidance Tip Button -->
+                <div style="flex-shrink: 0;">
+                    <button v-if="!isOnboardingStepActiveView" type="button" class="btn btn-accent" style="margin: 0; font-size: 0.75rem; padding: 4px 10px; height: 28px; font-weight: bold;" @click="goToCurrentOnboardingStep">
+                        👉 Proceed to Step {{ onboardingStep }}
+                    </button>
+                    <button v-else type="button" class="btn btn-secondary" style="margin: 0; font-size: 0.75rem; padding: 4px 10px; height: 28px; font-weight: bold; border: 1px dashed var(--accent); background: rgba(197, 160, 89, 0.1); color: var(--accent); cursor: default;" @click.prevent>
+                        🎯 You are on Step {{ onboardingStep }}: {{ onboardingStepActionLabel }}
+                    </button>
+                </div>
+            </div>
+
             <!-- VIEW COMPONENTS -->
             <OverviewView ref="overviewView" />
             <BrandsView ref="brandsView" />
@@ -628,12 +758,15 @@
             <OrdersView ref="ordersView" />
             <WarehouseSimView ref="warehouseSimView" />
             <SettingsView ref="settingsView" />
+            <AiLearningCenterView ref="aiLearningCenterView" :app="this" />
+            <AiAnalyticsView ref="aiAnalyticsView" />
+            <BrandCenterView ref="brandCenterView" />
             <HelpView ref="helpView" />
             <CustomersView ref="customersView" />
             <ReportsView ref="reportsView" />
             <MessagesView ref="messagesView" />
             <TeamPerformanceView ref="teamPerformanceView" />
-            <CampaignsView ref="campaignsView" />
+            <CampaignsView ref="campaignsView" @toggle-fullscreen-creator="isCampaignCreatorFullscreen = $event" />
             <RolesPermissionsView ref="rolesPermissionsView" />
             <BillingSubscriptionView ref="billingSubscriptionView" />
             <CustomerSupportView ref="customerSupportView" />
@@ -1001,7 +1134,6 @@
                             <label style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Confirm New Password</label>
                             <input type="password" v-model="profilePasswordConfirm" placeholder="Confirm new password" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" />
                         </div>
-
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button type="button" @click="profileModalOpen = false" class="btn btn-secondary" style="height: 38px; padding: 0 15px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; background: transparent; border: 1px solid var(--border); color: var(--text-main); cursor: pointer;">Cancel</button>
                             <button type="submit" class="btn btn-accent" style="height: 38px; padding: 0 20px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; background: var(--accent); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px;">
@@ -1011,9 +1143,7 @@
                     </form>
                 </div>
             </div>
-        </div>
-        </div>
-        
+        </div>        
         <!-- Unsaved Changes Alert Dialog Overlay -->
         <div v-if="showUnsavedChangesModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 11000; backdrop-filter: blur(10px);">
             <div class="panel" style="width: 100%; max-width: 420px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
@@ -1040,10 +1170,9 @@
                 </div>
             </div>
         </div>
-  </div>
-</template>
-
-<script>
+    </div>
+    </div>
+</template><script>
 import { nextTick } from 'vue';
 import operatorAvatar from './assets/operator_avatar.png';
 import { Chart, registerables } from 'chart.js';
@@ -1055,6 +1184,8 @@ import ProductsView from './components/ProductsView.vue';
 import OrdersView from './components/OrdersView.vue';
 import WarehouseSimView from './components/WarehouseSimView.vue';
 import SettingsView from './components/SettingsView.vue';
+import AiAnalyticsView from './components/AiAnalyticsView.vue';
+import BrandCenterView from './components/BrandCenterView.vue';
 import HelpView from './components/HelpView.vue';
 import CustomersView from './components/CustomersView.vue';
 import ReportsView from './components/ReportsView.vue';
@@ -1065,6 +1196,8 @@ import RolesPermissionsView from './components/RolesPermissionsView.vue';
 import BillingSubscriptionView from './components/BillingSubscriptionView.vue';
 import CustomerSupportView from './components/CustomerSupportView.vue';
 import MediaView from './components/MediaView.vue';
+import AiLearningCenterView from './components/AiLearningCenterView.vue';
+import AiEstimateBadge from './components/AiEstimateBadge.vue';
 
 Chart.register(...registerables);
 
@@ -1078,6 +1211,8 @@ export default {
                 OrdersView,
                 WarehouseSimView,
                 SettingsView,
+                AiAnalyticsView,
+                BrandCenterView,
                 HelpView,
                 CustomersView,
                 ReportsView,
@@ -1088,7 +1223,9 @@ export default {
                 BillingSubscriptionView,
                 CustomerSupportView,
                 CouponsView,
-                MediaView
+                MediaView,
+                AiLearningCenterView,
+                AiEstimateBadge
             },
             provide() {
                 return {
@@ -1106,9 +1243,11 @@ export default {
                     profilePasswordConfirm: '',
                     appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
+                    isCampaignCreatorFullscreen: false,
                     requestedInitialView: 'overview',
                     currentEnv: 'local',
                     activeShopFilter: 'all',
+                    globalProtocolInterval: null,
                     originalSettingsBrand: null,
                     showUnsavedChangesModal: false,
                     pendingNavigationTargetView: '',
@@ -1276,11 +1415,58 @@ export default {
                 };
             },
             computed: {
+                adminToken() {
+                    return localStorage.getItem('sc_admin_token');
+                },
+                isOnboardingStepActiveView() {
+                    const step = this.onboardingStep;
+                    if (step === 1 && this.activeView === 'brands') return true;
+                    if (step === 2 && this.activeView === 'brand-center') return true;
+                    if (step === 3 && this.activeView === 'products') return true;
+                    if (step === 4 && this.activeView === 'campaigns') return true;
+                    return false;
+                },
+                onboardingStepActionLabel() {
+                    const step = this.onboardingStep;
+                    if (step === 1) return 'Onboard Storefront';
+                    if (step === 2) return 'Configure Strategy Playbook';
+                    if (step === 3) return 'Add / Sync Products';
+                    if (step === 4) return 'Launch Campaign';
+                    return '';
+                },
                 needsOnboarding() {
                     return this.isLoggedIn && 
                            this.userRole.toLowerCase() === 'merchant' && 
-                           (!this.activeShopFilter || this.activeShopFilter === 'all') &&
-                           this.brands.length === 0;
+                           (this.brands.length === 0 || this.brands.some(b => b.status === 'draft'));
+                },
+                isBrandStrategyConfigured() {
+                    if (this.activeShopFilter === 'all' || !this.activeShopFilter) return false;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    if (!brand) return false;
+                    if (brand.marketing_protocol && brand.marketing_protocol.trim()) return true;
+                    if (brand.brand_canvas) {
+                        try {
+                            const canvasObj = typeof brand.brand_canvas === 'string'
+                                ? JSON.parse(brand.brand_canvas)
+                                : brand.brand_canvas;
+                            if (canvasObj && (
+                                (canvasObj.brand_voice && canvasObj.brand_voice.length > 50) ||
+                                (canvasObj.product_architecture && canvasObj.product_architecture.length > 50) ||
+                                (canvasObj.controlled_vocabulary && ((canvasObj.controlled_vocabulary.approved && canvasObj.controlled_vocabulary.approved.length > 0) || (canvasObj.controlled_vocabulary.banned && canvasObj.controlled_vocabulary.banned.length > 0))) ||
+                                (canvasObj.personas && canvasObj.personas.length > 0)
+                            )) {
+                                return true;
+                            }
+                        } catch (e) {}
+                    }
+                    return false;
+                },
+                onboardingStep() {
+                    if (this.brands.length === 0) return 1;
+                    if (!this.isBrandStrategyConfigured) return 2;
+                    const activeBrandProducts = this.products.filter(p => p.brand_id === this.activeShopFilter);
+                    if (activeBrandProducts.length === 0) return 3;
+                    return 4;
                 },
                 operatorRole() {
                     if (!this.isLoggedIn) return 'Guest';
@@ -1296,6 +1482,10 @@ export default {
                     switch (this.activeView) {
                         case 'overview':
                             return { title: 'Overview Dashboard', subtitle: 'Monitor store performance metrics, revenues, and recent transactions' };
+                        case 'brand-center':
+                            return { title: 'Brand Identity Center', subtitle: 'Define voice guidelines, personas, style variables, and strategy playbooks' };
+                        case 'campaigns':
+                            return { title: 'Smart Ad Studio', subtitle: 'Orchestrate performance ad campaigns, budget schedules, and copies' };
                         case 'brands':
                             return { title: 'Store Channels', subtitle: 'Manage store connections, checkout redirects, and brand customizers' };
                         case 'products':
@@ -1306,6 +1496,8 @@ export default {
                             return { title: 'Fulfillment Warehouse Simulator', subtitle: 'Onboarded brand store Shopify simulated fulfillment warehouse' };
                         case 'settings':
                             return { title: 'Shop Integrations & Configurations', subtitle: 'Manage API credentials, domain routing, and master theme variables' };
+                        case 'ai-analytics':
+                            return { title: 'AI Usage & Cost Analytics', subtitle: 'Track real-time token usage, API call frequencies, and platform costs' };
                         case 'help':
                             return { title: 'Help Center & Knowledge Base', subtitle: 'Search integration manuals, WooCommerce guides, and FAQs' };
                         case 'customers':
@@ -1341,6 +1533,11 @@ export default {
                 },
                 activeBrands() {
                     return (this.brands || []).filter(b => b.status !== 'draft');
+                },
+                isStrategyGenerating() {
+                    if (this.activeShopFilter === 'all' || !this.activeShopFilter) return false;
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter);
+                    return brand ? brand.protocol_status === 'generating' : false;
                 },
                 activeWorkspaceLetter() {
                     if (this.activeShopFilter === 'all') return 'S';
@@ -1481,6 +1678,7 @@ export default {
                     if (this.activeView === 'messages') return 'Messages & Activity Logs';
                     if (this.activeView === 'team-performance') return 'Team Performance';
                     if (this.activeView === 'campaigns') return 'Smart Ad Studio';
+                    if (this.activeView === 'learning') return 'AI Learning Center';
                     if (this.activeView === 'roles-permissions') return 'Roles & Permissions';
                     if (this.activeView === 'billing-subscription') return 'Billing & Subscriptions';
                     if (this.activeView === 'customer-support') return 'Customer Support';
@@ -1692,6 +1890,13 @@ export default {
                 },
                 filteredOrders(newVal) {
                     this.renderAnalyticsCharts();
+                },
+                isStrategyGenerating(newVal) {
+                    if (newVal) {
+                        this.startGlobalProtocolPolling();
+                    } else {
+                        this.stopGlobalProtocolPolling();
+                    }
                 }
             },
             mounted() {
@@ -1720,7 +1925,7 @@ export default {
                 } else if (primary === 'integrations') {
                     initialView = 'settings';
                 } else {
-                    const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
+                    const validViews = ['overview', 'brand-center', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
                     if (validViews.includes(primary)) {
                         initialView = primary;
                     }
@@ -1790,8 +1995,91 @@ export default {
                 document.removeEventListener('click', this.handleDocumentClick);
                 window.removeEventListener('popstate', this.handlePopState);
                 window.removeEventListener('beforeunload', this.handleBeforeUnload);
+                this.stopGlobalProtocolPolling();
             },
             methods: {
+                isSidebarLinkDisabled(viewName) {
+                    if (!this.isLoggedIn) return true;
+                    // If superadmin is on "ALL" view (no brand context selected), allow all sidebar links
+                    if (this.userRole.toLowerCase() === 'superadmin' && (this.activeShopFilter === 'all' || !this.activeShopFilter)) {
+                        return false;
+                    }
+                    if (['overview', 'help', 'billing-subscription', 'brands', 'learning'].includes(viewName)) {
+                        return false;
+                    }
+                    if (viewName === 'settings' && this.userRole.toLowerCase() === 'superadmin' && this.activeShopFilter === 'all') {
+                        return false;
+                    }
+                    if (viewName === 'settings') {
+                        return false;
+                    }
+                    if (viewName === 'brand-center') {
+                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) {
+                            return true;
+                        }
+                        return false;
+                    }
+                    if (this.brands.length === 0) return true;
+                    if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
+                    if (!this.isBrandStrategyConfigured) return true;
+                    if (viewName === 'campaigns') {
+                        const activeBrandProducts = this.products.filter(p => p.brand_id === this.activeShopFilter);
+                        if (activeBrandProducts.length === 0) return true;
+                    }
+                    return false;
+                },
+                startGlobalProtocolPolling() {
+                    this.stopGlobalProtocolPolling();
+                    this.globalProtocolInterval = setInterval(async () => {
+                        await this.loadBrands();
+                        const activeBrand = this.brands.find(b => b.id === this.activeShopFilter);
+                        if (activeBrand && activeBrand.protocol_status !== 'generating') {
+                            this.stopGlobalProtocolPolling();
+                            if (this.activeView === 'brand-center' && this.$refs.brandCenterView && this.$refs.brandCenterView.loadBrandCanvas) {
+                                this.$refs.brandCenterView.loadBrandCanvas();
+                                this.$refs.brandCenterView.loadManuscripts();
+                                this.$refs.brandCenterView.loadManuscriptStats();
+                            }
+                        }
+                    }, 5000);
+                },
+                stopGlobalProtocolPolling() {
+                    if (this.globalProtocolInterval) {
+                        clearInterval(this.globalProtocolInterval);
+                        this.globalProtocolInterval = null;
+                    }
+                },
+                async fetchAiEstimate(operation, inputText = '') {
+                    try {
+                        const res = await fetch(`${this.apiBaseUrl}/api/global/ai-estimator/predict`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ operation, inputText })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            return data.estimates;
+                        }
+                    } catch (e) {
+                        console.error('[AI Estimator] Prediction failed:', e.message);
+                    }
+                    return null;
+                },
+                goToCurrentOnboardingStep() {
+                    const step = this.onboardingStep;
+                    if (step === 1) {
+                        this.switchView('brands');
+                    } else if (step === 2) {
+                        this.switchView('brand-center');
+                    } else if (step === 3) {
+                        this.switchView('products');
+                    } else if (step === 4) {
+                        this.switchView('campaigns');
+                    }
+                },
                 async verifyStripeCardSetup(brandId, sessionId) {
                     try {
                         const response = await fetch(`${this.apiBaseUrl}/api/global/billing/setup-complete?brandId=${brandId}&sessionId=${sessionId}`, {
@@ -3562,4 +3850,23 @@ export default {
 
 <style>
 @import "./assets/style.css";
+
+@keyframes purpleGlowPulse {
+  0% {
+    background-color: rgba(139, 92, 246, 0.08);
+    box-shadow: inset 0 0 4px rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    background-color: rgba(139, 92, 246, 0.22);
+    box-shadow: inset 0 0 10px rgba(139, 92, 246, 0.4);
+  }
+  100% {
+    background-color: rgba(139, 92, 246, 0.08);
+    box-shadow: inset 0 0 4px rgba(139, 92, 246, 0.15);
+  }
+}
+.generating-purple-glow {
+  animation: purpleGlowPulse 2.5s infinite ease-in-out !important;
+  border-left: 3px solid #8b5cf6 !important;
+}
 </style>

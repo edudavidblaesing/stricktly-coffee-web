@@ -31,31 +31,6 @@
             </form>
         </div>
 
-        <!-- Global AI Model Pricing settings (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
-            <div class="panel-header">
-                <h3 class="panel-title">🤖 AI Model Token Cost Tuning (USD per 1M tokens)</h3>
-            </div>
-            <div style="padding: 15px;">
-                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px;">
-                    Estimated cost tracking metrics shown to merchants. These rates are defined on the server/database.
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <div v-for="item in globalPricing" :key="item.model" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: center; background: rgba(0,0,0,0.1); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--border);">
-                        <strong style="font-size: 0.85rem; font-family: monospace; color: var(--text-main);">{{ item.model }}</strong>
-                        <div>
-                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Prompt / 1M</label>
-                            <span style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); font-weight: 700;">${{ parseFloat(item.prompt_rate_per_million).toFixed(4) }}</span>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Completion / 1M</label>
-                            <span style="font-size: 0.85rem; font-family: monospace; color: var(--text-main); font-weight: 700;">${{ parseFloat(item.completion_rate_per_million).toFixed(4) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- AI Tier Feature Authorization Matrix (superadmin only, global context) -->
         <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
             <div class="panel-header">
@@ -194,136 +169,6 @@
                         @click="saveTierFeatures">
                     {{ savingTierFeatures ? 'Saving Matrix...' : 'Save Feature Matrix' }}
                 </button>
-            </div>
-        </div>
-
-        <!-- Global Brand AI Cost & Spend Overview (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
-            <div class="panel-header">
-                <h3 class="panel-title">📊 Global Brand AI Cost & Spend Overview</h3>
-            </div>
-            <div style="padding: 15px;">
-                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px;">
-                    Summary of AI compute resource consumption and projected pricing costs aggregated across all brand shops.
-                </div>
-                <div v-if="isLoadingSuperadminAiUsage" style="text-align: center; padding: 20px; color: var(--text-muted);">
-                    ⏳ Loading global AI usage data...
-                </div>
-                <div v-else-if="superadminAiUsageSummary.length === 0" style="text-align: center; padding: 20px; color: var(--text-muted);">
-                    No AI usage records found.
-                </div>
-                <div v-else style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700;">
-                                <th style="padding: 10px 8px;">Brand Shop</th>
-                                <th style="padding: 10px 8px;">AI Tier</th>
-                                <th style="padding: 10px 8px; text-align: center;">Billing Mode</th>
-                                <th style="padding: 10px 8px; text-align: right;">API Calls</th>
-                                <th style="padding: 10px 8px; text-align: right;">Total Tokens</th>
-                                <th style="padding: 10px 8px; text-align: right; color: var(--accent);">Est. Spend</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="row in superadminAiUsageSummary" :key="row.brand_id" style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 10px 8px; font-weight: 700;">{{ row.brand_name }} <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; font-family: monospace;">({{ row.brand_id }})</span></td>
-                                <td style="padding: 10px 8px;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); text-transform: uppercase;">
-                                        {{ row.ai_tier }}
-                                    </span>
-                                </td>
-                                <td style="padding: 10px 8px; text-align: center;">
-                                    <span v-if="row.ai_free_tier" style="font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981;">
-                                        FREE
-                                    </span>
-                                    <span v-else style="font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-muted);">
-                                        PAID / METERED
-                                    </span>
-                                </td>
-                                <td style="padding: 10px 8px; text-align: right; font-family: monospace;">{{ row.total_calls }}</td>
-                                <td style="padding: 10px 8px; text-align: right; font-family: monospace;">{{ formatTokens(row.total_tokens) }}</td>
-                                <td style="padding: 10px 8px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 700;">${{ formatCost(row.total_cost_usd) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Google AI Studio Rate Limits & Usage Monitor (superadmin only) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 class="panel-title">🛡️ Google AI Studio Real-time Rate Limits Monitor</h3>
-                <span style="font-size: 0.65rem; font-weight: 800; background: rgba(96, 165, 250, 0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;">
-                    Live API Analytics
-                </span>
-            </div>
-            <div style="padding: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                    <div style="font-size: 0.82rem; color: var(--text-muted); max-width: 70%;">
-                        Peak usage tracking metrics compared directly against AI Studio limits. Select a scope to view global account-wide metrics or filter down to a single brand.
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">Scope:</span>
-                        <select v-model="realtimeLimitsBrandFilter" style="height: 32px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.78rem; padding: 0 10px; cursor: pointer;">
-                            <option value="">🌎 All Brands (Global)</option>
-                            <option v-for="b in app.brands" :key="b.id" :value="b.id">🏢 {{ b.name }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div v-if="isLoadingRealtimeLimits" style="text-align: center; padding: 30px; color: var(--text-muted);">
-                    ⏳ Analyzing request traffic logs...
-                </div>
-                <div v-else style="display: grid; grid-template-columns: 1fr; gap: 20px;">
-                    <div v-for="m in realtimeLimits" :key="m.model" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-                            <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent);">{{ m.model }}</strong>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">Quota Limits</span>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
-                            <!-- RPM Progress -->
-                            <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
-                                    <span style="color: var(--text-muted);">Requests / Min (RPM)</span>
-                                    <strong style="color: var(--text-main);">{{ m.rpm }} / {{ m.limit_rpm }}</strong>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                    <div :style="{ width: Math.min((m.rpm / m.limit_rpm) * 100, 100) + '%', backgroundColor: (m.rpm / m.limit_rpm) >= 0.85 ? '#ef4444' : ((m.rpm / m.limit_rpm) >= 0.60 ? '#f59e0b' : '#10b981') }" 
-                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- TPM Progress -->
-                            <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
-                                    <span style="color: var(--text-muted);">Tokens / Min (TPM)</span>
-                                    <strong style="color: var(--text-main);">{{ formatTokens(m.tpm) }} / {{ formatTokens(m.limit_tpm) }}</strong>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                    <div :style="{ width: Math.min((m.tpm / m.limit_tpm) * 100, 100) + '%', backgroundColor: (m.tpm / m.limit_tpm) >= 0.85 ? '#ef4444' : ((m.tpm / m.limit_tpm) >= 0.60 ? '#f59e0b' : '#10b981') }" 
-                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- RPD Progress -->
-                            <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
-                                    <span style="color: var(--text-muted);">Requests / Day (RPD)</span>
-                                    <strong style="color: var(--text-main);">{{ m.rpd }} / {{ m.limit_rpd }}</strong>
-                                </div>
-                                <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                    <div :style="{ width: Math.min((m.rpd / m.limit_rpd) * 100, 100) + '%', backgroundColor: (m.rpd / m.limit_rpd) >= 0.85 ? '#ef4444' : ((m.rpd / m.limit_rpd) >= 0.60 ? '#f59e0b' : '#10b981') }" 
-                                         style="height: 100%; border-radius: 3px; transition: width 0.4s ease;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -513,97 +358,7 @@
 
 
 
-                    <!-- Master Brand Style Guidelines -->
-                    <div class="form-group form-full" style="margin-top: 16px; margin-bottom: 8px;">
-                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px;">🎨 Default Brand Style Guidelines</h4>
-                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">
-                            These colors and assets serve as the default styling rules across your storefront and other channels. Individual channels can override these defaults in the Designer.
-                        </p>
-                    </div>
 
-                    <div class="form-group">
-                        <label>Custom Accent Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.primary_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.primary_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Secondary Color (Hover, details)</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.secondary_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.secondary_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#767676" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Storefront Background Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.bg_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.bg_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Primary Text Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.text_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.text_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Header Background Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.header_bg_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.header_bg_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Button Text Color</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="color" v-model="settingsBrand.button_text_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                            <input type="text" v-model="settingsBrand.button_text_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Button Shape (Border Radius)</label>
-                        <select v-model="settingsBrand.button_radius" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                            <option value="0px">Sharp Square (0px)</option>
-                            <option value="4px">Slightly Rounded (4px)</option>
-                            <option value="8px">Rounded Card (8px)</option>
-                            <option value="12px">Extra Rounded (12px)</option>
-                            <option value="9999px">Pill / Stadium (9999px)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Default Font Family</label>
-                        <select v-model="settingsBrand.font_family" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                            <option value="Outfit">Outfit (Clean Sans-Serif)</option>
-                            <option value="Inter">Inter (Modern Grotesque)</option>
-                            <option value="Roboto">Roboto (Neo-Grotesque)</option>
-                            <option value="Playfair Display">Playfair Display (Elegant Serif)</option>
-                            <option value="Lora">Lora (Contemporary Serif)</option>
-                            <option value="Merriweather">Merriweather (Classic Serif)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Favicon Icon URL (Optional)</label>
-                        <input type="url" v-model="settingsBrand.favicon" placeholder="https://pesado585.com/favicon.ico">
-                    </div>
-                    <div class="form-group">
-                        <label>Logo Image URL (Optional)</label>
-                        <input type="url" v-model="settingsBrand.logo" placeholder="https://pesado585.com/logo.png">
-                    </div>
-                    <div class="form-group">
-                        <label>Default Catalog Price Markup (%)</label>
-                        <input type="number" min="0" step="1" v-model="settingsBrand.price_markup" placeholder="0">
-                    </div>
 
                     <!-- Language Selection -->
                     <div class="form-group form-full">
@@ -627,6 +382,41 @@
                                    }">
                                 <input type="checkbox" :value="lang.code" v-model="settingsBrand.languages" style="display: none;">
                                 <span>{{ lang.flag }} {{ lang.name }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Business Segment & Niche Learning Engine Configurations -->
+                    <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: rgba(139, 92, 246, 0.03); border: 1px solid rgba(139, 92, 246, 0.15); padding: 18px; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="grid-column: 1 / -1; margin: 0 0 4px 0; font-size: 0.95rem; color: #a78bfa; display: flex; align-items: center; gap: 6px; font-family: Outfit, sans-serif; font-weight: 700;">
+                            <span>🧠 AI Learning Engine Settings</span>
+                        </h4>
+                        <p style="grid-column: 1 / -1; margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Configure your brand vertical and niche. This allows the copywriter studio and optimization agents to pull successful anonymized campaign copy frameworks from the platform vertical learning pool.
+                        </p>
+                        
+                        <div class="form-group" style="margin: 0;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Industry Vertical</label>
+                            <select v-model="settingsBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                <option value="Food & Beverage">Food & Beverage</option>
+                                <option value="Apparel & Fashion">Apparel & Fashion</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Health & Beauty">Health & Beauty</option>
+                                <option value="Home & Living">Home & Living</option>
+                                <option value="Fitness & Sports">Fitness & Sports</option>
+                                <option value="Software & Tech">Software & Tech</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin: 0;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Specific Niche / Tags</label>
+                            <input type="text" v-model="settingsBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                        </div>
+
+                        <div class="form-group form-full" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                            <input type="checkbox" id="share_perf_cb" v-model="settingsBrand.share_performance_data" style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
+                            <label for="share_perf_cb" style="margin: 0; font-size: 0.82rem; color: var(--text-main); cursor: pointer; font-weight: 600; user-select: none;">
+                                Share anonymized campaign performance data to improve AI recommendations globally
                             </label>
                         </div>
                     </div>
@@ -682,393 +472,7 @@
                 </div>
             </form>
 
-            <!-- AI Performance Marketing Manuscript Panel -->
-            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-                <h4 style="color: var(--accent); margin-bottom: 12px; font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
-                    🤖 AI Brand & Performance Marketing Manuscript
-                </h4>
-                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px; position: relative;">
-                    <!-- Locked Overlay -->
-                    <div v-if="!app.isFeatureAllowed('allow_manuscript')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,15,17,0.92); border-radius: 8px; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; box-sizing: border-box; text-align: center;">
-                        <div>
-                            <span style="font-size: 2.2rem; display: block; margin-bottom: 12px;">🔒</span>
-                            <span style="font-size: 0.85rem; font-weight: 800; color: var(--accent); background: rgba(197,160,89,0.15); padding: 4px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase; border: 1px solid rgba(197,160,89,0.3);">
-                                Locked on Active Plan
-                            </span>
-                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; max-width: 320px; line-height: 1.45;">
-                                Upgrade your brand's AI Performance subscription tier to unlock strategy crawls & manuscript builders.
-                            </div>
-                        </div>
-                    </div>
 
-                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.5;">
-                        Generate and manage your Brand Strategy Manuscript. The AI crawls your homepage, analyzes your catalog, and compiles a playbook covering positioning, customer personas, approved brand voice guidelines, competitor comparisons, high-converting ad hooks, and email copywriting campaigns. This playbook is utilized directly in the AI Campaign Creator.
-                    </div>
-
-                    <!-- Background status alert tracker -->
-                    <div v-if="settingsBrand.protocol_status === 'generating'" style="background: rgba(197, 160, 89, 0.05); border: 1px dashed var(--accent); padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
-                        <span class="sc-generating-gear" style="font-size: 1.6rem; display: block; margin-bottom: 6px;">⚙️</span>
-                        <strong>AI Strategy Playbook Generation is in Progress!</strong><br>
-                        The crawler is gathering homepage data and analyzing catalog parameters using <span style="font-family: monospace; color: var(--accent); font-weight: bold;">{{ activeManuscriptModelName }}</span> in the background.<br>
-                        <div style="margin: 10px auto; background: rgba(197, 160, 89, 0.1); border-radius: 6px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.76rem; border: 1px solid rgba(197, 160, 89, 0.15);">
-                            <span>⏳ Live Ticker:</span>
-                            <strong>{{ formatTokens(liveEstimatedTokens) }} tokens</strong>
-                            <span>•</span>
-                            <span style="color: var(--accent);">Est. Cost: <strong>€{{ liveEstimatedCost.toFixed(4) }}</strong></span>
-                        </div>
-                        <div style="margin-top: 5px; margin-bottom: 5px;">
-                            <button type="button" class="btn" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.75rem; padding: 4px 10px; height: 28px; margin: 0; font-weight: 700; border-radius: 6px;" @click="cancelMarketingProtocol">
-                                🛑 Tap to Stop / Cancel
-                            </button>
-                        </div>
-                        <br>
-                        You can continue working. This dashboard will update dynamically once processing finishes.
-                    </div>
-
-                    <div v-if="settingsBrand.protocol_status === 'failed'" style="background: rgba(239, 68, 68, 0.05); border: 1px dashed #ef4444; padding: 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 20px; text-align: center;">
-                        <span style="font-size: 1.5rem; display: block; margin-bottom: 6px;">❌</span>
-                        <strong style="color: #ef4444;">AI Generation Failed or Rate Limited!</strong><br>
-                        <span v-html="protocolErrorSuggestion"></span>
-                        <div v-if="settingsBrand.protocol_error" style="margin-top: 10px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); padding: 8px 12px; border-radius: 6px; text-align: left; font-family: monospace; font-size: 0.76rem; color: #f87171; white-space: pre-wrap; overflow-x: auto; word-break: break-all;">
-                            <strong>Error Context:</strong> {{ settingsBrand.protocol_error }}
-                        </div>
-                    </div>
-
-                    <!-- Method Selector Toggle -->
-                    <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;" v-if="!isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
-                        <button type="button" class="btn" :style="{ backgroundColor: generationMethod === 'auto' ? 'var(--accent)' : 'transparent', color: generationMethod === 'auto' ? 'var(--workspace-bg)' : 'var(--text-main)', border: '1px solid var(--border)' }" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; height: 32px; font-weight: 700; border-radius: 6px;" @click="generationMethod = 'auto'">
-                            🤖 Automated AI Crawl
-                        </button>
-                        <button type="button" class="btn" :style="{ backgroundColor: generationMethod === 'manual' ? 'var(--accent)' : 'transparent', color: generationMethod === 'manual' ? 'var(--workspace-bg)' : 'var(--text-main)', border: '1px solid var(--border)' }" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; height: 32px; font-weight: 700; border-radius: 6px;" @click="generationMethod = 'manual'">
-                            📋 Manual Prompt Builder
-                        </button>
-                    </div>
-
-                    <!-- Competitor Domain Inputs -->
-                    <div class="form-group form-full" style="margin-bottom: 15px;" v-if="!isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
-                        <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px; display: block;">
-                            Competitor Domains / URLs (Press Enter to add tags)
-                        </label>
-                        <div class="competitor-tags-input" style="display: flex; flex-wrap: wrap; gap: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; padding: 6px 12px; min-height: 38px; box-sizing: border-box; align-items: center; width: 100%;">
-                            <div v-for="(comp, idx) in competitorTags" :key="idx" 
-                                 style="display: inline-flex; align-items: center; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; gap: 6px; margin: 2px 0;">
-                                <span>{{ comp }}</span>
-                                <button type="button" @click="removeCompetitorTag(idx)" 
-                                        style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 0.85rem; font-weight: bold; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; opacity: 0.7; transition: opacity 0.2s;"
-                                        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
-                            </div>
-                            <input type="text" 
-                                   v-model="newCompetitorInput" 
-                                   @keydown.enter.prevent="addCompetitorTag"
-                                   @keydown.delete="handleCompetitorBackspace"
-                                   placeholder="Type domain (e.g. competitor.com) & press Enter" 
-                                   style="border: none; background: transparent; color: var(--text-main); font-size: 0.85rem; outline: none; margin: 0; padding: 0; flex: 1; min-width: 150px; height: 26px;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                            <input type="checkbox" id="auto-find-toggle" v-model="autoFindCompetitors" @change="syncCompetitorsToBrand" style="width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;">
-                            <label for="auto-find-toggle" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer; user-select: none;">
-                                🔍 Auto-discover competitors using AI during strategy generation (if list is empty)
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Manual generation info/prompt template -->
-                    <div v-if="generationMethod === 'manual' && !isGeneratingProtocol && !isEditingProtocol && settingsBrand.protocol_status !== 'generating'">
-                        <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 12px 15px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; color: var(--text-main); margin-bottom: 15px;">
-                            <h5 style="margin: 0 0 6px 0; color: var(--accent); font-weight: 700;">Manual Playbook Generation Instructions:</h5>
-                            <ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
-                                <li>Click <strong>"Compile Strategy Prompt"</strong> below to bundle your homepage text and active catalog products.</li>
-                                <li>Copy the compiled prompt from the text box below.</li>
-                                <li>Paste it into <a href="https://aistudio.google.com/" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: bold;">Google AI Studio</a> or Gemini Chat using your preferred model (e.g. Deep Research Pro).</li>
-                                <li>Paste the generated markdown response back into the manuscript text editor below and click <strong>"Save Changes"</strong>!</li>
-                            </ol>
-                        </div>
-                        
-                        <div style="position: relative; margin-bottom: 15px;" v-if="compiledPrompt">
-                            <textarea readonly style="width: 100%; height: 200px; border-radius: 8px; border: 1px solid var(--border); background: #0f1311; color: var(--text-muted); padding: 12px; font-family: monospace; font-size: 0.8rem; line-height: 1.4; resize: vertical;" :value="compiledPrompt"></textarea>
-                            <button type="button" class="btn btn-accent" style="position: absolute; top: 10px; right: 10px; font-size: 0.75rem; padding: 4px 10px; height: 28px; margin: 0; font-weight: 700;" @click="copyCompiledPrompt">
-                                📋 Copy Prompt
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Real token and cost usage stats -->
-                    <div v-if="manuscriptStats && manuscriptStats.calls_count > 0 && settingsBrand.protocol_status !== 'generating'" 
-                         style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.76rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                        <span>📊 Accumulated manuscript usage:</span>
-                        <strong style="color: var(--text-main);">{{ manuscriptStats.calls_count }} builds</strong>
-                        <span>•</span>
-                        <strong style="color: var(--text-main);">{{ formatTokens(manuscriptStats.total_tokens) }} tokens</strong>
-                        <span>•</span>
-                        <span>Total Cost: <strong style="color: var(--accent);">€{{ (manuscriptStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
-                    </div>
-
-                    <!-- Generator Action Button -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
-                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-ai-button" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')" @click="generateMarketingProtocol">
-                            <span v-if="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')">⏳ [{{ liveEstimatedTokens || app.aiTicker.tokens }} tokens | €{{ (liveEstimatedCost || app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                            <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
-                        </button>
-
-                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-secondary" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt || (settingsBrand && settingsBrand.protocol_status === 'generating')" @click="compileManualPrompt">
-                            <span v-if="isCompilingPrompt">⏳ Compiling Contextual Prompt...</span>
-                            <span v-else>📋 Compile Strategy Prompt (via Scraper)</span>
-                        </button>
-                        
-                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="!isEditingProtocol" :disabled="settingsBrand && settingsBrand.protocol_status === 'generating'" @click="toggleEditProtocol">
-                            ✍️ Paste / Edit Manuscript
-                        </button>
-                        
-                        <button type="button" class="btn btn-primary" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="isEditingProtocol" @click="saveManualProtocol">
-                            💾 Save Changes
-                        </button>
-
-                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="isEditingProtocol" @click="cancelEditProtocol">
-                            Cancel
-                        </button>
-                    </div>
-
-                    <!-- Loading state indicator -->
-                    <div v-if="isGeneratingProtocol" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px dashed var(--border); margin-top: 15px;">
-                        <div style="font-size: 1.2rem; margin-bottom: 8px;">🚀</div>
-                        <div>Crawling storefront homepages and scraping elements...</div>
-                        <div style="margin-top: 4px; font-size: 0.76rem; color: var(--accent);">Formulating marketing segments, ad hooks, and competitor matrices... This might take up to 30-45 seconds.</div>
-                    </div>
-
-                    <!-- Manuscript Version History List -->
-                    <div v-if="manuscripts.length > 0 && !isGeneratingProtocol && !isEditingProtocol" style="margin-top: 15px; margin-bottom: 15px; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 15px;">
-                        <h5 style="margin: 0 0 10px 0; color: var(--accent); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
-                            📚 Manuscript Version History ({{ manuscripts.length }})
-                        </h5>
-                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
-                            <div v-for="m in manuscripts" :key="m.id" 
-                                 :style="{ border: m.is_active ? '1px solid var(--accent)' : '1px solid var(--border)', background: m.is_active ? 'rgba(197, 160, 89, 0.03)' : 'rgba(0,0,0,0.1)' }"
-                                 style="padding: 10px 12px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
-                                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">
-                                            📅 Generated on {{ new Date(m.created_at).toLocaleString() }}
-                                        </span>
-                                        <span v-if="m.is_active" style="font-size: 0.65rem; font-weight: 800; background: var(--accent); color: var(--workspace-bg); padding: 1px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                            Active
-                                        </span>
-                                    </div>
-                                    <div style="font-size: 0.74rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 500px;">
-                                        {{ m.summary || 'Strategic manuscript draft...' }}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                                    <button v-if="!m.is_active" type="button" class="btn btn-accent" 
-                                            style="font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; font-weight: bold;" 
-                                            :disabled="activatingManuscriptId !== null" 
-                                            @click="activateManuscript(m.id)">
-                                        <span v-if="activatingManuscriptId === m.id">⏳</span>
-                                        <span v-else>Activate</span>
-                                    </button>
-                                    <button v-if="!m.is_active" type="button" class="btn" 
-                                            style="font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.15);" 
-                                            @click="deleteManuscript(m.id)">
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Playbook Viewer -->
-                    <div v-else-if="settingsBrand.marketing_protocol && !isEditingProtocol" style="background: #0f1311; border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-height: 450px; overflow-y: auto; font-family: Outfit, sans-serif; font-size: 0.88rem; line-height: 1.6; color: var(--text-main); white-space: pre-wrap; margin-top: 15px; position: relative;">
-                        <!-- Custom copy button -->
-                        <button type="button" class="btn" style="position: absolute; top: 12px; right: 12px; font-size: 0.72rem; padding: 4px 8px; height: 26px; margin: 0; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1);" @click="copyProtocolToClipboard">
-                            📋 Copy Plaintext
-                        </button>
-                        {{ settingsBrand.marketing_protocol }}
-                    </div>
-
-                    <!-- Playbook Editor -->
-                    <div v-else-if="isEditingProtocol" style="margin-top: 15px;">
-                        <textarea v-model="editedProtocolText" style="width: 100%; height: 350px; border-radius: 8px; border: 1px solid var(--border); background: #0f1311; color: var(--text-main); padding: 15px; font-family: monospace; font-size: 0.85rem; line-height: 1.5; resize: vertical; outline: none; margin: 0;"></textarea>
-                    </div>
-
-                    <!-- Empty State -->
-                    <div v-else style="background: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border); border-radius: 8px; padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 15px;">
-                        🚫 No marketing manuscript generated yet. Let's trigger a generation to onboard this brand onto the Performance Ad Studio.
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI Usage & Cost Analytics Panel -->
-            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-                <h4 style="color: var(--accent); margin-bottom: 12px; font-weight: 700; font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
-                    📊 AI Usage & Cost Analytics
-                </h4>
-                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 20px;">
-                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">
-                        Track real-time token usage, api call frequencies, and estimated platform API expenses for this brand across all AI systems.
-                    </div>
-
-                    <!-- AI Billing & Invoicing Summary Card -->
-                    <div style="background: rgba(197, 160, 89, 0.03); border: 1px solid rgba(197, 160, 89, 0.15); border-radius: 8px; padding: 18px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-                        <div style="flex: 1; min-width: 250px; text-align: left;">
-                            <h5 style="margin: 0 0 6px 0; font-size: 0.9rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 6px;">
-                                💳 AI Billing & Invoicing Summary
-                            </h5>
-                            <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; margin: 0;">
-                                AI costs are calculated as a combination of your subscription tier and actual platform token consumption. This total is consolidated and deducted from your monthly payouts or added to your end-of-month invoice.
-                            </div>
-                        </div>
-                        <div style="background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 18px; text-align: right; min-width: 200px; box-sizing: border-box;">
-                            <div v-if="settingsBrand.ai_free_tier" style="text-align: center;">
-                                <div style="font-size: 0.65rem; text-transform: uppercase; color: #10b981; font-weight: 800; margin-bottom: 2px;">🎁 Free AI Access Plan</div>
-                                <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;">€0.00</div>
-                                <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Superadmin waiver applied</div>
-                            </div>
-                            <div v-else>
-                                <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
-                                    <span>Flat Subscription:</span>
-                                    <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(getTierSubscriptionCost()) }}</strong>
-                                </div>
-                                <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; gap: 15px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
-                                    <span>Usage Expense:</span>
-                                    <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(aiUsageSummary.total_cost_usd * 0.92) }}</strong>
-                                </div>
-                                <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: flex; justify-content: space-between; gap: 15px;">
-                                    <span>Est. Invoice:</span>
-                                    <strong style="color: var(--accent); font-family: monospace; font-size: 0.95rem;">€{{ formatBillingCost(getTierSubscriptionCost() + (aiUsageSummary.total_cost_usd * 0.92)) }}</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- AI Spend Limits & Overage Controls -->
-                    <div v-if="settingsBrand && !settingsBrand.ai_free_tier" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 25px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-                            <div>
-                                <h5 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                                    <span>📊 AI Monthly Spend Limit Usage</span>
-                                    <span v-if="settingsBrand.pay_as_you_go_enabled" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Pay-As-You-Go Enabled</span>
-                                    <span v-else style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">Hard Cap Limit</span>
-                                </h5>
-                                <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
-                                    Your plan includes a monthly budget ceiling to prevent runaway costs. Track actual consumption below.
-                                </p>
-                            </div>
-                            <!-- Interactive Toggle Switch -->
-                            <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.76rem; font-weight: 700; margin: 0; color: var(--text-main);">
-                                    <input type="checkbox" v-model="settingsBrand.pay_as_you_go_enabled" @change="updateBrandSettings" style="width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--accent);" />
-                                    Enable Pay-As-You-Go Overages
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar Component -->
-                        <div style="margin-bottom: 12px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 6px;">
-                                <span style="color: var(--text-muted);">Current Billing Cycle AI Costs</span>
-                                <strong style="color: var(--text-main); font-family: monospace;">
-                                    ${{ parseFloat(aiUsageSummary.total_cost_usd || 0).toFixed(2) }} / ${{ getActiveTierSpendLimit.toFixed(2) }} USD
-                                </strong>
-                            </div>
-                            <div style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.02);">
-                                <div :style="{ width: getSpendLimitProgressPercent + '%', backgroundColor: getSpendLimitProgressColor }" 
-                                     style="height: 100%; border-radius: 4px; transition: width 0.4s ease-out;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Warnings & Alerts Banners -->
-                        <div v-if="!settingsBrand.pay_as_you_go_enabled && getSpendLimitProgressPercent >= 80" 
-                             :style="{ 
-                                 background: getSpendLimitProgressPercent >= 100 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-                                 borderColor: getSpendLimitProgressPercent >= 100 ? '#ef4444' : '#f59e0b'
-                             }"
-                             style="border: 1px dashed; padding: 12px; border-radius: 6px; font-size: 0.78rem; line-height: 1.45; text-align: left; margin-top: 12px; display: flex; align-items: flex-start; gap: 8px;">
-                            <span style="font-size: 1.1rem; line-height: 1;">{{ getSpendLimitProgressPercent >= 100 ? '❌' : '⚠️' }}</span>
-                            <div style="flex: 1; color: var(--text-main);">
-                                <strong v-if="getSpendLimitProgressPercent >= 100" style="color: #ef4444;">Suspension Limit Reached (100% used)</strong>
-                                <strong v-else style="color: #f59e0b;">Usage Warning ({{ getSpendLimitProgressPercent }}% used)</strong>
-                                <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted);">
-                                    <span v-if="getSpendLimitProgressPercent >= 100">
-                                        All automated AI writers, crawlers, and translators have been suspended for this cycle. Enable **Pay-As-You-Go Overages** above to immediately restore features.
-                                    </span>
-                                    <span v-else>
-                                        Your brand is approaching its monthly AI budget cap. To prevent service disruptions once the cap is met, enable **Pay-As-You-Go Overages** or contact support to upgrade plans.
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- KPI Grid -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
-                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total Spend (USD)</div>
-                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--accent); font-family: monospace;">${{ formatCost(aiUsageSummary.total_cost_usd) }}</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">{{ formatTokens(aiUsageSummary.total_tokens) }} total tokens</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
-                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total AI Calls</div>
-                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);">{{ aiUsageSummary.total_calls }}</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Across all integrations</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
-                            <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Avg Cost / Call</div>
-                            <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${{ formatCost(aiUsageSummary.total_calls > 0 ? aiUsageSummary.total_cost_usd / aiUsageSummary.total_calls : 0) }}</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Input & output combined</div>
-                        </div>
-                    </div>
-
-                    <!-- Breakdown & Details -->
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 15px;">
-                        <!-- Breakdown by Operation -->
-                        <div v-if="aiUsageBreakdown.length > 0">
-                            <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Cost & Calls by Feature</h5>
-                            <div style="display: flex; flex-direction: column; gap: 12px;">
-                                <div v-for="item in aiUsageBreakdown" :key="item.operation" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 10px 12px;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
-                                        <span style="font-weight: 600; color: var(--text-main);">{{ item.operation }}</span>
-                                        <span style="font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(item.cost_usd) }} ({{ item.calls_count }} calls)</span>
-                                    </div>
-                                    <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; width: 100%;">
-                                        <div :style="{ width: getSpendPercentage(item.cost_usd) + '%', background: 'var(--accent)' }" style="height: 100%; transition: width 0.3s ease;"></div>
-                                    </div>
-                                    <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">{{ formatTokens(item.total_tokens) }} tokens generated</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Logs Table -->
-                        <div>
-                            <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
-                            <div v-if="aiUsageLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
-                                    <thead>
-                                        <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
-                                            <th style="padding: 10px 12px; color: var(--text-muted);">Timestamp</th>
-                                            <th style="padding: 10px 12px; color: var(--text-muted);">Operation</th>
-                                            <th style="padding: 10px 12px; color: var(--text-muted);">Model</th>
-                                            <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Tokens (In/Out)</th>
-                                            <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Est. Cost</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="log in aiUsageLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                                            <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">{{ formatDate(log.created_at) }}</td>
-                                            <td style="padding: 10px 12px; font-weight: 600; color: var(--text-main);">{{ log.operation }}</td>
-                                            <td style="padding: 10px 12px; font-family: monospace; color: var(--text-muted);">{{ log.model }}</td>
-                                            <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
-                                            <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(log.estimated_cost_usd) }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div v-else style="background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
-                                No recent AI operations recorded for this brand.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Danger Zone / Store Management -->
             <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">

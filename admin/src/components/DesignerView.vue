@@ -247,10 +247,16 @@
 
                         <!-- Bulk translation button -->
                         <div style="margin-top: 4px; margin-bottom: 8px;">
-                            <button type="button" class="sc-ai-button" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" :disabled="isBulkTranslating" @click="runAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
-                                <span v-if="isBulkTranslating">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                                <span v-else-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [~$0.0028]</span>
-                                <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [~$0.0028]</span>
+                            <button type="button" class="sc-ai-button" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" @click="toggleAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
+                                <span v-if="isBulkTranslating">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                <span v-else-if="lastBulkTranslateCost">
+                                    <span v-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [Last: €{{ lastBulkTranslateCost.toFixed(4) }}]</span>
+                                    <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [Last: €{{ lastBulkTranslateCost.toFixed(4) }}]</span>
+                                </span>
+                                <span v-else>
+                                    <span v-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [~$0.0028]</span>
+                                    <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [~$0.0028]</span>
+                                </span>
                             </button>
                             
                             <!-- Real token and cost usage stats for Translator -->
@@ -590,8 +596,9 @@
                             The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
                         </div>
 
-                        <button type="button" class="sc-ai-button" style="margin: 0; height: 38px; width: 100%;" :disabled="isGeneratingLayout || inheritStyles" @click="generateAILookAlikeLayout">
-                            <span v-if="isGeneratingLayout">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                        <button type="button" class="sc-ai-button" style="margin: 0; height: 38px; width: 100%;" :disabled="inheritStyles" @click="toggleAILookAlikeLayout">
+                            <span v-if="isGeneratingLayout">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                            <span v-else-if="lastLayoutCost">✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [Last: €{{ lastLayoutCost.toFixed(4) }}]</span>
                             <span v-else>✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [~$0.0005]</span>
                         </button>
                         
@@ -897,6 +904,7 @@ export default {
             originalBrandSettings: '',
             activeTab: 'style',
             isGeneratingLayout: false,
+            lastLayoutCost: null,
             aiStylePresets: [],
             autoUpdatePreview: true,
             iframeBuster: Date.now(),
@@ -905,6 +913,7 @@ export default {
             newPage: { id: '', headline: '', subheadline: '', cta: '', hero_img: '', features: '', coupon_code: '' },
             designerPrompt: '',
             isBulkTranslating: false,
+            lastBulkTranslateCost: null,
             aiUsageBreakdown: [],
             undoStack: [],
             redoStack: [],
@@ -1404,8 +1413,19 @@ export default {
             this.navigateToPage(slug);
             this.app.showNotification('Custom page created.');
         },
+        toggleAILookAlikeLayout() {
+            if (this.isGeneratingLayout) {
+                if (this.layoutAbortController) {
+                    this.layoutAbortController.abort();
+                    this.layoutAbortController = null;
+                }
+            } else {
+                this.generateAILookAlikeLayout();
+            }
+        },
         async generateAILookAlikeLayout() {
             this.isGeneratingLayout = true;
+            this.layoutAbortController = new AbortController();
             const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
             let modelName = 'gemini-3.1-pro';
             if (tier === 'standard') modelName = 'gemini-2.5-flash';
@@ -1417,7 +1437,8 @@ export default {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    signal: this.layoutAbortController.signal
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -1436,7 +1457,7 @@ export default {
                         this.designerBrand.text_hero_headline = layout.text_hero_headline || this.designerBrand.text_hero_headline;
                         this.designerBrand.text_hero_subheadline = layout.text_hero_subheadline || this.designerBrand.text_hero_subheadline;
                         this.designerBrand.text_hero_cta = layout.text_hero_cta || this.designerBrand.text_hero_cta;
-
+                        
                         this.aiStylePresets.push(layout);
                         this.updatePreviewStyles();
                         this.app.showNotification('✨ Brand Look-Alike theme generated and applied successfully!');
@@ -1447,10 +1468,17 @@ export default {
                     alert('AI Theme styling generation error: ' + (err.error || 'Unknown error'));
                 }
             } catch (e) {
+                if (e.name === 'AbortError') {
+                    this.lastLayoutCost = null;
+                    this.app.showNotification('AI Theme generation stopped.');
+                    return;
+                }
                 alert('AI Layout generation network error: ' + e.message);
             } finally {
                 this.isGeneratingLayout = false;
+                this.lastLayoutCost = this.app.aiTicker.cost * 0.92;
                 this.app.stopAiTicker();
+                this.layoutAbortController = null;
             }
         },
         applyAILayoutPreset(preset) {
@@ -1826,8 +1854,19 @@ export default {
                 alert('AI translation network error: ' + e.message);
             }
         },
+        toggleAIBulkTranslate(targetLang) {
+            if (this.isBulkTranslating) {
+                if (this.bulkTranslateAbortController) {
+                    this.bulkTranslateAbortController.abort();
+                    this.bulkTranslateAbortController = null;
+                }
+            } else {
+                this.runAIBulkTranslate(targetLang);
+            }
+        },
         async runAIBulkTranslate(targetLang) {
             this.isBulkTranslating = true;
+            this.bulkTranslateAbortController = new AbortController();
             const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
             let modelName = 'gemini-3.1-pro';
             if (tier === 'standard') modelName = 'gemini-2.5-flash';
@@ -1844,7 +1883,8 @@ export default {
                         'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ targetLang })
+                    body: JSON.stringify({ targetLang }),
+                    signal: this.bulkTranslateAbortController.signal
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -1862,10 +1902,17 @@ export default {
                     alert('AI translation error: ' + (err.error || 'Unknown error'));
                 }
             } catch (e) {
+                if (e.name === 'AbortError') {
+                    this.lastBulkTranslateCost = null;
+                    this.app.showNotification('AI Translation stopped.');
+                    return;
+                }
                 alert('AI translation network error: ' + e.message);
             } finally {
                 this.isBulkTranslating = false;
+                this.lastBulkTranslateCost = this.app.aiTicker.cost * 0.92;
                 this.app.stopAiTicker();
+                this.bulkTranslateAbortController = null;
             }
         },
         toggleFullscreen() {

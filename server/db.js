@@ -74,6 +74,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS subscription_billing_method VARCHAR(50) DEFAULT 'ledger'`);
     await client.query(`UPDATE brands SET subscription_billing_method = 'ledger' WHERE subscription_billing_method IS NULL OR subscription_billing_method = ''`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS brand_canvas TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS active_model VARCHAR(255)`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 
@@ -282,6 +284,12 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await client.query(`
+      ALTER TABLE campaign_ai_proposals ADD COLUMN IF NOT EXISTS original_budget NUMERIC(10,2);
+      ALTER TABLE campaign_ai_proposals ADD COLUMN IF NOT EXISTS proposed_budget NUMERIC(10,2);
+      ALTER TABLE campaign_ai_proposals ADD COLUMN IF NOT EXISTS original_media_url TEXT;
+      ALTER TABLE campaign_ai_proposals ADD COLUMN IF NOT EXISTS proposed_media_url TEXT;
+    `);
     await client.query(`ALTER TABLE campaign_creative_stats ADD COLUMN IF NOT EXISTS tournament_status VARCHAR(50) DEFAULT 'testing'`);
 
     // Create Media Library Table
@@ -295,6 +303,7 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await client.query(`ALTER TABLE media_library ADD COLUMN IF NOT EXISTS metadata TEXT`);
 
     // Create AI Usage Logs Table
     await client.query(`
@@ -404,6 +413,7 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS ab_test_media_urls TEXT DEFAULT '[]'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS warmup_days INTEGER DEFAULT 3`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS warmup_budget_percent INTEGER DEFAULT 15`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS lookalike_seeding_enabled BOOLEAN DEFAULT FALSE`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS campaign_agent_recommendations (
@@ -456,6 +466,36 @@ async function initializeDatabase() {
       )
     `);
 
+    // Platform Learning System Columns & Tables
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS business_segment VARCHAR(100)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS business_niche VARCHAR(100)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS share_performance_data BOOLEAN DEFAULT TRUE`);
+    await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS historical_roas NUMERIC(6,2) DEFAULT NULL`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS global_segment_benchmarks (
+        id SERIAL PRIMARY KEY,
+        business_segment VARCHAR(100) UNIQUE NOT NULL,
+        avg_ctr NUMERIC(5,2) DEFAULT 1.50,
+        avg_cvr NUMERIC(5,2) DEFAULT 2.00,
+        avg_roas NUMERIC(5,2) DEFAULT 2.80,
+        active_campaigns_count INT DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed default segment benchmarks if they don't exist
+    await client.query(`
+      INSERT INTO global_segment_benchmarks (business_segment, avg_ctr, avg_cvr, avg_roas, active_campaigns_count)
+      VALUES 
+        ('Food & Beverage', 1.80, 2.50, 3.20, 12),
+        ('Apparel & Fashion', 2.10, 1.80, 2.90, 8),
+        ('Electronics', 1.20, 1.10, 2.40, 5),
+        ('Health & Beauty', 1.95, 2.20, 3.10, 15),
+        ('Home & Living', 1.40, 1.50, 2.70, 4)
+      ON CONFLICT (business_segment) DO NOTHING
+    `);
+
     await client.query('COMMIT');
     console.log('✅ PostgreSQL database tables initialized successfully.');
 
@@ -486,6 +526,19 @@ async function seedDefaultData() {
     }
   } catch (migErr) {
     console.error('[Database Migration] Error migrating old marketing protocols:', migErr.message);
+  }
+
+  // Update pesado brand default values if it exists
+  try {
+    await runQuery(`
+      UPDATE brands 
+      SET business_segment = COALESCE(business_segment, 'Food & Beverage'),
+          business_niche = COALESCE(business_niche, 'Specialty Coffee'),
+          share_performance_data = COALESCE(share_performance_data, TRUE)
+      WHERE id = 'pesado'
+    `);
+  } catch (err) {
+    console.error('[Database Migration] Error setting default pesado segments:', err.message);
   }
 
   const shouldSeedMock = false;

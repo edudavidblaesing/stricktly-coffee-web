@@ -1,5 +1,5 @@
 <template>
-    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands' }">
+    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands', 'creator-fullscreen': isCreatingBrand }">
         <!-- Sub-View: Embedded Storefront Designer -->
         <div v-if="activeSubView === 'designer'" style="width: 100%;">
             <DesignerView @back="activeSubView = 'list'" />
@@ -12,10 +12,25 @@
 
         <div v-else style="width: 100%;">
 
-            <div class="panel" v-if="isCreatingBrand">
-            <div class="panel-header">
-                <h3 class="panel-title" style="margin: 0;">Spin Up New Brand Shop</h3>
-            </div>
+             <div class="panel" v-if="isCreatingBrand" style="border: none; background: transparent; padding: 0;">
+             <!-- Workspace Header -->
+             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; flex-shrink: 0;">
+                 <div style="display: flex; align-items: center; gap: 12px;">
+                     <button type="button" @click="isCreatingBrand = false" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; gap: 4px;" v-if="userRole.toLowerCase() === 'superadmin'">
+                         ← Back to Dashboard
+                     </button>
+                     <span style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); font-family: var(--font-display);">⚡ Brand Setup Workspace</span>
+                 </div>
+                 
+                 <div style="display: flex; gap: 8px; align-items: center;">
+                     <button type="button" @click="isCreatingBrand = false" class="btn btn-secondary" style="font-size: 0.76rem; padding: 6px 12px; height: 32px; border: 1px solid var(--border); margin: 0;" v-if="userRole.toLowerCase() === 'superadmin'">
+                         ✕ Close Workspace
+                     </button>
+                     <button type="button" @click="app.handleLogout()" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-weight: 600; padding: 6px 14px; margin: 0; font-size: 0.8rem; cursor: pointer;" v-else>
+                         🚪 Log Out
+                     </button>
+                 </div>
+             </div>
             
             <!-- Step Progress Indicator -->
             <div class="step-progress-bar" style="display: flex; justify-content: space-between; margin: 10px 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 10px;">
@@ -148,6 +163,7 @@
                                 <option value="" disabled>Please select a billing method...</option>
                                 <option value="ledger">Deduct from Payout Ledger Balance</option>
                                 <option value="stripe_card">Charge Credit Card on File</option>
+                                <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
                             </select>
                         </div>
 
@@ -222,9 +238,13 @@
 
                         <!-- Shopify Fields -->
                         <template v-if="newBrand.platform === 'shopify'">
-                            <!-- OAuth vs Manual Segment Selector -->
-                            <div class="form-group form-full" style="margin-bottom: 15px;">
-                                <label style="display: block; margin-bottom: 8px;">Shopify Connection Mode</label>
+                            <div style="background: rgba(149, 191, 71, 0.04); border: 1px solid rgba(149, 191, 71, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left; margin-bottom: 15px;">
+                                <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
+                                    <span v-html="getPlatformLogoSvg('shopify', 20)"></span>
+                                    <span>Shopify Storefront Integration</span>
+                                </div>
+
+                                <!-- OAuth vs Manual Segment Selector -->
                                 <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
                                     <button type="button" 
                                             :style="{
@@ -235,8 +255,8 @@
                                                 fontSize: '0.8rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
-                                                background: shopifyConnectionMode === 'oauth' ? 'var(--text-main)' : 'transparent',
-                                                color: shopifyConnectionMode === 'oauth' ? 'var(--workspace-bg)' : 'var(--text-muted)',
+                                                background: shopifyConnectionMode === 'oauth' ? '#95BF47' : 'transparent',
+                                                color: shopifyConnectionMode === 'oauth' ? '#000000' : 'var(--text-muted)',
                                                 transition: 'all 0.2s ease'
                                             }"
                                              @click="shopifyConnectionMode = 'oauth'">
@@ -251,50 +271,54 @@
                                                 fontSize: '0.8rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
-                                                background: shopifyConnectionMode === 'manual' ? 'var(--text-main)' : 'transparent',
-                                                color: shopifyConnectionMode === 'manual' ? 'var(--workspace-bg)' : 'var(--text-muted)',
+                                                background: shopifyConnectionMode === 'manual' ? '#95BF47' : 'transparent',
+                                                color: shopifyConnectionMode === 'manual' ? '#000000' : 'var(--text-muted)',
                                                 transition: 'all 0.2s ease'
                                             }"
                                              @click="shopifyConnectionMode = 'manual'">
                                          ⚙️ Manual API Keys Setup
                                     </button>
                                 </div>
-                            </div>
 
-                            <div class="form-group form-full">
-                                <label>Shopify Shop Address (URL)</label>
-                                <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.com" :disabled="connectionVerified && !previewMode">
-                            </div>
-
-                            <!-- OAuth Connect Button -->
-                            <template v-if="shopifyConnectionMode === 'oauth'">
-                                <div class="form-group form-full" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-                                    <button type="button" class="btn btn-accent" 
-                                            style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; height: 42px; width: 100%;"
-                                            @click="connectShopifyOAuth" :disabled="!newBrand.shopify_shop_name || connectionVerified">
-                                        <span v-html="getPlatformLogoSvg('shopify', 20)"></span>
-                                        <span>Connect with Shopify</span>
-                                    </button>
-                                    <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center;">
-                                        ✅ Connected via Shopify App OAuth
-                                    </div>
+                                <div class="form-group form-full" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Shopify Shop Address (URL)</label>
+                                    <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.myshopify.com" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                 </div>
-                            </template>
 
-                            <!-- Manual Token Input -->
-                            <template v-else>
-                                <div class="form-group form-full">
-                                    <label>Shopify Admin API Access Token</label>
-                                    <input type="password" v-model="newBrand.shopify_access_token" placeholder="Shopify Admin API Access Token (shpat_...)" :disabled="connectionVerified && !previewMode">
-                                 </div>
-                            </template>
+                                <!-- OAuth Connect Button -->
+                                <template v-if="shopifyConnectionMode === 'oauth'">
+                                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                                        <button type="button" class="btn" 
+                                                style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #95BF47; color: #000000; border: 1px solid #95BF47;"
+                                                @click="connectShopifyOAuth" :disabled="!newBrand.shopify_shop_name || connectionVerified">
+                                            <span v-html="getPlatformLogoSvg('shopify', 18)"></span>
+                                            <span>Link Shopify Account</span>
+                                        </button>
+                                        <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 4px;">
+                                            ✅ Connected via Shopify App OAuth
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- Manual Token Input -->
+                                <template v-else>
+                                    <div class="form-group form-full" style="margin: 0;">
+                                        <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Shopify Admin API Access Token</label>
+                                        <input type="password" v-model="newBrand.shopify_access_token" placeholder="Shopify Admin API Access Token (shpat_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                     </div>
+                                </template>
+                            </div>
                         </template>
 
                         <!-- WooCommerce Fields -->
                         <template v-if="newBrand.platform === 'woocommerce'">
-                            <!-- OAuth vs Manual Segment Selector -->
-                            <div class="form-group form-full" style="margin-bottom: 15px;">
-                                <label style="display: block; margin-bottom: 8px;">WooCommerce Connection Mode</label>
+                            <div style="background: rgba(127, 84, 179, 0.04); border: 1px solid rgba(127, 84, 179, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left; margin-bottom: 15px;">
+                                <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
+                                    <span v-html="getPlatformLogoSvg('woocommerce', 20)"></span>
+                                    <span>WooCommerce Storefront Integration</span>
+                                </div>
+
+                                <!-- OAuth vs Manual Segment Selector -->
                                 <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
                                     <button type="button" 
                                             :style="{
@@ -305,8 +329,8 @@
                                                 fontSize: '0.8rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
-                                                background: woocommerceConnectionMode === 'oauth' ? 'var(--text-main)' : 'transparent',
-                                                color: woocommerceConnectionMode === 'oauth' ? 'var(--workspace-bg)' : 'var(--text-muted)',
+                                                background: woocommerceConnectionMode === 'oauth' ? '#7F54B3' : 'transparent',
+                                                color: woocommerceConnectionMode === 'oauth' ? '#ffffff' : 'var(--text-muted)',
                                                 transition: 'all 0.2s ease'
                                             }"
                                              @click="woocommerceConnectionMode = 'oauth'">
@@ -321,47 +345,49 @@
                                                 fontSize: '0.8rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
-                                                background: woocommerceConnectionMode === 'manual' ? 'var(--text-main)' : 'transparent',
-                                                color: woocommerceConnectionMode === 'manual' ? 'var(--workspace-bg)' : 'var(--text-muted)',
+                                                background: woocommerceConnectionMode === 'manual' ? '#7F54B3' : 'transparent',
+                                                color: woocommerceConnectionMode === 'manual' ? '#ffffff' : 'var(--text-muted)',
                                                 transition: 'all 0.2s ease'
                                             }"
                                              @click="woocommerceConnectionMode = 'manual'">
                                          ⚙️ Manual API Keys Setup
                                     </button>
                                 </div>
-                            </div>
 
-                            <div class="form-group form-full">
-                                <label>WooCommerce Store URL</label>
-                                <input type="text" v-model="newBrand.woocommerce_shop_url" placeholder="barista-essentials.de" :disabled="connectionVerified && !previewMode">
-                            </div>
+                                <div class="form-group form-full" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Store URL</label>
+                                    <input type="text" v-model="newBrand.woocommerce_shop_url" placeholder="barista-essentials.de" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                </div>
 
-                            <!-- OAuth Connect Button -->
-                            <template v-if="woocommerceConnectionMode === 'oauth'">
-                                <div class="form-group form-full" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-                                    <button type="button" class="btn btn-accent" 
-                                            style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; height: 42px; width: 100%;"
-                                            @click="connectWooCommerceOAuth" :disabled="!newBrand.woocommerce_shop_url || connectionVerified">
-                                        <span v-html="getPlatformLogoSvg('woocommerce', 20)"></span>
-                                        <span>Connect with WooCommerce</span>
-                                    </button>
-                                    <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center;">
-                                        ✅ Connected via WooCommerce API OAuth
+                                <!-- OAuth Connect Button -->
+                                <template v-if="woocommerceConnectionMode === 'oauth'">
+                                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                                        <button type="button" class="btn" 
+                                                style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #7F54B3; color: #ffffff; border: 1px solid #7F54B3;"
+                                                @click="connectWooCommerceOAuth" :disabled="!newBrand.woocommerce_shop_url || connectionVerified">
+                                            <span v-html="getPlatformLogoSvg('woocommerce', 18)"></span>
+                                            <span>Link WooCommerce Account</span>
+                                        </button>
+                                        <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 4px;">
+                                            ✅ Connected via WooCommerce API OAuth
+                                        </div>
                                     </div>
-                                </div>
-                            </template>
+                                </template>
 
-                            <!-- Manual Key Inputs -->
-                            <template v-else>
-                                <div class="form-group">
-                                    <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('woocommerce')"></span>WooCommerce Consumer Key</label>
-                                    <input type="password" v-model="newBrand.woocommerce_consumer_key" placeholder="WooCommerce Consumer Key (ck_...)" :disabled="connectionVerified && !previewMode">
-                                </div>
-                                <div class="form-group">
-                                    <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('woocommerce')"></span>WooCommerce Consumer Secret</label>
-                                    <input type="password" v-model="newBrand.woocommerce_consumer_secret" placeholder="WooCommerce Consumer Secret (cs_...)" :disabled="connectionVerified && !previewMode">
-                                </div>
-                            </template>
+                                <!-- Manual Key Inputs -->
+                                <template v-else>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%;">
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Consumer Key</label>
+                                            <input type="password" v-model="newBrand.woocommerce_consumer_key" placeholder="WooCommerce Consumer Key (ck_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Consumer Secret</label>
+                                            <input type="password" v-model="newBrand.woocommerce_consumer_secret" placeholder="WooCommerce Consumer Secret (cs_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </template>
 
                         <!-- Stripe Config Selection Toggle -->
@@ -720,24 +746,52 @@
                         <div v-if="newBrand.ai_tier !== 'none' && userRole.toLowerCase() !== 'superadmin'" 
                              style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; flex-direction: column; gap: 12px;">
                              <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Checkout & Billing Authorization</h5>
-                             <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted);">
-                                 Provide a valid payment method to launch your storefront. You will be billed €{{ newBrand.ai_tier === 'standard' ? '49.00' : (newBrand.ai_tier === 'professional' ? '99.00' : '199.00') }} immediately.
-                             </p>
                              
-                             <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
-                                  <div class="form-group" style="margin: 0;">
-                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Card Number</label>
-                                      <input type="text" v-model="billingCardNumber" placeholder="4242 4242 4242 4242" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                  </div>
-                                  <div class="form-group" style="margin: 0;">
-                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Expiry Date</label>
-                                      <input type="text" v-model="billingCardExpiry" placeholder="MM/YY" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                  </div>
-                                  <div class="form-group" style="margin: 0;">
-                                      <label style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">CVC / CVV</label>
-                                      <input type="text" v-model="billingCardCvc" placeholder="123" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                  </div>
+                             <div class="form-group" style="margin: 0 0 8px 0;">
+                                 <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Subscription Billing Method</label>
+                                 <select v-model="newBrand.subscription_billing_method" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
+                                     <option value="ledger">Deduct from Payout Ledger Balance</option>
+                                     <option value="stripe_card">Charge Credit Card on File</option>
+                                     <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
+                                 </select>
                              </div>
+
+                             <!-- Ledger Billing Info Panel -->
+                             <div v-if="newBrand.subscription_billing_method === 'ledger'" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px 15px; font-size: 0.8rem; line-height: 1.45; color: var(--text-muted); margin-top: 2px;">
+                                 💡 <strong>Ledger Billing:</strong> Monthly subscription charges will be automatically deducted from your store's accumulated checkout payouts. No credit card is required upfront today.
+                             </div>
+
+                             <!-- Stripe Connect Split Proceeds Info Panel -->
+                             <div v-if="newBrand.subscription_billing_method === 'stripe_connect'" style="background: rgba(99, 91, 255, 0.05); border: 1px solid rgba(99, 91, 255, 0.2); border-radius: 8px; padding: 12px 15px; font-size: 0.8rem; line-height: 1.45; color: var(--text-main); margin-top: 2px; display: flex; flex-direction: column; gap: 8px;">
+                                 <div style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                     <span v-html="getStripeLogoSvg(14)"></span>
+                                     <span>Stripe Connect Split Payouts</span>
+                                 </div>
+                                 <p style="margin: 0; color: var(--text-muted);">
+                                     Monthly charges will be split directly from checkout proceeds via Stripe Connect. After completing onboarding, visit your <strong>Integrations Settings</strong> panel to securely link your Stripe account.
+                                 </p>
+                             </div>
+
+                             <!-- Card Details Form -->
+                             <template v-if="newBrand.subscription_billing_method === 'stripe_card'">
+                                 <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted);">
+                                     Provide a valid credit card to launch your storefront. You will be charged €{{ newBrand.ai_tier === 'standard' ? '49.00' : (newBrand.ai_tier === 'professional' ? '99.00' : '199.00') }} today.
+                                 </p>
+                                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+                                      <div class="form-group" style="margin: 0;">
+                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Card Number</label>
+                                          <input type="text" v-model="billingCardNumber" placeholder="4242 4242 4242 4242" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                      </div>
+                                      <div class="form-group" style="margin: 0;">
+                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Expiry Date</label>
+                                          <input type="text" v-model="billingCardExpiry" placeholder="MM/YY" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                      </div>
+                                      <div class="form-group" style="margin: 0;">
+                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">CVC / CVV</label>
+                                          <input type="text" v-model="billingCardCvc" placeholder="123" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
+                                      </div>
+                                 </div>
+                             </template>
                         </div>
 
                         <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
@@ -745,6 +799,7 @@
                             <ul style="margin: 0; padding-left: 20px; line-height: 1.6; font-size: 0.85rem; color: var(--text-muted);">
                                 <li>Subdomain routing: <strong style="color: var(--text-main);">{{ newBrand.subdomain }}</strong></li>
                                 <li>Integration Platform: <strong style="color: var(--text-main);">{{ newBrand.platform.toUpperCase() }}</strong></li>
+                                <li>Subscription Billing Method: <strong style="color: var(--text-main);">{{ getBillingMethodDisplay(newBrand.subscription_billing_method) }}</strong></li>
                                 <li>Stripe Configuration: <strong style="color: var(--text-main);">{{ useCustomStripe ? 'Custom credentials' : 'SC Global default settings' }}</strong></li>
                                 <li>Selected Sales Channels: 
                                     <strong style="color: var(--text-main);">
@@ -1240,6 +1295,7 @@ export default {
             
             // Onboarding Wizard State
             currentStep: 1,
+            newBrandSavedId: null,
             dnsVerified: false,
             dnsVerifying: false,
             dnsVerifyError: '',
@@ -1291,6 +1347,17 @@ export default {
         };
     },
     watch: {
+        'app.brands': {
+            immediate: true,
+            handler(newVal) {
+                if (this.forceCreateWizard && this.userRole && this.userRole.toLowerCase() === 'merchant' && newVal && newVal.length > 0) {
+                    const draftBrand = newVal.find(b => b.status === 'draft');
+                    if (draftBrand && (!this.newBrandSavedId || this.newBrandSavedId.toLowerCase() !== draftBrand.id.toLowerCase())) {
+                        this.resumeDraftOnboarding(draftBrand);
+                    }
+                }
+            }
+        },
         activeSubView: {
             immediate: true,
             handler(newVal) {
@@ -1352,6 +1419,9 @@ export default {
             if (!this.newBrand || !this.newBrand.id) return false;
             const cleanedId = this.newBrand.id.trim().toLowerCase();
             if (!cleanedId) return false;
+            if (this.newBrandSavedId && cleanedId === this.newBrandSavedId.toLowerCase()) {
+                return false;
+            }
             return this.app.brands.some(b => b.id.toLowerCase() === cleanedId);
         },
         previewIframeSrc() { return this.app.previewIframeSrc; },
@@ -1513,6 +1583,7 @@ export default {
             }
         },
         restoreBrandWizardState(brandId, platform) {
+            this.newBrandSavedId = brandId;
             const targetBrand = this.app.brands.find(b => b.id === brandId);
             if (targetBrand) {
                 this.app.newBrand = { 
@@ -1551,6 +1622,7 @@ export default {
             }
         },
         resumeDraftOnboarding(brand) {
+            this.newBrandSavedId = brand.id;
             // Restore newBrand details
             this.app.newBrand = {
                 ...this.app.newBrand,
@@ -1929,17 +2001,32 @@ export default {
             return 'Publish';
         },
         async goToStep(step) {
-            if (step >= 2 && this.brandIdConflict) {
-                alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
-                return;
-            }
-            if (step > 1 && (!this.dnsVerified || !this.connectionVerified) && !this.previewMode) {
-                alert('Please verify both DNS setup and Integration Connection in Step 1 first, or check "Enable Offline Preview Mode".');
-                return;
-            }
-            if (step >= 2 && !this.app.newBrand.id) {
-                alert('Please fill out Brand ID slug first.');
-                return;
+            if (step > this.currentStep) {
+                // If moving forward past Step 1, must save draft first
+                if (this.currentStep === 1) {
+                    if (this.brandIdConflict) {
+                        alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
+                        return;
+                    }
+                    if (!this.app.newBrand.id || !this.app.newBrand.name || !this.app.newBrand.subdomain) {
+                        alert('Please fill out Brand ID, Display Name, and Target Host Subdomain.');
+                        return;
+                    }
+                    if (!this.newBrandSavedId || this.app.newBrand.id.toLowerCase() !== this.newBrandSavedId.toLowerCase()) {
+                        this.app.showNotification('Saving draft shop configuration...');
+                        await this.saveBrandDraft();
+                        if (!this.newBrandSavedId) {
+                            // If saving draft failed, stop transition
+                            return;
+                        }
+                    }
+                }
+                
+                // Other validation checks
+                if (step > 1 && (!this.dnsVerified || !this.connectionVerified) && !this.previewMode) {
+                    alert('Please verify both DNS setup and Integration Connection in Step 1 first, or check "Enable Offline Preview Mode".');
+                    return;
+                }
             }
 
             this.currentStep = step;
@@ -2148,6 +2235,7 @@ export default {
                     this.app.newBrand.platform = d.platform || 'shopify';
                     this.app.newBrand.shopify_shop_name = d.shopify_shop_name || '';
                     this.app.newBrand.woocommerce_shop_url = d.woocommerce_shop_url || '';
+                    this.app.newBrand.languages = (d.languages && d.languages.length > 0) ? d.languages : ['en'];
                     
                     let parsedDomain = this.easySetupUrl;
                     try {
@@ -2255,6 +2343,15 @@ export default {
                     body: JSON.stringify(this.newBrand)
                 });
                 if (response.ok) {
+                    const resData = await response.json();
+                    if (resData.token) {
+                        localStorage.setItem('sc_admin_token', resData.token);
+                    }
+                    if (resData.brandId) {
+                        localStorage.setItem('sc_admin_brand_id', resData.brandId);
+                        this.app.activeShopFilter = resData.brandId;
+                    }
+                    this.newBrandSavedId = this.newBrand.id;
                     this.app.showNotification('Draft shop configuration saved. Loading Channels Connection...');
                     await this.app.loadBrands();
                     this.app.previewActiveBrandId = this.newBrand.id;
@@ -2537,6 +2634,12 @@ export default {
             const width = size * 2.4;
             return `<svg viewBox="54 36 360.02 149.84" width="${width}" height="${size}" fill="${color}" style="vertical-align: middle; display: inline-block; margin-left: 2px;"><g><path d="M414,113.4c0-25.6-12.4-45.8-36.1-45.8c-23.8,0-38.2,20.2-38.2,45.6c0,30.1,17,45.3,41.4,45.3c11.9,0,20.9-2.7,27.7-6.5v-20c-6.8,3.4-14.6,5.5-24.5,5.5c-9.7,0-18.3-3.4-19.4-15.2h48.9C413.8,121,414,115.8,414,113.4z M364.6,103.9c0-11.3,6.9-16,13.2-16c6.1,0,12.6,4.7,12.6,16H364.6z"></path><path d="M301.1,67.6c-9.8,0-16.1,4.6-19.6,7.8l-1.3-6.2h-22v116.6l25-5.3l0.1-28.3c3.6,2.6,8.9,6.3,17.7,6.3c17.9,0,34.2-14.4,34.2-46.1C335.1,83.4,318.6,67.6,301.1,67.6z M295.1,136.5c-5.9,0-9.4-2.1-11.8-4.7l-0.1-37.1c2.6-2.9,6.2-4.9,11.9-4.9c9.1,0,15.4,10.2,15.4,23.3C310.5,126.5,304.3,136.5,295.1,136.5z"></path><polygon points="223.8,61.7 248.9,56.3 248.9,36 223.8,41.3"></polygon><rect x="223.8" y="69.3" width="25.1" height="87.5"></rect><path d="M196.9,76.7l-1.6-7.4h-21.6v87.5h25V97.5c5.9-7.7,15.9-6.3,19-5.2v-23C214.5,68.1,202.8,65.9,196.9,76.7z"></path><path d="M146.9,47.6l-24.4,5.2l-0.1,80.1c0,14.8,11.1,25.7,25.9,25.7c8.2,0,14.2-1.5,17.5-3.3V135c-3.2,1.3-19,5.9-19-8.9V90.6h19V69.3h-19L146.9,47.6z"></path><path d="M79.3,94.7c0-3.9,3.2-5.4,8.5-5.4c7.6,0,17.2,2.3,24.8,6.4V72.2c-8.3-3.3-16.5-4.6-24.8-4.6C67.5,67.6,54,78.2,54,95.9c0,27.6,38,23.2,38,35.1c0,4.6-4,6.1-9.6,6.1c-8.3,0-18.9-3.4-27.3-8v23.8c9.3,4,18.7,5.7,27.3,5.7c20.8,0,35.1-10.3,35.1-28.2C117.4,100.6,79.3,105.9,79.3,94.7z"></path></g></svg>`;
         },
+        getBillingMethodDisplay(method) {
+            if (method === 'ledger') return 'Deduct from Payout Ledger Balance';
+            if (method === 'stripe_card') return 'Charge Credit Card on File';
+            if (method === 'stripe_connect') return 'Split via Stripe Connect';
+            return 'Deduct from Payout Ledger Balance';
+        },
         getChannelLogoSvg(channel, size = 16, color = null) {
             const lower = channel.toLowerCase();
             if (lower === 'storefront') {
@@ -2565,9 +2668,9 @@ export default {
         },
         async finalizeOnboarding() {
             this.savingFinal = true;
-            if (this.newBrand.ai_tier !== 'none' && this.app.userRole.toLowerCase() !== 'superadmin') {
+            if (this.newBrand.ai_tier !== 'none' && this.newBrand.subscription_billing_method === 'stripe_card' && this.app.userRole.toLowerCase() !== 'superadmin') {
                 if (!this.billingCardNumber || !this.billingCardExpiry || !this.billingCardCvc) {
-                    alert('Please enter your checkout card payment credentials to subscribe and activate your brand shop.');
+                    alert('Please enter your credit card details to subscribe and activate your brand.');
                     this.savingFinal = false;
                     return;
                 }
