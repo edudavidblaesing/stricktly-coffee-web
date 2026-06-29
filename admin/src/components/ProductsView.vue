@@ -876,7 +876,13 @@ export default {
             }
             
             this.generatingSeo = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            const brandId = prod.brand_id || this.app.activeShopFilter;
+            const brand = this.app.brands.find(b => b.id === brandId);
+            const tier = brand ? brand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/products/generate-seo`, {
                     method: 'POST',

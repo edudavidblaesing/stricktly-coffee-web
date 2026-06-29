@@ -591,7 +591,11 @@ export default {
         async generateAIPage() {
             if (!this.designerBrand || !this.designerBrand.id) return;
             this.generatingAIPage = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-page`, {
                     method: 'POST',
@@ -927,7 +931,11 @@ export default {
             }
             
             this.translatingLandingPage = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
             try {
                 const fields = ['headline', 'subheadline', 'cta', 'features'];
                 for (const field of fields) {

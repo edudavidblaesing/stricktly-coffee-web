@@ -2457,12 +2457,12 @@ export default {
             const tier = this.activeBrand ? this.activeBrand.ai_tier : 'professional';
             if (tier === 'standard') return 'gemini-2.5-flash';
             if (tier === 'enterprise') return 'deep-research-pro-preview';
-            return 'gemini-1.5-pro';
+            return 'gemini-3.1-pro';
         },
         getAiModelDisplay() {
             return (modelName) => {
                 if (modelName === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
-                if (modelName === 'gemini-1.5-pro') return 'Gemini 1.5 Pro';
+                if (modelName === 'gemini-3.1-pro') return 'Gemini 3.1 Pro';
                 if (modelName === 'deep-research-pro-preview') return 'Deep Research Pro';
                 return modelName;
             };

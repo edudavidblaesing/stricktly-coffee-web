@@ -1406,7 +1406,11 @@ export default {
         },
         async generateAILookAlikeLayout() {
             this.isGeneratingLayout = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-layout`, {
                     method: 'POST',
@@ -1824,7 +1828,11 @@ export default {
         },
         async runAIBulkTranslate(targetLang) {
             this.isBulkTranslating = true;
-            this.app.startAiTicker('gemini-1.5-flash');
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
             this.app.showNotification(targetLang 
                 ? `✨ AI is translating all storefront copy to ${targetLang.toUpperCase()}...` 
                 : '✨ AI is translating all storefront copy to all languages in background...'
