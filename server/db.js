@@ -388,6 +388,10 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add columns to support scheduled downgrades
+    await client.query(`ALTER TABLE merchant_subscriptions ADD COLUMN IF NOT EXISTS pending_tier VARCHAR(50)`);
+    await client.query(`ALTER TABLE merchant_subscriptions ADD COLUMN IF NOT EXISTS pending_interval VARCHAR(50)`);
+
     // campaign agent migrations
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS agent_mode VARCHAR(50) DEFAULT 'recommendation'`);
     await client.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS autopilot_guardrails TEXT DEFAULT '{"max_budget_change_pct":20,"min_roas_floor":1.8,"max_spend_ceiling":500}'`);

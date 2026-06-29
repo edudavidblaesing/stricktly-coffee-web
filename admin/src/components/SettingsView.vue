@@ -345,7 +345,7 @@
 
                     <div class="form-group">
                         <label>AI Operation Tier (Limits & Capabilities)</label>
-                        <select v-model="settingsBrand.ai_tier" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        <select :value="settingsBrand.ai_tier" @change="onAiTierChange($event.target.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                             <option value="none">No AI / Basic Tier (No AI Access)</option>
                             <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
                             <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
@@ -727,18 +727,18 @@
                     </div>
 
                     <!-- Generator Action Button -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;" v-if="settingsBrand.protocol_status !== 'generating'">
-                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-ai-button" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol" @click="generateMarketingProtocol">
-                            <span v-if="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+                        <button v-if="generationMethod === 'auto' && !isEditingProtocol" type="button" class="sc-ai-button" style="margin: 0; height: 38px;" :disabled="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')" @click="generateMarketingProtocol">
+                            <span v-if="isGeneratingProtocol || (settingsBrand && settingsBrand.protocol_status === 'generating')">⏳ [{{ liveEstimatedTokens || app.aiTicker.tokens }} tokens | €{{ (liveEstimatedCost || app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
                             <span v-else>✨ Generate Brand Manuscript [{{ activeManuscriptModelName }}] [~{{ activeManuscriptModelEstCost }}]</span>
                         </button>
 
-                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-secondary" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt" @click="compileManualPrompt">
+                        <button v-if="generationMethod === 'manual' && !isEditingProtocol" type="button" class="btn btn-secondary" style="margin: 0; height: 38px;" :disabled="isCompilingPrompt || (settingsBrand && settingsBrand.protocol_status === 'generating')" @click="compileManualPrompt">
                             <span v-if="isCompilingPrompt">⏳ Compiling Contextual Prompt...</span>
                             <span v-else>📋 Compile Strategy Prompt (via Scraper)</span>
                         </button>
                         
-                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="!isEditingProtocol" @click="toggleEditProtocol">
+                        <button type="button" class="btn" style="margin: 0; height: 38px; display: inline-flex; align-items: center; gap: 6px;" v-if="!isEditingProtocol" :disabled="settingsBrand && settingsBrand.protocol_status === 'generating'" @click="toggleEditProtocol">
                             ✍️ Paste / Edit Manuscript
                         </button>
                         
@@ -1009,6 +1009,86 @@
             <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and
                 Shopify parameters.</p>
         </div>
+
+        <!-- Upgrade/Downgrade Confirmation Modal -->
+        <div v-if="subModalOpen" class="modal-overlay" @click.self="subModalOpen = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(10px);">
+            <div class="panel" style="width: 100%; max-width: 500px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.05rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>⚙️ Confirm AI Operation Plan Change</span>
+                    </h3>
+                    <button @click="subModalOpen = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer; transition: color 0.2s; padding: 0;">&times;</button>
+                </div>
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                    
+                    <!-- Billing Interval selector toggle -->
+                    <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 5px;">
+                        <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Choose Billing Cycle</label>
+                        <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.03); padding: 3px; border-radius: 8px; border: 1px solid var(--border);">
+                            <button type="button" @click="changeSubModalInterval('monthly')" :style="{ background: subModalInterval === 'monthly' ? 'var(--accent)' : 'transparent', color: subModalInterval === 'monthly' ? '#000000' : 'var(--text-muted)' }" class="btn btn-secondary" style="flex: 1; font-size: 0.76rem; font-weight: 700; height: 32px; margin: 0; border: none; transition: all 0.2s;">
+                                Billed Monthly
+                            </button>
+                            <button type="button" @click="changeSubModalInterval('yearly')" :style="{ background: subModalInterval === 'yearly' ? 'var(--accent)' : 'transparent', color: subModalInterval === 'yearly' ? '#000000' : 'var(--text-muted)' }" class="btn btn-secondary" style="flex: 1; font-size: 0.76rem; font-weight: 700; height: 32px; margin: 0; border: none; transition: all 0.2s;">
+                                Billed Annually (Save 20% 🎉)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tier Price cards comparison -->
+                    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 8px;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Current Active Tier:</span>
+                            <span style="font-weight: 700; color: var(--text-main); font-size: 0.82rem; text-transform: capitalize;">{{ oldTierDisplay }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Target Selected Tier:</span>
+                            <div style="text-align: right;">
+                                <strong style="color: var(--accent); font-size: 1.05rem;">{{ targetTierDisplay }}</strong>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                                    €{{ targetTierPrice }} / month
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Proration/Downgrade calculations details -->
+                    <div v-if="calculatingSub" style="padding: 10px; text-align: center; color: var(--text-muted); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>⏳ Calculating proration & cycles...</span>
+                    </div>
+                    <div v-else-if="subCalcResult" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
+                        <div v-if="subCalcResult.is_upgrade || subCalcResult.current_tier === 'none'" style="font-size: 0.78rem; line-height: 1.4; color: var(--text-main);">
+                            <span style="font-weight: 700; color: #10b981; display: block; margin-bottom: 4px; font-size: 0.82rem;">📈 Plan Upgrade Summary</span>
+                            - Prorated charge due upfront today: <strong style="color: var(--accent); font-size: 0.88rem;">€{{ subCalcResult.upfront_charge.toFixed(2) }}</strong><br>
+                            - Next billing rollover charge on <strong>{{ subCalcResult.next_charge_date }}</strong>: <strong>€{{ subCalcResult.rollover_charge.toFixed(2) }}</strong>
+                        </div>
+                        <div v-else-if="subCalcResult.is_downgrade" style="font-size: 0.78rem; line-height: 1.4; color: var(--text-main);">
+                            <span style="font-weight: 700; color: #f59e0b; display: block; margin-bottom: 4px; font-size: 0.82rem;">📉 Plan Downgrade Scheduled</span>
+                            - Upfront cost today: <strong style="color: #10b981;">€0.00</strong><br>
+                            - Your current active plan/limits remain fully active until <strong>{{ subCalcResult.next_charge_date }}</strong>.<br>
+                            - Next cycle rate starts on {{ subCalcResult.next_charge_date }} at <strong>€{{ subCalcResult.rollover_charge.toFixed(2) }}</strong>.
+                        </div>
+                        <div v-else style="font-size: 0.78rem; line-height: 1.4; color: var(--text-main);">
+                            - Upfront charge today: <strong style="color: #10b981;">€0.00</strong><br>
+                            - Plan rollover cycle cost remains at <strong>€{{ subCalcResult.rollover_charge.toFixed(2) }}</strong>.
+                        </div>
+                    </div>
+
+                    <!-- Notice / Terms footer -->
+                    <div style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid var(--border); padding-top: 10px;">
+                        ⚠️ <strong>Billing Terms:</strong> Ledger balances or Stripe card payments are billed automatically. Upgrades charge instantly to adjust coverage. Downgrades apply at rollover so no refunds are issued for partial cycles.
+                    </div>
+
+                    <!-- Buttons Group -->
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                        <button type="button" @click="subModalOpen = false" class="btn btn-secondary" style="height: 36px; padding: 0 15px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; background: transparent; border: 1px solid var(--border); color: var(--text-main); cursor: pointer;">Cancel</button>
+                        <button type="button" @click="applySubModalChange" :disabled="calculatingSub || applyingSub" class="btn btn-accent" style="height: 36px; padding: 0 20px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; background: var(--accent); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <span v-if="applyingSub">⏳ Processing...</span>
+                            <span v-else>💾 Confirm Plan Change</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -1059,7 +1139,13 @@ export default {
                 professional: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: false },
                 enterprise: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: true }
             },
-            protocolPollInterval: null
+            protocolPollInterval: null,
+            subModalOpen: false,
+            subModalInterval: 'monthly',
+            subModalTargetTier: 'professional',
+            subCalcResult: null,
+            calculatingSub: false,
+            applyingSub: false
         }
     },
     watch: {
@@ -1110,6 +1196,36 @@ export default {
         }
     },
     computed: {
+        oldTierDisplay() {
+            if (!this.settingsBrand) return 'None';
+            const tier = this.settingsBrand.ai_tier || 'none';
+            if (tier === 'standard') return 'Standard (Gemini 2.5 Flash)';
+            if (tier === 'professional') return 'Professional (Gemini 3.1 Pro)';
+            if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
+            return 'No AI / Basic';
+        },
+        targetTierDisplay() {
+            const tier = this.subModalTargetTier;
+            if (tier === 'standard') return 'Standard (Gemini 2.5 Flash)';
+            if (tier === 'professional') return 'Professional (Gemini 3.1 Pro)';
+            if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
+            return 'No AI / Basic';
+        },
+        targetTierPrice() {
+            const tier = this.subModalTargetTier;
+            const interval = this.subModalInterval;
+            if (tier === 'none') return '0';
+            if (interval === 'yearly') {
+                if (tier === 'standard') return '39 (billed annually)';
+                if (tier === 'professional') return '79 (billed annually)';
+                if (tier === 'enterprise') return '159 (billed annually)';
+            } else {
+                if (tier === 'standard') return '49';
+                if (tier === 'professional') return '99';
+                if (tier === 'enterprise') return '199';
+            }
+            return '0';
+        },
         userRole() { return this.app.userRole; },
         activeManuscriptModelName() {
             if (!this.settingsBrand) return 'Gemini 3.1 Pro';
@@ -1223,6 +1339,76 @@ export default {
         this.stopLiveTicker();
     },
     methods: {
+        onAiTierChange(newTier) {
+            this.subModalTargetTier = newTier;
+            this.subModalInterval = 'monthly';
+            this.subModalOpen = true;
+            this.calculateSubModalChange();
+        },
+        changeSubModalInterval(interval) {
+            this.subModalInterval = interval;
+            this.calculateSubModalChange();
+        },
+        async calculateSubModalChange() {
+            this.calculatingSub = true;
+            this.subCalcResult = null;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/subscription/calculate-change`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        target_tier: this.subModalTargetTier,
+                        target_interval: this.subModalInterval
+                    })
+                });
+                if (response.ok) {
+                    this.subCalcResult = await response.json();
+                } else {
+                    const err = await response.json();
+                    alert('Error calculating tier details: ' + err.error);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.calculatingSub = false;
+            }
+        },
+        async applySubModalChange() {
+            this.applyingSub = true;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/subscription/apply-change`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        target_tier: this.subModalTargetTier,
+                        target_interval: this.subModalInterval
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.app.showNotification(data.message || 'Subscription updated successfully.');
+                    this.subModalOpen = false;
+                    this.app.loadBrands().then(() => {
+                        this.app.selectBrand(this.settingsBrand.id);
+                    });
+                } else {
+                    const err = await response.json();
+                    alert('Error updating subscription: ' + err.error);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.applyingSub = false;
+            }
+        },
         handleOAuthMessage(e) {
             if (e.data && e.data.type === 'shopify_oauth_success') {
                 this.app.showNotification('Shopify Connected Successfully via OAuth!');

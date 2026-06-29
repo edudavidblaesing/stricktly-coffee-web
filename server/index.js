@@ -17,7 +17,7 @@ const activeAborts = new Map();
 
 // Global Fetch Interceptor to translate invalid/experimental model names to active Google API ones
 const originalFetch = globalThis.fetch;
-globalThis.fetch = function(url, options) {
+globalThis.fetch = async function(url, options) {
   let urlStr = '';
   if (typeof url === 'string') {
     urlStr = url;
@@ -58,7 +58,37 @@ globalThis.fetch = function(url, options) {
       }
     }
   }
-  return originalFetch(url, options);
+
+  let res = await originalFetch(url, options);
+
+  // Auto fallback to gemini-1.5-flash if gemini-1.5-pro returns 404/400 (not supported / not found / key restrictions)
+  if (!res.ok && (res.status === 404 || res.status === 400) && urlStr && urlStr.includes('models/gemini-1.5-pro')) {
+    const fallbackStr = urlStr.replace('models/gemini-1.5-pro', 'models/gemini-1.5-flash');
+    console.warn(`[AI Fetch Interceptor] gemini-1.5-pro call failed with status ${res.status}. Falling back transparently to gemini-1.5-flash: ${fallbackStr}`);
+    
+    let fallbackUrl = url;
+    if (typeof url === 'string') {
+      fallbackUrl = fallbackStr;
+    } else if (url && typeof url === 'object' && url.href) {
+      try {
+        fallbackUrl = new URL(fallbackStr);
+      } catch (e) {
+        url.href = fallbackStr;
+        fallbackUrl = url;
+      }
+    } else if (url && typeof url === 'object' && url.url) {
+      try {
+        fallbackUrl = new Request(fallbackStr, url);
+      } catch (e) {
+        url.url = fallbackStr;
+        fallbackUrl = url;
+      }
+    }
+
+    res = await originalFetch(fallbackUrl, options);
+  }
+
+  return res;
 };
 
 import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand } from '@aws-sdk/client-s3';
@@ -2663,6 +2693,253 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
   }
 });
 
+// Calculate subscription tier upgrade or downgrade costs/proration
+app.post('/api/global/brands/:id/subscription/calculate-change', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { target_tier, target_interval } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT ai_tier FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const oldTier = brand.ai_tier || 'none';
+    
+    // Find current active subscription
+    const sub = await getQuery(`SELECT * FROM merchant_subscriptions WHERE brand_id = $1 AND status = 'active'`, [brandId]);
+    
+    const oldAmount = sub ? parseFloat(sub.amount) : 0.00;
+    const currentInterval = sub ? sub.interval : 'monthly';
+    const nextChargeAt = sub ? new Date(sub.next_charge_at) : new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    const lastChargedAt = sub ? new Date(sub.last_charged_at) : new Date();
+
+    // Map monthly equivalent costs
+    const monthlyEquivalent = {
+      none: 0,
+      standard: 49.00,
+      professional: 99.00,
+      enterprise: 199.00
+    };
+    const yearlyEquivalent = {
+      none: 0,
+      standard: 39.00,
+      professional: 79.00,
+      enterprise: 159.00
+    };
+
+    const getMonthlyCost = (tier, interval) => {
+      if (tier === 'none') return 0;
+      return interval === 'yearly' ? yearlyEquivalent[tier] : monthlyEquivalent[tier];
+    };
+
+    const oldMonthlyEquivalent = getMonthlyCost(oldTier, currentInterval);
+    const newMonthlyEquivalent = getMonthlyCost(target_tier, target_interval);
+
+    let newAmount = 0.00;
+    if (target_tier !== 'none') {
+      if (target_interval === 'yearly') {
+        if (target_tier === 'standard') newAmount = 468.00;
+        else if (target_tier === 'professional') newAmount = 948.00;
+        else if (target_tier === 'enterprise') newAmount = 1908.00;
+      } else {
+        newAmount = monthlyEquivalent[target_tier];
+      }
+    }
+
+    const isUpgrade = newMonthlyEquivalent > oldMonthlyEquivalent;
+    const isDowngrade = newMonthlyEquivalent < oldMonthlyEquivalent;
+
+    let upfrontCharge = 0.00;
+    let rolloverCharge = newAmount;
+
+    // Proration details
+    const now = Date.now();
+    const cycleStart = lastChargedAt.getTime();
+    const cycleEnd = nextChargeAt.getTime();
+    const totalCycleTime = cycleEnd - cycleStart;
+    const remainingTime = cycleEnd - now;
+    const remainingRatio = totalCycleTime > 0 ? Math.max(0, Math.min(1, remainingTime / totalCycleTime)) : 0;
+
+    if (isUpgrade) {
+      if (target_interval !== currentInterval) {
+        const oldCredit = oldAmount * remainingRatio;
+        upfrontCharge = Math.max(0, newAmount - oldCredit);
+      } else {
+        const oldCredit = oldAmount * remainingRatio;
+        const newProratedCost = newAmount * remainingRatio;
+        upfrontCharge = Math.max(0, newProratedCost - oldCredit);
+      }
+    } else if (isDowngrade) {
+      upfrontCharge = 0.00;
+    }
+
+    res.json({
+      success: true,
+      current_tier: oldTier,
+      current_interval: currentInterval,
+      target_tier,
+      target_interval,
+      is_upgrade: isUpgrade,
+      is_downgrade: isDowngrade,
+      upfront_charge: parseFloat(upfrontCharge.toFixed(2)),
+      rollover_charge: parseFloat(rolloverCharge.toFixed(2)),
+      next_charge_date: nextChargeAt.toISOString().split('T')[0]
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Apply subscription tier upgrade or downgrade costs/proration
+app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { target_tier, target_interval } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT ai_tier FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const oldTier = brand.ai_tier || 'none';
+    
+    const sub = await getQuery(`SELECT * FROM merchant_subscriptions WHERE brand_id = $1 AND status = 'active'`, [brandId]);
+    
+    const oldAmount = sub ? parseFloat(sub.amount) : 0.00;
+    const currentInterval = sub ? sub.interval : 'monthly';
+    const nextChargeAt = sub ? new Date(sub.next_charge_at) : new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    const lastChargedAt = sub ? new Date(sub.last_charged_at) : new Date();
+
+    const monthlyEquivalent = {
+      none: 0,
+      standard: 49.00,
+      professional: 99.00,
+      enterprise: 199.00
+    };
+    const yearlyEquivalent = {
+      none: 0,
+      standard: 39.00,
+      professional: 79.00,
+      enterprise: 159.00
+    };
+
+    const getMonthlyCost = (tier, interval) => {
+      if (tier === 'none') return 0;
+      return interval === 'yearly' ? yearlyEquivalent[tier] : monthlyEquivalent[tier];
+    };
+
+    const oldMonthlyEquivalent = getMonthlyCost(oldTier, currentInterval);
+    const newMonthlyEquivalent = getMonthlyCost(target_tier, target_interval);
+
+    let newAmount = 0.00;
+    if (target_tier !== 'none') {
+      if (target_interval === 'yearly') {
+        if (target_tier === 'standard') newAmount = 468.00;
+        else if (target_tier === 'professional') newAmount = 948.00;
+        else if (target_tier === 'enterprise') newAmount = 1908.00;
+      } else {
+        newAmount = monthlyEquivalent[target_tier];
+      }
+    }
+
+    const isUpgrade = newMonthlyEquivalent > oldMonthlyEquivalent;
+    const isDowngrade = newMonthlyEquivalent < oldMonthlyEquivalent;
+
+    // Proration calculation
+    const now = Date.now();
+    const cycleStart = lastChargedAt.getTime();
+    const cycleEnd = nextChargeAt.getTime();
+    const totalCycleTime = cycleEnd - cycleStart;
+    const remainingTime = cycleEnd - now;
+    const remainingRatio = totalCycleTime > 0 ? Math.max(0, Math.min(1, remainingTime / totalCycleTime)) : 0;
+
+    if (target_tier === 'none') {
+      await runQuery(`UPDATE merchant_subscriptions SET status = 'cancelled', pending_tier = NULL, pending_interval = NULL WHERE brand_id = $1`, [brandId]);
+      await runQuery(`UPDATE brands SET ai_tier = 'none' WHERE id = $1`, [brandId]);
+      addAuditLog("Subscription Cancelled", "success", `Brand ${brandId} cancelled AI tier subscription.`);
+      return res.json({ success: true, message: 'Subscription cancelled successfully.' });
+    }
+
+    if (isUpgrade || oldTier === 'none') {
+      let upfrontCharge = 0.00;
+      let newCycleEnd = nextChargeAt;
+
+      if (target_interval !== currentInterval) {
+        const oldCredit = oldAmount * remainingRatio;
+        upfrontCharge = Math.max(0, newAmount - oldCredit);
+        const cycleDays = target_interval === 'yearly' ? 365 : 30;
+        newCycleEnd = new Date(now + cycleDays * 24 * 3600 * 1000);
+      } else {
+        const oldCredit = oldAmount * remainingRatio;
+        const newProratedCost = newAmount * remainingRatio;
+        upfrontCharge = Math.max(0, newProratedCost - oldCredit);
+      }
+
+      if (upfrontCharge > 0) {
+        await runQuery(`
+          INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
+          VALUES ($1, NULL, $2, $3, $4, 'subscription_fee', $5)
+        `, [
+          brandId,
+          upfrontCharge,
+          upfrontCharge,
+          -upfrontCharge,
+          `Immediate prorated charge for upgrading to ${target_tier} tier (${target_interval})`
+        ]);
+      }
+
+      if (sub) {
+        await runQuery(`
+          UPDATE merchant_subscriptions 
+          SET name = $1, amount = $2, interval = $3, last_charged_at = CURRENT_TIMESTAMP, next_charge_at = $4, pending_tier = NULL, pending_interval = NULL, updated_at = CURRENT_TIMESTAMP
+          WHERE brand_id = $5 AND status = 'active'
+        `, [`ai_subscription_${target_tier}`, newAmount, target_interval, newCycleEnd, brandId]);
+      } else {
+        await runQuery(`
+          INSERT INTO merchant_subscriptions (brand_id, name, amount, interval, status, last_charged_at, next_charge_at)
+          VALUES ($1, $2, $3, $4, 'active', CURRENT_TIMESTAMP, $5)
+        `, [
+          brandId,
+          `ai_subscription_${target_tier}`,
+          newAmount,
+          target_interval,
+          newCycleEnd
+        ]);
+      }
+
+      await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+      addAuditLog("Subscription Upgraded", "success", `Brand ${brandId} upgraded to ${target_tier} tier (${target_interval}). Upfront: €${upfrontCharge.toFixed(2)}`);
+      
+      res.json({ success: true, message: `Successfully upgraded to ${target_tier} tier. Prorated charge applied.` });
+    } else {
+      if (sub) {
+        await runQuery(`
+          UPDATE merchant_subscriptions 
+          SET pending_tier = $1, pending_interval = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3
+        `, [target_tier, target_interval, sub.id]);
+        
+        addAuditLog("Subscription Downgrade Scheduled", "success", `Brand ${brandId} scheduled downgrade to ${target_tier} tier (${target_interval}) for ${nextChargeAt.toISOString().split('T')[0]}`);
+        res.json({ success: true, message: `Downgrade scheduled. Your current plan remains active until ${nextChargeAt.toISOString().split('T')[0]}.` });
+      } else {
+        await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+        res.json({ success: true, message: `Settings updated to ${target_tier} tier.` });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST Create or Retrieve Stripe Connect Onboarding Account Link URL
 app.post('/api/global/brands/:id/stripe-connect-link', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
@@ -3277,11 +3554,19 @@ app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, re
       return res.status(400).json({ error: 'Gemini General API key not configured.' });
     }
 
+    const brand = await getQuery('SELECT ai_tier FROM brands WHERE id = $1', [brandId]);
+    let targetModel = 'gemini-1.5-pro';
+    if (brand && brand.ai_tier === 'standard') {
+      targetModel = 'gemini-2.5-flash';
+    } else if (brand && brand.ai_tier === 'enterprise') {
+      targetModel = 'deep-research-pro-preview';
+    }
+
     const systemPrompt = `You are an expert translator. Translate the following storefront copy string into the language code "${targetLang}". Keep it natural, idiomatic, and premium in style. Preserve placeholders like {brandName} or [brandName] exactly.
 Original text for field "${field || 'copy'}": "${text}"
 Return ONLY the translated string without quotes or markdown.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3293,7 +3578,7 @@ Return ONLY the translated string without quotes or markdown.`;
       const result = await response.json();
       const translatedText = (result.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
       if (result.usageMetadata) {
-        await logAiUsage(brandId, 'AI Copy Translation', 'gemini-2.5-flash', result.usageMetadata);
+        await logAiUsage(brandId, 'AI Copy Translation', targetModel, result.usageMetadata);
       }
       res.json({ success: true, text: translatedText });
     } else {
@@ -5476,19 +5761,46 @@ async function processDueSubscriptions() {
         chargeDescription
       ]);
 
-      // Calculate next charge time (default 1 month)
+      // Rollover pending tier/interval if any
+      let finalName = sub.name;
+      let finalAmount = amount;
+      let finalInterval = sub.interval;
+      
+      if (sub.pending_tier) {
+        finalName = `ai_subscription_${sub.pending_tier}`;
+        finalInterval = sub.pending_interval || sub.interval;
+        
+        let subAmount = 49.00;
+        if (sub.pending_tier === 'standard') subAmount = 49.00;
+        else if (sub.pending_tier === 'professional') subAmount = 99.00;
+        else if (sub.pending_tier === 'enterprise') subAmount = 199.00;
+        
+        if (finalInterval === 'yearly') {
+          if (sub.pending_tier === 'standard') subAmount = 468.00;
+          else if (sub.pending_tier === 'professional') subAmount = 948.00;
+          else if (sub.pending_tier === 'enterprise') subAmount = 1908.00;
+        }
+        finalAmount = subAmount;
+        
+        await runQuery('UPDATE brands SET ai_tier = $1 WHERE id = $2', [sub.pending_tier, sub.brand_id]);
+        console.log(`[Subscription Engine] Processed pending rollover tier change for brand ${sub.brand_id} to ${sub.pending_tier} (${finalInterval}: €${finalAmount})`);
+      }
+
+      // Calculate next charge time
       let nextCharge = new Date();
-      if (sub.interval === 'weekly') {
+      if (finalInterval === 'weekly') {
         nextCharge.setDate(nextCharge.getDate() + 7);
+      } else if (finalInterval === 'yearly') {
+        nextCharge.setFullYear(nextCharge.getFullYear() + 1);
       } else {
         nextCharge.setMonth(nextCharge.getMonth() + 1);
       }
 
       await runQuery(`
         UPDATE merchant_subscriptions 
-        SET last_charged_at = CURRENT_TIMESTAMP, next_charge_at = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [nextCharge, sub.id]);
+        SET name = $1, amount = $2, interval = $3, last_charged_at = CURRENT_TIMESTAMP, next_charge_at = $4, pending_tier = NULL, pending_interval = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $5
+      `, [finalName, finalAmount, finalInterval, nextCharge, sub.id]);
 
       console.log(`[Subscription Engine] Charged brand ${sub.brand_id} subscription fee €${amount} for '${sub.name}'. Method: ${sub.subscription_billing_method || 'ledger'}. Next charge scheduled for ${nextCharge.toISOString()}`);
     }
@@ -6458,8 +6770,15 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
     const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
     if (apiKey) {
       try {
-        const brand = await getQuery('SELECT name, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+        const brand = await getQuery('SELECT name, marketing_protocol, ai_tier FROM brands WHERE id = $1', [brandId]);
         if (brand && brand.marketing_protocol) {
+          let targetModel = 'gemini-1.5-pro';
+          if (brand.ai_tier === 'standard') {
+            targetModel = 'gemini-2.5-flash';
+          } else if (brand.ai_tier === 'enterprise') {
+            targetModel = 'deep-research-pro-preview';
+          }
+
           const prompt = `You are a premium e-commerce copywriter. Refer to this Brand Performance Marketing Protocol / Playbook:
 ${brand.marketing_protocol}
 
@@ -6475,8 +6794,8 @@ Return ONLY a JSON object in this format:
   "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"]
 }`;
 
-          console.log(`[AI Copywriter Studio] Generating custom ad copy for brand: ${brandId}`);
-          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+          console.log(`[AI Copywriter Studio] Generating custom ad copy for brand: ${brandId} using model: ${targetModel}`);
+          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -6494,8 +6813,8 @@ Return ONLY a JSON object in this format:
             if (result.usageMetadata && brandId) {
               const promptTokens = result.usageMetadata.promptTokenCount || 0;
               const completionTokens = result.usageMetadata.candidatesTokenCount || 0;
-              costUsd = estimateGeminiCost('gemini-2.5-flash', promptTokens, completionTokens);
-              await logAiUsage(brandId, 'Campaign Ad Copy Generation', 'gemini-2.5-flash', result.usageMetadata);
+              costUsd = estimateGeminiCost(targetModel, promptTokens, completionTokens);
+              await logAiUsage(brandId, 'Campaign Ad Copy Generation', targetModel, result.usageMetadata);
             }
 
             if (parsed.headline && parsed.ad_copy) {

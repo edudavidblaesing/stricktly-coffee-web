@@ -640,7 +640,7 @@
                             <button type="button" @click="generateAICopy" :disabled="generatingAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
                                 <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
                                 <span v-else-if="generatingAICopy">⏳ [{{ app.aiTicker.tokens }} tokens | €{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                                <span v-else>Write Copy [Gemini 2.5 Flash] [~$0.0004]</span>
+                                <span v-else>Write Copy [{{ getAiModelDisplay(getAiModelName) }}]</span>
                             </button>
                         </div>
 
@@ -1188,7 +1188,12 @@
                     <!-- Run Strategy Check Banner -->
                     <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
                         <div>
-                            <h4 style="margin: 0; font-size: 0.95rem; color: var(--accent); font-weight: bold;">⚡ AI Campaign Strategist Console</h4>
+                            <h4 style="margin: 0; font-size: 0.95rem; color: var(--accent); font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                                <span>⚡ AI Campaign Strategist Console</span>
+                                <span style="background: rgba(197, 160, 89, 0.15); color: var(--text-main); font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: normal;">
+                                    Model: {{ getAiModelDisplay(getAiModelName) }}
+                                </span>
+                            </h4>
                             <p style="margin: 4px 0 0 0; font-size: 0.76rem; color: var(--text-muted);">
                                 Analyze ad CTRs, daily budget velocities, and conversion funnel dropoffs to trigger automated guardrails.
                             </p>
@@ -2048,6 +2053,20 @@ export default {
                 list = list.filter(i => (i.title || '').toLowerCase().includes(query));
             }
             return list;
+        },
+        getAiModelName() {
+            const tier = this.activeBrand ? this.activeBrand.ai_tier : 'professional';
+            if (tier === 'standard') return 'gemini-2.5-flash';
+            if (tier === 'enterprise') return 'deep-research-pro-preview';
+            return 'gemini-1.5-pro';
+        },
+        getAiModelDisplay() {
+            return (modelName) => {
+                if (modelName === 'gemini-2.5-flash') return 'Gemini 2.5 Flash';
+                if (modelName === 'gemini-1.5-pro') return 'Gemini 1.5 Pro';
+                if (modelName === 'deep-research-pro-preview') return 'Deep Research Pro';
+                return modelName;
+            };
         }
     },
     watch: {
@@ -2263,6 +2282,10 @@ export default {
                 status: 'active',
                 autopilot_enabled: false,
                 agent_mode: 'recommendation',
+                enable_ab_testing: false,
+                headlines: ['', ''],
+                warmup_days: 3,
+                warmup_budget_percent: 15,
                 autopilot_guardrails: {
                     max_budget_change_pct: 20,
                     min_roas_floor: 1.8,
@@ -2783,7 +2806,7 @@ export default {
         },
         async generateAICopy() {
             this.generatingAICopy = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            this.app.startAiTicker(this.getAiModelName);
             try {
                 const response = await fetch('/api/global/marketing-campaigns/generate-copy', {
                     method: 'POST',
@@ -3242,7 +3265,7 @@ export default {
             }
             
             this.translatingCampaign = true;
-            this.app.startAiTicker('gemini-2.5-flash');
+            this.app.startAiTicker(this.getAiModelName);
             try {
                 if (this.newCampaign.headline) {
                     const response = await fetch('/api/global/translate', {
