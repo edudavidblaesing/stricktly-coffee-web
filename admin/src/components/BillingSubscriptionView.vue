@@ -167,65 +167,133 @@
                 <!-- Right: Billing Settings & Quick Actions -->
                 <div class="panel" style="height: fit-content;">
                     <div class="panel-header">
-                        <h3 class="panel-title">Billing Quick Controls</h3>
+                        <h3 class="panel-title">Manage Subscription & Billing Settings</h3>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <!-- Settlement & Connect Status Details -->
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.8rem; line-height: 1.4;">
-                            <div style="font-weight: bold; margin-bottom: 6px; color: var(--text-main);">Payout Model Details</div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span>Billing Model:</span>
-                                <span style="font-weight: 600;">{{ getBillingModelLabel(currentBrand.billing_type) }}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;" v-if="currentBrand.stripe_connect_account_id">
-                                <span>Stripe Account ID:</span>
-                                <span style="font-weight: 600; font-family: monospace;">{{ currentBrand.stripe_connect_account_id }}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span>Stripe Link Status:</span>
-                                <span v-if="stripeConnectStatus === 'active'" style="font-weight: 700; color: var(--success);">Active (Direct split)</span>
-                                <span v-else-if="stripeConnectStatus === 'incomplete'" style="font-weight: 700; color: #f59e0b;">Incomplete Onboarding</span>
-                                <span v-else style="font-style: italic; color: var(--text-muted);">Unlinked</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 4px;">
-                                <span>Fee Billing Method:</span>
-                                <span style="font-weight: 600; color: var(--accent);">{{ subscriptionBillingMethod === 'stripe_card' ? 'Credit Card' : 'Payout Ledger' }}</span>
+                    <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 15px;">
+                        
+                        <!-- Plan / AI Tier selector -->
+                        <div>
+                            <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Plan Tier</label>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- None/Sandbox -->
+                                <div @click="currentBrand.ai_tier = 'none'" 
+                                     :style="{
+                                         border: currentBrand.ai_tier === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: currentBrand.ai_tier === 'none' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
+                                         <span>None (Sandbox Trial)</span>
+                                         <span style="color: var(--accent);">€0.00 / mo</span>
+                                     </div>
+                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                         Sandbox preview model. AI operations are locked or simulation-only.
+                                     </div>
+                                </div>
+                                <!-- Professional -->
+                                <div @click="currentBrand.ai_tier = 'professional'" 
+                                     :style="{
+                                         border: currentBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: currentBrand.ai_tier === 'professional' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
+                                         <span>Professional Plan</span>
+                                         <span style="color: var(--accent);">€99.00 / mo</span>
+                                     </div>
+                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                         Includes AI Storefront Designer & custom page builder.
+                                     </div>
+                                </div>
+                                <!-- Enterprise -->
+                                <div @click="currentBrand.ai_tier = 'enterprise'" 
+                                     :style="{
+                                         border: currentBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: currentBrand.ai_tier === 'enterprise' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
+                                         <span>Enterprise Plan</span>
+                                         <span style="color: var(--accent);">€199.00 / mo</span>
+                                     </div>
+                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                         Includes autopilot dynamic ad campaigns and automation rules.
+                                     </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Stripe Connect Link Button triggers for external_split models -->
-                        <template v-if="currentBrand.billing_type === 'external_split'">
-                            <button v-if="stripeConnectStatus === 'unlinked'" class="btn" @click="initiateStripeConnect" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border-color: #635bff;">
-                                🔗 Link Stripe Account (Frictionless)
-                            </button>
-                            <button v-else-if="stripeConnectStatus === 'incomplete'" class="btn" @click="initiateStripeConnect" style="width: 100%; font-weight: bold; background: #f59e0b; color: #fff; border-color: #f59e0b;">
-                                ⚠️ Complete Stripe Onboarding
-                            </button>
-                            <div v-else-if="stripeConnectStatus === 'active'" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 6px; color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; border-color: rgba(16,185,129,0.3)">
-                                ✓ Stripe Connect Active & Split Ready
+                        <!-- Billing Method choice -->
+                        <div v-if="currentBrand.ai_tier !== 'none'">
+                            <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Billing Method</label>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- Credit Card -->
+                                <div @click="currentBrand.subscription_billing_method = 'stripe_card'"
+                                     :style="{
+                                         border: currentBrand.subscription_billing_method === 'stripe_card' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: currentBrand.subscription_billing_method === 'stripe_card' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }"
+                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem;">💳 Credit Card</div>
+                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                         Fixed recurring billing processed via Stripe.
+                                     </div>
+                                 </div>
+                                 <!-- Stripe Connect -->
+                                 <div @click="currentBrand.subscription_billing_method = 'stripe_connect'"
+                                      :style="{
+                                          border: currentBrand.subscription_billing_method === 'stripe_connect' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                          background: currentBrand.subscription_billing_method === 'stripe_connect' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                      }"
+                                      style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem;">🔗 Stripe Connect</div>
+                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                          Split billing directly from transaction proceeds.
+                                      </div>
+                                 </div>
+                                 <!-- Payout Ledger (Superadmin only) -->
+                                 <div v-if="userRole.toLowerCase() === 'superadmin'"
+                                      @click="currentBrand.subscription_billing_method = 'ledger'"
+                                      :style="{
+                                          border: currentBrand.subscription_billing_method === 'ledger' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                          background: currentBrand.subscription_billing_method === 'ledger' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                      }"
+                                      style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem;">💡 Payout Ledger</div>
+                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                          Deductions processed directly from dropshipping payout balances.
+                                      </div>
+                                 </div>
                             </div>
-                        </template>
+                        </div>
 
-                        <!-- Card Billing Setup buttons when subscriptionBillingMethod is 'stripe_card' -->
-                        <template v-if="subscriptionBillingMethod === 'stripe_card'">
-                            <button v-if="!cardLinked" class="btn" @click="initiateStripeCardSetup" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border-color: #635bff;">
-                                💳 Link Credit Card on File
-                            </button>
-                            <div v-else style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 6px; color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; border-color: rgba(16,185,129,0.3)">
-                                ✓ Credit Card on File Active
+                        <!-- Link status and action buttons -->
+                        <div v-if="currentBrand.subscription_billing_method === 'stripe_card' && currentBrand.ai_tier !== 'none'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem;">
+                                <span style="color: var(--text-muted);">Card Status: <strong :style="{ color: cardLinked ? 'var(--success)' : '#ef4444' }">{{ cardLinked ? '✅ Linked' : '❌ Not Linked' }}</strong></span>
+                                <button type="button" @click="initiateStripeCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px;">
+                                    💳 {{ cardLinked ? 'Update Card' : 'Link Card' }}
+                                </button>
                             </div>
-                        </template>
+                        </div>
 
-                        <!-- Disburse Payout Button (Visible on positive ledger balance when using ledger-based systems or prior splits) -->
-                        <button v-if="balance > 0" class="btn" @click="disbursePayout" style="width: 100%; font-weight: bold; background: var(--success); color: #fff; border-color: var(--success);">
+                        <div v-if="currentBrand.subscription_billing_method === 'stripe_connect' && currentBrand.ai_tier !== 'none'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem;">
+                                <span style="color: var(--text-muted);">Stripe Connect: <strong :style="{ color: stripeConnectStatus === 'active' ? 'var(--success)' : '#ef4444' }">{{ stripeConnectStatus === 'active' ? '✅ Active' : '❌ Unlinked' }}</strong></span>
+                                <button type="button" @click="initiateStripeConnect" class="btn" style="background: #635bff; color: #fff; font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px;">
+                                    🔗 Link Stripe Account
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Update Button -->
+                        <button type="button" class="btn btn-accent" @click="updateSubscriptionSettings" style="width: 100%; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0 0;">
+                            💾 Update Subscription Settings
+                        </button>
+
+                        <!-- Stripe Payout settlement button -->
+                        <button v-if="balance > 0" class="btn" @click="disbursePayout" style="width: 100%; font-weight: bold; background: var(--success); color: #fff; border-color: var(--success); height: 38px; margin: 0;">
                             💸 Process Ledger Payout Settlement
-                        </button>
-
-                        <button class="btn" @click="app.showNotification('Redirecting to Stripe Billing Portal...')" style="width: 100%;">
-                            💳 Open Stripe Customer Portal
-                        </button>
-                        <button class="btn" @click="app.showNotification('Upgrade/downgrade must be initiated by contacting support.')" style="width: 100%; background: var(--border); color: var(--text-main); border-color: var(--border);">
-                            ✨ Manage Subscription Plan
                         </button>
                     </div>
                 </div>
@@ -239,6 +307,11 @@
 export default {
     name: 'BillingSubscriptionView',
     inject: ['app'],
+    computed: {
+        userRole() {
+            return this.app.userRole;
+        }
+    },
     data() {
         return {
             loading: false,
@@ -263,7 +336,7 @@ export default {
             const brand = this.app.brands.find(b => b.id === brandId);
             if (!brand) return;
             
-            this.currentBrand = brand;
+            this.currentBrand = { ...brand };
             this.loading = true;
             
             // Map Plan Details
@@ -401,6 +474,40 @@ export default {
             if (!dateStr) return '';
             const date = new Date(dateStr);
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        },
+        async updateSubscriptionSettings() {
+            try {
+                this.loading = true;
+                const token = localStorage.getItem('sc_admin_token');
+                
+                const payload = {
+                    ...this.currentBrand,
+                    ai_tier: this.currentBrand.ai_tier,
+                    subscription_billing_method: this.currentBrand.subscription_billing_method
+                };
+
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    this.app.showNotification('✨ Subscription settings successfully updated!');
+                    await this.app.loadBrands();
+                    await this.fetchBillingData();
+                } else {
+                    const err = await response.json();
+                    alert('Update failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Update network error: ' + e.message);
+            } finally {
+                this.loading = false;
+            }
         }
     },
     watch: {

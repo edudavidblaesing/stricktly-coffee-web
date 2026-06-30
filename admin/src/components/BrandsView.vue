@@ -380,11 +380,6 @@
                                     <input type="text" v-model="catalogSearchQuery" placeholder="Search products..." style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px 12px 8px 32px; font-size: 0.85rem; margin: 0;">
                                     <span style="position: absolute; left: 10px; top: 10px; color: var(--text-muted); font-size: 0.85rem;">🔍</span>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px;">
-                                    <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">💰 Price Markup:</span>
-                                    <input type="number" min="0" step="1" v-model="globalMarkupPercent" @input="applyGlobalMarkup" placeholder="0" style="width: 60px; height: 26px; padding: 4px 6px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); text-align: center; font-weight: bold; margin: 0;">
-                                    <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">%</span>
-                                </div>
                             </div>
 
                             <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
@@ -401,8 +396,8 @@
                                             <tr style="border-bottom: 1px solid var(--border); text-align: left; background: rgba(255,255,255,0.01);">
                                                 <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 8%; text-align: center;">Select</th>
                                                 <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 42%;">Product</th>
-                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Storefront Price (€)</th>
-                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Custom Description</th>
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 20%;">Price (€)</th>
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 30%;">Description</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -418,15 +413,14 @@
                                                         </div>
                                                         <div>
                                                             <div style="font-weight: 600; color: var(--text-main);">{{ p.title }}</div>
-                                                            <div style="font-size: 0.72rem; color: var(--text-muted);">Orig. Price: €{{ p.price ? p.price.toFixed(2) : '55.00' }}</div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td style="padding: 10px;">
-                                                    <input type="number" step="0.01" v-model="customPrices[p.id]" style="width: 90px; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id]">
+                                                <td style="padding: 10px; color: var(--text-main); font-weight: 600;">
+                                                    €{{ p.price ? p.price.toFixed(2) : '55.00' }}
                                                 </td>
-                                                <td style="padding: 10px;">
-                                                    <input type="text" v-model="customDescriptions[p.id]" placeholder="Keep original" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id]">
+                                                <td style="padding: 10px; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    {{ p.description || 'No description available' }}
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -541,13 +535,13 @@
                     </div>
                 </div>
 
-                <!-- STEP 4: SUMMARY & PUBLISH -->
+                <!-- STEP 4: PLAN & BILLING -->
                 <div v-if="currentStep === 4">
                     <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
                         <div>
-                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🚀 Publish Storefront & Save Channel</h4>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🚀 Plan & Billing</h4>
                             <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
-                                Select subscription settings and authorize checkout processing parameters below.
+                                Select your subscription tier and configure your payment method below.
                             </p>
                         </div>
 
@@ -568,19 +562,6 @@
                                      <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€0.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
                                      <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
                                          Sandbox preview model. AI operations are locked or simulation-only.
-                                     </div>
-                                </div>
-                                <!-- Standard Plan -->
-                                <div @click="newBrand.ai_tier = 'standard'" 
-                                     :style="{
-                                         border: newBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: newBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                     }" 
-                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Standard Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€49.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
-                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
-                                         Basic storefront customizations, copywriter assistant, and SEO optimization tools.
                                      </div>
                                 </div>
                                 <!-- Professional Plan -->
@@ -615,53 +596,94 @@
                         <!-- Secure payment input fields (Card payment wall) -->
                         <div v-if="newBrand.ai_tier !== 'none'" 
                              style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; flex-direction: column; gap: 12px;">
-                             <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Checkout & Billing Authorization</h5>
+                             <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Select Subscription Billing Method</h5>
                              
-                             <div class="form-group" style="margin: 0 0 8px 0;">
-                                 <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Subscription Billing Method</label>
-                                 <select v-model="newBrand.subscription_billing_method" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
-                                     <option value="ledger">Deduct from Payout Ledger Balance</option>
-                                     <option value="stripe_card">Charge Credit Card on File</option>
-                                     <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
-                                 </select>
-                             </div>
-
-                             <!-- Ledger Billing Info Panel -->
-                             <div v-if="newBrand.subscription_billing_method === 'ledger'" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px 15px; font-size: 0.8rem; line-height: 1.45; color: var(--text-muted); margin-top: 2px;">
-                                 💡 <strong>Ledger Billing:</strong> Monthly subscription charges will be automatically deducted from your store's accumulated checkout payouts. No credit card is required upfront today.
-                             </div>
-
-                             <!-- Stripe Connect Split Proceeds Info Panel -->
-                             <div v-if="newBrand.subscription_billing_method === 'stripe_connect'" style="background: rgba(99, 91, 255, 0.05); border: 1px solid rgba(99, 91, 255, 0.2); border-radius: 8px; padding: 12px 15px; font-size: 0.8rem; line-height: 1.45; color: var(--text-main); margin-top: 2px; display: flex; flex-direction: column; gap: 8px;">
-                                 <div style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                                     <span v-html="getStripeLogoSvg(14)"></span>
-                                     <span>Stripe Connect Split Payouts</span>
+                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 12px;">
+                                 <!-- Credit Card -->
+                                 <div @click="newBrand.subscription_billing_method = 'stripe_card'"
+                                      :style="{
+                                          border: newBrand.subscription_billing_method === 'stripe_card' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                          background: newBrand.subscription_billing_method === 'stripe_card' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                      }"
+                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                         <span>💳 Credit Card</span>
+                                     </div>
+                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                         Fixed recurring billing processed via Stripe. Provide a card to securely authorize automatic monthly payments.
+                                     </div>
                                  </div>
-                                 <p style="margin: 0; color: var(--text-muted);">
-                                     Monthly charges will be split directly from checkout proceeds via Stripe Connect. After completing onboarding, visit your <strong>Integrations Settings</strong> panel to securely link your Stripe account.
+
+                                 <!-- Stripe Connect -->
+                                 <div @click="newBrand.subscription_billing_method = 'stripe_connect'"
+                                      :style="{
+                                          border: newBrand.subscription_billing_method === 'stripe_connect' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                          background: newBrand.subscription_billing_method === 'stripe_connect' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                      }"
+                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                         <span>🔗 Stripe Connect</span>
+                                     </div>
+                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                         Split billing directly from storefront transaction proceeds. Link your Stripe account to authorize real-time payout splits.
+                                     </div>
+                                 </div>
+
+                                 <!-- Ledger Payout Deduction (Superadmin only) -->
+                                 <div v-if="userRole.toLowerCase() === 'superadmin'"
+                                      @click="newBrand.subscription_billing_method = 'ledger'"
+                                      :style="{
+                                          border: newBrand.subscription_billing_method === 'ledger' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                          background: newBrand.subscription_billing_method === 'ledger' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                      }"
+                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                         <span>💡 Payout Ledger</span>
+                                     </div>
+                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                         Subscriptions are automatically deducted from the accumulated dropshipping payout ledger. No card required upfront.
+                                     </div>
+                                 </div>
+                             </div>
+
+                             <!-- Status & Stripe Setup Actions -->
+                             <div v-if="newBrand.subscription_billing_method === 'stripe_card'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                     <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                         Card Linking Status: 
+                                         <strong :style="{ color: stripeCardLinked ? 'var(--success)' : '#ef4444' }">
+                                             {{ stripeCardLinked ? '✅ Linked' : '❌ Not Linked' }}
+                                         </strong>
+                                     </span>
+                                     <button type="button" @click="startStripeCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                         💳 Link Credit Card via Stripe
+                                     </button>
+                                 </div>
+                                 <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                     You must click the button above to securely connect your card via Stripe before you can continue.
                                  </p>
                              </div>
 
-                             <!-- Card Details Form -->
-                             <template v-if="newBrand.subscription_billing_method === 'stripe_card'">
-                                 <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted);">
-                                     Provide a valid credit card to launch your storefront. You will be charged €{{ newBrand.ai_tier === 'standard' ? '49.00' : (newBrand.ai_tier === 'professional' ? '99.00' : '199.00') }} today.
-                                 </p>
-                                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
-                                      <div class="form-group" style="margin: 0;">
-                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Card Number</label>
-                                          <input type="text" v-model="billingCardNumber" placeholder="4242 4242 4242 4242" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                      </div>
-                                      <div class="form-group" style="margin: 0;">
-                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Expiry Date</label>
-                                          <input type="text" v-model="billingCardExpiry" placeholder="MM/YY" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                      </div>
-                                      <div class="form-group" style="margin: 0;">
-                                          <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">CVC / CVV</label>
-                                          <input type="text" v-model="billingCardCvc" placeholder="123" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box;" required>
-                                      </div>
+                             <div v-if="newBrand.subscription_billing_method === 'stripe_connect'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                     <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                         Stripe Connect Status: 
+                                         <strong :style="{ color: stripeConnectActive ? 'var(--success)' : '#ef4444' }">
+                                             {{ stripeConnectActive ? '✅ Active' : '❌ Incomplete / Unlinked' }}
+                                         </strong>
+                                     </span>
+                                     <button type="button" @click="startStripeConnectSetup" class="btn" style="background: #635bff; color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                         🔗 Link Stripe Account
+                                     </button>
                                  </div>
-                             </template>
+                                 <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                     You must complete your Stripe Connect Express account onboarding before you can continue.
+                                 </p>
+                             </div>
+
+                             <div v-if="newBrand.subscription_billing_method === 'ledger'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted);">
+                                 💡 Ledger deduction is authorized. The platform admin will monitor performance and balance deductions.
+                             </div>
                         </div>
 
                         <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
@@ -874,6 +896,42 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Brand Identity & Tracking Configuration card -->
+                        <div class="canvas-card" style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-top: 15px;">
+                            <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                🏷️ Brand Identity & Tracking Settings
+                            </h4>
+                            <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 15px;">
+                                Configure the category/segment tags and tracking scripts used by storefront sales channels and marketing algorithms.
+                            </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Industry Vertical</label>
+                                    <select v-model="newBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                        <option value="Food & Beverage">Food & Beverage</option>
+                                        <option value="Apparel & Fashion">Apparel & Fashion</option>
+                                        <option value="Electronics">Electronics</option>
+                                        <option value="Health & Beauty">Health & Beauty</option>
+                                        <option value="Home & Living">Home & Living</option>
+                                        <option value="Fitness & Sports">Fitness & Sports</option>
+                                        <option value="Software & Tech">Software & Tech</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Specific Niche / Tags</label>
+                                    <input type="text" v-model="newBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                </div>
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Meta Pixel ID</label>
+                                    <input type="text" v-model="newBrand.meta_pixel_id" placeholder="e.g. 15-digit ID" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                </div>
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Google Analytics ID</label>
+                                    <input type="text" v-model="newBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -905,9 +963,25 @@
                         <span>Continue to Sales Channels ➡️</span>
                     </button>
                     <button v-if="currentStep === 3" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(4)">
-                        <span>Continue to Final Summary ➡️</span>
+                        <span>Continue to Plan & Billing ➡️</span>
                     </button>
-                    <button v-if="currentStep === 4" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(5)">
+                    <button v-if="currentStep === 4" 
+                            type="button" 
+                            class="btn" 
+                            :class="{ 'btn-accent': isBillingConfigured }" 
+                            :style="{
+                                background: isBillingConfigured ? 'var(--accent)' : 'var(--border)',
+                                color: isBillingConfigured ? '#ffffff' : 'var(--text-muted)',
+                                cursor: isBillingConfigured ? 'pointer' : 'not-allowed',
+                                fontWeight: '700',
+                                height: '44px',
+                                padding: '0 30px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                margin: '0'
+                            }"
+                            :disabled="!isBillingConfigured"
+                            @click="goToStep(5)">
                         <span>Continue to Brand Strategy Analysis ➡️</span>
                     </button>
                     <button v-if="currentStep === 5" type="button" class="btn btn-accent" style="margin: 0; background: #10b981; color: #fff; font-weight: 700; padding: 0 30px; height: 44px; border-color: #10b981; display: flex; align-items: center; gap: 8px;" @click="finalizeOnboarding" :disabled="savingFinal || isGeneratingProtocol || (app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'generating')">
@@ -1338,6 +1412,39 @@ export default {
 
         const params = new URLSearchParams(window.location.search);
         
+        // Ensure merchant default billing is credit card
+        if (this.userRole && this.userRole.toLowerCase() === 'merchant' && this.app.newBrand && this.app.newBrand.subscription_billing_method === 'ledger') {
+            this.app.newBrand.subscription_billing_method = 'stripe_card';
+        }
+
+        // Handle returning from Stripe setup card session
+        if (params.get('stripe_setup') && params.get('brandId')) {
+            const brandId = params.get('brandId');
+            const stripeSetup = params.get('stripe_setup');
+            this.app.loadBrands().then(() => {
+                this.restoreBrandWizardState(brandId, 'stripe_card');
+                this.currentStep = 4;
+                if (stripeSetup === 'success') {
+                    this.stripeCardLinked = true;
+                    this.app.showNotification('Successfully linked your credit card for billing!');
+                }
+            });
+        }
+
+        // Handle returning from Stripe Connect onboarding
+        if (params.get('stripe_connect') && params.get('brandId')) {
+            const brandId = params.get('brandId');
+            const stripeConnect = params.get('stripe_connect');
+            this.app.loadBrands().then(() => {
+                this.restoreBrandWizardState(brandId, 'stripe_connect');
+                this.currentStep = 4;
+                if (stripeConnect === 'success') {
+                    this.stripeConnectActive = true;
+                    this.app.showNotification('Successfully completed Stripe Connect setup!');
+                }
+            });
+        }
+
         // Handle returning from Shopify OAuth flow redirection
         if (params.get('oauth_success') === 'true' && params.get('brandId')) {
             const brandId = params.get('brandId');
@@ -1383,6 +1490,8 @@ export default {
     data() {
         return {
             easySetupUrl: '',
+            stripeCardLinked: false,
+            stripeConnectActive: false,
             autofilledStoreTag: '',
             scrapedProducts: [],
             platformAutoDetected: false,
@@ -1481,6 +1590,14 @@ export default {
         };
     },
     watch: {
+        currentStep(newStep) {
+            if (newStep === 4) {
+                this.checkBillingSetupStatus();
+            }
+        },
+        'newBrand.subscription_billing_method'() {
+            this.checkBillingSetupStatus();
+        },
         catalogSearchQuery(newVal) {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
@@ -1572,6 +1689,22 @@ export default {
     },
     computed: {
         userRole() { return this.app.userRole; },
+        isBillingConfigured() {
+            if (!this.newBrand || !this.newBrand.ai_tier) return false;
+            if (this.newBrand.ai_tier === 'none') return true;
+            if (!this.newBrand.subscription_billing_method) return false;
+            
+            if (this.newBrand.subscription_billing_method === 'ledger') {
+                return this.userRole && this.userRole.toLowerCase() === 'superadmin';
+            }
+            if (this.newBrand.subscription_billing_method === 'stripe_card') {
+                return this.stripeCardLinked;
+            }
+            if (this.newBrand.subscription_billing_method === 'stripe_connect') {
+                return this.stripeConnectActive;
+            }
+            return false;
+        },
         brands() {
             const list = this.app.brands;
             if (this.app.activeShopFilter && this.app.activeShopFilter !== 'all') {
@@ -1780,7 +1913,13 @@ export default {
                 } else if (platform === 'woocommerce') {
                     this.woocommerceConnectionMode = 'oauth';
                     this.app.showNotification('Successfully connected WooCommerce integration via OAuth!');
+                } else if (platform === 'stripe_card') {
+                    this.app.newBrand.subscription_billing_method = 'stripe_card';
+                } else if (platform === 'stripe_connect') {
+                    this.app.newBrand.subscription_billing_method = 'stripe_connect';
                 }
+                
+                this.checkBillingSetupStatus();
                 
                 const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                 window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
@@ -1825,6 +1964,7 @@ export default {
             }
             
             this.app.showNotification(`Resumed setup for brand: ${brand.name}`);
+            this.checkBillingSetupStatus();
         },
         goToDesigner(brandId) {
             this.app.activeShopFilter = brandId;
@@ -2223,7 +2363,7 @@ export default {
             if (step === 1) return 'Details';
             if (step === 2) return 'eCommerce & Sync';
             if (step === 3) return 'Sales Channels';
-            if (step === 4) return 'Summary';
+            if (step === 4) return 'Plan & Billing';
             return 'Strategy Analysis';
         },
         async goToStep(step) {
@@ -3182,16 +3322,86 @@ export default {
             }
             return '';
         },
+        async startStripeCardSetup() {
+            if (!this.newBrandSavedId) {
+                alert('Please save the brand draft profile in Step 1 first.');
+                return;
+            }
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/stripe-setup-session`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    const res = await response.json();
+                    if (res.url) {
+                        window.location.href = res.url;
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('Failed to generate card setup session: ' + (err.error || 'unknown error'));
+                }
+            } catch (e) {
+                alert('Stripe Setup Session error: ' + e.message);
+            }
+        },
+        async startStripeConnectSetup() {
+            if (!this.newBrandSavedId) {
+                alert('Please save the brand draft profile in Step 1 first.');
+                return;
+            }
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/stripe-connect-link`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    const res = await response.json();
+                    if (res.url) {
+                        window.location.href = res.url;
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('Failed to generate Stripe Connect link: ' + (err.error || 'unknown error'));
+                }
+            } catch (e) {
+                alert('Stripe Connect onboarding error: ' + e.message);
+            }
+        },
+        async checkBillingSetupStatus() {
+            if (!this.newBrandSavedId) return;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/billing/ledger/${this.newBrandSavedId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const res = await response.json();
+                    this.stripeCardLinked = !!res.card_linked;
+                    this.stripeConnectActive = res.stripe_connect_status === 'active';
+                }
+            } catch (e) {
+                console.error('Error checking billing status:', e);
+            }
+        },
         async finalizeOnboarding() {
             this.savingFinal = true;
-            if (this.newBrand.ai_tier !== 'none' && this.newBrand.subscription_billing_method === 'stripe_card') {
-                if (!this.billingCardNumber || !this.billingCardExpiry || !this.billingCardCvc) {
-                    alert('Please enter your credit card details to subscribe and activate your brand.');
+            if (this.newBrand.ai_tier !== 'none') {
+                if (this.newBrand.subscription_billing_method === 'stripe_card' && !this.stripeCardLinked) {
+                    alert('Please link your credit card via Stripe before proceeding.');
                     this.savingFinal = false;
                     return;
                 }
-                if (this.billingCardNumber.replace(/\s+/g, '').length < 12) {
-                    alert('Invalid card number format.');
+                if (this.newBrand.subscription_billing_method === 'stripe_connect' && !this.stripeConnectActive) {
+                    alert('Please complete your Stripe Connect setup before proceeding.');
                     this.savingFinal = false;
                     return;
                 }
@@ -3391,7 +3601,7 @@ export default {
                         twitter: false
                     };
                     
-                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'], price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'ledger', stripe_customer_id: null, meta_pixel_id: '' };
+                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'], price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'ledger', stripe_customer_id: null, meta_pixel_id: '', google_analytics_id: '', business_segment: 'Food & Beverage', business_niche: '' };
                     
                     this.isCreatingBrand = false;
                     await this.app.loadBrands();

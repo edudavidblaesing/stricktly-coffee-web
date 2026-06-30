@@ -1351,8 +1351,12 @@ export default {
                         billing_type: '',
                         platform_take_rate: 0.15,
                         stripe_connect_account_id: '',
-                        subscription_billing_method: '',
-                        stripe_customer_id: null
+                        subscription_billing_method: 'stripe_card',
+                        stripe_customer_id: null,
+                        meta_pixel_id: '',
+                        google_analytics_id: '',
+                        business_segment: 'Food & Beverage',
+                        business_niche: ''
                     },
                     newProduct: {
                         brand_id: '',
@@ -1398,7 +1402,8 @@ export default {
                         stripe_connect_account_id: '',
                         subscription_billing_method: '',
                         stripe_customer_id: null,
-                        meta_pixel_id: ''
+                        meta_pixel_id: '',
+                        google_analytics_id: ''
                     },
 
                     // Shopify Importer
@@ -3662,7 +3667,7 @@ export default {
 
                         if (response.ok) {
                             this.showNotification(`Shop ${this.newBrand.name} onboarded successfully!`);
-                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'], ai_tier: 'professional', price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15 };
+                            this.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#c5a059', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', status: 'draft', stripe_enabled: false, languages: ['en'], ai_tier: 'professional', price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'stripe_card', stripe_customer_id: null, meta_pixel_id: '', google_analytics_id: '', business_segment: 'Food & Beverage', business_niche: '' };
                             await this.loadBrands();
                             this.switchView('overview');
                         } else {

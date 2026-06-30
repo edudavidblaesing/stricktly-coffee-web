@@ -1,8 +1,12 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { Pool } = pg;
 
@@ -93,6 +97,14 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS active_model VARCHAR(255)`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS meta_pixel_id VARCHAR(255)`);
     await client.query(`UPDATE brands SET meta_pixel_id = 'mock_pixel_' || id WHERE meta_pixel_id IS NULL OR meta_pixel_id = ''`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS google_analytics_id VARCHAR(255)`);
+    await client.query(`UPDATE brands SET google_analytics_id = 'mock_ga4_' || id WHERE google_analytics_id IS NULL OR google_analytics_id = ''`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS brand_voice_copy TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS typography_fonts VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS target_audience_demographics TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS visual_identity_guidelines TEXT`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS visual_dna TEXT`);
+
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 

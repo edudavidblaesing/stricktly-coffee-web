@@ -6,12 +6,15 @@ import crypto from 'crypto';
 import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { runQuery, getQuery, allQuery } from './db.js';
 import nodemailer from 'nodemailer';
 import { GoogleAdsService } from './googleAdsService.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // AbortControllers map for cancelable background jobs
 const activeAborts = new Map();
@@ -698,6 +701,76 @@ Return a JSON object matching exactly this schema:
   }
 }
 
+// Background worker to analyze product images and extract Visual DNA descriptors
+async function analyzeProductVisualsBackground(brandId) {
+  try {
+    const products = await allQuery("SELECT id, title, image FROM products WHERE brand_id = $1 AND visual_dna IS NULL AND image IS NOT NULL AND image != ''", [brandId]);
+    if (products.length === 0) return;
+    
+    console.log(`[AI Visual DNA Background Worker] Starting analysis on ${products.length} products for brand ${brandId}...`);
+    
+    for (const p of products) {
+      try {
+        const active = getActiveAiProviders();
+        if (!active.gemini) break;
+        
+        const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+        
+        // Fetch image bytes
+        const imageRes = await fetch(p.image, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!imageRes.ok) continue;
+        const arrayBuf = await imageRes.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuf).toString('base64');
+        
+        const prompt = `Inspect this e-commerce image for the product "${p.title}". Analyze the visual elements and provide:
+1. Isolate the main subject description (exact item type, color, materials, branding).
+2. Detail the background scene (backdrop, studio layout vs lifestyle placement, lighting style, camera angle).
+3. Identify dominant aesthetic mood tags (e.g. minimalist, rustic, premium, industrial).
+
+Return a JSON object matching exactly this schema:
+{
+  "subject": "Detailed description of isolated product subject",
+  "backdrop": "Description of background and setting",
+  "mood": ["tag1", "tag2", "tag3"]
+}`;
+
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+                { text: prompt }
+              ]
+            }],
+            generationConfig: { response_mime_type: 'application/json' }
+          })
+        });
+        
+        if (geminiRes.ok) {
+          const resData = await geminiRes.json();
+          const responseText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (responseText) {
+            const cleaned = responseText.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+            const parsed = JSON.parse(cleaned);
+            await runQuery('UPDATE products SET visual_dna = $1 WHERE id = $2', [JSON.stringify(parsed), p.id]);
+            console.log(`[AI Visual DNA Background Worker] Populated Visual DNA for product ID ${p.id} ("${p.title}")`);
+          }
+        }
+      } catch (err) {
+        console.error(`[AI Visual DNA Background Worker] Failed to analyze product ID ${p.id}:`, err.message);
+      }
+      
+      // Respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  } catch (err) {
+    console.error('[AI Visual DNA Background Worker] Error in task:', err.message);
+  }
+}
+
+
 // Stripe Instances Cache per brand
 const stripeInstances = {};
 function getStripeInstance(brand) {
@@ -1237,6 +1310,83 @@ async function scrapeShopifyBranding(shopUrl) {
       woocommerceShopUrl = parsedUrl.hostname;
     }
 
+    // Find candidate About Us page link
+    let aboutUrl = '';
+    const aboutLinkMatch = html.match(/href=["']([^"']*(?:about|story|philosophy|concept|info)[^"']*)["']/i);
+    if (aboutLinkMatch) {
+      let candidateAbout = aboutLinkMatch[1];
+      if (candidateAbout.startsWith('//')) {
+        aboutUrl = `https:${candidateAbout}`;
+      } else if (candidateAbout.startsWith('/') && !candidateAbout.startsWith('//')) {
+        aboutUrl = `${parsedUrl.origin}${candidateAbout}`;
+      } else if (candidateAbout.startsWith('http')) {
+        aboutUrl = candidateAbout;
+      }
+    }
+    
+    let aboutHtml = '';
+    if (aboutUrl) {
+      try {
+        console.log(`[Branding Scraper] Crawling About page: ${aboutUrl}`);
+        const aboutRes = await fetch(aboutUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+        if (aboutRes.ok) {
+          aboutHtml = await aboutRes.text();
+        }
+      } catch (err) {
+        console.warn(`[Branding Scraper] Failed to fetch about page: ${err.message}`);
+      }
+    }
+
+    let brandVoiceCopy = '';
+    let targetAudience = {};
+    let visualGuidelines = {};
+    
+    // Combine homepage and about page text (strip HTML tags)
+    const combinedText = ((html || '') + ' ' + (aboutHtml || ''))
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 8000); // limit tokens
+    
+    const activeAi = getActiveAiProviders();
+    if (activeAi.gemini) {
+      try {
+        const summaryPrompt = `Analyze the following website copy of a brand store. Extract and define the brand's identity.
+        Return a JSON object with this exact structure:
+        {
+          "brand_voice_copy": "A 2-3 paragraph detailed summary of the brand's story, tone of voice, values, and aesthetic direction.",
+          "target_audience_demographics": {
+            "age": "e.g. 25-45",
+            "role": "e.g. Specialty coffee hobbyists, home baristas",
+            "expression": "e.g. focused, passionate, minimalist",
+            "apparel": "e.g. casual linen aprons, modern home wear",
+            "demographic_profile": "Detailed text describing target customer segments"
+          },
+          "visual_identity_guidelines": {
+            "lighting": "e.g. soft morning side-light, natural diffused window light",
+            "environment_style": "e.g. modern clean kitchen counter, bright concrete cafe loft",
+            "photography_style": "e.g. 35mm film style, warm color palette, soft bokeh, f/1.8 aperture",
+            "color_themes": ["#hex1", "#hex2"]
+          }
+        }
+
+        Website Copy:
+        ${combinedText}`;
+
+        const aiResponse = await callAiModel('gemini-2.5-flash', summaryPrompt, true);
+        if (aiResponse) {
+          const cleaned = aiResponse.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+          const parsed = JSON.parse(cleaned);
+          brandVoiceCopy = parsed.brand_voice_copy || '';
+          targetAudience = parsed.target_audience_demographics || {};
+          visualGuidelines = parsed.visual_identity_guidelines || {};
+        }
+      } catch (aiErr) {
+        console.warn('[Branding Scraper AI Error]', aiErr.message);
+      }
+    }
+
     const productsList = platform === 'woocommerce'
       ? await scrapeWooCommerceProducts(shopUrl)
       : await scrapeShopifyProducts(shopUrl, detectedLanguages);
@@ -1261,7 +1411,11 @@ async function scrapeShopifyBranding(shopUrl) {
       shopify_shop_name: shopifyShopName,
       woocommerce_shop_url: woocommerceShopUrl,
       languages: detectedLanguages,
-      products: productsList
+      products: productsList,
+      brand_voice_copy: brandVoiceCopy,
+      typography_fonts: fontFamily,
+      target_audience_demographics: targetAudience,
+      visual_identity_guidelines: visualGuidelines
     };
   } catch (e) {
     console.error('[Branding Scraper] Failed to fetch storefront branding:', e.message);
@@ -2152,8 +2306,8 @@ app.post('/api/coupons/verify', async (req, res) => {
 
 // Get resolved brand config (public safe properties)
 app.get('/api/brand', (req, res) => {
-  const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id } = req.brand;
-  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id });
+  const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id, google_analytics_id } = req.brand;
+  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id, google_analytics_id });
 });
 
 // Get Products for the active brand
@@ -2171,6 +2325,65 @@ app.get('/api/products', async (req, res) => {
     res.json(parsedRows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Google Shopping XML Product Feed
+app.get('/api/google-feed.xml', async (req, res) => {
+  try {
+    const brand = req.brand;
+    const brandId = brand.id;
+    
+    // Determine dynamic host domain
+    const host = req.headers.host || '';
+    const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    const brandDomain = `${protocol}://${host}`;
+
+    const products = await allQuery('SELECT * FROM products WHERE brand_id = $1 AND (active = 1 OR active IS NULL) ORDER BY id ASC', [brandId]);
+
+    let xml = `<?xml version="1.0" encoding="utf-8"?>\n`;
+    xml += `<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n`;
+    xml += `  <channel>\n`;
+    xml += `    <title><![CDATA[${brand.name} Storefront Feed]]></title>\n`;
+    xml += `    <link>${brandDomain}</link>\n`;
+    xml += `    <description><![CDATA[Google Shopping feed for ${brand.name}]]></description>\n`;
+
+    for (const p of products) {
+      const priceVal = parseFloat(p.price) || 0.00;
+      const currencyVal = p.currency || 'EUR';
+      const formattedPrice = `${priceVal.toFixed(2)} ${currencyVal}`;
+      
+      let imageUrl = p.image || '';
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${brandDomain}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      }
+
+      const productLink = `${brandDomain}/?product=${p.id}`;
+      const availability = (p.inventory_quantity !== null && p.inventory_quantity <= 0) ? 'out_of_stock' : 'in_stock';
+      const itemSku = p.sku || `sku_${p.id}`;
+
+      xml += `    <item>\n`;
+      xml += `      <g:id>${p.id}</g:id>\n`;
+      xml += `      <g:title><![CDATA[${p.title}]]></g:title>\n`;
+      xml += `      <g:description><![CDATA[${p.long_description || p.description || ''}]]></g:description>\n`;
+      xml += `      <g:link>${productLink}</g:link>\n`;
+      xml += `      <g:image_link>${imageUrl}</g:image_link>\n`;
+      xml += `      <g:price>${formattedPrice}</g:price>\n`;
+      xml += `      <g:availability>${availability}</g:availability>\n`;
+      xml += `      <g:condition>new</g:condition>\n`;
+      xml += `      <g:brand><![CDATA[${brand.name}]]></g:brand>\n`;
+      xml += `      <g:mpn><![CDATA[${itemSku}]]></g:mpn>\n`;
+      xml += `    </item>\n`;
+    }
+
+    xml += `  </channel>\n`;
+    xml += `</rss>\n`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(xml);
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(500).send(`<?xml version="1.0"?><error>${err.message}</error>`);
   }
 });
 
@@ -2924,10 +3137,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3166,7 +3379,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id FROM brands WHERE id = $1', [reqId]);
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines FROM brands WHERE id = $1', [reqId]);
 
     if (req.user.role !== 'superadmin') {
       if (existing) {
@@ -3193,7 +3406,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       }
     }
 
-    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, business_segment, business_niche, share_performance_data } = req.body;
+    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines } = req.body;
 
     if (!id || !name || !subdomain) {
       return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -3281,10 +3494,16 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     const finalNiche = business_niche || (existing ? existing.business_niche : 'Specialty Coffee');
     const finalSharing = share_performance_data !== undefined ? (share_performance_data === true || share_performance_data === 'true') : (existing ? existing.share_performance_data : true);
     const finalMetaPixelId = req.body.meta_pixel_id !== undefined ? req.body.meta_pixel_id : (existing && existing.meta_pixel_id ? existing.meta_pixel_id : `mock_pixel_${brandId}`);
+    const finalGoogleAnalyticsId = req.body.google_analytics_id !== undefined ? req.body.google_analytics_id : (existing && existing.google_analytics_id ? existing.google_analytics_id : `mock_ga4_${brandId}`);
+
+    const finalVoiceCopy = brand_voice_copy || (existing ? existing.brand_voice_copy : null);
+    const finalFonts = typography_fonts || (existing ? existing.typography_fonts : 'Outfit');
+    const finalDemographics = target_audience_demographics ? (typeof target_audience_demographics === 'string' ? target_audience_demographics : JSON.stringify(target_audience_demographics)) : (existing ? existing.target_audience_demographics : null);
+    const finalGuidelines = visual_identity_guidelines ? (typeof visual_identity_guidelines === 'string' ? visual_identity_guidelines : JSON.stringify(visual_identity_guidelines)) : (existing ? existing.visual_identity_guidelines : null);
 
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -3318,6 +3537,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         business_niche = EXCLUDED.business_niche,
         share_performance_data = EXCLUDED.share_performance_data,
         meta_pixel_id = EXCLUDED.meta_pixel_id,
+        google_analytics_id = EXCLUDED.google_analytics_id,
+        brand_voice_copy = EXCLUDED.brand_voice_copy,
+        typography_fonts = EXCLUDED.typography_fonts,
+        target_audience_demographics = EXCLUDED.target_audience_demographics,
+        visual_identity_guidelines = EXCLUDED.visual_identity_guidelines,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -3352,7 +3576,12 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalSegment,
       finalNiche,
       finalSharing,
-      finalMetaPixelId
+      finalMetaPixelId,
+      finalGoogleAnalyticsId,
+      finalVoiceCopy,
+      finalFonts,
+      finalDemographics,
+      finalGuidelines
     ]);
 
     // If price_markup changed, update all external synced products' prices
@@ -3851,6 +4080,9 @@ app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res)
             default_payment_method: paymentMethodId
           }
         });
+        
+        // Update database to mark stripe_enabled as true
+        await runQuery('UPDATE brands SET stripe_enabled = TRUE WHERE id = $1', [brandId]);
         
         res.json({ success: true, message: 'Card linked successfully!' });
       } else {
@@ -6082,6 +6314,11 @@ app.get('/api/global/products', verifyAdminToken, async (req, res) => {
           }
         }
 
+        // Trigger visual analysis in the background
+        analyzeProductVisualsBackground(brandId).catch(err => {
+          console.error('[AI Visual DNA Trigger Error]', err.message);
+        });
+
         // Query again after seed/crawled sync
         rows = await allQuery('SELECT * FROM products WHERE brand_id = $1 ORDER BY title ASC', [brandId]);
       }
@@ -7384,6 +7621,11 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
       }
     }
 
+    // Trigger visual analysis in the background
+    analyzeProductVisualsBackground(brandId).catch(err => {
+      console.error('[AI Visual DNA Trigger Error]', err.message);
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -8058,6 +8300,7 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
         const acc = await stripe.accounts.retrieve(brand.stripe_connect_account_id);
         if (acc.details_submitted) {
           stripeConnectStatus = 'active';
+          await runQuery('UPDATE brands SET stripe_enabled = TRUE WHERE id = $1', [brandId]);
         } else {
           stripeConnectStatus = 'incomplete';
         }
@@ -9753,8 +9996,8 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
   if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
 
   try {
-    // 1. Fetch brand center details: canvas guidelines and/or manuscript
-    const brand = await getQuery('SELECT name, brand_canvas, marketing_protocol FROM brands WHERE id = $1', [brandId]);
+    // 1. Fetch brand center details: canvas, manuscript, and Visual DNA profiles
+    const brand = await getQuery('SELECT name, brand_canvas, marketing_protocol, target_audience_demographics, visual_identity_guidelines FROM brands WHERE id = $1', [brandId]);
     if (!brand) return res.status(404).json({ error: 'Brand not found.' });
 
     let canvas = {};
@@ -9764,29 +10007,61 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       } catch (e) {}
     }
 
-    // 2. Parse styling instructions to feed into AI generation context
-    const visualDirection = canvas.visual_direction || '';
-    let styleModifier = visualDirection ? ` aligning with brand guidelines: "${visualDirection}"` : '';
-    if (aspectRatio) styleModifier += `, aspect ratio: ${aspectRatio}`;
-    if (motionIntensity) styleModifier += `, motion: ${motionIntensity}`;
-    if (duration) styleModifier += `, duration: ${duration}`;
+    let demographics = {};
+    let visualGuidelines = {};
+    if (brand.target_audience_demographics) {
+      try {
+        demographics = typeof brand.target_audience_demographics === 'string' ? JSON.parse(brand.target_audience_demographics) : brand.target_audience_demographics;
+      } catch (e) {}
+    }
+    if (brand.visual_identity_guidelines) {
+      try {
+        visualGuidelines = typeof brand.visual_identity_guidelines === 'string' ? JSON.parse(brand.visual_identity_guidelines) : brand.visual_identity_guidelines;
+      } catch (e) {}
+    }
 
-    // 3. Determine target media URL based on action/prompt/presets
+    // 2. Resolve Product Visual DNA (if product mentioned in prompt or fallback to main product)
+    const lowercasePrompt = (prompt || '').toLowerCase();
+    const allProducts = await allQuery('SELECT title, visual_dna, image FROM products WHERE brand_id = $1', [brandId]);
+    const matchedProduct = allProducts.find(p => lowercasePrompt.includes(p.title.toLowerCase()));
+    const targetProduct = matchedProduct || (allProducts.length > 0 ? allProducts[0] : null);
+    
+    let productDna = null;
+    if (targetProduct && targetProduct.visual_dna) {
+      try {
+        productDna = typeof targetProduct.visual_dna === 'string' ? JSON.parse(targetProduct.visual_dna) : targetProduct.visual_dna;
+      } catch (e) {}
+    }
+
+    // 3. Assemble State-of-the-Art Demographic Scene Prompt
+    let structuredPrompt = prompt || '';
+    if (action === 'image' || action === 'generate') {
+      const subjectDesc = productDna ? productDna.subject : (targetProduct ? targetProduct.title : 'premium coffee accessories');
+      const lighting = visualGuidelines.lighting || 'natural soft side light';
+      const bgStyle = visualGuidelines.environment_style || 'modern minimalist setting';
+      const photoStyle = visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture';
+      
+      const age = demographics.age || '25-35';
+      const role = demographics.role || 'barista enthusiast';
+      const expression = demographics.expression || 'focused';
+      const apparel = demographics.apparel || 'casual linen apron';
+
+      structuredPrompt = `Commercial advertising photography, ${subjectDesc} in focus. Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. Set in a ${bgStyle} background. Shot on professional camera, ${lighting}, ${photoStyle}, premium photo quality, realistic skin textures.`;
+      console.log(`[AI Studio] Assembled Visual DNA Prompt: "${structuredPrompt}"`);
+    }
+
     let mediaUrl = '';
     let itemTitle = '';
     let targetFolder = 'AI Studio';
     let fileExtension = 'jpg';
     let isVideo = false;
 
-    // Check prompt keywords for intelligent coffee graphic selection
-    const lowercasePrompt = (prompt || '').toLowerCase();
-    
     if (action === 'video') {
       isVideo = true;
       fileExtension = 'mp4';
       const detailStr = [aspectRatio, motionIntensity, duration].filter(Boolean).join(', ');
       itemTitle = prompt ? `AI Video (${detailStr}) - ${prompt.slice(0, 20)}` : `AI Video Animation (${detailStr})`;
-      // Pick premium mixkit stock loop video matching prompt
+      // Pick premium stock video matching prompt
       if (lowercasePrompt.includes('pour') || lowercasePrompt.includes('stream')) {
         mediaUrl = 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4';
       } else {
@@ -9794,7 +10069,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       }
     } else {
       // Image Actions (generate / refine)
-      itemTitle = prompt ? `AI Image - ${prompt.slice(0, 30)}` : 'AI Generated Creative';
+      itemTitle = targetProduct ? `AI Creative - ${targetProduct.title}` : 'AI Generated Creative';
       
       // Determine premium Unsplash image URL matching context
       if (lowercasePrompt.includes('bean') || lowercasePrompt.includes('roast') || lowercasePrompt.includes('ground')) {

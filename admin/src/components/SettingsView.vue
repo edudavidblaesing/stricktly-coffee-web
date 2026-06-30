@@ -295,6 +295,25 @@
                             </span>
                         </div>
 
+                        <div class="form-group form-full">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Google Analytics 4 Measurement ID</label>
+                            <input type="text" v-model="settingsBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX or mock_ga4_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                Used to load dynamic gtag.js tracking scripts on your storefront for view_item, add_to_cart, begin_checkout, and purchase events.
+                            </span>
+                        </div>
+
+                        <div class="form-group form-full" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 12px; margin-top: 10px;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 4px; color: var(--text-main); font-size: 0.85rem;">Google Shopping Product Feed</label>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 8px;">
+                                Submit this URL to your Google Merchant Center to automatically list and sync your products on Google Shopping.
+                            </span>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" readonly :value="'https://' + (settingsBrand.custom_domain || settingsBrand.subdomain || (settingsBrand.id + '.stricktlycoffee.be')) + '/api/google-feed.xml'" style="flex: 1; height: 34px; margin: 0; font-family: monospace; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 0 8px; color: var(--primary);">
+                                <button type="button" @click="copyFeedUrl" class="btn btn-sm" style="height: 34px; border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0 12px; cursor: pointer; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">Copy</button>
+                            </div>
+                        </div>
+
                         <div class="form-group form-full" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
                             <input type="checkbox" id="share_perf_cb" v-model="settingsBrand.share_performance_data" style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
                             <label for="share_perf_cb" style="margin: 0; font-size: 0.82rem; color: var(--text-main); cursor: pointer; font-weight: 600; user-select: none;">
@@ -412,125 +431,234 @@
                         </div>
                     </template>
 
-                    <!-- Subscription Billing Method choice (Merchant & Admin adjustable) -->
-                    <div class="form-group">
-                        <label>Subscription Billing Method <span class="info-tooltip-trigger" data-tooltip="Define how monthly subscription fees are billed.">i</span></label>
-                        <select v-model="settingsBrand.subscription_billing_method" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
-                            <option value="" disabled>Please select a billing method...</option>
-                            <option value="ledger">Deduct from Payout Ledger Balance</option>
-                            <option value="stripe_card">Charge Credit Card on File</option>
-                            <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
-                        </select>
-                    </div>
+                    <!-- eCommerce Platform Type Card Picker -->
+                    <div class="form-group form-full" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; margin-bottom: 20px;">
+                        <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main);">Platform Type</label>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 15px;">
+                            <div @click="settingsBrand.platform = 'shopify'"
+                                 :style="{
+                                     border: '1px solid ' + (settingsBrand.platform === 'shopify' ? 'var(--accent)' : 'var(--border)'),
+                                     background: settingsBrand.platform === 'shopify' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                     cursor: 'pointer'
+                                 }"
+                                 style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;">
+                                <span v-html="getPlatformLogoSvg('shopify', 32)"></span>
+                                <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Shopify</span>
+                            </div>
+                            <div @click="settingsBrand.platform = 'woocommerce'"
+                                 :style="{
+                                     border: '1px solid ' + (settingsBrand.platform === 'woocommerce' ? 'var(--accent)' : 'var(--border)'),
+                                     background: settingsBrand.platform === 'woocommerce' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                     cursor: 'pointer'
+                                 }"
+                                 style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;">
+                                <span v-html="getPlatformLogoSvg('woocommerce', 32)"></span>
+                                <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">WooCommerce</span>
+                            </div>
+                            <div @click="settingsBrand.platform = 'custom'"
+                                 :style="{
+                                     border: '1px solid ' + (settingsBrand.platform === 'custom' ? 'var(--accent)' : 'var(--border)'),
+                                     background: settingsBrand.platform === 'custom' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                     cursor: 'pointer'
+                                 }"
+                                 style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;">
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1;">⚙️</div>
+                                <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Preview/Custom Mode</span>
+                            </div>
+                        </div>
 
-                    <!-- Seamless Frictionless Stripe Connection Panel -->
-                    <div class="form-group form-full" style="margin-top: 15px;">
-                        <div style="background: rgba(99, 91, 255, 0.05); border: 1px solid rgba(99, 91, 255, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Shopify Connection Card -->
+                        <div v-if="settingsBrand.platform === 'shopify'" style="background: rgba(149, 191, 71, 0.04); border: 1px solid rgba(149, 191, 71, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left;">
                             <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
-                                <span v-html="getStripeLogoSvg()"></span>
-                                <span>Stripe Connection & Billing Integration</span>
+                                <span v-html="getPlatformLogoSvg('shopify', 20)"></span>
+                                <span>Shopify Storefront Integration</span>
                             </div>
-
-                            <!-- Stripe Connect Section (for external_split billing or split payouts) -->
-                            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Stripe Connect Status:</span>
-                                    <span v-if="stripeConnectStatus === 'active'" style="color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 4px; font-size: 0.8rem;">
-                                        ✓ Connected & Payout-Ready
-                                    </span>
-                                    <span v-else-if="stripeConnectStatus === 'incomplete'" style="color: #f59e0b; font-weight: 700; font-size: 0.8rem;">
-                                        ⚠️ Incomplete Setup
-                                    </span>
-                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
-                                        Not Linked
-                                    </span>
-                                </div>
-                                <div style="margin-top: 4px;">
-                                    <button type="button" @click="initiateStripeConnect" :disabled="loadingStripeConnect" class="btn" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border: 1px solid #635bff; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; margin: 0; display: flex; align-items: center; justify-content: center;">
-                                        <span v-if="loadingStripeConnect">⏳ Generating Link...</span>
-                                        <span v-else-if="stripeConnectStatus === 'active'">🔗 Reconnect / Update Stripe Account</span>
-                                        <span v-else-if="stripeConnectStatus === 'incomplete'">⚠️ Complete Stripe Connect Onboarding</span>
-                                        <span v-else>🔗 Link Stripe Connect Account (Frictionless)</span>
+                            <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
+                                <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: shopifyConnectionMode === 'oauth' ? '#95BF47' : 'transparent', color: shopifyConnectionMode === 'oauth' ? '#000000' : 'var(--text-muted)' }" @click="shopifyConnectionMode = 'oauth'">
+                                     ⚡ Single-Click Connect (OAuth)
+                                </button>
+                                <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: shopifyConnectionMode === 'manual' ? '#95BF47' : 'transparent', color: shopifyConnectionMode === 'manual' ? '#000000' : 'var(--text-muted)' }" @click="shopifyConnectionMode = 'manual'">
+                                     ⚙️ Manual API Keys Setup
+                                </button>
+                            </div>
+                            <div class="form-group form-full" style="margin: 0;">
+                                <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Shopify Shop Address (URL)</label>
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <input type="text" v-model="settingsBrand.shopify_shop_name" placeholder="pesado585.myshopify.com" style="flex: 1; height: 38px; margin: 0;">
+                                    <button type="button" class="btn btn-primary" style="margin: 0; padding: 0 16px; white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; border-radius: 6px;" :disabled="isScraping" @click="fetchBrandStylesFromShopify">
+                                        <span v-if="isScraping">Scraping...</span>
+                                        <span v-else>🔄 Fetch Styles</span>
                                     </button>
                                 </div>
                             </div>
-
-                            <!-- Credit Card Setup Section (when using Credit Card billing method) -->
-                            <div v-if="settingsBrand.subscription_billing_method === 'stripe_card'" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Credit Card Status:</span>
-                                    <span v-if="cardLinked" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
-                                        ✓ Active Card on File
-                                    </span>
-                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
-                                        No Card Linked
-                                    </span>
-                                </div>
-                                <div style="margin-top: 4px;">
-                                    <button type="button" @click="initiateStripeCardSetup" :disabled="loadingCardSetup" class="btn" style="width: 100%; font-weight: bold; background: #635bff; color: #fff; border: 1px solid #635bff; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; margin: 0; display: flex; align-items: center; justify-content: center;">
-                                        <span v-if="loadingCardSetup">⏳ Loading Setup...</span>
-                                        <span v-else-if="cardLinked">💳 Update Card on File</span>
-                                        <span v-else>💳 Link Credit Card on File</span>
-                                    </button>
-                                </div>
+                            <div class="form-group form-full" style="margin: 0;" v-if="shopifyConnectionMode === 'manual'">
+                                <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Shopify Admin API Access Token</label>
+                                <input type="password" v-model="settingsBrand.shopify_access_token" placeholder="shpat_..." style="width: 100%; height: 38px; margin: 0;">
                             </div>
-
-                            <!-- Custom Stripe API Keys Onboarding Alternative (Hidden if officially connected via Stripe Connect) -->
-                            <div v-if="stripeConnectStatus !== 'active'" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="color: var(--text-muted); font-size: 0.8rem;">Custom API Keys:</span>
-                                    <span v-if="settingsBrand.stripe_secret_key || settingsBrand.stripe_webhook_secret" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
-                                        ✓ Configured
-                                    </span>
-                                    <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
-                                        Not Configured
-                                    </span>
-                                </div>
-
-                                <!-- Toggle Button to show/hide credentials fields -->
-                                <div style="margin-top: 4px;">
-                                    <button type="button" @click="showCustomStripeKeys = !showCustomStripeKeys" class="btn btn-secondary" style="width: 100%; font-weight: 600; background: transparent; border: 1px dashed var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; color: var(--text-main); margin: 0; display: flex; align-items: center; justify-content: center;">
-                                        {{ showCustomStripeKeys ? '🙈 Hide Custom API Keys Configuration' : '🔑 Configure Custom Stripe API Keys (Alternative)' }}
-                                    </button>
-                                </div>
-
-                                <!-- Collapsible Direct Stripe Credentials Fields -->
-                                <div v-if="showCustomStripeKeys" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 6px;">
-                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
-                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
-                                        <input type="password" v-model="settingsBrand.stripe_secret_key"
-                                            placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
-                                    </div>
-                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
-                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
-                                        <input type="password" v-model="settingsBrand.stripe_webhook_secret"
-                                            placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
-                                    </div>
-                                </div>
+                            <div v-if="shopifyConnectionMode === 'oauth'" style="margin-top: 5px;">
+                                <button type="button" class="btn" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #95BF47; color: #000000; border: 1px solid #95BF47;" @click="connectShopifyOAuth" :disabled="!settingsBrand.shopify_shop_name">
+                                    <span v-html="getPlatformLogoSvg('shopify', 18)"></span>
+                                    <span>Link Shopify Account</span>
+                                </button>
                             </div>
                         </div>
+
+                        <!-- WooCommerce Connection Card -->
+                        <div v-if="settingsBrand.platform === 'woocommerce'" style="background: rgba(127, 84, 179, 0.04); border: 1px solid rgba(127, 84, 179, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left;">
+                            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
+                                <span v-html="getPlatformLogoSvg('woocommerce', 20)"></span>
+                                <span>WooCommerce Storefront Integration</span>
+                            </div>
+                            <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
+                                <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: woocommerceConnectionMode === 'oauth' ? '#7F54B3' : 'transparent', color: woocommerceConnectionMode === 'oauth' ? '#ffffff' : 'var(--text-muted)' }" @click="woocommerceConnectionMode = 'oauth'">
+                                     ⚡ Single-Click Connect (OAuth)
+                                </button>
+                                <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: woocommerceConnectionMode === 'manual' ? '#7F54B3' : 'transparent', color: woocommerceConnectionMode === 'manual' ? '#ffffff' : 'var(--text-muted)' }" @click="woocommerceConnectionMode = 'manual'">
+                                     ⚙️ Manual API Keys Setup
+                                </button>
+                            </div>
+                            <div class="form-group form-full" style="margin: 0;">
+                                <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">WooCommerce Shop Address (URL)</label>
+                                <input type="text" v-model="settingsBrand.woocommerce_shop_url" placeholder="example.com" style="width: 100%; height: 38px; margin: 0;">
+                            </div>
+                            <template v-if="woocommerceConnectionMode === 'manual'">
+                                <div class="form-group form-full" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">WooCommerce Consumer Key</label>
+                                    <input type="text" v-model="settingsBrand.woocommerce_consumer_key" placeholder="ck_..." style="width: 100%; height: 38px; margin: 0;">
+                                </div>
+                                <div class="form-group form-full" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">WooCommerce Consumer Secret</label>
+                                    <input type="password" v-model="settingsBrand.woocommerce_consumer_secret" placeholder="cs_..." style="width: 100%; height: 38px; margin: 0;">
+                                </div>
+                            </template>
+                            <div v-if="woocommerceConnectionMode === 'oauth'" style="margin-top: 5px;">
+                                <button type="button" class="btn" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #7F54B3; color: #ffffff; border: 1px solid #7F54B3;" @click="connectWooCommerceOAuth" :disabled="!settingsBrand.woocommerce_shop_url">
+                                    <span v-html="getPlatformLogoSvg('woocommerce', 18)"></span>
+                                    <span>Link WooCommerce Account</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Preview Mode Info Panel -->
+                        <div v-if="settingsBrand.platform === 'custom'" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted);">
+                            💡 Custom/Preview mode enables editing visual designs and layouts directly in Antigravity storefront designer, without syncing catalog updates to an external platform.
+                        </div>
                     </div>
 
-                    <div class="form-group form-full">
-                        <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('shopify')"></span>Shopify Store URL (for asset scraping & sync)</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" v-model="settingsBrand.shopify_shop_name" placeholder="brand-shop.myshopify.com" style="flex: 1; margin: 0; height: 38px;">
-                            <button type="button" class="btn btn-primary" style="margin: 0; padding: 0 16px; white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;" :disabled="isScraping" @click="fetchBrandStylesFromShopify">
-                                <span v-if="isScraping">Scraping...</span>
-                                <span v-else>🔄 Fetch Styles</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="form-group form-full">
-                        <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('shopify')"></span>Shopify Access Token</label>
-                        <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
-                            <input type="password" v-model="settingsBrand.shopify_access_token"
-                                placeholder="Shopify Access Token (shpat_...)" style="flex: 1; margin: 0; height: 38px;">
-                            <button type="button" class="btn btn-accent" style="margin: 0; padding: 0 16px; white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;" @click="connectShopifyOAuth">
-                                <span v-html="getPlatformLogoSvg('shopify', 16)" style="margin-right: 6px; display: inline-flex; align-items: center;"></span>Connect via OAuth
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Subscription Billing Method visual cards -->
+                    <div class="form-group form-full" style="margin-top: 10px;">
+                        <label style="margin-bottom: 12px; display: block; font-weight: bold; color: var(--text-main);">Subscription Billing Method</label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 15px;">
+                            <!-- Credit Card -->
+                            <div @click="settingsBrand.subscription_billing_method = 'stripe_card'"
+                                 :style="{
+                                     border: settingsBrand.subscription_billing_method === 'stripe_card' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                     background: settingsBrand.subscription_billing_method === 'stripe_card' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                 }"
+                                 style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                 <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                     <span>💳 Credit Card</span>
+                                 </div>
+                                 <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                     Fixed recurring billing processed via Stripe. Provide a card to securely authorize automatic monthly payments.
+                                 </div>
+                             </div>
+
+                             <!-- Stripe Connect -->
+                             <div @click="settingsBrand.subscription_billing_method = 'stripe_connect'"
+                                  :style="{
+                                      border: settingsBrand.subscription_billing_method === 'stripe_connect' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                      background: settingsBrand.subscription_billing_method === 'stripe_connect' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                  }"
+                                  style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                 <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                     <span>🔗 Stripe Connect</span>
+                                 </div>
+                                 <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                     Split billing directly from storefront transaction proceeds. Link your Stripe account to authorize real-time payout splits.
+                                 </div>
+                             </div>
+
+                             <!-- Ledger Payout Deduction (Superadmin only) -->
+                             <div v-if="userRole.toLowerCase() === 'superadmin'"
+                                  @click="settingsBrand.subscription_billing_method = 'ledger'"
+                                  :style="{
+                                      border: settingsBrand.subscription_billing_method === 'ledger' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                      background: settingsBrand.subscription_billing_method === 'ledger' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                  }"
+                                  style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                 <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                                     <span>💡 Payout Ledger</span>
+                                 </div>
+                                 <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                                     Subscriptions are automatically deducted from the accumulated dropshipping payout ledger. No card required upfront.
+                                 </div>
+                             </div>
+                         </div>
+
+                         <!-- Status & Stripe Setup Actions -->
+                         <div v-if="settingsBrand.subscription_billing_method === 'stripe_card'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                 <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                     Card Linking Status: 
+                                     <strong :style="{ color: cardLinked ? 'var(--success)' : '#ef4444' }">
+                                         {{ cardLinked ? '✅ Linked' : '❌ Not Linked' }}
+                                     </strong>
+                                 </span>
+                                 <button type="button" @click="initiateStripeCardSetup" :disabled="loadingCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                     💳 {{ cardLinked ? 'Update Card via Stripe' : 'Link Credit Card via Stripe' }}
+                                 </button>
+                             </div>
+                         </div>
+
+                         <div v-if="settingsBrand.subscription_billing_method === 'stripe_connect'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                 <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                     Stripe Connect Status: 
+                                     <strong :style="{ color: stripeConnectStatus === 'active' ? 'var(--success)' : '#ef4444' }">
+                                         {{ stripeConnectStatus === 'active' ? '✅ Active' : '❌ Incomplete / Unlinked' }}
+                                     </strong>
+                                 </span>
+                                 <button type="button" @click="initiateStripeConnect" :disabled="loadingStripeConnect" class="btn" style="background: #635bff; color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                     🔗 {{ stripeConnectStatus === 'active' ? 'Update Stripe Account' : 'Link Stripe Account' }}
+                                 </button>
+                             </div>
+                         </div>
+
+                         <div v-if="settingsBrand.subscription_billing_method === 'ledger'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted); margin-bottom: 15px;">
+                             💡 Ledger deduction is authorized. Subscriptions are automatically deducted from dropshipping payout balances.
+                         </div>
+                     </div>
+
+                     <!-- Custom Stripe API Keys Onboarding Alternative (Hidden if officially connected via Stripe Connect) -->
+                     <div v-if="stripeConnectStatus !== 'active'" class="form-group form-full" style="margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 15px;">
+                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                             <span style="color: var(--text-muted); font-size: 0.8rem;">Alternative Custom API Keys:</span>
+                             <span v-if="settingsBrand.stripe_secret_key || settingsBrand.stripe_webhook_secret" style="color: var(--success); font-weight: 700; font-size: 0.8rem;">
+                                 ✓ Configured
+                             </span>
+                             <span v-else style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;">
+                                 Not Configured
+                             </span>
+                         </div>
+                         <div style="margin-top: 8px;">
+                             <button type="button" @click="showCustomStripeKeys = !showCustomStripeKeys" class="btn btn-secondary" style="width: 100%; font-weight: 600; background: transparent; border: 1px dashed var(--border); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; color: var(--text-main); margin: 0; display: flex; align-items: center; justify-content: center;">
+                                 {{ showCustomStripeKeys ? '🙈 Hide Custom API Keys Configuration' : '🔑 Configure Custom Stripe API Keys (Alternative)' }}
+                             </button>
+                         </div>
+                         <div v-if="showCustomStripeKeys" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-top: 8px;">
+                             <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
+                                 <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
+                                 <input type="password" v-model="settingsBrand.stripe_secret_key"
+                                     placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                             </div>
+                             <div class="form-group" style="margin: 0; display: flex; flex-direction: column; text-align: left;">
+                                 <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;"><span v-html="getStripeLogoSvg(12)"></span>Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
+                                 <input type="password" v-model="settingsBrand.stripe_webhook_secret"
+                                     placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$" style="height: 32px; font-size: 0.8rem; margin: 0; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);">
+                             </div>
+                         </div>
+                     </div>
                 </div>
                 <div class="panel-footer">
                     <button type="submit" class="btn btn-accent" style="margin: 0;">Update E-commerce Settings</button>
@@ -781,6 +909,8 @@ export default {
             stripeConnectStatus: 'unlinked',
             loadingStripeConnect: false,
             cardLinked: false,
+            shopifyConnectionMode: 'oauth',
+            woocommerceConnectionMode: 'oauth',
             showCustomStripeKeys: false,
             manuscripts: [],
             loadingManuscripts: false,
@@ -1202,6 +1332,15 @@ export default {
             const authorizeUrl = `${this.app.apiBaseUrl}/api/global/shopify/auth?shop=${encodeURIComponent(this.settingsBrand.shopify_shop_name)}&brandId=${encodeURIComponent(this.settingsBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
             window.open(authorizeUrl, 'ShopifyOAuth', 'width=800,height=700,status=yes,resizable=yes');
         },
+        async connectWooCommerceOAuth() {
+            if (!this.settingsBrand.woocommerce_shop_url) {
+                alert('Please enter your WooCommerce Store URL address first.');
+                return;
+            }
+            // Open WooCommerce OAuth in a popup window
+            const authorizeUrl = `${this.app.apiBaseUrl}/api/global/woocommerce/auth?shop=${encodeURIComponent(this.settingsBrand.woocommerce_shop_url)}&brandId=${encodeURIComponent(this.settingsBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+            window.open(authorizeUrl, 'WooCommerceOAuth', 'width=800,height=700,status=yes,resizable=yes');
+        },
         startLiveTicker() {
             this.stopLiveTicker();
             this.liveEstimatedTokens = 0;
@@ -1564,6 +1703,11 @@ export default {
                 navigator.clipboard.writeText(this.settingsBrand.marketing_protocol);
                 this.showNotification('Plaintext manuscript copied to clipboard!');
             }
+        },
+        copyFeedUrl() {
+            const url = 'https://' + (this.settingsBrand.custom_domain || this.settingsBrand.subdomain || (this.settingsBrand.id + '.stricktlycoffee.be')) + '/api/google-feed.xml';
+            navigator.clipboard.writeText(url);
+            this.showNotification('📋 Google Shopping Feed URL copied to clipboard!');
         },
         showNotification(msg) { return this.app.showNotification(msg); },
         updateBrandSettings() { return this.app.updateBrandSettings(); },

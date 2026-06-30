@@ -1874,6 +1874,20 @@
                     console.log(`[Meta Pixel] Initialized pixel for ${brand.name}: ${brand.meta_pixel_id}`);
                 }
 
+                // Dynamically initialize Google Analytics 4 if configured
+                if (brand.google_analytics_id) {
+                    const scriptTag = document.createElement('script');
+                    scriptTag.async = true;
+                    scriptTag.src = `https://www.googletagmanager.com/gtag/js?id=${brand.google_analytics_id}`;
+                    document.head.appendChild(scriptTag);
+
+                    window.dataLayer = window.dataLayer || [];
+                    window.gtag = function() { dataLayer.push(arguments); };
+                    gtag('js', new Date());
+                    gtag('config', brand.google_analytics_id);
+                    console.log(`[Google Analytics 4] Initialized tracking for ${brand.name}: ${brand.google_analytics_id}`);
+                }
+
                 // Log traffic/pageview analytics
                 (function() {
                     try {
@@ -2278,6 +2292,13 @@
                 storeProducts = fallbackProducts;
             }
             renderProducts();
+
+            // Auto-open product details if query param exists
+            const urlParams = new URLSearchParams(window.location.search);
+            const autoProdId = parseInt(urlParams.get('product'));
+            if (autoProdId) {
+                openProductDetails(autoProdId);
+            }
         }
 
         function renderLandingPage(page) {
@@ -2661,6 +2682,20 @@
             const prod = storeProducts.find(p => p.id === id);
             if (!prod) return;
 
+            // Google Analytics 4 view_item event
+            if (window.gtag) {
+                gtag('event', 'view_item', {
+                    currency: 'EUR',
+                    value: parseFloat(prod.price) || 0,
+                    items: [{
+                        item_id: prod.id,
+                        item_name: prod.title,
+                        price: parseFloat(prod.price) || 0,
+                        item_category: prod.tag || 'Coffee Equipment'
+                    }]
+                });
+            }
+
             document.getElementById('detail-image').src = prod.image;
             document.getElementById('detail-image').alt = prod.title;
             
@@ -2920,6 +2955,22 @@
                 });
                 console.log(`[Meta Pixel] AddToCart tracked for: ${prod.title}`);
             }
+
+            // Track Google Analytics 4 add_to_cart
+            if (window.gtag) {
+                gtag('event', 'add_to_cart', {
+                    currency: 'EUR',
+                    value: parseFloat(prod.price) || 0,
+                    items: [{
+                        item_id: prod.id,
+                        item_name: prod.title,
+                        price: parseFloat(prod.price) || 0,
+                        quantity: 1,
+                        item_category: prod.tag || 'Coffee Equipment'
+                    }]
+                });
+                console.log(`[Google Analytics 4] add_to_cart tracked for: ${prod.title}`);
+            }
             
             // Auto open cart drawer when adding item
             if (!cartDrawer.classList.contains('open')) {
@@ -3061,6 +3112,22 @@
                     currency: 'EUR'
                 });
                 console.log('[Meta Pixel] InitiateCheckout tracked');
+            }
+
+            // Track Google Analytics 4 begin_checkout
+            if (window.gtag) {
+                gtag('event', 'begin_checkout', {
+                    currency: 'EUR',
+                    value: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+                    items: cart.map(item => ({
+                        item_id: item.id,
+                        item_name: item.title,
+                        price: item.price,
+                        quantity: item.quantity,
+                        item_category: item.tag || 'Coffee Equipment'
+                    }))
+                });
+                console.log('[Google Analytics 4] begin_checkout tracked');
             }
         });
 
@@ -3250,7 +3317,13 @@
                 const purchaseDetails = {
                     value: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
                     currency: 'EUR',
-                    num_items: cart.reduce((acc, item) => acc + item.quantity, 0)
+                    num_items: cart.reduce((acc, item) => acc + item.quantity, 0),
+                    items: cart.map(item => ({
+                        item_id: item.id,
+                        item_name: item.title,
+                        price: item.price,
+                        quantity: item.quantity
+                    }))
                 };
                 sessionStorage.setItem('pending_purchase', JSON.stringify(purchaseDetails));
                 
@@ -3314,18 +3387,40 @@
                 modal.classList.add('open');
                 
                 // Track Meta Pixel Purchase event
+                // Track Purchase events
                 const pending = sessionStorage.getItem('pending_purchase');
-                if (pending && window.fbq) {
+                if (pending) {
                     try {
                         const details = JSON.parse(pending);
-                        fbq('track', 'Purchase', {
-                            value: details.value,
-                            currency: details.currency
-                        });
-                        console.log(`[Meta Pixel] Purchase tracked successfully for total value: €${details.value}`);
+                        
+                        // Track Meta Pixel Purchase event
+                        if (window.fbq) {
+                            fbq('track', 'Purchase', {
+                                value: details.value,
+                                currency: details.currency
+                            });
+                            console.log(`[Meta Pixel] Purchase tracked successfully for total value: €${details.value}`);
+                        }
+
+                        // Track Google Analytics 4 purchase event
+                        if (window.gtag) {
+                            gtag('event', 'purchase', {
+                                transaction_id: 't_' + Math.random().toString(36).substring(2) + Date.now().toString(36),
+                                value: parseFloat(details.value) || 0,
+                                currency: details.currency || 'EUR',
+                                items: (details.items || []).map(item => ({
+                                    item_id: item.item_id,
+                                    item_name: item.item_name,
+                                    price: parseFloat(item.price) || 0,
+                                    quantity: parseInt(item.quantity) || 1
+                                }))
+                            });
+                            console.log(`[Google Analytics 4] Purchase tracked successfully for total value: €${details.value}`);
+                        }
+                        
                         sessionStorage.removeItem('pending_purchase');
                     } catch (pe) {
-                        console.error('[Meta Pixel] Error parsing purchase details:', pe);
+                        console.error('[Analytics] Error parsing purchase details:', pe);
                     }
                 }
                 

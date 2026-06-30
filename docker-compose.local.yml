@@ -45,6 +45,8 @@ services:
     depends_on:
       - postgres-db
       - minio
+    links:
+      - postgres-db
 
   postgres-db:
     image: postgres:16-alpine
@@ -111,6 +113,8 @@ services:
     depends_on:
       - postgres-db
       - minio
+    links:
+      - postgres-db
 
 volumes:
   postgres_data_local:
