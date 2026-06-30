@@ -11,6 +11,7 @@ import fs from 'fs';
 import { runQuery, getQuery, allQuery } from './db.js';
 import nodemailer from 'nodemailer';
 import { GoogleAdsService } from './googleAdsService.js';
+import { generateAndUploadInvoice } from './invoiceService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -288,6 +289,14 @@ function getTargetModel(aiTier) {
   return 'gemini-3.1-pro';
 }
 
+// Helper to determine platform checkout split margin based on brand's AI tier
+function getTakeRateForTier(aiTier) {
+  const tier = aiTier || 'professional';
+  if (tier === 'enterprise') return 0.00;
+  if (tier === 'professional') return 0.01;
+  return 0.02; // Standard / none / sandbox fallback to 2%
+}
+
 // Helper to verify if model is allowed for brand's commercial tier
 function isModelAllowedForTier(model, tier) {
   const t = (tier || 'professional').toLowerCase();
@@ -550,8 +559,8 @@ function sampleThompsonVariation(variations) {
   return variations[bestIndex];
 }
 
-// Unified multi-provider API router for Gemini, Claude, and OpenAI
-async function callAiModel(model, prompt, isJson = false) {
+// Unified multi-provider API router for Gemini, Claude, and OpenAI returning text and token usage metadata
+async function callAiModelWithUsage(model, prompt, isJson = false) {
   const active = getActiveAiProviders();
 
   if (model.startsWith('claude-')) {
@@ -576,7 +585,16 @@ async function callAiModel(model, prompt, isJson = false) {
       throw new Error(`Claude API error: ${errText}`);
     }
     const data = await response.json();
-    return data.content[0].text;
+    const inTokens = data.usage?.input_tokens || 0;
+    const outTokens = data.usage?.output_tokens || 0;
+    return {
+      text: data.content?.[0]?.text || '',
+      usage: {
+        promptTokenCount: inTokens,
+        candidatesTokenCount: outTokens,
+        totalTokenCount: inTokens + outTokens
+      }
+    };
   }
 
   if (model.startsWith('gpt-')) {
@@ -600,7 +618,16 @@ async function callAiModel(model, prompt, isJson = false) {
       throw new Error(`OpenAI API error: ${errText}`);
     }
     const data = await response.json();
-    return data.choices[0].message.content;
+    const inTokens = data.usage?.prompt_tokens || 0;
+    const outTokens = data.usage?.completion_tokens || 0;
+    return {
+      text: data.choices?.[0]?.message?.content || '',
+      usage: {
+        promptTokenCount: inTokens,
+        candidatesTokenCount: outTokens,
+        totalTokenCount: data.usage?.total_tokens || (inTokens + outTokens)
+      }
+    };
   }
 
   // Default: Gemini API
@@ -628,7 +655,21 @@ async function callAiModel(model, prompt, isJson = false) {
     throw new Error(`Gemini API error: ${errText}`);
   }
   const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return {
+    text: text,
+    usage: {
+      promptTokenCount: data.usageMetadata?.promptTokenCount || 0,
+      candidatesTokenCount: data.usageMetadata?.candidatesTokenCount || 0,
+      totalTokenCount: data.usageMetadata?.totalTokenCount || 0
+    }
+  };
+}
+
+// Unified multi-provider API router returning only string content (for backward compatibility)
+async function callAiModel(model, prompt, isJson = false) {
+  const result = await callAiModelWithUsage(model, prompt, isJson);
+  return result.text;
 }
 
 // Multimodal visual analysis for media assets using Gemini Vision API
@@ -704,6 +745,18 @@ Return a JSON object matching exactly this schema:
 // Background worker to analyze product images and extract Visual DNA descriptors
 async function analyzeProductVisualsBackground(brandId) {
   try {
+    // Defer visual analysis if brand is in draft mode or sandbox trial
+    const brand = await getQuery("SELECT status, ai_tier FROM brands WHERE id = $1", [brandId]);
+    if (!brand) return;
+    if (brand.status === 'draft') {
+      console.log(`[AI Visual DNA Background Worker] Skipped for brand ${brandId} because brand status is 'draft'.`);
+      return;
+    }
+    if (brand.ai_tier === 'none') {
+      console.log(`[AI Visual DNA Background Worker] Skipped for brand ${brandId} because AI tier is 'none' (Sandbox Trial).`);
+      return;
+    }
+
     const products = await allQuery("SELECT id, title, image FROM products WHERE brand_id = $1 AND visual_dna IS NULL AND image IS NOT NULL AND image != ''", [brandId]);
     if (products.length === 0) return;
     
@@ -772,16 +825,36 @@ Return a JSON object matching exactly this schema:
 
 
 // Stripe Instances Cache per brand
+// Stripe Instances Cache per brand
 const stripeInstances = {};
-function getStripeInstance(brand) {
-  if ((brand.billing_type === 'external_split' || brand.billing_type === 'free') && !brand.stripe_secret_key) {
-    if (process.env.STRIPE_SECRET_KEY) {
-      if (!stripeInstances['platform_master']) {
-        stripeInstances['platform_master'] = new stripeLib(process.env.STRIPE_SECRET_KEY);
+
+async function getStripeInstanceForPlatformCharge(brand) {
+  if (brand.agency_id) {
+    try {
+      const agency = await getQuery('SELECT is_platform_biller, stripe_secret_key FROM agencies WHERE id = $1', [brand.agency_id]);
+      if (agency && (agency.is_platform_biller === 1 || agency.is_platform_biller === true) && agency.stripe_secret_key) {
+        const cacheKey = `agency_${brand.agency_id}`;
+        if (!stripeInstances[cacheKey]) {
+          stripeInstances[cacheKey] = new stripeLib(agency.stripe_secret_key);
+        }
+        return stripeInstances[cacheKey];
       }
-      return stripeInstances['platform_master'];
+    } catch (err) {
+      console.error('[Stripe Resolver Error]', err.message);
     }
-    return null;
+  }
+  if (process.env.STRIPE_SECRET_KEY) {
+    if (!stripeInstances['platform_master']) {
+      stripeInstances['platform_master'] = new stripeLib(process.env.STRIPE_SECRET_KEY);
+    }
+    return stripeInstances['platform_master'];
+  }
+  return null;
+}
+
+async function getStripeInstance(brand) {
+  if ((brand.billing_type === 'external_split' || brand.billing_type === 'free') && !brand.stripe_secret_key) {
+    return await getStripeInstanceForPlatformCharge(brand);
   }
   if (!brand.stripe_secret_key) return null;
   if (!stripeInstances[brand.id]) {
@@ -1352,7 +1425,7 @@ async function scrapeShopifyBranding(shopUrl) {
     const activeAi = getActiveAiProviders();
     if (activeAi.gemini) {
       try {
-        const summaryPrompt = `Analyze the following website copy of a brand store. Extract and define the brand's identity.
+         const summaryPrompt = `Analyze the following website copy of a brand store. Extract and define the brand's identity.
         Return a JSON object with this exact structure:
         {
           "brand_voice_copy": "A 2-3 paragraph detailed summary of the brand's story, tone of voice, values, and aesthetic direction.",
@@ -1361,13 +1434,32 @@ async function scrapeShopifyBranding(shopUrl) {
             "role": "e.g. Specialty coffee hobbyists, home baristas",
             "expression": "e.g. focused, passionate, minimalist",
             "apparel": "e.g. casual linen aprons, modern home wear",
-            "demographic_profile": "Detailed text describing target customer segments"
+            "demographic_profile": "Detailed text describing target customer segments",
+            "personas": [
+              {
+                "name": "e.g. Sophia the Connoisseur",
+                "age": "28-35",
+                "role": "Third-wave specialty coffee enthusiast",
+                "expression": "thoughtful, satisfied smile",
+                "apparel": "casual linen shirt",
+                "description": "Appreciates organic single-origin roasts and precise brewing ratios."
+              }
+            ]
           },
           "visual_identity_guidelines": {
             "lighting": "e.g. soft morning side-light, natural diffused window light",
             "environment_style": "e.g. modern clean kitchen counter, bright concrete cafe loft",
             "photography_style": "e.g. 35mm film style, warm color palette, soft bokeh, f/1.8 aperture",
-            "color_themes": ["#hex1", "#hex2"]
+            "color_themes": ["#hex1", "#hex2"],
+            "sceneries": [
+              {
+                "name": "e.g. Morning Sunlit Counter",
+                "description": "Modern minimalist white marble kitchen counter with soft morning sunbeams casting diagonal shadows.",
+                "lighting": "natural soft warm morning side-light",
+                "environment_style": "minimalist high-end kitchen",
+                "photography_style": "35mm camera, warm color tones, soft bokeh"
+              }
+            ]
           }
         }
 
@@ -1814,10 +1906,19 @@ app.post('/api/webhook/stripe/:brandId', express.raw({ type: 'application/json' 
       return res.status(404).send(`Brand ${brandId} not found`);
     }
 
-    const stripe = getStripeInstance(brand);
+    const stripe = await getStripeInstance(brand);
     let endpointSecret = brand.stripe_webhook_secret;
     if ((brand.billing_type === 'external_split' || brand.billing_type === 'free') && !endpointSecret) {
-      endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (brand.agency_id) {
+        const agency = await getQuery('SELECT is_platform_biller, stripe_webhook_secret FROM agencies WHERE id = $1', [brand.agency_id]);
+        if (agency && (agency.is_platform_biller === 1 || agency.is_platform_biller === true) && agency.stripe_webhook_secret) {
+          endpointSecret = agency.stripe_webhook_secret;
+        } else {
+          endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+        }
+      } else {
+        endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      }
     }
 
     let event;
@@ -1931,8 +2032,8 @@ function estimateGeminiCost(model, promptTokens, completionTokens) {
   return parseFloat(cost.toFixed(6));
 }
 
-// Helper to verify brand has not exceeded its monthly subscription AI spend limit
-async function checkAiLimits(brandId) {
+// Helper to verify brand has not exceeded its monthly subscription AI limits by type
+async function checkAiLimits(brandId, type = 'campaigns') {
   if (!brandId) return true;
   try {
     const brand = await getQuery('SELECT ai_tier, ai_free_tier, pay_as_you_go_enabled FROM brands WHERE id = $1', [brandId]);
@@ -1940,21 +2041,40 @@ async function checkAiLimits(brandId) {
     if (brand.ai_free_tier) return true;
     if (brand.pay_as_you_go_enabled) return true;
     
-    const currentMonthCost = await getQuery(`
-      SELECT COALESCE(SUM(estimated_cost_usd), 0.0) as cost 
+    const tier = brand.ai_tier || 'professional';
+    if (tier === 'none') {
+      throw new Error('No active AI subscription plan. Please subscribe to standard, professional, or enterprise.');
+    }
+
+    let operationCondition = '';
+    if (type === 'products') {
+      operationCondition = "operation IN ('Product SEO Content Generation', 'Product Visual DNA Analysis')";
+    } else if (type === 'visuals') {
+      operationCondition = "operation IN ('AI Studio Image Generation', 'AI Studio Video Generation')";
+    } else {
+      // campaigns / copywriting / translations / strategy
+      operationCondition = "operation IN ('AI Campaign Generation', 'AI Creative Autopilot', 'AI Copy Rewrite', 'AI Copy Translation', 'Brand Style Layout Generation', 'Campaign Page Structure Generation', 'Campaign Ad Copy Generation', 'Brand Protocol & Strategy Generation') OR operation LIKE 'AI Copy Bulk Translation%'";
+    }
+
+    const currentMonthCount = await getQuery(`
+      SELECT COUNT(*)::int as count 
       FROM ai_usage_logs 
-      WHERE brand_id = $1 AND created_at >= date_trunc('month', CURRENT_DATE)
+      WHERE brand_id = $1 
+        AND (${operationCondition})
+        AND created_at >= date_trunc('month', CURRENT_DATE)
     `, [brandId]);
     
     const limits = {
-      standard: 10.00,
-      professional: 50.00,
-      enterprise: 200.00
+      standard: { products: 15, campaigns: 5, visuals: 30 },
+      professional: { products: 100, campaigns: 30, visuals: 150 },
+      enterprise: { products: 1000, campaigns: 150, visuals: 600 }
     };
     
-    const limit = limits[brand.ai_tier || 'professional'] || 50.00;
-    if (parseFloat(currentMonthCost.cost) >= limit) {
-      throw new Error(`Monthly AI subscription spend limit exceeded ($${parseFloat(currentMonthCost.cost).toFixed(2)} / $${limit.toFixed(2)} USD). Please upgrade your subscription tier.`);
+    const limitConfig = limits[tier] || limits.professional;
+    const limit = limitConfig[type] || 30;
+    
+    if (currentMonthCount.count >= limit) {
+      throw new Error(`Monthly subscription allowance for ${type} reached (${currentMonthCount.count} / ${limit} items). Please purchase an overage pack, enable pay-as-you-go, or upgrade your subscription tier.`);
     }
     return true;
   } catch (err) {
@@ -2508,7 +2628,7 @@ app.post('/api/checkout', async (req, res) => {
 
     addAuditLog("Order Created", "success", `Pending checkout session for ${customerName} (${orderId}) created, total: €${total.toFixed(2)}.`);
 
-    const stripe = getStripeInstance(req.brand);
+    const stripe = await getStripeInstance(req.brand);
     if (stripe) {
       const lineItems = validatedItems.map(item => ({
         price_data: {
@@ -3130,17 +3250,247 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// SYSTEM ADMINISTRATION API (For onboarding new shops at dash.stricktlycoffee.be)
+// AGENCIES MANAGEMENT API (Multi-tenant system & split payout margins)
 // ----------------------------------------------------------------------------
+
+// List all agencies (Superadmin only)
+app.get('/api/global/agencies', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  try {
+    const rows = await allQuery(`
+      SELECT a.*, 
+             COALESCE(SUM(CASE WHEN l.status = 'unpaid' THEN l.agency_share ELSE 0 END), 0) as unpaid_balance,
+             COALESCE(SUM(CASE WHEN l.status = 'paid' THEN l.agency_share ELSE 0 END), 0) as paid_balance,
+             COALESCE(SUM(CASE WHEN l.status = 'pending_invoice' THEN l.agency_share ELSE 0 END), 0) as pending_balance
+      FROM agencies a
+      LEFT JOIN agency_payout_ledger l ON a.id = l.agency_id
+      GROUP BY a.id
+      ORDER BY a.name ASC
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create or update an agency (Superadmin only)
+app.post('/api/global/agencies', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const { 
+    id, name, contact_email, margin_share_ratio, stripe_connect_account_id,
+    is_platform_biller, stripe_secret_key, stripe_webhook_secret,
+    billing_display_name, billing_support_email,
+    billing_name, billing_address, billing_vat
+  } = req.body;
+
+  const cleanId = (id || '').trim().toLowerCase();
+  if (!cleanId || !name || !contact_email) {
+    return res.status(400).json({ error: 'Missing required fields: id, name, contact_email' });
+  }
+
+  const ratio = parseFloat(margin_share_ratio);
+  const finalRatio = isNaN(ratio) ? 0.5000 : Math.max(0, Math.min(1, ratio));
+  const isBiller = !!is_platform_biller;
+
+  try {
+    await runQuery(`
+      INSERT INTO agencies (
+        id, name, contact_email, margin_share_ratio, stripe_connect_account_id,
+        is_platform_biller, stripe_secret_key, stripe_webhook_secret,
+        billing_display_name, billing_support_email,
+        billing_name, billing_address, billing_vat, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        contact_email = EXCLUDED.contact_email,
+        margin_share_ratio = EXCLUDED.margin_share_ratio,
+        stripe_connect_account_id = EXCLUDED.stripe_connect_account_id,
+        is_platform_biller = EXCLUDED.is_platform_biller,
+        stripe_secret_key = EXCLUDED.stripe_secret_key,
+        stripe_webhook_secret = EXCLUDED.stripe_webhook_secret,
+        billing_display_name = EXCLUDED.billing_display_name,
+        billing_support_email = EXCLUDED.billing_support_email,
+        billing_name = EXCLUDED.billing_name,
+        billing_address = EXCLUDED.billing_address,
+        billing_vat = EXCLUDED.billing_vat,
+        updated_at = CURRENT_TIMESTAMP
+    `, [
+      cleanId, 
+      name, 
+      contact_email, 
+      finalRatio, 
+      stripe_connect_account_id || null,
+      isBiller,
+      stripe_secret_key || null,
+      stripe_webhook_secret || null,
+      billing_display_name || null,
+      billing_support_email || null,
+      billing_name || null,
+      billing_address || null,
+      billing_vat || null
+    ]);
+
+    console.log(`[Agency Admin] Saved agency details for ${cleanId} (Platform Biller: ${isBiller}, Split Ratio: ${(finalRatio * 100).toFixed(1)}%)`);
+    res.json({ success: true, message: 'Agency saved successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete agency (Superadmin only)
+app.delete('/api/global/agencies/:id', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const { id } = req.params;
+  try {
+    await runQuery('DELETE FROM agencies WHERE id = $1', [id]);
+    console.log(`[Agency Admin] Deleted agency ${id}`);
+    res.json({ success: true, message: 'Agency deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET agency ledger and assigned brands (Superadmin or belonging Agency users)
+app.get('/api/global/agencies/:id/ledger', verifyAdminToken, async (req, res) => {
+  const { id } = req.params;
+  if (req.user.role !== 'superadmin' && (req.user.role !== 'agency' || req.user.agency_id !== id)) {
+    return res.status(403).json({ error: 'Access denied to this agency ledger' });
+  }
+  try {
+    const agency = await getQuery('SELECT * FROM agencies WHERE id = $1', [id]);
+    if (!agency) return res.status(404).json({ error: 'Agency not found' });
+
+    const ledger = await allQuery(`
+      SELECT l.*, o.order_number, b.name as brand_name
+      FROM agency_payout_ledger l
+      LEFT JOIN orders o ON l.order_id = o.id
+      LEFT JOIN brands b ON o.brand_id = b.id
+      WHERE l.agency_id = $1
+      ORDER BY l.created_at DESC
+    `, [id]);
+
+    const brands = await allQuery('SELECT id, name, subdomain FROM brands WHERE agency_id = $1 ORDER BY name ASC', [id]);
+
+    const balanceRes = await getQuery(`
+      SELECT 
+        COALESCE(SUM(CASE WHEN status = 'unpaid' THEN agency_share ELSE 0 END), 0) as unpaid_balance,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN agency_share ELSE 0 END), 0) as paid_balance,
+        COALESCE(SUM(CASE WHEN status = 'pending_invoice' THEN agency_share ELSE 0 END), 0) as pending_balance
+      FROM agency_payout_ledger
+      WHERE agency_id = $1
+    `, [id]);
+
+    res.json({
+      agency,
+      ledger,
+      brands,
+      unpaid_balance: parseFloat(balanceRes.unpaid_balance) || 0.00,
+      paid_balance: parseFloat(balanceRes.paid_balance) || 0.00,
+      pending_balance: parseFloat(balanceRes.pending_balance) || 0.00
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST mark unpaid agency ledger as paid manually (Superadmin only)
+app.post('/api/global/agencies/:id/payouts/mark-paid', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const { id } = req.params;
+  try {
+    const unpaidRows = await allQuery("SELECT id, agency_share FROM agency_payout_ledger WHERE agency_id = $1 AND status = 'unpaid'", [id]);
+    if (unpaidRows.length === 0) {
+      return res.status(400).json({ error: 'No unpaid commission entries found for this agency' });
+    }
+
+    const totalPaid = unpaidRows.reduce((sum, row) => sum + parseFloat(row.agency_share), 0);
+    const payoutTxId = `PAY-AGY-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+
+    await runQuery(`
+      UPDATE agency_payout_ledger
+      SET status = 'paid', payout_transaction_id = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE agency_id = $2 AND status = 'unpaid'
+    `, [payoutTxId, id]);
+
+    console.log(`[Agency Payout] Marked €${totalPaid.toFixed(2)} as paid for agency ${id}. Tx ID: ${payoutTxId}`);
+    res.json({ success: true, payoutTransactionId: payoutTxId, amount: totalPaid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Trigger monthly HTML sales reports manually (Superadmin only)
+app.post('/api/global/agencies/trigger-monthly-reports', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  try {
+    await sendAgencyMonthlyReports();
+    res.json({ success: true, message: 'Simulated agency monthly report delivery trigger succeeded.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Manually unlock/clear pending invoice splits for a brand (Superadmin only)
+app.post('/api/global/agencies/unlock-brand-splits', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const { brandId } = req.body;
+  if (!brandId) {
+    return res.status(400).json({ error: 'brandId parameter is required.' });
+  }
+  try {
+    await unlockAgencyCommissions(brandId);
+    res.json({ success: true, message: `Successfully unlocked pending splits for brand ${brandId}.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Manually unlock all pending invoice splits for an agency (Superadmin only)
+app.post('/api/global/agencies/:id/unlock-all-splits', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const { id } = req.params;
+  try {
+    await runQuery(`
+      UPDATE agency_payout_ledger
+      SET status = 'unpaid', updated_at = CURRENT_TIMESTAMP
+      WHERE agency_id = $1 AND status = 'pending_invoice'
+    `, [id]);
+    res.json({ success: true, message: `Successfully unlocked all pending splits for agency ${id}.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // List all brands
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id FROM brands ORDER BY id ASC');
+    if (req.user.role === 'agency') {
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands WHERE agency_id = $1 ORDER BY id ASC', [req.user.agency_id]);
+      return res.json(rows);
+    }
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3373,15 +3723,15 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     return res.status(400).json({ error: 'Missing required field: id' });
   }
 
-  // Permit brand creation if merchant has no brand associated yet (self-onboarding flow)
-  if (req.user.role !== 'superadmin' && req.user.brand_id && req.user.brand_id !== reqId) {
-    return res.status(403).json({ error: 'Permission denied. Superadmin access or brand operator permission required.' });
+  // Permit brand creation if merchant has no brand associated yet (self-onboarding flow) or user is superadmin/agency
+  if (req.user.role !== 'superadmin' && req.user.role !== 'agency' && req.user.brand_id && req.user.brand_id !== reqId) {
+    return res.status(403).json({ error: 'Permission denied. Superadmin, agency, or brand operator privileges required.' });
   }
 
   try {
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines FROM brands WHERE id = $1', [reqId]);
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines, agency_id, billing_name, billing_address, billing_vat FROM brands WHERE id = $1', [reqId]);
 
-    if (req.user.role !== 'superadmin') {
+    if (req.user.role !== 'superadmin' && req.user.role !== 'agency') {
       if (existing) {
         req.body.subdomain = existing.subdomain;
         req.body.custom_domain = existing.custom_domain;
@@ -3393,6 +3743,9 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         req.body.platform_take_rate = existing.platform_take_rate;
         req.body.stripe_connect_account_id = existing.stripe_connect_account_id;
         req.body.stripe_customer_id = existing.stripe_customer_id;
+        req.body.billing_name = existing.billing_name;
+        req.body.billing_address = existing.billing_address;
+        req.body.billing_vat = existing.billing_vat;
       } else {
         // Support initial self-onboarding subscription tier select
         req.body.ai_tier = req.body.ai_tier || 'professional';
@@ -3406,7 +3759,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       }
     }
 
-    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines } = req.body;
+    const { id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines, agency_id, billing_name, billing_address, billing_vat } = req.body;
 
     if (!id || !name || !subdomain) {
       return res.status(400).json({ error: 'Missing required fields: id, name, subdomain' });
@@ -3486,7 +3839,10 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     }
     const finalPriceMarkup = price_markup !== undefined ? parseFloat(price_markup) : (existing ? parseFloat(existing.price_markup) : 0.00);
     const finalBillingType = billing_type !== undefined ? billing_type : (existing ? existing.billing_type : 'standard');
-    const finalPlatformTakeRate = platform_take_rate !== undefined ? parseFloat(platform_take_rate) : (existing ? parseFloat(existing.platform_take_rate) : 0.15);
+    let finalPlatformTakeRate = platform_take_rate !== undefined ? parseFloat(platform_take_rate) : (existing ? parseFloat(existing.platform_take_rate) : getTakeRateForTier(ai_tier));
+    if (existing && ai_tier !== undefined && ai_tier !== existing.ai_tier && platform_take_rate === undefined) {
+      finalPlatformTakeRate = getTakeRateForTier(ai_tier);
+    }
     const finalBillingMethod = (subscription_billing_method && subscription_billing_method !== '') ? subscription_billing_method : (existing && existing.subscription_billing_method ? existing.subscription_billing_method : 'ledger');
     const finalStatus = req.body.status || (existing ? existing.status : 'draft');
 
@@ -3501,9 +3857,18 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     const finalDemographics = target_audience_demographics ? (typeof target_audience_demographics === 'string' ? target_audience_demographics : JSON.stringify(target_audience_demographics)) : (existing ? existing.target_audience_demographics : null);
     const finalGuidelines = visual_identity_guidelines ? (typeof visual_identity_guidelines === 'string' ? visual_identity_guidelines : JSON.stringify(visual_identity_guidelines)) : (existing ? existing.visual_identity_guidelines : null);
 
+    let finalAgencyId = null;
+    if (req.user.role === 'superadmin') {
+      finalAgencyId = agency_id || (existing ? existing.agency_id : null);
+    } else if (req.user.role === 'agency') {
+      finalAgencyId = req.user.agency_id;
+    } else {
+      finalAgencyId = existing ? existing.agency_id : null;
+    }
+
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines, agency_id, billing_name, billing_address, billing_vat)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -3542,6 +3907,10 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         typography_fonts = EXCLUDED.typography_fonts,
         target_audience_demographics = EXCLUDED.target_audience_demographics,
         visual_identity_guidelines = EXCLUDED.visual_identity_guidelines,
+        agency_id = EXCLUDED.agency_id,
+        billing_name = EXCLUDED.billing_name,
+        billing_address = EXCLUDED.billing_address,
+        billing_vat = EXCLUDED.billing_vat,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -3581,7 +3950,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalVoiceCopy,
       finalFonts,
       finalDemographics,
-      finalGuidelines
+      finalGuidelines,
+      finalAgencyId,
+      billing_name || null,
+      billing_address || null,
+      billing_vat || null
     ]);
 
     // If price_markup changed, update all external synced products' prices
@@ -3597,8 +3970,12 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     // Provision subscription fee charges if paid tier selected and brand is being created for the first time
     if (!existing && finalAiTier && finalAiTier !== 'none') {
       let subAmount = 49.00;
-      if (finalAiTier === 'professional') subAmount = 99.00;
-      if (finalAiTier === 'enterprise') subAmount = 199.00;
+      if (finalAiTier === 'professional') subAmount = 149.00;
+      if (finalAiTier === 'enterprise') subAmount = 499.00;
+      if (req.user.role === 'superadmin' && req.body.custom_subscription_price !== undefined) {
+        const customPrice = parseFloat(req.body.custom_subscription_price);
+        if (!isNaN(customPrice)) subAmount = customPrice;
+      }
 
       // 1. Create merchant subscription record
       await runQuery(`
@@ -3630,8 +4007,13 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       let subAmount = 49.00;
       if (finalAiTier === 'none') subAmount = 0.00;
       else if (finalAiTier === 'standard') subAmount = 49.00;
-      else if (finalAiTier === 'professional') subAmount = 99.00;
-      else if (finalAiTier === 'enterprise') subAmount = 199.00;
+      else if (finalAiTier === 'professional') subAmount = 149.00;
+      else if (finalAiTier === 'enterprise') subAmount = 499.00;
+
+      if (req.user.role === 'superadmin' && req.body.custom_subscription_price !== undefined) {
+        const customPrice = parseFloat(req.body.custom_subscription_price);
+        if (!isNaN(customPrice)) subAmount = customPrice;
+      }
 
       if (finalAiTier === 'none') {
         // Cancel subscription
@@ -3661,6 +4043,17 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
           console.log(`[Subscription Engine] Provisioned new active AI subscription for brand ${brandId} for ${finalAiTier} (€${subAmount})`);
         }
       }
+    } else if (existing && req.user.role === 'superadmin' && req.body.custom_subscription_price !== undefined) {
+      // If tier didn't change, but superadmin explicitly modified subscription price override, update it!
+      const customPrice = parseFloat(req.body.custom_subscription_price);
+      if (!isNaN(customPrice)) {
+        await runQuery(`
+          UPDATE merchant_subscriptions 
+          SET amount = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE brand_id = $2 AND status = 'active'
+        `, [customPrice, brandId]);
+        console.log(`[Subscription Engine] Superadmin updated active subscription price override for brand ${brandId} to €${customPrice.toFixed(2)}`);
+      }
     }
 
     // If user had no brand_id associated, link it now and generate updated token
@@ -3674,6 +4067,12 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       const secret = process.env.JWT_SECRET || 'fallback-auth-secret-key-12984-sc';
       const signature = crypto.createHmac('sha256', secret).update(payloadBase64).digest('hex');
       newToken = `${payloadBase64}.${signature}`;
+    }
+
+    if (finalStatus === 'active') {
+      analyzeProductVisualsBackground(brandId).catch(err => {
+        console.error('[AI Visual DNA Trigger Error]', err.message);
+      });
     }
 
     res.json({ success: true, brandId, token: newToken });
@@ -3711,14 +4110,14 @@ app.post('/api/global/brands/:id/subscription/calculate-change', verifyAdminToke
     const monthlyEquivalent = {
       none: 0,
       standard: 49.00,
-      professional: 99.00,
-      enterprise: 199.00
+      professional: 149.00,
+      enterprise: 499.00
     };
     const yearlyEquivalent = {
       none: 0,
       standard: 39.00,
-      professional: 79.00,
-      enterprise: 159.00
+      professional: 119.00,
+      enterprise: 399.00
     };
 
     const getMonthlyCost = (tier, interval) => {
@@ -3733,8 +4132,8 @@ app.post('/api/global/brands/:id/subscription/calculate-change', verifyAdminToke
     if (target_tier !== 'none') {
       if (target_interval === 'yearly') {
         if (target_tier === 'standard') newAmount = 468.00;
-        else if (target_tier === 'professional') newAmount = 948.00;
-        else if (target_tier === 'enterprise') newAmount = 1908.00;
+        else if (target_tier === 'professional') newAmount = 1428.00;
+        else if (target_tier === 'enterprise') newAmount = 4788.00;
       } else {
         newAmount = monthlyEquivalent[target_tier];
       }
@@ -3811,14 +4210,14 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
     const monthlyEquivalent = {
       none: 0,
       standard: 49.00,
-      professional: 99.00,
-      enterprise: 199.00
+      professional: 149.00,
+      enterprise: 499.00
     };
     const yearlyEquivalent = {
       none: 0,
       standard: 39.00,
-      professional: 79.00,
-      enterprise: 159.00
+      professional: 119.00,
+      enterprise: 399.00
     };
 
     const getMonthlyCost = (tier, interval) => {
@@ -3833,8 +4232,8 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
     if (target_tier !== 'none') {
       if (target_interval === 'yearly') {
         if (target_tier === 'standard') newAmount = 468.00;
-        else if (target_tier === 'professional') newAmount = 948.00;
-        else if (target_tier === 'enterprise') newAmount = 1908.00;
+        else if (target_tier === 'professional') newAmount = 1428.00;
+        else if (target_tier === 'enterprise') newAmount = 4788.00;
       } else {
         newAmount = monthlyEquivalent[target_tier];
       }
@@ -3905,9 +4304,15 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
         ]);
       }
 
-      await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+      await runQuery(`UPDATE brands SET ai_tier = $1, platform_take_rate = $2 WHERE id = $3`, [target_tier, getTakeRateForTier(target_tier), brandId]);
       addAuditLog("Subscription Upgraded", "success", `Brand ${brandId} upgraded to ${target_tier} tier (${target_interval}). Upfront: €${upfrontCharge.toFixed(2)}`);
       
+      if (target_tier !== 'none') {
+        analyzeProductVisualsBackground(brandId).catch(err => {
+          console.error('[AI Visual DNA Trigger Error]', err.message);
+        });
+      }
+
       res.json({ success: true, message: `Successfully upgraded to ${target_tier} tier. Prorated charge applied.` });
     } else {
       if (sub) {
@@ -3918,7 +4323,7 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
             SET name = $1, amount = $2, interval = $3, pending_tier = NULL, pending_interval = NULL, updated_at = CURRENT_TIMESTAMP
             WHERE id = $4
           `, [`ai_subscription_${target_tier}`, newAmount, target_interval, sub.id]);
-          await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+          await runQuery(`UPDATE brands SET ai_tier = $1, platform_take_rate = $2 WHERE id = $3`, [target_tier, getTakeRateForTier(target_tier), brandId]);
           addAuditLog("Subscription Downgraded (Instant Dev Mode)", "success", `Brand ${brandId} instantly downgraded to ${target_tier} tier (${target_interval}) in dev environment.`);
           res.json({ success: true, message: `[Dev Mode] Plan downgraded instantly to ${target_tier} tier.` });
         } else {
@@ -3932,7 +4337,7 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
           res.json({ success: true, message: `Downgrade scheduled. Your current plan remains active until ${nextChargeAt.toISOString().split('T')[0]}.` });
         }
       } else {
-        await runQuery(`UPDATE brands SET ai_tier = $1 WHERE id = $2`, [target_tier, brandId]);
+        await runQuery(`UPDATE brands SET ai_tier = $1, platform_take_rate = $2 WHERE id = $3`, [target_tier, getTakeRateForTier(target_tier), brandId]);
         res.json({ success: true, message: `Settings updated to ${target_tier} tier.` });
       }
     }
@@ -3950,16 +4355,16 @@ app.post('/api/global/brands/:id/stripe-connect-link', verifyAdminToken, async (
   }
 
   try {
-    const brand = await getQuery('SELECT stripe_connect_account_id FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT stripe_connect_account_id, agency_id FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found' });
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const stripe = await getStripeInstanceForPlatformCharge(brand);
+    if (!stripe) {
       return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
     }
 
-    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
     let accountId = brand.stripe_connect_account_id;
 
     if (!accountId) {
@@ -4006,16 +4411,16 @@ app.post('/api/global/brands/:id/stripe-setup-session', verifyAdminToken, async 
   }
 
   try {
-    const brand = await getQuery('SELECT name, contact_email, stripe_customer_id FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT name, contact_email, stripe_customer_id, agency_id FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found' });
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const stripe = await getStripeInstanceForPlatformCharge(brand);
+    if (!stripe) {
       return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
     }
 
-    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
     let customerId = brand.stripe_customer_id;
 
     // Create a Stripe Customer if not already created
@@ -4057,11 +4462,11 @@ app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res)
   }
 
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const brand = await getQuery('SELECT agency_id FROM brands WHERE id = $1', [brandId]);
+    const stripe = await getStripeInstanceForPlatformCharge(brand);
+    if (!stripe) {
       return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
     }
-
-    const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
     
     // Retrieve Setup Checkout Session
     console.log(`[Stripe Billing] Verifying Setup Checkout Session: ${sessionId}...`);
@@ -4093,6 +4498,54 @@ app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res)
     }
   } catch (err) {
     console.error(`[Stripe Card Setup Complete Error] Brand ${brandId}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET list of invoices for a brand
+app.get('/api/global/brands/:brandId/invoices', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.brandId;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    if (req.user.role === 'agency') {
+      const hasAccess = await getQuery('SELECT 1 FROM brands WHERE id = $1 AND agency_id = $2', [brandId, req.user.agency_id]);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Permission denied. Agency does not manage this brand.' });
+      }
+    } else {
+      return res.status(403).json({ error: 'Permission denied.' });
+    }
+  }
+
+  try {
+    const invoices = await allQuery('SELECT * FROM invoices WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    res.json(invoices);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST trigger manual PDF invoice generation (Superadmin only)
+app.post('/api/global/brands/:brandId/invoices/create-manual', verifyAdminToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin privileges required' });
+  }
+  const brandId = req.params.brandId;
+  const { amount, vat_amount, status, description } = req.body;
+
+  if (!amount || !status || !description) {
+    return res.status(400).json({ error: 'Missing required parameters: amount, status, description' });
+  }
+
+  try {
+    const invoice = await generateAndUploadInvoice(
+      brandId,
+      parseFloat(amount),
+      parseFloat(vat_amount || 0),
+      status,
+      description
+    );
+    res.json({ success: true, invoice });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -4348,14 +4801,17 @@ Output the complete Markdown document directly. Write all ad copy and email temp
           let targetModel = getTargetModel(brand.ai_tier);
  
           console.log(`[AI Protocol Generator] Querying AI for brand: ${brandId} using model: ${targetModel}`);
+          let apiResult;
           try {
-            generatedProtocol = await callAiModel(targetModel, prompt);
+            apiResult = await callAiModelWithUsage(targetModel, prompt);
+            generatedProtocol = apiResult.text;
           } catch (modelErr) {
             // Fallback for Enterprise tier if deep-research-pro-preview is not available or errors out
             if (brand.ai_tier === 'enterprise') {
               console.warn('[AI Protocol Generator] Enterprise model failed/throttled, falling back to gemini-3.1-pro:', modelErr.message);
               targetModel = 'gemini-3.1-pro';
-              generatedProtocol = await callAiModel(targetModel, prompt);
+              apiResult = await callAiModelWithUsage(targetModel, prompt);
+              generatedProtocol = apiResult.text;
             } else {
               throw modelErr;
             }
@@ -4363,7 +4819,7 @@ Output the complete Markdown document directly. Write all ad copy and email temp
 
           if (generatedProtocol) {
             // Log strategy generation usage details
-            await logAiUsage(brandId, 'Brand Protocol & Strategy Generation', targetModel, { promptTokenCount: 15000, candidatesTokenCount: 4000, totalTokenCount: 19000 });
+            await logAiUsage(brandId, 'Brand Protocol & Strategy Generation', targetModel, apiResult.usage);
           } else {
             throw new Error('AI Protocol Generator returned empty response.');
           }
@@ -4593,7 +5049,20 @@ Return ONLY a JSON object in this format:
       "name": "Persona Name",
       "demographics": "Demographics description",
       "description": "Core psychological values and motivations",
-      "hooks": ["Targeted campaign hook/copy brief"]
+      "hooks": ["Targeted campaign hook/copy brief"],
+      "age": "e.g. 25-35",
+      "role": "e.g. home barista, technical roaster",
+      "expression": "e.g. welcoming smile, focused",
+      "apparel": "e.g. casual linen shirt, denim apron"
+    }
+  ],
+  "sceneries": [
+    {
+      "name": "Scenery Setting Name",
+      "description": "Photographic scene backdrop description",
+      "lighting": "e.g. natural soft side light, golden hour sunbeams",
+      "environment_style": "e.g. modern concrete countertop, minimal cafe shop",
+      "photography_style": "e.g. 35mm film style, warm color palette, soft bokeh, f/1.8 aperture"
     }
   ],
   "visual_direction": "Brief summary of Midjourney photography cues and styling rules (1-2 paragraphs)"
@@ -4775,8 +5244,66 @@ app.get('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => {
         product_architecture: 'High-quality engineering values.',
         controlled_vocabulary: { approved: [], banned: [] },
         personas: [],
+        sceneries: [],
         visual_direction: 'Premium studio product photography.'
       };
+    }
+
+    // Seed default personas if empty
+    if (!canvas.personas || canvas.personas.length === 0) {
+      canvas.personas = [
+        {
+          name: "Sophia the Barista",
+          age: "26",
+          role: "Professional Barista / Specialty Coffee Roaster",
+          expression: "friendly welcoming smile",
+          apparel: "dark denim apron over a white tee",
+          description: "Passionate about uniform extraction, pouring latte art, and organic single-origin coffee beans."
+        },
+        {
+          name: "Alex the Tech Developer",
+          age: "32",
+          role: "Software Developer & Home Brew Enthusiast",
+          expression: "focused and productive",
+          apparel: "casual neutral knit sweater",
+          description: "Enjoys drinking clean pour-over coffee while working at a modern wood desk next to a bright window."
+        },
+        {
+          name: "Marcus the Design Architect",
+          age: "45",
+          role: "Aesthetic Connoisseur & Design Architect",
+          expression: "sophisticated and relaxed",
+          apparel: "dark gray linen shirt",
+          description: "Demands premium materials, precise mechanical design, and high-fidelity espresso gear."
+        }
+      ];
+    }
+
+    // Seed default sceneries if empty
+    if (!canvas.sceneries || canvas.sceneries.length === 0) {
+      canvas.sceneries = [
+        {
+          name: "Morning Sunlit Kitchen Counter",
+          description: "Modern minimalist white marble kitchen counter with morning sunbeams casting soft diagonal window shadows.",
+          lighting: "natural soft warm morning side-light",
+          environment_style: "minimalist high-end kitchen",
+          photography_style: "35mm camera, warm color tones, soft bokeh"
+        },
+        {
+          name: "Cozy Concrete Cafe Loft",
+          description: "Industrial concrete coffee bar corner with a high-end chrome espresso machine in the soft background.",
+          lighting: "diffused cool window daylight",
+          environment_style: "urban concrete loft cafe",
+          photography_style: "50mm lens, sharp details, medium contrast"
+        },
+        {
+          name: "Moody Rustic Wooden Desk",
+          description: "Dark rustic oak wooden table backdrop with espresso beans scattered artfully around the surface.",
+          lighting: "warm glowing side lamp light with deep shadows",
+          environment_style: "cozy dim study, moody atmosphere",
+          photography_style: "macro lens style, rich deep colors, high contrast, dramatic shadows"
+        }
+      ];
     }
 
     res.json(canvas);
@@ -5298,9 +5825,9 @@ For brand name context: "${brandName}".
 Original text for field "${field || 'copy'}": "${text}"
 Return ONLY the rewritten string without quotes, markdown formatting, or explanations.`;
 
-    const textResult = await callAiModel(targetModel, systemPrompt);
-    const rewrittenText = textResult.trim();
-    await logAiUsage(brandId, 'AI Copy Rewrite', targetModel, { promptTokenCount: 150, candidatesTokenCount: 50, totalTokenCount: 200 });
+    const apiResult = await callAiModelWithUsage(targetModel, systemPrompt);
+    const rewrittenText = apiResult.text.trim();
+    await logAiUsage(brandId, 'AI Copy Rewrite', targetModel, apiResult.usage);
     res.json({ success: true, text: rewrittenText });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -5361,11 +5888,11 @@ Expected JSON structure:
   "landing_page_features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Rich Aroma\\n☕ Perfect Crema\\n🌱 Responsibly Sourced"
 }`;
 
-    const textResult = await callAiModel(targetModel, systemPrompt, true);
-    const generatedCampaign = parseRobustJson(textResult);
+    const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
+    const generatedCampaign = parseRobustJson(apiResult.text);
 
     // Log usage metadata
-    await logAiUsage(brandId, 'AI Campaign Generation', targetModel, { promptTokenCount: 1200, candidatesTokenCount: 600, totalTokenCount: 1800 });
+    await logAiUsage(brandId, 'AI Campaign Generation', targetModel, apiResult.usage);
 
     res.json({ success: true, campaign: generatedCampaign });
   } catch (err) {
@@ -5424,10 +5951,10 @@ Notes for prompt generation:
 - If style preference is 'raw', make the prompt photography-realistic and simple, avoiding complex brand presets.
 - If format is 'Video' or action is 'video', ensure aiStudioAction is 'video' and motionIntensity/duration reflect standard motion specifications.`;
 
-    const textResult = await callAiModel(targetModel, systemPrompt, true);
-    const parsedResult = parseRobustJson(textResult);
+    const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
+    const parsedResult = parseRobustJson(apiResult.text);
 
-    await logAiUsage(brandId, 'AI Creative Autopilot', targetModel, { promptTokenCount: 800, candidatesTokenCount: 400, totalTokenCount: 1200 });
+    await logAiUsage(brandId, 'AI Creative Autopilot', targetModel, apiResult.usage);
     res.json({ success: true, creative: parsedResult });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -5461,9 +5988,9 @@ app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, re
 Original text for field "${field || 'copy'}": "${text}"
 Return ONLY the translated string without quotes or markdown.`;
 
-    const textResult = await callAiModel(targetModel, systemPrompt);
-    const translatedText = textResult.trim();
-    await logAiUsage(brandId, 'AI Copy Translation', targetModel, { promptTokenCount: 150, candidatesTokenCount: 50, totalTokenCount: 200 });
+    const apiResult = await callAiModelWithUsage(targetModel, systemPrompt);
+    const translatedText = apiResult.text.trim();
+    await logAiUsage(brandId, 'AI Copy Translation', targetModel, apiResult.usage);
     res.json({ success: true, text: translatedText });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -5549,11 +6076,11 @@ ${JSON.stringify(englishStrings, null, 2)}`;
 
       let translatedData = {};
       try {
-        const text = await callAiModel(targetModel, systemPrompt, true);
-        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
+        const cleanText = apiResult.text.replace(/```json/g, '').replace(/```/g, '').trim();
         translatedData = JSON.parse(cleanText);
         
-        await logAiUsage(brandId, `AI Copy Bulk Translation (${lang})`, targetModel, { promptTokenCount: 1500, candidatesTokenCount: 1500, totalTokenCount: 3000 });
+        await logAiUsage(brandId, `AI Copy Bulk Translation (${lang})`, targetModel, apiResult.usage);
       } catch (jsonErr) {
         console.error(`[AI Bulk Translate] translation error for lang ${lang}:`, jsonErr.message);
         continue;
@@ -5657,9 +6184,9 @@ Return ONLY a JSON object matching this structure:
 
     const targetModel = getTargetModel(brand.ai_tier);
     console.log(`[AI Layout Generator] Analyzing brand strategy & user prompt for: ${brandId} using model: ${targetModel}`);
-    const textResult = await callAiModel(targetModel, promptInstructions, true);
-    const layoutSettings = parseRobustJson(textResult);
-    await logAiUsage(brandId, 'Brand Style Layout Generation', targetModel, { promptTokenCount: 1000, candidatesTokenCount: 500, totalTokenCount: 1500 });
+    const apiResult = await callAiModelWithUsage(targetModel, promptInstructions, true);
+    const layoutSettings = parseRobustJson(apiResult.text);
+    await logAiUsage(brandId, 'Brand Style Layout Generation', targetModel, apiResult.usage);
     res.json({ success: true, layout: layoutSettings });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -5728,11 +6255,11 @@ Return ONLY a JSON object representing the page structure and copy content:
 }`;
 
     console.log(`[AI Page Generator] Drafting campaign landing page structure for brand: ${brandId} using model: ${targetModel}`);
-    const textResult = await callAiModel(targetModel, prompt, true);
-    const pageDraft = parseRobustJson(textResult);
+    const apiResult = await callAiModelWithUsage(targetModel, prompt, true);
+    const pageDraft = parseRobustJson(apiResult.text);
 
     // Log usage metadata
-    await logAiUsage(brandId, 'Campaign Page Structure Generation', targetModel, { promptTokenCount: 1200, candidatesTokenCount: 600, totalTokenCount: 1800 });
+    await logAiUsage(brandId, 'Campaign Page Structure Generation', targetModel, apiResult.usage);
 
       // Automatically persist/save to the brand's landing_pages array inside theme_settings!
       let theme = {};
@@ -6073,6 +6600,12 @@ app.put('/api/global/brands/:id/status', verifyAdminToken, async (req, res) => {
         SET status = 'paused'
         WHERE brand_id = $1 AND status = 'active'
       `, [id]);
+    }
+
+    if (status === 'active') {
+      analyzeProductVisualsBackground(id).catch(err => {
+        console.error('[AI Visual DNA Trigger Error]', err.message);
+      });
     }
 
     res.json({ success: true, message: `Brand ${brand.name} status updated to ${status}.` });
@@ -6542,7 +7075,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   const brandId = resolveBrandId(req);
   if (brandId) {
     try {
-      await checkAiLimits(brandId);
+      await checkAiLimits(brandId, 'products');
     } catch (err) {
       return res.status(429).json({ error: err.message });
     }
@@ -6574,11 +7107,11 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
   "compatibility": ["Compatible Machine 1", "Compatible Machine 2"]
 }`;
       console.log(`[SEO Generator] Querying Gemini for SEO optimization using model: ${targetModel}`);
-      const textResult = await callAiModel(targetModel, prompt, true);
-      const parsed = parseRobustJson(textResult);
+      const apiResult = await callAiModelWithUsage(targetModel, prompt, true);
+      const parsed = parseRobustJson(apiResult.text);
       
       if (brandId) {
-        await logAiUsage(brandId, 'Product SEO Content Generation', targetModel, { promptTokenCount: 1000, candidatesTokenCount: 500, totalTokenCount: 1500 });
+        await logAiUsage(brandId, 'Product SEO Content Generation', targetModel, apiResult.usage);
       }
 
       return res.json({ success: true, ...parsed });
@@ -6867,28 +7400,72 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
       console.error(`[Inventory Engine] Failed to deduct stock for order ${orderId}:`, invErr.message);
     }
 
-    // Split-Payment Split Engine for external merchants
+    // Split-Payment Split Engine for external merchants (writes to merchant_payout_ledger)
+    let platformMargin = 0.00;
+    const grossAmount = parseFloat(order.total) || 0;
+    const takeRate = brand.billing_type === 'free' ? 0.00 : (brand.platform_take_rate !== null && brand.platform_take_rate !== undefined ? parseFloat(brand.platform_take_rate) : 0.15);
+    platformMargin = Math.round(grossAmount * takeRate * 100) / 100;
+
+    let processingFee = 0.00;
+    if (brand.billing_type === 'external_split') {
+      // Estimate Stripe fee: 1.4% + €0.25 (standard EU card rate)
+      processingFee = Math.round((grossAmount * 0.014 + 0.25) * 100) / 100;
+    }
+
     if (brand.billing_type === 'external_split' || brand.billing_type === 'free') {
       const existingLedger = await getQuery('SELECT id FROM merchant_payout_ledger WHERE order_id = $1', [orderId]);
       if (!existingLedger) {
-        const grossAmount = parseFloat(order.total) || 0;
-        const takeRate = brand.billing_type === 'free' ? 0.00 : (brand.platform_take_rate !== null && brand.platform_take_rate !== undefined ? parseFloat(brand.platform_take_rate) : 0.15);
-        const platformMargin = Math.round(grossAmount * takeRate * 100) / 100;
-        const netAmount = grossAmount - platformMargin;
-
+        const netAmount = Math.max(0.00, Math.round((grossAmount - platformMargin - processingFee) * 100) / 100);
         await runQuery(`
-          INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, processing_fee, net_amount, type, description)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           brand.id,
           orderId,
           grossAmount,
           platformMargin,
+          processingFee,
           netAmount,
           'sale',
-          `Split payment for order ${orderId} (${brand.name}). Platform take-rate: ${(takeRate * 100).toFixed(1)}%`
+          `Split payment for order ${orderId} (${brand.name}). Platform take-rate: ${(takeRate * 100).toFixed(1)}% (€${platformMargin.toFixed(2)}), estimated Stripe processing fee: €${processingFee.toFixed(2)}`
         ]);
-        console.log(`[Split Engine] Logged ledger sale for brand ${brand.id}, order ${orderId}. Gross: €${grossAmount}, Platform margin: €${platformMargin}, Net: €${netAmount}`);
+        console.log(`[Split Engine] Logged ledger sale for brand ${brand.id}, order ${orderId}. Gross: €${grossAmount}, Platform margin: €${platformMargin}, Processing Fee: €${processingFee}, Net: €${netAmount}`);
+      }
+    }
+
+    // Agency Splits (Runs for ALL brand billing types)
+    if (brand.agency_id) {
+      try {
+        const existingAgencyLedger = await getQuery('SELECT id FROM agency_payout_ledger WHERE order_id = $1', [orderId]);
+        if (!existingAgencyLedger) {
+          const agency = await getQuery('SELECT margin_share_ratio FROM agencies WHERE id = $1', [brand.agency_id]);
+          if (agency) {
+            const marginShareRatio = parseFloat(agency.margin_share_ratio) || 0.5000;
+            const agencyShare = Math.round(platformMargin * marginShareRatio * 100) / 100;
+            const platformShare = Math.round((platformMargin - agencyShare) * 100) / 100;
+
+            // Determine if the platform has already collected the money.
+            // Split Connect and Free tiers are collected immediately or zeroed.
+            const initialStatus = (brand.billing_type === 'external_split' || brand.billing_type === 'free') ? 'unpaid' : 'pending_invoice';
+
+            await runQuery(`
+              INSERT INTO agency_payout_ledger (agency_id, order_id, gross_amount, platform_margin, agency_share, platform_share, status, description)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [
+              brand.agency_id,
+              orderId,
+              grossAmount,
+              platformMargin,
+              agencyShare,
+              platformShare,
+              initialStatus,
+              `Split commission share for order ${orderId} (${brand.name}). Agency split: ${(marginShareRatio * 100).toFixed(1)}%`
+            ]);
+            console.log(`[Agency Split Engine] Logged agency split for agency ${brand.agency_id}. Brand: ${brand.id}, Status: ${initialStatus}, Total Margin: €${platformMargin}, Agency Share: €${agencyShare}, Platform Share: €${platformShare}`);
+          }
+        }
+      } catch (agyErr) {
+        console.error('[Agency Split Engine Error]', agyErr.message);
       }
     }
 
@@ -7312,7 +7889,7 @@ app.get('/api/global/shopify/auth', verifyAdminToken, async (req, res) => {
 
   // 3. Construct dynamic callback Redirect URI
   const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-  const redirectUri = `${protocol}://${req.headers.host}/api/global/shopify/callback`;
+  const redirectUri = `${protocol}://${req.headers.host}/api/auth/shopify/callback`;
 
   // 4. Construct state payload
   const statePayload = JSON.stringify({
@@ -7331,7 +7908,7 @@ app.get('/api/global/shopify/auth', verifyAdminToken, async (req, res) => {
 });
 
 // Handle Shopify OAuth callback redirect
-app.get('/api/global/shopify/callback', async (req, res) => {
+app.get(['/api/global/shopify/callback', '/api/auth/shopify/callback'], async (req, res) => {
   const { code, hmac, shop, state } = req.query;
 
   if (!code || !hmac || !shop || !state) {
@@ -8009,12 +8586,14 @@ app.get('/api/global/coupon-emails', verifyAdminToken, async (req, res) => {
 });
 
 // SMTP Mailer Transporter Helper (Simulates delivery if SMTP environment is unconfigured)
-async function sendMailHelper(to, subject, bodyHtml, bodyText) {
+async function sendMailHelper(to, subject, bodyHtml, bodyText, mailOptions = {}) {
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || 'Strictly Coffee Platform <noreply@stricktlycoffee.be>';
+  
+  let from = mailOptions.from || process.env.SMTP_FROM || 'Strictly Coffee Platform <noreply@stricktlycoffee.be>';
+  let replyTo = mailOptions.replyTo || null;
 
   if (host && user && pass) {
     try {
@@ -8028,6 +8607,7 @@ async function sendMailHelper(to, subject, bodyHtml, bodyText) {
 
       const info = await transporter.sendMail({
         from,
+        replyTo,
         to,
         subject,
         text: bodyText || bodyHtml.replace(/<[^>]*>/g, ''),
@@ -8042,20 +8622,221 @@ async function sendMailHelper(to, subject, bodyHtml, bodyText) {
     }
   } else {
     console.log(`[SMTP Mailer Simulator] SMTP unconfigured. Simulated delivery of email to ${to}:
+    From: "${from}"
     Subject: "${subject}"
     Body Preview: "${(bodyText || bodyHtml).substring(0, 100)}..."`);
     return { success: true, simulated: true };
   }
 }
 
+// Background loop / cron runner to send monthly email reports to agencies
+async function sendAgencyMonthlyReports() {
+  try {
+    const agencies = await allQuery('SELECT * FROM agencies');
+    console.log(`[Agency Reports] Starting report delivery sequence for ${agencies.length} agencies...`);
+
+    for (const agency of agencies) {
+      // Fetch stats for the last 30 days
+      const stats = await allQuery(`
+        SELECT 
+          b.name as brand_name, 
+          COUNT(l.id) as total_sales_count,
+          COALESCE(SUM(l.gross_amount), 0) as total_gross,
+          COALESCE(SUM(l.platform_margin), 0) as total_margin,
+          COALESCE(SUM(CASE WHEN l.status = 'unpaid' THEN l.agency_share ELSE 0 END), 0) as cleared_agency_share,
+          COALESCE(SUM(CASE WHEN l.status = 'pending_invoice' THEN l.agency_share ELSE 0 END), 0) as pending_agency_share
+        FROM agency_payout_ledger l
+        LEFT JOIN orders o ON l.order_id = o.id
+        LEFT JOIN brands b ON o.brand_id = b.id
+        WHERE l.agency_id = $1 AND l.created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY b.name
+        ORDER BY b.name ASC
+      `, [agency.id]);
+
+      let salesRowsHtml = '';
+      let grandTotalGross = 0;
+      let grandTotalCleared = 0;
+      let grandTotalPending = 0;
+
+      if (stats.length > 0) {
+        for (const s of stats) {
+          const gross = parseFloat(s.total_gross) || 0;
+          const cleared = parseFloat(s.cleared_agency_share) || 0;
+          const pending = parseFloat(s.pending_agency_share) || 0;
+          
+          grandTotalGross += gross;
+          grandTotalCleared += cleared;
+          grandTotalPending += pending;
+
+          salesRowsHtml += `
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 12px; text-align: left; color: #ffffff;">${s.brand_name || 'Deleted Brand'}</td>
+              <td style="padding: 12px; text-align: center; color: #cccccc;">${s.total_sales_count}</td>
+              <td style="padding: 12px; text-align: right; color: #cccccc;">€${gross.toFixed(2)}</td>
+              <td style="padding: 12px; text-align: right; color: #22c55e; font-weight: bold;">€${cleared.toFixed(2)}</td>
+              <td style="padding: 12px; text-align: right; color: #f59e0b; font-weight: bold;">€${pending.toFixed(2)}</td>
+            </tr>
+          `;
+        }
+      } else {
+        salesRowsHtml = `
+          <tr>
+            <td colspan="5" style="padding: 30px; text-align: center; color: #999999;">
+              No sales or commission activity recorded in the past 30 days.
+            </td>
+          </tr>
+        `;
+      }
+
+      const bodyHtml = `
+        <div style="background-color: #0d0d0d; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: #ffffff; max-width: 600px; margin: 0 auto; border-radius: 12px; border: 1px solid #222;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 1px solid #222; padding-bottom: 20px;">
+            <h1 style="color: #c5a059; margin: 0 0 10px 0; font-size: 1.8rem; letter-spacing: 1px;">Strictly Coffee</h1>
+            <p style="color: #999999; margin: 0; font-size: 0.9rem;">Partner Agency Commission Statement</p>
+          </div>
+          
+          <div style="margin-bottom: 25px;">
+            <p style="font-size: 1rem; margin: 0 0 10px 0;">Hello <strong>${agency.name}</strong>,</p>
+            <p style="font-size: 0.9rem; color: #cccccc; line-height: 1.5; margin: 0;">
+              Here is your sales performance and margin split breakdown for the past 30 days. Your configured split ratio is <strong>${(parseFloat(agency.margin_share_ratio) * 100).toFixed(1)}%</strong> of platform commissions.
+            </p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 30px;">
+            <div style="background-color: #151515; padding: 12px 8px; border-radius: 8px; border: 1px solid #222; text-align: center;">
+              <div style="font-size: 0.7rem; color: #888888; text-transform: uppercase; margin-bottom: 5px;">Sales Volume</div>
+              <div style="font-size: 1.15rem; font-weight: bold; color: #ffffff;">€${grandTotalGross.toFixed(2)}</div>
+            </div>
+            <div style="background-color: #151515; padding: 12px 8px; border-radius: 8px; border: 1px solid #222; text-align: center;">
+              <div style="font-size: 0.7rem; color: #888888; text-transform: uppercase; margin-bottom: 5px;">Cleared Split</div>
+              <div style="font-size: 1.15rem; font-weight: bold; color: #22c55e;">€${grandTotalCleared.toFixed(2)}</div>
+            </div>
+            <div style="background-color: #151515; padding: 12px 8px; border-radius: 8px; border: 1px solid #222; text-align: center;">
+              <div style="font-size: 0.7rem; color: #888888; text-transform: uppercase; margin-bottom: 5px;">Pending Invoice</div>
+              <div style="font-size: 1.15rem; font-weight: bold; color: #f59e0b;">€${grandTotalPending.toFixed(2)}</div>
+            </div>
+          </div>
+
+          <h3 style="color: #ffffff; font-size: 1rem; border-bottom: 1px solid #222; padding-bottom: 8px; margin-bottom: 15px;">Brand Performance Breakdown</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 35px;">
+            <thead>
+              <tr style="background-color: #151515; border-bottom: 2px solid #222;">
+                <th style="padding: 12px; text-align: left; color: #c5a059; font-weight: bold;">Brand Name</th>
+                <th style="padding: 12px; text-align: center; color: #c5a059; font-weight: bold;">Orders</th>
+                <th style="padding: 12px; text-align: right; color: #c5a059; font-weight: bold;">Gross Sales</th>
+                <th style="padding: 12px; text-align: right; color: #22c55e; font-weight: bold;">Cleared</th>
+                <th style="padding: 12px; text-align: right; color: #f59e0b; font-weight: bold;">Pending</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${salesRowsHtml}
+            </tbody>
+          </table>
+
+          <div style="border-top: 1px solid #222; padding-top: 20px; font-size: 0.75rem; color: #666666; text-align: center; line-height: 1.4;">
+            <p style="margin: 0 0 5px 0;">This email is an automated statement generated by Stricktly Coffee.</p>
+            <p style="margin: 0;">For manual ledger adjustments, please contact billing@stricktlycoffee.be</p>
+          </div>
+        </div>
+      `;
+
+      await sendMailHelper(
+        agency.contact_email,
+        `Strictly Coffee: Monthly Agency Commission Overview - ${agency.name}`,
+        bodyHtml
+      );
+    }
+  } catch (err) {
+    console.error('[Agency Reports Error] Failed to generate agency report emails:', err);
+  }
+}
+
+async function resolveBillerForBrand(brandId) {
+  const defaultBiller = {
+    displayName: 'Strictly Coffee',
+    supportEmail: 'support@stricktlycoffee.be',
+    isAgencyBiller: false
+  };
+
+  try {
+    const brand = await getQuery('SELECT agency_id FROM brands WHERE id = $1', [brandId]);
+    if (brand && brand.agency_id) {
+      const agency = await getQuery('SELECT is_platform_biller, billing_display_name, billing_support_email FROM agencies WHERE id = $1', [brand.agency_id]);
+      if (agency && (agency.is_platform_biller === 1 || agency.is_platform_biller === true)) {
+        return {
+          displayName: agency.billing_display_name || 'Strictly Coffee Partner',
+          supportEmail: agency.billing_support_email || 'billing@stricktlycoffee.be',
+          isAgencyBiller: true
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[Biller Resolver Error]', err.message);
+  }
+  return defaultBiller;
+}
+
+async function sendPlatformBillingEmail(brandId, subject, bodyHtml, bodyText) {
+  const biller = await resolveBillerForBrand(brandId);
+  const fromHeader = `"${biller.displayName}" <${biller.supportEmail}>`;
+  const mailOptions = {
+    from: fromHeader,
+    replyTo: biller.supportEmail
+  };
+
+  // Resolve target brand email
+  let toEmail = biller.supportEmail;
+  try {
+    const brand = await getQuery('SELECT contact_email FROM brands WHERE id = $1', [brandId]);
+    if (brand && brand.contact_email) {
+      toEmail = brand.contact_email;
+    }
+  } catch (err) {
+    console.error('[Billing Email Resolver Error]', err.message);
+  }
+
+  // Append agency footer contact info to bodyHtml if available
+  let footerHtml = '';
+  try {
+    const brandData = await getQuery('SELECT agency_id FROM brands WHERE id = $1', [brandId]);
+    if (brandData && brandData.agency_id) {
+      const agency = await getQuery('SELECT is_platform_biller, billing_name, billing_address, billing_vat, billing_support_email FROM agencies WHERE id = $1', [brandData.agency_id]);
+      if (agency && (agency.is_platform_biller === 1 || agency.is_platform_biller === true)) {
+        footerHtml = `
+          <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; font-size: 0.8rem; color: #666; font-family: sans-serif;">
+            <p style="margin: 0 0 5px 0;"><strong>Billing Agent:</strong> ${agency.billing_name || 'Partner Agent'}</p>
+            ${agency.billing_address ? `<p style="margin: 0 0 5px 0;"><strong>Address:</strong> ${agency.billing_address.replace(/\n/g, '<br/>')}</p>` : ''}
+            ${agency.billing_vat ? `<p style="margin: 0 0 5px 0;"><strong>VAT / TAX ID:</strong> ${agency.billing_vat}</p>` : ''}
+            <p style="margin: 0;">For support adjustments, contact: <a href="mailto:${agency.billing_support_email}">${agency.billing_support_email}</a></p>
+          </div>
+        `;
+      }
+    }
+  } catch (e) {
+    console.error('[Billing Email Footer Resolver Error]', e.message);
+  }
+
+  if (footerHtml) {
+    if (bodyHtml.includes('</div>')) {
+      const lastIndex = bodyHtml.lastIndexOf('</div>');
+      bodyHtml = bodyHtml.substring(0, lastIndex) + footerHtml + bodyHtml.substring(lastIndex);
+    } else {
+      bodyHtml += footerHtml;
+    }
+  }
+
+  await sendMailHelper(toEmail, subject, bodyHtml, bodyText, mailOptions);
+}
+
 async function sendPaymentReminderEmail(brand, balance) {
-  const subject = `⚠️ ACTION REQUIRED: Outstanding Balance Reminder for ${brand.name}`;
+  const biller = await resolveBillerForBrand(brand.id);
+  const subject = `⚠️ ACTION REQUIRED: Outstanding Balance Notice from ${biller.displayName}`;
   const amountDue = Math.abs(balance).toFixed(2);
   const emailHtml = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
       <h2 style="color: #d32f2f; margin-top: 0;">Outstanding Balance Notice</h2>
       <p>Hello team at <strong>${brand.name}</strong>,</p>
-      <p>This is an automated notification from the Strictly Coffee platform. Your subscription renewal card payment has failed, and your account ledger balance has fallen into negative: <strong>-€${amountDue}</strong>.</p>
+      <p>This is an automated notification from ${biller.displayName}. Your subscription renewal card payment has failed, and your account ledger balance has fallen into negative: <strong>-€${amountDue}</strong>.</p>
       <div style="background: #fff5f5; border-left: 4px solid #ef5350; padding: 12px; margin: 16px 0; border-radius: 4px;">
         <strong>Current Balance:</strong> -€${amountDue}<br/>
         <strong>Status:</strong> ${brand.status === 'suspended' ? '<span style="color: #d32f2f; font-weight: 700;">SUSPENDED</span>' : 'Pending Suspension'}
@@ -8064,10 +8845,10 @@ async function sendPaymentReminderEmail(brand, balance) {
       <div style="margin: 24px 0; text-align: center;">
         <a href="https://dash.stricktlycoffee.be" style="background: #0052cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Update Billing & Resolve</a>
       </div>
-      <p style="color: #777; font-size: 0.85rem;">If you have any questions or require assistance, please contact support@stricktlycoffee.be.</p>
+      <p style="color: #777; font-size: 0.85rem;">If you have any questions or require assistance, please contact support at <strong>${biller.supportEmail}</strong>.</p>
     </div>
   `;
-  await sendMailHelper(brand.contact_email || 'support@stricktlycoffee.be', subject, emailHtml);
+  await sendPlatformBillingEmail(brand.id, subject, emailHtml);
 }
 
 // Force send all pending emails now (Simulation Trigger)
@@ -8123,12 +8904,27 @@ setInterval(async () => {
   }
 }, 30000); // Check every 30 seconds
 
+// Unlock pending invoice splits for an agency's brand
+async function unlockAgencyCommissions(brandId) {
+  try {
+    const res = await runQuery(`
+      UPDATE agency_payout_ledger l
+      SET status = 'unpaid', updated_at = CURRENT_TIMESTAMP
+      FROM orders o
+      WHERE l.order_id = o.id AND o.brand_id = $1 AND l.status = 'pending_invoice'
+    `, [brandId]);
+    console.log(`[Agency Engine] Unlocked pending commission splits for brand ${brandId} upon platform payment receipt.`);
+  } catch (err) {
+    console.error('[Agency Engine Error] Failed to unlock pending splits:', err.message);
+  }
+}
+
 // Subscription/fee billing engine
 async function processDueSubscriptions() {
   try {
     // Find all active subscriptions that are due for billing (next_charge_at <= NOW())
     const dueSubscriptions = await allQuery(`
-      SELECT s.*, b.name as brand_name, b.subscription_billing_method, b.stripe_customer_id
+      SELECT s.*, b.name as brand_name, b.subscription_billing_method, b.stripe_customer_id, b.agency_id
       FROM merchant_subscriptions s
       JOIN brands b ON s.brand_id = b.id
       WHERE s.status = 'active' AND (s.next_charge_at IS NULL OR s.next_charge_at <= NOW())
@@ -8141,10 +8937,10 @@ async function processDueSubscriptions() {
       let netBalanceEffect = -amount; // default: reduces ledger balance
 
       // If they configured Stripe card billing and have a linked customer ID
-      if (sub.subscription_billing_method === 'stripe_card' && sub.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+      if (sub.subscription_billing_method === 'stripe_card' && sub.stripe_customer_id) {
         try {
           console.log(`[Subscription Engine] Attempting off-session credit card payment for brand: ${sub.brand_id} (Customer: ${sub.stripe_customer_id})...`);
-          const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
+          const stripe = await getStripeInstanceForPlatformCharge({ agency_id: sub.agency_id });
           
           // Execute payment intent off-session using customer's default payment method
           const paymentIntent = await stripe.paymentIntents.create({
@@ -8162,6 +8958,7 @@ async function processDueSubscriptions() {
             netBalanceEffect = 0.00; // Payout balance remains unaffected since payment was direct
             chargeDescription = `Direct Card Payment Succeeded: subscription fee for ${sub.name}`;
             console.log(`[Subscription Engine] Stripe payment succeeded for brand ${sub.brand_id}. Intent: ${paymentIntent.id}`);
+            await unlockAgencyCommissions(sub.brand_id);
           }
         } catch (err) {
           // If direct card billing fails, log error and fall back to ledger deduction
@@ -8220,6 +9017,22 @@ async function processDueSubscriptions() {
         }
       }
 
+      // Auto generate S3 Invoice statement
+      const invoiceStatus = (cardChargeSuccess || updatedBalance >= 0) ? 'paid' : 'unpaid';
+      const vatAmt = amount * 0.21; // 21% default VAT
+      try {
+        console.log(`[Subscription Engine] Triggering PDF Invoice statement for brand: ${sub.brand_id}...`);
+        await generateAndUploadInvoice(
+          sub.brand_id,
+          amount,
+          vatAmt,
+          invoiceStatus,
+          `Monthly Subscription Renewal: ${sub.name}`
+        );
+      } catch (pdfErr) {
+        console.error('[Subscription Engine] PDF invoice generation failed:', pdfErr.message);
+      }
+
       // Rollover pending tier/interval if any
       let finalName = sub.name;
       let finalAmount = amount;
@@ -8231,17 +9044,17 @@ async function processDueSubscriptions() {
         
         let subAmount = 49.00;
         if (sub.pending_tier === 'standard') subAmount = 49.00;
-        else if (sub.pending_tier === 'professional') subAmount = 99.00;
-        else if (sub.pending_tier === 'enterprise') subAmount = 199.00;
+        else if (sub.pending_tier === 'professional') subAmount = 149.00;
+        else if (sub.pending_tier === 'enterprise') subAmount = 499.00;
         
         if (finalInterval === 'yearly') {
           if (sub.pending_tier === 'standard') subAmount = 468.00;
-          else if (sub.pending_tier === 'professional') subAmount = 948.00;
-          else if (sub.pending_tier === 'enterprise') subAmount = 1908.00;
+          else if (sub.pending_tier === 'professional') subAmount = 1428.00;
+          else if (sub.pending_tier === 'enterprise') subAmount = 4788.00;
         }
         finalAmount = subAmount;
         
-        await runQuery('UPDATE brands SET ai_tier = $1 WHERE id = $2', [sub.pending_tier, sub.brand_id]);
+        await runQuery('UPDATE brands SET ai_tier = $1, platform_take_rate = $2 WHERE id = $3', [sub.pending_tier, getTakeRateForTier(sub.pending_tier), sub.brand_id]);
         console.log(`[Subscription Engine] Processed pending rollover tier change for brand ${sub.brand_id} to ${sub.pending_tier} (${finalInterval}: €${finalAmount})`);
       }
 
@@ -8355,10 +9168,10 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
     const currentBalance = parseFloat(balanceResult?.balance) || 0.00;
 
     let stripeConnectStatus = 'unlinked';
-    if (brand.stripe_connect_account_id && process.env.STRIPE_SECRET_KEY) {
+    const platformStripe = await getStripeInstanceForPlatformCharge(brand);
+    if (brand.stripe_connect_account_id && platformStripe) {
       try {
-        const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
-        const acc = await stripe.accounts.retrieve(brand.stripe_connect_account_id);
+        const acc = await platformStripe.accounts.retrieve(brand.stripe_connect_account_id);
         if (acc.details_submitted) {
           stripeConnectStatus = 'active';
           await runQuery('UPDATE brands SET stripe_enabled = TRUE WHERE id = $1', [brandId]);
@@ -8372,10 +9185,9 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
     }
 
     let hasCardLinked = false;
-    if (brand.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+    if (brand.stripe_customer_id && platformStripe) {
       try {
-        const stripe = new stripeLib(process.env.STRIPE_SECRET_KEY);
-        const customer = await stripe.customers.retrieve(brand.stripe_customer_id);
+        const customer = await platformStripe.customers.retrieve(brand.stripe_customer_id);
         if (customer.invoice_settings && customer.invoice_settings.default_payment_method) {
           hasCardLinked = true;
         }
@@ -8384,6 +9196,9 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
       }
     }
     
+    const activeSub = await getQuery(`SELECT amount FROM merchant_subscriptions WHERE brand_id = $1 AND status = 'active'`, [brandId]);
+    const activeSubAmount = activeSub ? parseFloat(activeSub.amount) : null;
+
     res.json({
       brand_id: brandId,
       balance: currentBalance,
@@ -8391,7 +9206,8 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
       stripe_connect_status: stripeConnectStatus,
       subscription_billing_method: brand.subscription_billing_method || 'ledger',
       stripe_customer_id: brand.stripe_customer_id || null,
-      card_linked: hasCardLinked
+      card_linked: hasCardLinked,
+      active_subscription_amount: activeSubAmount
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -9802,13 +10618,13 @@ Return ONLY a JSON object in this format:
 Do not wrap response in markdown blocks other than standard raw text.`;
 
         console.log(`[AI Copywriter Studio] Generating custom ad copy for brand: ${brandId} using model: ${targetModel}`);
-        const textResult = await callAiModel(targetModel, prompt, true);
-        const parsed = parseRobustJson(textResult);
+        const apiResult = await callAiModelWithUsage(targetModel, prompt, true);
+        const parsed = parseRobustJson(apiResult.text);
         
         let costUsd = 0.0;
         if (brandId) {
-          costUsd = estimateGeminiCost(targetModel, 1000, 500);
-          await logAiUsage(brandId, 'Campaign Ad Copy Generation', targetModel, { promptTokenCount: 1000, candidatesTokenCount: 500, totalTokenCount: 1500 });
+          costUsd = estimateGeminiCost(targetModel, apiResult.usage.promptTokenCount, apiResult.usage.candidatesTokenCount);
+          await logAiUsage(brandId, 'Campaign Ad Copy Generation', targetModel, apiResult.usage);
         }
 
         if (parsed.headline && parsed.ad_copy) {
@@ -10053,10 +10869,16 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
-  const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration } = req.body;
-  if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
+  try {
+    await checkAiLimits(brandId, 'visuals');
+  } catch (err) {
+    return res.status(429).json({ error: err.message });
+  }
 
   try {
+    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft } = req.body;
+    if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
+
     // 1. Fetch brand center details: canvas, manuscript, and Visual DNA profiles
     const brand = await getQuery('SELECT name, brand_canvas, marketing_protocol, target_audience_demographics, visual_identity_guidelines FROM brands WHERE id = $1', [brandId]);
     if (!brand) return res.status(404).json({ error: 'Brand not found.' });
@@ -10082,10 +10904,18 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     }
 
     // 2. Resolve Product Visual DNA (if product mentioned in prompt or fallback to main product)
+    const { productId, personaName, sceneryName, actionDescription, backend } = req.body;
     const lowercasePrompt = (prompt || '').toLowerCase();
-    const allProducts = await allQuery('SELECT title, visual_dna, image FROM products WHERE brand_id = $1', [brandId]);
-    const matchedProduct = allProducts.find(p => lowercasePrompt.includes(p.title.toLowerCase()));
-    const targetProduct = matchedProduct || (allProducts.length > 0 ? allProducts[0] : null);
+    
+    let targetProduct = null;
+    if (productId) {
+      targetProduct = await getQuery('SELECT title, visual_dna, image FROM products WHERE id = $1 AND brand_id = $2', [productId, brandId]);
+    }
+    if (!targetProduct) {
+      const allProducts = await allQuery('SELECT title, visual_dna, image FROM products WHERE brand_id = $1', [brandId]);
+      const matchedProduct = allProducts.find(p => lowercasePrompt.includes(p.title.toLowerCase()));
+      targetProduct = matchedProduct || (allProducts.length > 0 ? allProducts[0] : null);
+    }
     
     let productDna = null;
     if (targetProduct && targetProduct.visual_dna) {
@@ -10094,34 +10924,60 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       } catch (e) {}
     }
 
+    // Resolve Persona Details
+    let selectedPersona = null;
+    if (personaName && canvas.personas) {
+      selectedPersona = canvas.personas.find(p => p.name === personaName);
+    }
+
+    // Resolve Scenery Details
+    let selectedScenery = null;
+    if (sceneryName && canvas.sceneries) {
+      selectedScenery = canvas.sceneries.find(s => s.name === sceneryName);
+    }
+
     // 3. Assemble State-of-the-Art Adaptive Brand Prompt
     let structuredPrompt = prompt || '';
-    if (action === 'image' || action === 'generate') {
+    const isPrecompiled = prompt && prompt.startsWith('[Engine:');
+    if ((action === 'image' || action === 'generate') && !isPrecompiled) {
       const subjectDesc = productDna ? productDna.subject : (targetProduct ? targetProduct.title : 'premium coffee accessories');
       
-      const hasPerson = /(person|model|man|woman|girl|guy|people|barista|hands|holding|drinking|face|smile)/i.test(prompt || '');
-      const hasOnlyItem = /(just the item|only product|no model|no person|only item|no people)/i.test(prompt || '');
-      const bypassBrand = /(ignore style guide|no brand|raw style|generic style|without style guide)/i.test(prompt || '');
+      const lighting = lightingStyle || (selectedScenery ? selectedScenery.lighting : (visualGuidelines.lighting || 'natural soft side light'));
+      const bgStyle = selectedScenery ? selectedScenery.description : (visualGuidelines.environment_style || 'modern minimalist setting');
       
-      const lighting = bypassBrand ? 'natural lighting' : (visualGuidelines.lighting || 'natural soft side light');
-      const bgStyle = bypassBrand ? 'clean background' : (visualGuidelines.environment_style || 'modern minimalist setting');
-      const photoStyle = bypassBrand ? 'standard digital photography' : (visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture');
+      let customPhotoStyle = '';
+      if (cameraLens) customPhotoStyle += `${cameraLens}, `;
+      if (composition) customPhotoStyle += `${composition}, `;
+      customPhotoStyle += selectedScenery ? selectedScenery.photography_style : (visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture');
       
       let demographicsDesc = '';
-      if (!hasOnlyItem && (hasPerson || demographics.demographic_profile)) {
-        const age = demographics.age || '25-35';
-        const role = demographics.role || 'barista enthusiast';
-        const expression = demographics.expression || 'focused';
-        const apparel = demographics.apparel || 'casual linen apron';
-        demographicsDesc = `Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. `;
+      if (selectedPersona) {
+        demographicsDesc = `Used by a ${selectedPersona.age || '25-35'} year old ${selectedPersona.role || 'barista'} model with ${selectedPersona.expression || 'focused'} expression, wearing ${selectedPersona.apparel || 'casual attire'}. `;
+        if (selectedPersona.description) {
+          demographicsDesc += `The model embodies this persona: "${selectedPersona.description}". `;
+        }
+      } else {
+        // Fallback to general demographics if present
+        const hasPerson = /(person|model|man|woman|girl|guy|people|barista|hands|holding|drinking|face|smile)/i.test(prompt || '');
+        if (hasPerson) {
+          const age = demographics.age || '25-35';
+          const role = demographics.role || 'barista enthusiast';
+          const expression = demographics.expression || 'focused';
+          const apparel = demographics.apparel || 'casual linen apron';
+          demographicsDesc = `Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. `;
+        }
       }
+
+      const actDesc = actionDescription || 'showcasing the product';
+
+      // Assemble final prompt structure
+      const enginePrefix = backend ? `[Engine: ${backend.toUpperCase()}] ` : '';
+      structuredPrompt = `${enginePrefix}Commercial advertising photography, ${subjectDesc} in focus, ${actDesc}. ${demographicsDesc}Set in a ${bgStyle}. Shot on professional camera, ${lighting}, ${customPhotoStyle}, premium photo quality, realistic textures.`;
       
-      structuredPrompt = `Commercial advertising photography, ${subjectDesc} in focus. ${demographicsDesc}Set in a ${bgStyle} background. Shot on professional camera, ${lighting}, ${photoStyle}, premium photo quality, realistic textures.`;
-      
-      if (prompt) {
-        structuredPrompt += ` In the style of: ${prompt}.`;
+      if (prompt && !lowercasePrompt.includes(subjectDesc.toLowerCase())) {
+        structuredPrompt += ` Extra creative style cue: ${prompt}.`;
       }
-      console.log(`[AI Studio] Assembled Adaptive Brand Prompt: "${structuredPrompt}"`);
+      console.log(`[AI Studio] Assembled Visual Studio Prompt: "${structuredPrompt}"`);
     }
 
     let mediaUrl = '';
@@ -10129,6 +10985,8 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     let targetFolder = 'AI Studio';
     let fileExtension = 'jpg';
     let isVideo = false;
+
+    const activeSeed = parseInt(seed) || Math.floor(Math.random() * 1000000);
 
     if (action === 'video') {
       isVideo = true;
@@ -10145,27 +11003,62 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       // Image Actions (generate / refine)
       itemTitle = targetProduct ? `AI Creative - ${targetProduct.title}` : 'AI Generated Creative';
       
-      // Determine premium Unsplash image URL matching context
+      // Unsplash Variation Pools
+      const beanImages = [
+        'https://images.unsplash.com/photo-1447933601403-0c6688de566e?q=80&w=600',
+        'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
+        'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?q=80&w=600',
+        'https://images.unsplash.com/photo-1580933187699-74d3d37e3d62?q=80&w=600'
+      ];
+      const latteImages = [
+        'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=600',
+        'https://images.unsplash.com/photo-1570968915860-54d5c301fc9f?q=80&w=600',
+        'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?q=80&w=600',
+        'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600'
+      ];
+      const cafeImages = [
+        'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600',
+        'https://images.unsplash.com/photo-1498804103079-a6351b050096?q=80&w=600',
+        'https://images.unsplash.com/photo-1453614512568-c4024d13c247?q=80&w=600',
+        'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=600'
+      ];
+      const pourImages = [
+        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600',
+        'https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=600',
+        'https://images.unsplash.com/photo-1506372023823-7424ac389471?q=80&w=600',
+        'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=600'
+      ];
+      const minimalistImages = [
+        'https://images.unsplash.com/photo-1507133750040-4a8f57021571?q=80&w=600',
+        'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?q=80&w=600',
+        'https://images.unsplash.com/photo-1512568400610-62da28bc8a13?q=80&w=600',
+        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600'
+      ];
+      const defaultImages = [
+        'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=600',
+        'https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600',
+        'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=600',
+        'https://images.unsplash.com/photo-1508215885820-4585e56135c8?q=80&w=600'
+      ];
+
+      // Determine premium Unsplash image URL matching context using seed
       if (lowercasePrompt.includes('bean') || lowercasePrompt.includes('roast') || lowercasePrompt.includes('ground')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?q=80&w=600';
+        mediaUrl = beanImages[activeSeed % beanImages.length];
       } else if (lowercasePrompt.includes('latte') || lowercasePrompt.includes('milk') || lowercasePrompt.includes('art')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=600';
+        mediaUrl = latteImages[activeSeed % latteImages.length];
       } else if (lowercasePrompt.includes('cafe') || lowercasePrompt.includes('shop') || lowercasePrompt.includes('store') || lowercasePrompt.includes('interior')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600';
+        mediaUrl = cafeImages[activeSeed % cafeImages.length];
       } else if (lowercasePrompt.includes('pour') || lowercasePrompt.includes('chemex') || lowercasePrompt.includes('filter')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600';
-      } else if (lowercasePrompt.includes('cold') || lowercasePrompt.includes('iced') || lowercasePrompt.includes('brew')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600';
+        mediaUrl = pourImages[activeSeed % pourImages.length];
       } else if (lowercasePrompt.includes('minimalist') || lowercasePrompt.includes('cup') || lowercasePrompt.includes('clean')) {
-        mediaUrl = 'https://images.unsplash.com/photo-1507133750040-4a8f57021571?q=80&w=600';
+        mediaUrl = minimalistImages[activeSeed % minimalistImages.length];
       } else {
-        // Default brand-aligned premium coffee visual
-        mediaUrl = 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=600';
+        mediaUrl = defaultImages[activeSeed % defaultImages.length];
       }
     }
 
     // 4. Download media asset to local uploads folder to store persistently
-    const targetFilename = `ai_${action}_${Date.now()}.${fileExtension}`;
+    const targetFilename = `ai_${action}_${activeSeed}_${Date.now()}.${fileExtension}`;
     const destPath = path.join(uploadDir, targetFilename);
 
     try {
@@ -10189,12 +11082,18 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       itemTitle = analysis.title;
     }
 
-    // 6. Insert created asset record to database media_library table
-    const mediaId = `ML_AI_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    await runQuery(`
-      INSERT INTO media_library (id, brand_id, title, url, folder, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [mediaId, brandId, itemTitle, publicUrl, targetFolder, metadataStr]);
+    // 6. Insert created asset record to database media_library table (skip if draft is requested)
+    let mediaId = null;
+    if (!draft) {
+      mediaId = `ML_AI_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      await runQuery(`
+        INSERT INTO media_library (id, brand_id, title, url, folder, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [mediaId, brandId, itemTitle, publicUrl, targetFolder, metadataStr]);
+    }
+
+    const operation = isVideo ? 'AI Studio Video Generation' : 'AI Studio Image Generation';
+    await logAiUsage(brandId, operation, backend || (isVideo ? 'luma' : 'flux'), { promptTokenCount: 1000, candidatesTokenCount: 500 });
 
     res.json({
       success: true,
@@ -10204,10 +11103,46 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
         url: publicUrl,
         folder: targetFolder,
         source_type: 'ai_studio',
+        seed: activeSeed,
+        prompt: structuredPrompt,
+        metadata: analysis,
         created_at: new Date().toISOString()
       }
     });
 
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST save AI Studio draft to library catalog
+app.post('/api/global/media/ai-studio/save', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+
+  const { title, url, folder, metadata } = req.body;
+  if (!url) return res.status(400).json({ error: 'Missing required field: url.' });
+
+  try {
+    const mediaId = `ML_AI_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const metadataStr = metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : null;
+
+    await runQuery(`
+      INSERT INTO media_library (id, brand_id, title, url, folder, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [mediaId, brandId, title || 'AI Generated Creative', url, folder || 'AI Studio', metadataStr]);
+
+    res.json({
+      success: true,
+      item: {
+        id: mediaId,
+        title: title || 'AI Generated Creative',
+        url: url,
+        folder: folder || 'AI Studio',
+        source_type: 'ai_studio',
+        created_at: new Date().toISOString()
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

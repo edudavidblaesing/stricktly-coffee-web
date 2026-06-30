@@ -1013,44 +1013,16 @@
                                 <span @click="applyMainCreativePreset('youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube/Wide (16:9)</span>
                             </div>
 
-                            <!-- Settings Row -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                                <div>
-                                    <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Aspect Ratio</label>
-                                    <select v-model="aiStudioAspectRatio" style="font-size: 0.7rem; padding: 2px 16px 2px 4px !important; height: 24px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                        <option value="1:1">1:1 Square</option>
-                                        <option value="16:9">16:9 Wide</option>
-                                        <option value="9:16">9:16 Tall</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Motion Intensity</label>
-                                    <select v-model="aiStudioMotion" style="font-size: 0.7rem; padding: 2px 16px 2px 4px !important; height: 24px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                        <option value="low">Low Motion</option>
-                                        <option value="medium">Medium Motion</option>
-                                        <option value="high">High Motion</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Video Duration</label>
-                                    <select v-model="aiStudioDuration" style="font-size: 0.7rem; padding: 2px 16px 2px 4px !important; height: 24px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                        <option value="3s">3 Seconds</option>
-                                        <option value="5s">5 Seconds</option>
-                                        <option value="10s">10 Seconds</option>
-                                    </select>
-                                </div>
+                            <!-- Composed Brand AI Assets Actions -->
+                            <div style="display: flex; gap: 8px; margin-top: 6px;">
+                                <button type="button" @click="generateAIStudioAsset" :disabled="aiStudioGenerating" class="sc-ai-button" style="flex: 1; font-size: 0.72rem; padding: 4px 12px; height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: white; border: none; font-weight: 700; border-radius: 4px;">
+                                    <span v-if="aiStudioGenerating">⏳ Generating...</span>
+                                    <span v-else>⚡ 1-Click Auto-Gen</span>
+                                </button>
+                                <button type="button" @click="openComposerModal('main', 0)" class="sc-ai-button" style="flex: 1; font-size: 0.72rem; padding: 4px 12px; height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%); color: var(--workspace-bg); border: none; font-weight: 700; border-radius: 4px;">
+                                    🎨 Visual Composer
+                                </button>
                             </div>
-
-                            <!-- Action Button -->
-                            <button type="button" @click="generateAIStudioAsset" :disabled="aiStudioGenerating || (aiStudioAction !== 'generate' && !newCampaign.media_url)" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 12px; height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;">
-                                <span v-if="aiStudioGenerating">⏳ Generating... [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                                <span v-else-if="lastGeneratingAIStudioCost && aiStudioAction === 'generate'">🎨 Generate Ad Image [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
-                                <span v-else-if="lastGeneratingAIStudioCost && aiStudioAction === 'refine'">✨ Refine Selected Image [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
-                                <span v-else-if="lastGeneratingAIStudioCost">🎬 Animate Image to Video [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
-                                <span v-else-if="aiStudioAction === 'generate'">🎨 Generate Ad Image</span>
-                                <span v-else-if="aiStudioAction === 'refine'">✨ Refine Selected Image</span>
-                                <span v-else>🎬 Animate Image to Video</span>
-                            </button>
                         </div>
                     </div>
 
@@ -1162,43 +1134,16 @@
                                     <span @click="applyCardCreativePreset(card, 'youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube (16:9)</span>
                                 </div>
 
-                                <!-- AI Studio settings row -->
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
-                                    <div>
-                                        <label style="font-size: 0.6rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Aspect Ratio</label>
-                                        <select v-model="card.aspectRatio" style="font-size: 0.65rem; padding: 2px 12px 2px 4px !important; height: 22px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                            <option value="1:1">1:1 Square</option>
-                                            <option value="16:9">16:9 Wide</option>
-                                            <option value="9:16">9:16 Tall</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 0.6rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Motion</label>
-                                        <select v-model="card.motionIntensity" style="font-size: 0.65rem; padding: 2px 12px 2px 4px !important; height: 22px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                            <option value="low">Low Motion</option>
-                                            <option value="medium">Medium Motion</option>
-                                            <option value="high">High Motion</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 0.6rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Duration</label>
-                                        <select v-model="card.duration" style="font-size: 0.65rem; padding: 2px 12px 2px 4px !important; height: 22px; width: 100%; background: var(--card-bg); border-color: var(--border); color: var(--text-main); margin: 0;">
-                                            <option value="3s">3 Seconds</option>
-                                            <option value="5s">5 Seconds</option>
-                                            <option value="10s">10 Seconds</option>
-                                        </select>
-                                    </div>
+                                <!-- Composed Brand AI Assets Actions -->
+                                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                                    <button type="button" @click="generateCardAIStudioAsset(idx)" :disabled="card.aiStudioGenerating" class="sc-ai-button" style="flex: 1; font-size: 0.68rem; padding: 4px 8px; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: white; border: none; font-weight: 700; border-radius: 4px;">
+                                        <span v-if="card.aiStudioGenerating">⏳ Generating...</span>
+                                        <span v-else>⚡ 1-Click Auto-Gen</span>
+                                    </button>
+                                    <button type="button" @click="openComposerModal('card', idx)" class="sc-ai-button" style="flex: 1; font-size: 0.68rem; padding: 4px 8px; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%); color: var(--workspace-bg); border: none; font-weight: 700; border-radius: 4px;">
+                                        🎨 Visual Composer
+                                    </button>
                                 </div>
-
-                                <button type="button" @click="generateCardAIStudioAsset(idx)" :disabled="card.aiStudioGenerating || !card.aiStudioAction || (card.aiStudioAction !== 'generate' && !card.image)" class="sc-ai-button" style="font-size: 0.68rem; padding: 2px 8px; height: 24px; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;">
-                                    <span v-if="card.aiStudioGenerating">⏳ Generating... [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                                    <span v-else-if="card.lastAiStudioCost && card.aiStudioAction === 'generate'">🎨 Generate Image [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
-                                    <span v-else-if="card.lastAiStudioCost && card.aiStudioAction === 'refine'">✨ Refine Image [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
-                                    <span v-else-if="card.lastAiStudioCost">🎬 Animate to Video [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
-                                    <span v-else-if="card.aiStudioAction === 'generate'">🎨 Generate Image</span>
-                                    <span v-else-if="card.aiStudioAction === 'refine'">✨ Refine Image</span>
-                                    <span v-else>🎬 Animate to Video</span>
-                                </button>
                             </div>
 
                             <!-- Card Title (Headline) input -->
@@ -1206,9 +1151,17 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
                                     <label style="font-size: 0.68rem; color: var(--text-muted); margin: 0;">Card Headline / CTA Text</label>
                                     <button type="button" @click="generateCardHeadlineViaAI(idx)" :disabled="card.generatingHeadline" class="sc-ai-button" style="font-size: 0.62rem; padding: 2px 6px; height: 18px; margin: 0; line-height: 1; display: inline-flex; align-items: center; gap: 2px;">
-                                        <span v-if="card.generatingHeadline">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
-                                        <span v-else-if="card.lastHeadlineCost">✨ AI Generate [Last: €{{ card.lastHeadlineCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ AI Generate</span>
+                                        <template v-if="card.generatingHeadline">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                            <span v-else>⏳ Generating...</span>
+                                        </template>
+                                        <template v-else-if="card.lastHeadlineCost">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Generate [Last: €{{ card.lastHeadlineCost.toFixed(4) }}]</span>
+                                            <span v-else>✨ AI Generate</span>
+                                        </template>
+                                        <template v-else>
+                                            <span>✨ AI Generate</span>
+                                        </template>
                                     </button>
                                 </div>
                                 <input type="text" v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" style="font-size: 0.75rem; padding: 6px 10px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
@@ -1229,9 +1182,17 @@
                         </div>
                         <button type="button" @click="toggleTranslateAllCampaignLanguages" :disabled="!newCampaign.headline || !newCampaign.ad_copy" :title="(!newCampaign.headline || !newCampaign.ad_copy) ? 'Write base English headline and description copy first.' : ''" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0;">
                             <span v-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate All</span>
-                            <span v-else-if="translatingCampaign">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                            <span v-else-if="lastTranslatingCampaignCost">✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales) [Last: €{{ lastTranslatingCampaignCost.toFixed(4) }}]</span>
-                            <span v-else>✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales)</span>
+                            <template v-else-if="translatingCampaign">
+                                <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                <span v-else>⏳ Translating all... | 🛑 Stop</span>
+                            </template>
+                            <template v-else-if="lastTranslatingCampaignCost">
+                                <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales) [Last: €{{ lastTranslatingCampaignCost.toFixed(4) }}]</span>
+                                <span v-else>✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales)</span>
+                            </template>
+                            <template v-else>
+                                <span>✨ AI Translate All ({{ newCampaign.languages.filter(l => l !== 'en').length }} Locales)</span>
+                            </template>
                         </button>
                     </div>
 
@@ -1241,9 +1202,18 @@
                             <!-- Translate button if not default 'en' -->
                             <button v-if="campaignContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 3px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="toggleCampaignTranslation(campaignContentLang)" :disabled="!newCampaign.headline || !newCampaign.ad_copy" :title="(!newCampaign.headline || !newCampaign.ad_copy) ? 'Write base English headline and description copy first.' : ''">
                                 <span v-if="!app.isFeatureAllowed('allow_translator')">🔒 AI Translate</span>
-                                <span v-else-if="translatingCampaign">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                <span v-else-if="lastTranslatingCampaignCost">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingCampaignCost.toFixed(4) }}]</span>
-                                <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
+                                <template v-else-if="translatingCampaign">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                    <span v-else>⏳ Translating... | 🛑 Stop</span>
+                                </template>
+                                <template v-else-if="lastTranslatingCampaignCost">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingCampaignCost.toFixed(4) }}]</span>
+                                    <span v-else>✨ AI Translate from EN</span>
+                                </template>
+                                <template v-else>
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
+                                    <span v-else>✨ AI Translate from EN</span>
+                                </template>
                             </button>
                         </div>
 
@@ -1271,9 +1241,18 @@
                             </div>
                             <button type="button" @click="toggleGenerateAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0; flex-shrink: 0;">
                                 <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
-                                <span v-else-if="generatingAICopy">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                <span v-else-if="lastGeneratingAICopyCost">Write Copy [Est: {{ copywriterEstCost }}] [Last: €{{ lastGeneratingAICopyCost.toFixed(4) }}]</span>
-                                <span v-else>Write Copy [Est: {{ copywriterEstCost }}]</span>
+                                <template v-else-if="generatingAICopy">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                    <span v-else>⏳ Generating copy... | 🛑 Stop</span>
+                                </template>
+                                <template v-else-if="lastGeneratingAICopyCost">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">Write Copy [Est: {{ copywriterEstCost }}] [Last: €{{ lastGeneratingAICopyCost.toFixed(4) }}]</span>
+                                    <span v-else>Write Copy</span>
+                                </template>
+                                <template v-else>
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">Write Copy [Est: {{ copywriterEstCost }}]</span>
+                                    <span v-else>Write Copy</span>
+                                </template>
                             </button>
                             <AiEstimateBadge v-if="app.isFeatureAllowed('allow_copywriter') && !generatingAICopy" operation="Campaign Ad Copy Generation" />
                         </div>
@@ -2812,6 +2791,138 @@
                 </div>
             </div>
         </div>
+        <!-- Composed Visual Studio Modal Overlay -->
+        <div v-if="showComposerModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 16px;">
+            <div class="modal-content" style="background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 900px; max-height: 90%; box-shadow: 0 24px 38px 3px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02);">
+                    <h3 style="margin: 0; color: var(--accent); font-size: 1.15rem; font-family: var(--font-display); font-weight: 700;">
+                        📸 Custom Brand Visual Composer Studio
+                    </h3>
+                    <button type="button" @click="showComposerModal = false" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 4px;">✕</button>
+                </div>
+
+                <!-- Body (Split Panel) -->
+                <div style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px;">
+                    <!-- Left Options Panel -->
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- Product Selection -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">1. Select Target Catalog Product</label>
+                            <select v-model="composerParams.productId" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                <option value="">None (Generic Scene Shot)</option>
+                                <option v-for="p in app.products" :key="p.id" :value="p.id">
+                                    🛍️ {{ p.title }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Persona Selection -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">2. Select Brand Persona / Model</label>
+                            <select v-model="composerParams.personaName" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                <option value="">No model (Product only studio composition)</option>
+                                <option v-for="p in (brandCanvas ? brandCanvas.personas : [])" :key="p.name" :value="p.name">
+                                    👤 {{ p.name }} ({{ p.role }})
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Scenery Selection -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">3. Select Scenery Backdrop</label>
+                            <select v-model="composerParams.sceneryName" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                <option v-for="s in (brandCanvas ? brandCanvas.sceneries : [])" :key="s.name" :value="s.name">
+                                    🌄 {{ s.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Action Description -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">4. Action / Scenario description</label>
+                            <input type="text" v-model="composerParams.actionDescription" placeholder="e.g. showcasing the product on a concrete counter" style="height: 38px; font-size: 0.82rem; margin: 0; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 0 12px; outline: none;">
+                        </div>
+
+                        <!-- AI Engine Selector -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">5. AI Generation Engine</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" v-for="eng in ['imagen', 'flux', 'dalle']" :key="eng" 
+                                        @click="composerParams.backend = eng"
+                                        class="btn" style="flex: 1; height: 36px; font-size: 0.75rem; font-weight: 700; border-radius: 6px; margin: 0; text-transform: uppercase;"
+                                        :style="composerParams.backend === eng ? 'background: var(--accent); color: var(--workspace-bg); border-color: var(--accent);' : 'background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);'">
+                                    {{ eng === 'imagen' ? 'Imagen 3' : (eng === 'flux' ? 'FLUX.1 [dev]' : 'DALL-E 3') }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Output Format Toggle -->
+                        <div class="form-group">
+                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block; color: var(--text-main);">6. Creative Output Format</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" @click="composerParams.format = 'image'" class="btn" style="flex: 1; height: 34px; font-size: 0.75rem; font-weight: 600; margin: 0; border-radius: 6px;"
+                                        :style="composerParams.format === 'image' ? 'background: #22c55e; color: #0d0e12;' : 'background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);'">
+                                    📸 High-Res Photo
+                                </button>
+                                <button type="button" @click="composerParams.format = 'video'" class="btn" style="flex: 1; height: 34px; font-size: 0.75rem; font-weight: 600; margin: 0; border-radius: 6px;"
+                                        :style="composerParams.format === 'video' ? 'background: #a855f7; color: white;' : 'background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);'">
+                                    🎬 Cinemagraph Video
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Monitoring / Preview Panel -->
+                    <div style="display: flex; flex-direction: column; gap: 15px; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 15px; border: 1px solid var(--border);">
+                        <!-- Live Prompt -->
+                        <div style="background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+                            <label style="font-size: 0.65rem; color: var(--accent); text-transform: uppercase; font-weight: 800; display: block; margin-bottom: 4px;">
+                                Assembled Brand visual Blueprint Prompt
+                            </label>
+                            <div style="font-size: 0.76rem; color: var(--text-main); line-height: 1.4; font-family: monospace; white-space: pre-wrap; word-break: break-all;">
+                                {{ composerLivePrompt }}
+                            </div>
+                        </div>
+
+                        <!-- Render Window -->
+                        <div style="flex: 1; background: var(--workspace-bg); border: 1px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; min-height: 250px;">
+                            <!-- Idle State -->
+                            <div v-if="!composerGenerating && !composerResultUrl" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">🎭</span>
+                                <span style="font-size: 0.8rem; font-weight: 600; display: block; color: var(--text-main);">Ready to Compose</span>
+                                <span style="font-size: 0.7rem; display: block; margin-top: 4px;">Setup parameters and hit run to render composed asset.</span>
+                            </div>
+
+                            <!-- Generating Loader -->
+                            <div v-else-if="composerGenerating" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                                <div style="width: 36px; height: 36px; border: 3px solid rgba(197, 160, 89, 0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 0.8rem; font-weight: 700; color: var(--accent);">Rendering Composed Creative...</h4>
+                                </div>
+                            </div>
+
+                            <!-- Result Display -->
+                            <template v-else-if="composerResultUrl">
+                                <video v-if="composerParams.format === 'video'" :src="composerResultUrl" autoplay loop muted style="width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;"></video>
+                                <img v-else :src="composerResultUrl" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;">
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div style="padding: 16px 20px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.015); display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn" style="height: 36px; font-size: 0.8rem; margin:0;" @click="showComposerModal = false">Cancel</button>
+                    <button type="button" @click="executeComposerGeneration" :disabled="composerGenerating" class="btn" style="height: 36px; font-size: 0.8rem; background: var(--accent); color: var(--workspace-bg); font-weight: bold; margin:0; min-width: 150px;">
+                        <span>🚀 Render Creative</span>
+                    </button>
+                    <button type="button" v-if="composerResultUrl" @click="useComposedAsset" class="btn btn-primary" style="height: 36px; font-size: 0.8rem; font-weight: bold; margin:0; min-width: 150px;">
+                        ✔️ Apply to Campaign Card
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -2825,6 +2936,21 @@ export default {
             selectedCampaignIds: [],
             isCreatingCampaign: false,
             showLandingPageBuilder: false,
+            // Visual Studio Composer modal properties
+            showComposerModal: false,
+            composerTargetType: 'card', // 'main' or 'card'
+            composerTargetIndex: 0,
+            composerParams: {
+                productId: '',
+                personaName: '',
+                sceneryName: '',
+                actionDescription: 'showcasing the product',
+                backend: 'imagen',
+                format: 'image'
+            },
+            composerGenerating: false,
+            composerResultUrl: '',
+            brandCanvas: null,
             generatingAutopilot: false,
             autopilotStatusTicks: [],
             landingPageAiGenerating: false,
@@ -2950,6 +3076,38 @@ export default {
         };
     },
     computed: {
+        composerLivePrompt() {
+            if (!this.brandCanvas) return 'Loading brand guidelines...';
+            
+            const pId = this.composerParams.productId;
+            const pers = this.composerParams.personaName;
+            const scen = this.composerParams.sceneryName;
+            const act = this.composerParams.actionDescription;
+            const backend = this.composerParams.backend;
+
+            const product = this.app.products.find(p => p.id === pId);
+            let prodDesc = product ? product.title : 'premium products';
+            if (product && product.visual_dna) {
+                try {
+                    const dna = typeof product.visual_dna === 'string' ? JSON.parse(product.visual_dna) : product.visual_dna;
+                    if (dna && dna.subject) prodDesc = dna.subject;
+                } catch(e) {}
+            }
+
+            const persona = this.brandCanvas.personas ? this.brandCanvas.personas.find(p => p.name === pers) : null;
+            let personaDesc = '';
+            if (persona) {
+                personaDesc = `Used by a ${persona.age || '25-35'} year old ${persona.role || 'barista'} model with ${persona.expression || 'focused'} expression, wearing ${persona.apparel || 'casual attire'}. `;
+            }
+
+            const scenery = this.brandCanvas.sceneries ? this.brandCanvas.sceneries.find(s => s.name === scen) : null;
+            let lighting = scenery ? scenery.lighting : 'natural soft side light';
+            let backdrop = scenery ? scenery.description : 'modern minimalist setting';
+            let cameraStyle = scenery ? scenery.photography_style : '35mm film style, warm color palette, soft bokeh, f/1.8 aperture';
+
+            const enginePrefix = backend ? `[Engine: ${backend.toUpperCase()}] ` : '';
+            return `${enginePrefix}Commercial advertising photography, ${prodDesc} in focus, ${act}. ${personaDesc}Set in a ${backdrop}. Shot on professional camera, ${lighting}, ${cameraStyle}, premium photo quality, realistic textures.`;
+        },
         authHeaders() {
             const targetBrandId = (this.isCreatingCampaign && this.newCampaign && this.newCampaign.brand_id) || this.app.activeShopFilter;
             return {
@@ -3860,12 +4018,9 @@ export default {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: this.aiStudioAction,
-                        prompt: this.aiStudioPrompt,
-                        imageUrl: this.newCampaign.media_url,
-                        aspectRatio: this.aiStudioAspectRatio,
-                        motionIntensity: this.aiStudioMotion,
-                        duration: this.aiStudioDuration
+                        action: 'generate',
+                        prompt: '', // Backend resolves everything adaptively from Brand Guidelines Canvas!
+                        backend: 'flux'
                     })
                 });
 
@@ -3874,21 +4029,16 @@ export default {
                     if (data.success && data.item) {
                         const item = data.item;
                         this.newCampaign.media_url = item.url;
-                        if (this.aiStudioAction === 'video') {
-                            this.newCampaign.format = 'Video';
-                        } else {
-                            this.newCampaign.format = 'SingleImage';
-                        }
+                        this.newCampaign.format = 'SingleImage';
                         this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + (parseFloat(data.estimated_cost) || 0.05);
-                        this.app.showNotification(`✨ AI Studio generated asset successfully and saved to Media Library.`);
-                        // Reload media library lists in the dashboard
+                        this.app.showNotification(`✨ 1-Click Adaptive Brand Asset generated successfully and saved to Media Library.`);
                         if (this.app.loadMediaItems) {
                             await this.app.loadMediaItems();
                         }
                     }
                 } else {
                     const err = await response.json();
-                    alert(`AI Studio generation failed: ${err.error}`);
+                    alert(`1-Click generation failed: ${err.error}`);
                 }
             } catch (err) {
                 alert(`Error generating asset: ${err.message}`);
@@ -3905,6 +4055,15 @@ export default {
             this.$set(this.newCampaign.carousel_cards, idx, { ...card });
             this.app.startAiTicker(this.getAiModelName);
             
+            // Resolve catalog product context if linked
+            let productId = '';
+            if (card.link) {
+                const match = card.link.match(/product=(\d+)/);
+                if (match && match[1]) {
+                    productId = match[1];
+                }
+            }
+
             try {
                 const response = await fetch(`/api/global/media/ai-studio`, {
                     method: 'POST',
@@ -3913,12 +4072,10 @@ export default {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: card.aiStudioAction || 'generate',
-                        prompt: card.aiStudioPrompt || '',
-                        imageUrl: card.image || '',
-                        aspectRatio: card.aspectRatio || '1:1',
-                        motionIntensity: card.motionIntensity || 'medium',
-                        duration: card.duration || '5s'
+                        action: 'generate',
+                        prompt: card.title || '',
+                        productId: productId,
+                        backend: 'flux'
                     })
                 });
 
@@ -3927,14 +4084,14 @@ export default {
                     if (data.success && data.item) {
                         card.image = data.item.url;
                         this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + (parseFloat(data.estimated_cost) || 0.05);
-                        this.app.showNotification(`✨ AI Studio generated card asset successfully.`);
+                        this.app.showNotification(`✨ 1-Click Adaptive Card Asset generated successfully.`);
                         if (this.app.loadMediaItems) {
                             await this.app.loadMediaItems();
                         }
                     }
                 } else {
                     const err = await response.json();
-                    alert(`AI Studio card generation failed: ${err.error}`);
+                    alert(`Card generation failed: ${err.error}`);
                 }
             } catch (err) {
                 alert(`Error generating card asset: ${err.message}`);
@@ -3944,6 +4101,111 @@ export default {
                 this.$set(this.newCampaign.carousel_cards, idx, { ...card });
                 this.app.stopAiTicker();
             }
+        },
+        async openComposerModal(targetType, idx = 0) {
+            this.composerTargetType = targetType;
+            this.composerTargetIndex = idx;
+            this.showComposerModal = true;
+            this.composerResultUrl = '';
+            
+            // Set defaults
+            this.composerParams.productId = '';
+            if (targetType === 'card' && this.newCampaign.carousel_cards[idx]) {
+                const card = this.newCampaign.carousel_cards[idx];
+                if (card.link) {
+                    const match = card.link.match(/product=(\d+)/);
+                    if (match && match[1]) {
+                        const prod = this.app.products.find(p => String(p.id) === String(match[1]));
+                        if (prod) this.composerParams.productId = prod.id;
+                    }
+                }
+            } else if (targetType === 'main' && this.newCampaign.product_id) {
+                this.composerParams.productId = this.newCampaign.product_id;
+            }
+
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.app.activeShopFilter}/canvas`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    this.brandCanvas = await response.json();
+                    
+                    if (this.brandCanvas.personas && this.brandCanvas.personas.length > 0) {
+                        this.composerParams.personaName = this.brandCanvas.personas[0].name;
+                    } else {
+                        this.composerParams.personaName = '';
+                    }
+                    if (this.brandCanvas.sceneries && this.brandCanvas.sceneries.length > 0) {
+                        this.composerParams.sceneryName = this.brandCanvas.sceneries[0].name;
+                    } else {
+                        this.composerParams.sceneryName = '';
+                    }
+                }
+            } catch (err) {
+                console.error('[Composer Modal] Failed to load brand canvas:', err);
+            }
+        },
+        async executeComposerGeneration() {
+            this.composerGenerating = true;
+            this.composerResultUrl = '';
+            this.app.startAiTicker(this.composerParams.backend === 'imagen' ? 'Imagen 3' : (this.composerParams.backend === 'flux' ? 'FLUX.1 [dev]' : 'DALL-E 3'));
+            
+            try {
+                const response = await fetch(`/api/global/media/ai-studio`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: this.composerParams.format === 'video' ? 'video' : 'generate',
+                        prompt: this.composerLivePrompt,
+                        productId: this.composerParams.productId,
+                        personaName: this.composerParams.personaName,
+                        sceneryName: this.composerParams.sceneryName,
+                        actionDescription: this.composerParams.actionDescription,
+                        backend: this.composerParams.backend
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.item) {
+                        this.composerResultUrl = data.item.url;
+                        this.app.showNotification('✨ AI Studio composed creative generated successfully!');
+                    }
+                } else {
+                    const err = await response.json();
+                    alert(`Composer generation failed: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error composing asset: ${err.message}`);
+            } finally {
+                this.composerGenerating = false;
+                this.app.stopAiTicker();
+            }
+        },
+        useComposedAsset() {
+            if (!this.composerResultUrl) return;
+            
+            if (this.composerTargetType === 'main') {
+                this.newCampaign.media_url = this.composerResultUrl;
+                if (this.composerParams.format === 'video') {
+                    this.newCampaign.format = 'Video';
+                } else {
+                    this.newCampaign.format = 'SingleImage';
+                }
+            } else {
+                const card = this.newCampaign.carousel_cards[this.composerTargetIndex];
+                if (card) {
+                    card.image = this.composerResultUrl;
+                    this.$set(this.newCampaign.carousel_cards, this.composerTargetIndex, { ...card });
+                }
+            }
+            
+            this.showComposerModal = false;
+            this.app.showNotification('🎨 Composed asset successfully applied to your campaign!');
         },
         async generateCardHeadlineViaAI(idx) {
             const card = this.newCampaign.carousel_cards[idx];

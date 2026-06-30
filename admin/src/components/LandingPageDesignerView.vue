@@ -162,11 +162,20 @@
                             <!-- Translate button if not default 'en' -->
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                                 <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="toggleTranslateLandingPage(landingPageContentLang)">
-                                    <span v-if="translatingLandingPage">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                    <span v-else-if="lastTranslatingLandingPageCost">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingLandingPageCost.toFixed(4) }}]</span>
-                                    <span v-else>✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
+                                    <template v-if="translatingLandingPage">
+                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                        <span v-else>⏳ Translating... | 🛑 Stop</span>
+                                    </template>
+                                    <template v-else-if="lastTranslatingLandingPageCost">
+                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingLandingPageCost.toFixed(4) }}]</span>
+                                        <span v-else>✨ AI Translate from EN</span>
+                                    </template>
+                                    <template v-else>
+                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
+                                        <span v-else>✨ AI Translate from EN</span>
+                                    </template>
                                 </button>
-                                <span v-if="translateAiStats && translateAiStats.calls_count > 0" style="font-size: 0.65rem; color: var(--text-muted);">
+                                <span v-if="translateAiStats && translateAiStats.calls_count > 0 && app.userRole && app.userRole.toLowerCase() === 'superadmin'" style="font-size: 0.65rem; color: var(--text-muted);">
                                     Accumulated: <strong>{{ translateAiStats.calls_count }}</strong> translations ({{ formatTokens(translateAiStats.total_tokens) }} tokens | €{{ (translateAiStats.cost_usd * 0.92).toFixed(4) }})
                                 </span>
                             </div>
@@ -339,12 +348,21 @@
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button type="button" class="btn" style="margin: 0; height: 36px; border: 1px solid var(--border);" @click="showAIModal = false" :disabled="generatingAIPage">Cancel</button>
                             <button type="button" class="sc-ai-button" style="margin: 0; height: 36px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" :disabled="!aiModalPrompt" @click="toggleGenerateAIPage">
-                                <span v-if="generatingAIPage">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                <span v-else-if="lastGeneratingAIPageCost">✨ Generate & Add Page [Gemini 2.5 Flash] [Last: €{{ lastGeneratingAIPageCost.toFixed(4) }}]</span>
-                                <span v-else>✨ Generate & Add Page [Gemini 2.5 Flash] [~$0.0006]</span>
+                                <template v-if="generatingAIPage">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                    <span v-else>⏳ Generating page structure... | 🛑 Stop</span>
+                                </template>
+                                <template v-else-if="lastGeneratingAIPageCost">
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Generate & Add Page [Gemini 2.5 Flash] [Last: €{{ lastGeneratingAIPageCost.toFixed(4) }}]</span>
+                                    <span v-else>✨ Generate & Add Page</span>
+                                </template>
+                                <template v-else>
+                                    <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Generate & Add Page [Gemini 2.5 Flash] [~$0.0006]</span>
+                                    <span v-else>✨ Generate & Add Page</span>
+                                </template>
                             </button>
                         </div>
-                        <div v-if="pageGenAiStats && pageGenAiStats.calls_count > 0" style="text-align: right; font-size: 0.72rem; color: var(--text-muted);">
+                        <div v-if="pageGenAiStats && pageGenAiStats.calls_count > 0 && app.userRole && app.userRole.toLowerCase() === 'superadmin'" style="text-align: right; font-size: 0.72rem; color: var(--text-muted);">
                             📊 Brand Page Generations: <strong>{{ pageGenAiStats.calls_count }}</strong> ({{ formatTokens(pageGenAiStats.total_tokens) }} tokens | €{{ (pageGenAiStats.cost_usd * 0.92).toFixed(4) }})
                         </div>
                     </div>

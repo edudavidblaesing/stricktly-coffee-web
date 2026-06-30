@@ -191,10 +191,10 @@
                     <div class="form-group">
                         <label>AI Operation Tier (Limits & Capabilities)</label>
                         <select :value="settingsBrand.ai_tier" @change="onAiTierChange($event.target.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
-                            <option value="none">No AI / Basic Tier (No AI Access)</option>
-                            <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
-                            <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
-                            <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
+                            <option value="none">No AI / Basic Tier (Sandbox Trial)</option>
+                            <option value="standard">Entry Tier (Gemini 2.5 Flash - €49/mo)</option>
+                            <option value="professional">Growth Tier (Gemini 3.1 Pro - €149/mo)</option>
+                            <option value="enterprise">Enterprise Tier (Deep Research Pro - €499/mo)</option>
                         </select>
                         <div v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.ai_free_tier" style="display: flex; align-items: center; margin-top: 8px;">
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin: 0;">
@@ -282,28 +282,67 @@
                             </select>
                         </div>
 
+                        <div class="form-group" style="margin: 0; grid-column: span 2; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="display: block; font-weight: 700; color: var(--text-main);">Specific Niche / Tags</label>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; min-height: 38px; align-items: center; box-sizing: border-box;">
+                                <span v-for="(tag, idx) in settingsBrandNicheTags" :key="tag" 
+                                      style="background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>{{ tag }}</span>
+                                    <span style="cursor: pointer; opacity: 0.6; font-size: 0.85rem;" @click="removeSettingsBrandNicheTag(idx)">&times;</span>
+                                </span>
+                                <input type="text" 
+                                       v-model="settingsBrandNicheInput" 
+                                       placeholder="Type tag & press Enter" 
+                                       @keydown.enter.prevent="addSettingsBrandNicheTag"
+                                       @keydown.comma.prevent="addSettingsBrandNicheTag"
+                                       style="flex: 1; border: none; background: transparent; color: var(--text-main); font-size: 0.8rem; height: 26px; padding: 0 4px; margin: 0; outline: none; min-width: 120px;">
+                            </div>
+                        </div>
+
+                        <template v-if="userRole && userRole.toLowerCase() === 'superadmin'">
+                            <div class="form-group form-full">
+                                <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Meta Pixel ID</label>
+                                <input type="text" v-model="settingsBrand.meta_pixel_id" placeholder="e.g. 15-digit ID or mock_pixel_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                    Used to load Meta Pixel tracking scripts dynamically on your storefront for PageView, AddToCart, InitiateCheckout, and Purchase events.
+                                </span>
+                            </div>
+
+                            <div class="form-group form-full">
+                                <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Google Analytics 4 Measurement ID</label>
+                                <input type="text" v-model="settingsBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX or mock_ga4_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                    Used to load dynamic gtag.js tracking scripts on your storefront for view_item, add_to_cart, begin_checkout, and purchase events.
+                                </span>
+                            </div>
+                        </template>
+
+                    <!-- Brand Billing & VAT Information -->
+                    <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: rgba(197, 160, 89, 0.02); border: 1px solid rgba(197, 160, 89, 0.12); padding: 18px; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="grid-column: 1 / -1; margin: 0 0 4px 0; font-size: 0.95rem; color: var(--accent); display: flex; align-items: center; gap: 6px; font-family: Outfit, sans-serif; font-weight: 700;">
+                            <span>🏢 Registered Billing & Tax Details</span>
+                        </h4>
+                        <p style="grid-column: 1 / -1; margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Provide your official corporate billing name, registered address, and VAT registration number to be printed on your automated PDF invoices.
+                        </p>
+                        
+                        <div class="form-group" style="margin: 0; grid-column: span 2;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Official Registered Company Name</label>
+                            <input type="text" v-model="settingsBrand.billing_name" placeholder="Roasted Coffee Bean LLC" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                        </div>
+
                         <div class="form-group" style="margin: 0;">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Specific Niche / Tags</label>
-                            <input type="text" v-model="settingsBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">VAT / Corporate Tax Registration ID</label>
+                            <input type="text" v-model="settingsBrand.billing_vat" placeholder="BE0987654321" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
                         </div>
 
-                        <div class="form-group form-full">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Meta Pixel ID</label>
-                            <input type="text" v-model="settingsBrand.meta_pixel_id" placeholder="e.g. 15-digit ID or mock_pixel_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
-                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
-                                Used to load Meta Pixel tracking scripts dynamically on your storefront for PageView, AddToCart, InitiateCheckout, and Purchase events.
-                            </span>
+                        <div class="form-group form-full" style="margin: 0; grid-column: 1 / -1;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Registered Company Billing Address</label>
+                            <textarea v-model="settingsBrand.billing_address" placeholder="100 Specialty Drive, Suite A, Antwerp, Belgium" style="width: 100%; min-height: 60px; padding: 10px; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical; margin: 0; box-sizing: border-box;"></textarea>
                         </div>
+                    </div>
 
-                        <div class="form-group form-full">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Google Analytics 4 Measurement ID</label>
-                            <input type="text" v-model="settingsBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX or mock_ga4_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
-                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
-                                Used to load dynamic gtag.js tracking scripts on your storefront for view_item, add_to_cart, begin_checkout, and purchase events.
-                            </span>
-                        </div>
-
-                        <div class="form-group form-full" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 12px; margin-top: 10px;">
+                    <div class="form-group form-full" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 12px; margin-top: 10px;">
                             <label style="display: block; font-weight: 700; margin-bottom: 4px; color: var(--text-main); font-size: 0.85rem;">Google Shopping Product Feed</label>
                             <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 8px;">
                                 Submit this URL to your Google Merchant Center to automatically list and sync your products on Google Shopping.
@@ -416,18 +455,39 @@
                             <label>Merchant Billing Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, or free ledger model.">i</span></label>
                             <select v-model="settingsBrand.billing_type" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                                 <option value="" disabled>Please select a billing model...</option>
-                                <option value="standard">Standard (Direct Stripe gateway)</option>
-                                <option value="external_split">External Split Billing (Platform Checkout split)</option>
-                                <option value="free">Free Model (0% Platform Take Rate / Ledger-based)</option>
+                                <option value="standard">🔌 Self-Managed (Direct Stripe keys - Client pays Stripe fees)</option>
+                                <option value="external_split">🏢 Managed Split (Central Checkout - Platform take-rate applied)</option>
+                                <option value="free">🧾 B2B Ledger Settlement (0% take rate - Deductions settled via invoice payouts)</option>
                             </select>
                         </div>
                         <div class="form-group" v-if="settingsBrand.billing_type === 'external_split'">
                             <label>Platform Take Rate (%) <span class="info-tooltip-trigger" data-tooltip="Platform commission percentage retained on checkouts.">i</span></label>
                             <input type="number" min="0" max="100" step="0.1" :value="settingsBrand.platform_take_rate * 100" @input="settingsBrand.platform_take_rate = parseFloat($event.target.value) / 100" style="margin: 0;" placeholder="15">
                         </div>
-                        <div class="form-group" v-if="settingsBrand.stripe_connect_account_id">
+                        <div class="form-group" v-if="settingsBrand.stripe_connect_account_id || settingsBrand.billing_type === 'external_split'">
                             <label>Stripe Connect Account ID <span class="info-tooltip-trigger" data-tooltip="The merchant Connected Account ID to route split funds programmatically.">i</span></label>
                             <input type="text" v-model="settingsBrand.stripe_connect_account_id" style="margin: 0;" placeholder="acct_1x2y3z...">
+                        </div>
+                        <div class="form-group">
+                            <label>Custom Monthly Subscription Price (€) <span class="info-tooltip-trigger" data-tooltip="Define custom monthly subscription fee for this client. Bypasses standard tier defaults.">i</span></label>
+                            <input type="number" min="0" step="0.01" v-model="settingsBrand.custom_subscription_price" style="margin: 0;" placeholder="Leave blank for tier default">
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="form-group form-full" style="background: rgba(197, 160, 89, 0.03); border: 1px solid rgba(197, 160, 89, 0.12); padding: 14px; border-radius: 8px; margin-bottom: 10px;">
+                            <label style="display: block; font-weight: 700; color: var(--accent); margin-bottom: 4px; font-size: 0.85rem;">Active Billing & Settlement Model</label>
+                            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                <span v-if="settingsBrand.billing_type === 'standard'">🔌 Self-Managed (Direct Stripe Gateway)</span>
+                                <span v-else-if="settingsBrand.billing_type === 'external_split'">🏢 Managed Split (Platform Gateway)</span>
+                                <span v-else-if="settingsBrand.billing_type === 'free'">🧾 B2B Invoice Ledger Settlement</span>
+                                <span v-else>🔌 Self-Managed (Direct Stripe Gateway)</span>
+                            </div>
+                            <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; margin: 0;">
+                                <span v-if="settingsBrand.billing_type === 'standard'">All customer checkouts are processed directly through your own linked merchant keys. Card network processing costs are billed to your account directly by Stripe.</span>
+                                <span v-else-if="settingsBrand.billing_type === 'external_split'">Customer transactions are processed centrally through the platform. Payouts are routed directly to your connected bank account minus the platform take-rate.</span>
+                                <span v-else-if="settingsBrand.billing_type === 'free'">Your storefront transactions are tracked on the platform ledger balance sheet. Wholesale fulfillment costs and platform subscription fees are consolidated and settled monthly via invoice statement transfers.</span>
+                                <span v-else>Direct client checkout integration.</span>
+                            </p>
                         </div>
                     </template>
 
@@ -1009,15 +1069,15 @@ export default {
         oldTierDisplay() {
             if (!this.settingsBrand) return 'None';
             const tier = this.settingsBrand.ai_tier || 'none';
-            if (tier === 'standard') return 'Standard (Gemini 2.5 Flash)';
-            if (tier === 'professional') return 'Professional (Gemini 3.1 Pro)';
+            if (tier === 'standard') return 'Entry (Gemini 2.5 Flash)';
+            if (tier === 'professional') return 'Growth (Gemini 3.1 Pro)';
             if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
             return 'No AI / Basic';
         },
         targetTierDisplay() {
             const tier = this.subModalTargetTier;
-            if (tier === 'standard') return 'Standard (Gemini 2.5 Flash)';
-            if (tier === 'professional') return 'Professional (Gemini 3.1 Pro)';
+            if (tier === 'standard') return 'Entry (Gemini 2.5 Flash)';
+            if (tier === 'professional') return 'Growth (Gemini 3.1 Pro)';
             if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
             return 'No AI / Basic';
         },
@@ -1027,12 +1087,12 @@ export default {
             if (tier === 'none') return '0';
             if (interval === 'yearly') {
                 if (tier === 'standard') return '39 (billed annually)';
-                if (tier === 'professional') return '79 (billed annually)';
-                if (tier === 'enterprise') return '159 (billed annually)';
+                if (tier === 'professional') return '119 (billed annually)';
+                if (tier === 'enterprise') return '399 (billed annually)';
             } else {
                 if (tier === 'standard') return '49';
-                if (tier === 'professional') return '99';
-                if (tier === 'enterprise') return '199';
+                if (tier === 'professional') return '149';
+                if (tier === 'enterprise') return '499';
             }
             return '0';
         },
@@ -1048,7 +1108,7 @@ export default {
             if (!this.settingsBrand) return '';
             const tier = this.settingsBrand.ai_tier || 'professional';
             if (tier === 'standard') {
-                return 'The backend hit a throttle limit (Gemini 2.5 Flash has 15 RPM limit on standard key) or an error occurred. We suggest switching to <strong>Professional Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
+                return 'The backend hit a throttle limit (Gemini 2.5 Flash has 15 RPM limit on standard key) or an error occurred. We suggest switching to <strong>Growth Tier (Gemini 3.1 Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
             } else if (tier === 'professional') {
                 return 'The backend hit a throttle limit (Gemini 1.5 Pro has 360 RPM limit) or an error occurred. We suggest switching to <strong>Enterprise Tier (Deep Research Pro)</strong> or using the <strong>Manual Copy-Paste Builder</strong> to bypass limits!';
             } else {
@@ -1073,7 +1133,8 @@ export default {
                 'button_radius', 'button_text_color', 'header_bg_color', 'font_family',
                 'favicon', 'logo', 'shopify_shop_name', 'shopify_access_token',
                 'stripe_secret_key', 'stripe_webhook_secret', 'pay_as_you_go_enabled',
-                'competitors', 'auto_find_competitors'
+                'competitors', 'auto_find_competitors', 'custom_subscription_price',
+                'billing_type', 'platform_take_rate', 'stripe_connect_account_id'
             ];
             for (const f of fields) {
                 const origVal = this.app.originalSettingsBrand[f];
@@ -1150,6 +1211,22 @@ export default {
         this.stopLiveTicker();
     },
     methods: {
+        addSettingsBrandNicheTag() {
+            const val = this.settingsBrandNicheInput ? this.settingsBrandNicheInput.trim() : '';
+            if (val) {
+                const tags = [...this.settingsBrandNicheTags];
+                if (!tags.includes(val)) {
+                    tags.push(val);
+                    this.settingsBrandNicheTags = tags;
+                }
+            }
+            this.settingsBrandNicheInput = '';
+        },
+        removeSettingsBrandNicheTag(idx) {
+            const tags = [...this.settingsBrandNicheTags];
+            tags.splice(idx, 1);
+            this.settingsBrandNicheTags = tags;
+        },
         async loadManuscripts() {
             if (!this.settingsBrand || !this.settingsBrand.id) return;
             this.loadingManuscripts = true;
@@ -1224,6 +1301,18 @@ export default {
                     const data = await response.json();
                     this.stripeConnectStatus = data.stripe_connect_status || 'unlinked';
                     this.cardLinked = data.card_linked || false;
+                    if (data.active_subscription_amount !== null && data.active_subscription_amount !== undefined) {
+                        const priceNum = parseFloat(data.active_subscription_amount);
+                        this.settingsBrand.custom_subscription_price = priceNum;
+                        if (this.app.originalSettingsBrand) {
+                            this.app.originalSettingsBrand.custom_subscription_price = priceNum;
+                        }
+                    } else {
+                        this.settingsBrand.custom_subscription_price = null;
+                        if (this.app.originalSettingsBrand) {
+                            this.app.originalSettingsBrand.custom_subscription_price = null;
+                        }
+                    }
                 } else {
                     this.stripeConnectStatus = 'unlinked';
                     this.cardLinked = false;

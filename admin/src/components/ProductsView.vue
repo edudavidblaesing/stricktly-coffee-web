@@ -149,9 +149,18 @@
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="toggleAiSeo('new')" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
-                                        <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                        <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEstCost }}]</span>
+                                        <template v-else-if="generatingSeo">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                            <span v-else>⏳ Generating SEO pitch... | 🛑 Stop</span>
+                                        </template>
+                                        <template v-else-if="lastSeoCost">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
+                                            <span v-else>✨ Write AI SEO Pitch</span>
+                                        </template>
+                                        <template v-else>
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEstCost }}]</span>
+                                            <span v-else>✨ Write AI SEO Pitch</span>
+                                        </template>
                                     </button>
                                     <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo" operation="Product SEO Content Generation" :inputText="newProduct.long_description || newProduct.title" />
                                 </div>
@@ -341,9 +350,18 @@
                                     <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); margin: 0;">Short Description</label>
                                     <button type="button" @click="toggleAiSeo('edit')" :disabled="editingProduct.details_source === 'external'" class="sc-ai-button" style="padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
-                                        <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                        <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEditEstCost }}]</span>
+                                        <template v-else-if="generatingSeo">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
+                                            <span v-else>⏳ Generating SEO pitch... | 🛑 Stop</span>
+                                        </template>
+                                        <template v-else-if="lastSeoCost">
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
+                                            <span v-else>✨ Write AI SEO Pitch</span>
+                                        </template>
+                                        <template v-else>
+                                            <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEditEstCost }}]</span>
+                                            <span v-else>✨ Write AI SEO Pitch</span>
+                                        </template>
                                     </button>
                                     <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo && editingProduct.details_source !== 'external'" operation="Product SEO Content Generation" :inputText="editingProduct.long_description || editingProduct.title" />
                                 </div>

@@ -1,5 +1,5 @@
 <template>
-    <div v-if="estimate" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--text-muted); background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-family: Outfit, sans-serif; margin-top: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); max-width: max-content;">
+    <div v-if="estimate && app && app.userRole && app.userRole.toLowerCase() === 'superadmin'" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--text-muted); background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-family: Outfit, sans-serif; margin-top: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); max-width: max-content;">
         <span style="color: var(--accent); font-size: 0.78rem; line-height: 1;">🔮</span>
         <span>Est. Cost: <strong style="color: var(--text-main); font-family: monospace;">€{{ formattedCost }}</strong></span>
         <span style="color: rgba(255,255,255,0.12);">|</span>

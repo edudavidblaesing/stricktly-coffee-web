@@ -1,5 +1,5 @@
 <template>
-    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands', 'creator-fullscreen': isCreatingBrand || activeSubView === 'designer' || activeSubView === 'landing-designer' }">
+    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands', 'creator-fullscreen': (isCreatingBrand || activeSubView === 'designer' || activeSubView === 'landing-designer') && !forceCreateWizard, 'onboarding-wizard-mode': forceCreateWizard }">
         <!-- Sub-View: Embedded Storefront Designer -->
         <div v-if="activeSubView === 'designer'" style="width: 100%;">
             <DesignerView @back="activeSubView = 'list'" />
@@ -135,9 +135,25 @@
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label>Support Contact Email</label>
-                                    <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
-                                </div>
+                                     <label>Support Contact Email</label>
+                                     <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                 </div>
+                                 <div class="form-group" style="grid-column: span 2; display: flex; flex-direction: column; gap: 4px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 15px;">
+                                     <strong style="font-size: 0.85rem; color: var(--accent); font-weight: bold; margin-bottom: 2px;">🏢 Registered Billing Details</strong>
+                                     <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 6px 0;">Official corporate details for automated invoice statement PDFs.</p>
+                                 </div>
+                                 <div class="form-group">
+                                     <label>Registered Company Name</label>
+                                     <input type="text" v-model="newBrand.billing_name" placeholder="Roasted Coffee Bean LLC" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                 </div>
+                                 <div class="form-group">
+                                     <label>VAT / Corporate Tax ID</label>
+                                     <input type="text" v-model="newBrand.billing_vat" placeholder="BE0987654321" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                 </div>
+                                 <div class="form-group form-full" style="grid-column: span 2;">
+                                     <label>Registered Company Address</label>
+                                     <textarea v-model="newBrand.billing_address" placeholder="100 Specialty Drive, Suite A, Antwerp, Belgium" style="width: 100%; min-height: 60px; padding: 10px; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+                                 </div>
                                 <div class="form-group">
                                     <label>Brand Logo URL</label>
                                     <div style="display: flex; gap: 10px; align-items: center;">
@@ -723,7 +739,7 @@
                                         <strong style="color: var(--accent); font-size: 0.85rem;">🗣️ Voice & Tone Guidelines</strong>
                                         <button type="button" class="card-edit-btn" @click="startEditingCanvas('brand_voice')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
                                     </div>
-                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.brand_voice }}</div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.brand_voice ? canvas.brand_voice.replace(/\\n/g, '\n') : '' }}</div>
                                 </div>
                             </div>
 
@@ -734,7 +750,7 @@
                                         <strong style="color: var(--accent); font-size: 0.85rem;">⚙️ Narrative Positioning</strong>
                                         <button type="button" class="card-edit-btn" @click="startEditingCanvas('product_architecture')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
                                     </div>
-                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.product_architecture }}</div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.product_architecture ? canvas.product_architecture.replace(/\\n/g, '\n') : '' }}</div>
                                 </div>
                             </div>
 
@@ -767,7 +783,7 @@
                                         <strong style="color: var(--accent); font-size: 0.85rem;">🖼️ Visual Briefing Rules</strong>
                                         <button type="button" class="card-edit-btn" @click="startEditingCanvas('visual_direction')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
                                     </div>
-                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.visual_direction }}</div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.visual_direction ? canvas.visual_direction.replace(/\\n/g, '\n') : '' }}</div>
                                 </div>
                             </div>
 
@@ -3416,6 +3432,7 @@ export default {
                     storefront: storefrontOverrides
                 });
 
+                this.newBrand.status = 'active';
                 this.newBrand.price_markup = parseFloat(this.globalMarkupPercent) || 0.00;
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
                     method: 'POST',
@@ -3631,6 +3648,16 @@ export default {
 </script>
 
 <style scoped>
+#view-brands.onboarding-wizard-mode {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

@@ -103,10 +103,80 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS typography_fonts VARCHAR(255)`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS target_audience_demographics TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS visual_identity_guidelines TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_name VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_address TEXT`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_vat VARCHAR(100)`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS visual_dna TEXT`);
+
+    // Create Agencies Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS agencies (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        contact_email VARCHAR(255) UNIQUE NOT NULL,
+        margin_share_ratio NUMERIC(5, 4) DEFAULT 0.5000,
+        stripe_connect_account_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Alter Brands Table to reference agencies
+    await client.query(`
+      ALTER TABLE brands ADD COLUMN IF NOT EXISTS agency_id VARCHAR(50) REFERENCES agencies(id) ON DELETE SET NULL
+    `);
+
+    // Alter Users Table to reference agencies
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS agency_id VARCHAR(50) REFERENCES agencies(id) ON DELETE SET NULL
+    `);
+
+    // Add white-label billing fields to agencies
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS is_platform_biller BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS stripe_secret_key TEXT`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS stripe_webhook_secret TEXT`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_display_name VARCHAR(255)`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_support_email VARCHAR(255)`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_name VARCHAR(255)`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_address TEXT`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_vat VARCHAR(100)`);
+
+    // Create Agency Payout Ledger Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS agency_payout_ledger (
+        id SERIAL PRIMARY KEY,
+        agency_id VARCHAR(50) REFERENCES agencies(id) ON DELETE CASCADE,
+        order_id VARCHAR(100) REFERENCES orders(id) ON DELETE SET NULL,
+        gross_amount NUMERIC(10, 2) NOT NULL,
+        platform_margin NUMERIC(10, 2) NOT NULL,
+        agency_share NUMERIC(10, 2) NOT NULL,
+        platform_share NUMERIC(10, 2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'unpaid',
+        payout_transaction_id VARCHAR(255),
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Invoices Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id VARCHAR(50) PRIMARY KEY,
+        brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        amount NUMERIC(10, 2) NOT NULL,
+        vat_amount NUMERIC(10, 2) DEFAULT 0.00,
+        status VARCHAR(20) DEFAULT 'unpaid',
+        pdf_url TEXT,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
+    await client.query(`ALTER TABLE merchant_payout_ledger ADD COLUMN IF NOT EXISTS processing_fee NUMERIC(10, 2) DEFAULT 0.00`);
 
     // 2. Create Products Table
     await client.query(`
@@ -408,6 +478,7 @@ async function initializeDatabase() {
         order_id VARCHAR(100) REFERENCES orders(id) ON DELETE SET NULL,
         amount NUMERIC(10, 2) NOT NULL,
         platform_margin NUMERIC(10, 2) NOT NULL,
+        processing_fee NUMERIC(10, 2) DEFAULT 0.00,
         net_amount NUMERIC(10, 2) NOT NULL,
         type VARCHAR(50) NOT NULL,
         description TEXT,

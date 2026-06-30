@@ -394,6 +394,14 @@
                                         </span>
                                     </button>
                                 </li>
+                                <li v-if="userRole.toLowerCase() === 'superadmin' || userRole.toLowerCase() === 'agency'">
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'agency-center' }" @click="switchView('agency-center')">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🏢</span>
+                                            <span class="tier2-btn-text">Partner Agencies</span>
+                                        </span>
+                                    </button>
+                                </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'roles-permissions' }" :disabled="isSidebarLinkDisabled('roles-permissions')" @click="switchView('roles-permissions')">
                                         <span class="tier2-btn-inner">
@@ -720,6 +728,7 @@
             <CustomerSupportView ref="customerSupportView" />
             <CouponsView ref="couponsView" />
             <MediaView ref="mediaView" />
+            <AgencyCenterView ref="agencyCenterView" :app="this" />
 
             <!-- NOT-FOUND VIEW -->
             <div class="admin-view" :class="{ active: activeView === 'not-found' }" style="justify-content: center; align-items: center; min-height: 60vh; text-align: center;">
@@ -1209,6 +1218,7 @@ import CustomerSupportView from './components/CustomerSupportView.vue';
 import MediaView from './components/MediaView.vue';
 import AiLearningCenterView from './components/AiLearningCenterView.vue';
 import AiEstimateBadge from './components/AiEstimateBadge.vue';
+import AgencyCenterView from './components/AgencyCenterView.vue';
 
 Chart.register(...registerables);
 
@@ -1236,7 +1246,8 @@ export default {
                 CouponsView,
                 MediaView,
                 AiLearningCenterView,
-                AiEstimateBadge
+                AiEstimateBadge,
+                AgencyCenterView
             },
             provide() {
                 return {
@@ -1318,6 +1329,7 @@ export default {
                     loginError: '',
                     userRole: 'Superadmin',
                     userEmail: '',
+                    userAgencyId: localStorage.getItem('sc_admin_agency_id') || null,
 
                     // Forms
                     newBrand: {
@@ -1356,7 +1368,10 @@ export default {
                         meta_pixel_id: '',
                         google_analytics_id: '',
                         business_segment: 'Food & Beverage',
-                        business_niche: ''
+                        business_niche: '',
+                        billing_name: '',
+                        billing_address: '',
+                        billing_vat: ''
                     },
                     newProduct: {
                         brand_id: '',
@@ -1403,7 +1418,10 @@ export default {
                         subscription_billing_method: '',
                         stripe_customer_id: null,
                         meta_pixel_id: '',
-                        google_analytics_id: ''
+                        google_analytics_id: '',
+                        billing_name: '',
+                        billing_address: '',
+                        billing_vat: ''
                     },
 
                     // Shopify Importer
@@ -2163,7 +2181,7 @@ export default {
                         this.activeTier1 = 'operations';
                     } else if (['learning', 'ai-analytics', 'brand-center'].includes(viewId)) {
                         this.activeTier1 = 'ai';
-                    } else if (['settings', 'roles-permissions', 'billing-subscription', 'help'].includes(viewId)) {
+                    } else if (['settings', 'roles-permissions', 'billing-subscription', 'help', 'agency-center'].includes(viewId)) {
                         this.activeTier1 = 'settings';
                     }
                 },
@@ -2261,7 +2279,7 @@ export default {
                     if (!this.isLoggedIn) return true;
                     
                     // Views that are always accessible globally (no brand selection required)
-                    if (['overview', 'help', 'brands'].includes(viewName)) {
+                    if (['overview', 'help', 'brands', 'agency-center'].includes(viewName)) {
                         return false;
                     }
                     
@@ -2945,6 +2963,13 @@ export default {
                             } else {
                                 localStorage.removeItem('sc_admin_brand_id');
                             }
+                            if (result.agency_id) {
+                                localStorage.setItem('sc_admin_agency_id', result.agency_id);
+                                this.userAgencyId = result.agency_id;
+                            } else {
+                                localStorage.removeItem('sc_admin_agency_id');
+                                this.userAgencyId = null;
+                            }
 
                             this.userRole = result.role;
                             this.userEmail = result.email;
@@ -2967,6 +2992,8 @@ export default {
                     localStorage.removeItem('sc_admin_email');
                     localStorage.removeItem('sc_admin_role');
                     localStorage.removeItem('sc_admin_brand_id');
+                    localStorage.removeItem('sc_admin_agency_id');
+                    this.userAgencyId = null;
                     this.isLoggedIn = false;
                     this.userEmail = '';
                     this.loginPassword = '';
@@ -2978,6 +3005,8 @@ export default {
                         localStorage.removeItem('sc_admin_email');
                         localStorage.removeItem('sc_admin_role');
                         localStorage.removeItem('sc_admin_brand_id');
+                        localStorage.removeItem('sc_admin_agency_id');
+                        this.userAgencyId = null;
                         this.isLoggedIn = false;
                         this.userEmail = '';
                         this.loginPassword = '';
@@ -3053,7 +3082,7 @@ export default {
                     }
                 },
                 switchView(viewId) {
-                    if (this.brandsLoaded && this.brands.length === 0 && viewId !== 'brands' && viewId !== 'help') {
+                    if (this.brandsLoaded && this.brands.length === 0 && this.userRole.toLowerCase() !== 'superadmin' && this.userRole.toLowerCase() !== 'agency' && viewId !== 'brands' && viewId !== 'help') {
                         alert('No coffee brands have been registered yet. Please create and register your first brand storefront under the "Shops" tab first.');
                         this.activeView = 'brands';
                         this.updateURL();
@@ -3151,7 +3180,7 @@ export default {
                     } else if (primary === 'index.html' || primary === 'admin') {
                         viewId = 'overview';
                     } else {
-                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
+                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'brand-center', 'agency-center'];
                         if (validViews.includes(primary)) {
                             viewId = primary;
                         }
@@ -3351,9 +3380,16 @@ export default {
                     root.style.removeProperty('--accent');
                     root.style.removeProperty('--bg-color');
                     root.style.removeProperty('--workspace-bg');
+                    root.style.removeProperty('--card-bg');
+                    root.style.removeProperty('--panel-bg');
+                    root.style.removeProperty('--border');
+                    root.style.removeProperty('--text-main');
+                    root.style.removeProperty('--text-muted');
                 },
                 updateDashboardBranding(brand) {
-                    if (!this.brandStyledDashboardEnabled || !brand || !brand.primary_color) {
+                    const isCreating = (this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) || 
+                                       (this.$refs.brandsViewOnboarding && this.$refs.brandsViewOnboarding.isCreatingBrand);
+                    if (!this.brandStyledDashboardEnabled || !brand || !brand.primary_color || this.needsOnboarding || isCreating) {
                         this.resetDashboardBranding();
                         return;
                     }
@@ -3499,6 +3535,7 @@ export default {
                     root.style.setProperty('--workspace-bg', workspaceBgHex);
                     root.style.setProperty('--bg-color', bodyBgHex);
                     root.style.setProperty('--card-bg', cardBgHex);
+                    root.style.setProperty('--panel-bg', cardBgHex);
                     root.style.setProperty('--border', borderHex);
                     root.style.setProperty('--text-muted', textMutedHex);
                 },
@@ -3548,8 +3585,12 @@ export default {
                         }
 
                         // Redirect if no brands exist
-                        if (this.brands.length === 0 && this.activeView !== 'brands' && this.activeView !== 'help') {
-                            this.activeView = 'brands';
+                        if (this.brands.length === 0 && this.activeView !== 'brands' && this.activeView !== 'help' && this.activeView !== 'agency-center') {
+                            if (this.userRole && this.userRole.toLowerCase() === 'agency') {
+                                this.activeView = 'agency-center';
+                            } else {
+                                this.activeView = 'brands';
+                            }
                             this.updateURL();
                         }
                     } catch (err) {

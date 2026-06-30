@@ -46,10 +46,13 @@
         }
 
         .btn-option {
+            background: var(--panel-bg) !important;
+            color: var(--text-main) !important;
             transition: background 0.15s ease, color 0.15s ease;
         }
         .btn-option:hover {
-            background: rgba(0, 0, 0, 0.05) !important;
+            background: var(--workspace-bg) !important;
+            color: var(--accent) !important;
         }
 
         /* System Automatic Dark Mode Detection */
@@ -67,9 +70,6 @@
                 --accent: #ffffff;
             }
 
-            .btn-option:hover {
-                background: rgba(255, 255, 255, 0.05) !important;
-            }
 
             body {
                 background-color: var(--bg-color);

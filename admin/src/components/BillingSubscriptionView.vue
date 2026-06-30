@@ -187,10 +187,25 @@
                                          <span style="color: var(--accent);">€0.00 / mo</span>
                                      </div>
                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Sandbox preview model. AI operations are locked or simulation-only.
+                                         Sandbox preview model. AI operations are locked or simulation-only. (2% Transaction fee)
                                      </div>
                                 </div>
-                                <!-- Professional -->
+                                <!-- Entry Plan (Standard) -->
+                                <div @click="currentBrand.ai_tier = 'standard'" 
+                                     :style="{
+                                         border: currentBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: currentBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
+                                         <span>Entry Plan</span>
+                                         <span style="color: var(--accent);">€49.00 / mo</span>
+                                     </div>
+                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
+                                         Includes entry AI content creation & ad templates. (2% Transaction fee)
+                                     </div>
+                                </div>
+                                <!-- Growth Plan (Professional) -->
                                 <div @click="currentBrand.ai_tier = 'professional'" 
                                      :style="{
                                          border: currentBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -198,14 +213,14 @@
                                      }" 
                                      style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
-                                         <span>Professional Plan</span>
-                                         <span style="color: var(--accent);">€99.00 / mo</span>
+                                         <span>Growth Plan</span>
+                                         <span style="color: var(--accent);">€149.00 / mo</span>
                                      </div>
                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Includes AI Storefront Designer & custom page builder.
+                                         Includes AI Storefront Designer & custom page builder. (1% Transaction fee)
                                      </div>
                                 </div>
-                                <!-- Enterprise -->
+                                <!-- Enterprise Plan (Enterprise) -->
                                 <div @click="currentBrand.ai_tier = 'enterprise'" 
                                      :style="{
                                          border: currentBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -214,10 +229,10 @@
                                      style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
                                          <span>Enterprise Plan</span>
-                                         <span style="color: var(--accent);">€199.00 / mo</span>
+                                         <span style="color: var(--accent);">€499.00 / mo</span>
                                      </div>
                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Includes autopilot dynamic ad campaigns and automation rules.
+                                         Includes autopilot dynamic ad campaigns and automation rules. (0% Transaction fee)
                                      </div>
                                 </div>
                             </div>
@@ -298,6 +313,127 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Invoices & Billing Statements Section -->
+            <div class="panel" style="margin-top: 24px;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 15px;">
+                    <h3 class="panel-title" style="margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-main); font-weight: 800; font-family: var(--font-display);">
+                        📄 Invoices & Billing Statements
+                    </h3>
+                    <button v-if="userRole.toLowerCase() === 'superadmin'" 
+                            @click="openManualInvoiceModal" 
+                            class="btn btn-accent" 
+                            style="padding: 6px 12px; font-size: 0.78rem; font-weight: 700; margin: 0;">
+                        ✨ Create Manual Invoice
+                    </button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Invoice ID</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Date</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Description</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">Amount</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">VAT</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: center;">Status</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="inv in invoicesList" :key="inv.id" style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 12px; font-weight: bold; color: var(--text-main);">
+                                    {{ inv.id }}
+                                </td>
+                                <td style="padding: 12px; color: var(--text-muted);">
+                                    {{ formatDate(inv.created_at) }}
+                                </td>
+                                <td style="padding: 12px; color: var(--text-main);">
+                                    {{ inv.description }}
+                                </td>
+                                <td style="padding: 12px; text-align: right; color: var(--text-main); font-weight: 700;">
+                                    €{{ parseFloat(inv.amount).toFixed(2) }}
+                                </td>
+                                <td style="padding: 12px; text-align: right; color: var(--text-muted);">
+                                    €{{ parseFloat(inv.vat_amount || 0).toFixed(2) }}
+                                </td>
+                                <td style="padding: 12px; text-align: center;">
+                                    <span v-if="inv.status === 'paid'" class="status-badge status-success" style="font-size: 0.72rem; padding: 2px 6px;">Paid</span>
+                                    <span v-else class="status-badge status-warning" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">Unpaid</span>
+                                </td>
+                                <td style="padding: 12px; text-align: right;">
+                                    <button @click="viewInvoicePdf(inv)" 
+                                            class="btn btn-secondary" 
+                                            style="padding: 5px 10px; font-size: 0.75rem; font-weight: 700; margin: 0;">
+                                        👁️ View PDF
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr v-if="invoicesList.length === 0">
+                                <td colspan="7" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                                    No billing invoices available yet.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Embedded PDF Viewer Modal -->
+        <div v-if="pdfViewerOpen" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+            <div class="panel" style="width: 100%; max-width: 900px; height: 90vh; padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; background: var(--bg-panel) !important;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                    <h3 style="font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; color: var(--text-main); margin: 0;">
+                        📄 PDF Invoice Viewer
+                    </h3>
+                    <button class="btn btn-secondary" @click="closePdfViewer" style="margin: 0; padding: 6px 12px; font-weight: bold;">
+                        ✕ Close
+                    </button>
+                </div>
+                <div style="flex: 1; border-radius: 8px; overflow: hidden; background: #2e2e2e; border: 1px solid var(--border);">
+                    <iframe :src="selectedPdfUrl" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Manual Invoice Modal (Superadmin Only) -->
+        <div v-if="showManualInvoiceModal" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px;">
+            <div class="panel" style="width: 100%; max-width: 440px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; background: var(--bg-panel) !important;">
+                <h3 style="font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; color: var(--text-main); margin: 0;">
+                    ✨ Create Manual PDF Invoice
+                </h3>
+                <form @submit.prevent="submitManualInvoice" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="form-group">
+                        <label>Total Invoice Amount (€)</label>
+                        <input type="number" step="0.01" v-model="manualInvoiceForm.amount" required placeholder="149.00" style="margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Estimated VAT Amount (€)</label>
+                        <input type="number" step="0.01" v-model="manualInvoiceForm.vat_amount" required placeholder="31.29" style="margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Payment Status</label>
+                        <select v-model="manualInvoiceForm.status" required style="margin: 0; width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main); border-radius: 8px; padding: 10px;">
+                            <option value="paid">Paid</option>
+                            <option value="unpaid">Unpaid</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Statement Description</label>
+                        <input type="text" v-model="manualInvoiceForm.description" required placeholder="Manual Platform Setup Adjustment" style="margin: 0;">
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" @click="closeManualInvoiceModal" style="margin: 0;">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-accent" style="margin: 0;">
+                            Generate Invoice PDF
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
 
     </div>
@@ -325,7 +461,12 @@ export default {
             planRecurringFee: '0.00',
             stripeConnectStatus: 'unlinked',
             subscriptionBillingMethod: 'ledger',
-            cardLinked: false
+            cardLinked: false,
+            invoicesList: [],
+            pdfViewerOpen: false,
+            selectedPdfUrl: '',
+            showManualInvoiceModal: false,
+            manualInvoiceForm: { amount: '', vat_amount: '', status: 'paid', description: '' }
         };
     },
     methods: {
@@ -342,15 +483,15 @@ export default {
             // Map Plan Details
             if (brand.ai_tier === 'enterprise') {
                 this.planName = 'Enterprise';
-                this.planRecurringFee = '199.00';
+                this.planRecurringFee = '499.00';
             } else if (brand.ai_tier === 'professional') {
-                this.planName = 'Professional';
-                this.planRecurringFee = '99.00';
+                this.planName = 'Growth';
+                this.planRecurringFee = '149.00';
             } else if (brand.ai_tier === 'standard') {
-                this.planName = 'Standard';
+                this.planName = 'Entry';
                 this.planRecurringFee = '49.00';
             } else {
-                this.planName = 'Free';
+                this.planName = 'Sandbox Trial';
                 this.planRecurringFee = '0.00';
             }
             
@@ -366,6 +507,11 @@ export default {
                     this.stripeConnectStatus = ledgerData.stripe_connect_status || 'unlinked';
                     this.subscriptionBillingMethod = ledgerData.subscription_billing_method || 'ledger';
                     this.cardLinked = !!ledgerData.card_linked;
+
+                    // If active subscription amount override is set in db, display it directly
+                    if (ledgerData.active_subscription_amount !== null && ledgerData.active_subscription_amount !== undefined) {
+                        this.planRecurringFee = parseFloat(ledgerData.active_subscription_amount).toFixed(2);
+                    }
                 }
                 
                 // 2. Fetch AI Usage Summary
@@ -391,6 +537,7 @@ export default {
             } finally {
                 this.loading = false;
             }
+            await this.fetchInvoices();
         },
         async initiateStripeConnect() {
             try {
@@ -508,6 +655,59 @@ export default {
             } finally {
                 this.loading = false;
             }
+        },
+        async fetchInvoices() {
+            const brandId = this.app.activeShopFilter;
+            if (!brandId || brandId === 'all') return;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const res = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${brandId}/invoices`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    this.invoicesList = await res.json();
+                }
+            } catch (err) {
+                console.error('Failed to load invoices list:', err);
+            }
+        },
+        viewInvoicePdf(inv) {
+            this.selectedPdfUrl = `${this.app.apiBaseUrl}${inv.pdf_url}`;
+            this.pdfViewerOpen = true;
+        },
+        closePdfViewer() {
+            this.pdfViewerOpen = false;
+            this.selectedPdfUrl = '';
+        },
+        openManualInvoiceModal() {
+            this.manualInvoiceForm = { amount: '', vat_amount: '', status: 'paid', description: '' };
+            this.showManualInvoiceModal = true;
+        },
+        closeManualInvoiceModal() {
+            this.showManualInvoiceModal = false;
+        },
+        async submitManualInvoice() {
+            const brandId = this.app.activeShopFilter;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const res = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${brandId}/invoices/create-manual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(this.manualInvoiceForm)
+                });
+                if (res.ok) {
+                    this.closeManualInvoiceModal();
+                    await this.fetchInvoices();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Failed to create manual invoice.');
+                }
+            } catch (err) {
+                console.error('Failed to save manual invoice:', err);
+            }
         }
     },
     watch: {
@@ -525,6 +725,7 @@ export default {
                     this.stripeConnectStatus = 'unlinked';
                     this.subscriptionBillingMethod = 'ledger';
                     this.cardLinked = false;
+                    this.invoicesList = [];
                 }
             },
             immediate: true
