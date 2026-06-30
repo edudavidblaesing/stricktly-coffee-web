@@ -1397,7 +1397,8 @@ export default {
                         platform_take_rate: 0.15,
                         stripe_connect_account_id: '',
                         subscription_billing_method: '',
-                        stripe_customer_id: null
+                        stripe_customer_id: null,
+                        meta_pixel_id: ''
                     },
 
                     // Shopify Importer

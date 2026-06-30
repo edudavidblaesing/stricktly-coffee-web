@@ -3,6 +3,7 @@
             --bg-color: #f4f5f6;
             --workspace-bg: #fafbfc;
             --card-bg: #ffffff;
+            --panel-bg: #ffffff;
             --text-main: #1a1d1f;
             --text-muted: #9a9fa5;
             --border: #efefef;
@@ -22,6 +23,7 @@
             --bg-color: #f4f5f6;
             --workspace-bg: #fafbfc;
             --card-bg: #ffffff;
+            --panel-bg: #ffffff;
             --text-main: #1a1d1f;
             --text-muted: #9a9fa5;
             --border: #efefef;
@@ -34,6 +36,7 @@
             --bg-color: #0b0c0d;
             --workspace-bg: #131517;
             --card-bg: #1a1d1f;
+            --panel-bg: #1a1d1f;
             --text-main: #f3f4f3;
             --text-muted: #8e9290;
             --border: #272b30;

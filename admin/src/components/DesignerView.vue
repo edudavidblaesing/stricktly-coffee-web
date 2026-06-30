@@ -159,18 +159,22 @@
                         
                         <div v-for="(sec, idx) in designerBrand.sections" :key="sec.id" 
                              class="section-tree-item" :class="{ active: selectedSectionId === sec.id }" @click="selectSection(sec.id)" 
-                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; position: relative;">
+                             draggable="true"
+                             @dragstart="dragStart(idx, $event)"
+                             @dragover.prevent
+                             @drop="dragDrop(idx, $event)"
+                             @dragend="dragEnd($event)"
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: grab; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; position: relative;">
                             
                             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                                <div style="display: flex; align-items: center; gap: 8px; width: 60%; overflow: hidden;">
+                                <div style="display: flex; align-items: center; gap: 8px; width: 80%; overflow: hidden;">
+                                    <span style="font-size: 0.85rem; color: var(--text-muted); cursor: grab; padding: 2px;" title="Drag to reorder">☰</span>
                                     <span style="font-size: 0.95rem;">{{ getSectionIcon(sec.type) }}</span>
                                     <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{{ sec.title }}</span>
                                 </div>
                                 
-                                <!-- Move / Toggle / Delete Actions -->
+                                <!-- Toggle / Delete Actions -->
                                 <div style="display: flex; align-items: center; gap: 6px;" @click.stop>
-                                    <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Up" @click="moveSection(idx, -1)">▲</button>
-                                    <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Down" @click="moveSection(idx, 1)">▼</button>
                                     <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px;" title="Toggle Active" @click="toggleSectionActive(sec)">
                                         {{ sec.active !== false ? '👁️' : '🙈' }}
                                     </button>
@@ -388,6 +392,7 @@ export default {
             // Visual website builder states
             selectedSectionId: '',
             selectedBlockId: '',
+            draggedIdx: null,
             showAddSectionMenu: false,
             uploadingField: '',
             defaultSections: [
@@ -2039,6 +2044,27 @@ export default {
             const idx = this.designerBrand.sections.findIndex(s => s.id === this.selectedSectionId);
             if (idx !== -1) {
                 this.moveSection(idx, direction);
+            }
+        },
+        dragStart(idx, event) {
+            this.draggedIdx = idx;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', idx);
+            event.currentTarget.style.opacity = '0.6';
+        },
+        dragEnd(event) {
+            event.currentTarget.style.opacity = '1';
+            this.draggedIdx = null;
+        },
+        dragDrop(idx, event) {
+            const fromIdx = this.draggedIdx !== null ? this.draggedIdx : parseInt(event.dataTransfer.getData('text/plain'), 10);
+            if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < this.designerBrand.sections.length) {
+                const sections = [...this.designerBrand.sections];
+                const item = sections.splice(fromIdx, 1)[0];
+                sections.splice(idx, 0, item);
+                this.designerBrand.sections = sections;
+                this.recordState();
+                this.updatePreviewStyles();
             }
         },
         toggleSectionActive(section) {

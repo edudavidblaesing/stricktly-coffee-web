@@ -2371,7 +2371,9 @@
             const featuresList = document.getElementById('landing-features-list');
             if (featuresList) {
                 featuresList.innerHTML = '';
-                const features = page.features ? page.features.split('\n').filter(Boolean) : [];
+                let rawFeatures = page.features || '';
+                rawFeatures = rawFeatures.replace(/\\n/g, '\n').replace(/\/n/g, '\n');
+                const features = rawFeatures.split('\n').map(f => f.trim().replace(/[\/\\n]+$/, '')).filter(Boolean);
                 features.forEach(f => {
                     const li = document.createElement('li');
                     li.style.display = 'flex';
@@ -4065,7 +4067,16 @@
                     }
                 });
 
-                const settings = section.settings || {};
+                const rawSettings = section.settings || {};
+                const settings = {};
+                Object.keys(rawSettings).forEach(k => {
+                    const val = rawSettings[k];
+                    if (typeof val === 'string') {
+                        settings[k] = val.replace(/\\n/g, ' ').replace(/\/n/g, ' ').trim().replace(/[\/\\n]+$/, '');
+                    } else {
+                        settings[k] = val;
+                    }
+                });
 
                 if (section.type === 'hero') {
                     const isVideo = settings.hero_img && (settings.hero_img.endsWith('.mp4') || settings.hero_img.includes('mixkit.co'));

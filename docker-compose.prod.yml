@@ -13,6 +13,7 @@ services:
       - VIRTUAL_HOST=${DOMAIN},www.${DOMAIN}
       - LETSENCRYPT_HOST=${DOMAIN},www.${DOMAIN}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - BACKEND_HOST=sc-backend-core
     networks:
       - web
     depends_on:
@@ -84,6 +85,8 @@ services:
       - VIRTUAL_HOST=${DASH_DOMAIN}
       - LETSENCRYPT_HOST=${DASH_DOMAIN}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - BACKEND_HOST=sc-backend-core
+      - MINIO_HOST=minio
     networks:
       - web
     depends_on:

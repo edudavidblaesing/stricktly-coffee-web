@@ -287,6 +287,14 @@
                             <input type="text" v-model="settingsBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
                         </div>
 
+                        <div class="form-group form-full">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Meta Pixel ID</label>
+                            <input type="text" v-model="settingsBrand.meta_pixel_id" placeholder="e.g. 15-digit ID or mock_pixel_brand_id" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                Used to load Meta Pixel tracking scripts dynamically on your storefront for PageView, AddToCart, InitiateCheckout, and Purchase events.
+                            </span>
+                        </div>
+
                         <div class="form-group form-full" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
                             <input type="checkbox" id="share_perf_cb" v-model="settingsBrand.share_performance_data" style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
                             <label for="share_perf_cb" style="margin: 0; font-size: 0.82rem; color: var(--text-main); cursor: pointer; font-weight: 600; user-select: none;">

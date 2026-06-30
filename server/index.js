@@ -2924,10 +2924,10 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

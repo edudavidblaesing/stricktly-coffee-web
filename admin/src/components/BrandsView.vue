@@ -2927,7 +2927,8 @@ export default {
                 platform_take_rate: 0.15,
                 stripe_connect_account_id: '',
                 subscription_billing_method: '',
-                stripe_customer_id: null
+                stripe_customer_id: null,
+                meta_pixel_id: ''
             };
             this.selectedChannels = {
                 storefront: true,
@@ -3390,7 +3391,7 @@ export default {
                         twitter: false
                     };
                     
-                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'], price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'ledger', stripe_customer_id: null };
+                    this.app.newBrand = { id: '', name: '', subdomain: '', contact_email: '', primary_color: '#111111', secondary_color: '#767676', bg_color: '#ffffff', text_color: '#111111', button_radius: '4px', button_text_color: '#ffffff', header_bg_color: '#ffffff', theme_settings: '', platform: 'shopify', shopify_shop_name: '', shopify_access_token: '', woocommerce_shop_url: '', woocommerce_consumer_key: '', woocommerce_consumer_secret: '', stripe_secret_key: '', stripe_webhook_secret: '', custom_domain: '', logo: '', favicon: '', font_family: 'Outfit', status: 'draft', stripe_enabled: false, languages: ['en'], price_markup: 0.00, billing_type: 'standard', platform_take_rate: 0.15, stripe_connect_account_id: '', subscription_billing_method: 'ledger', stripe_customer_id: null, meta_pixel_id: '' };
                     
                     this.isCreatingBrand = false;
                     await this.app.loadBrands();

@@ -21,7 +21,22 @@ const pool = new Pool(dbConfig);
 
 // Initialize DB schema and seed default Pesado store configurations
 async function initializeDatabase() {
-  const client = await pool.connect();
+  let client;
+  let retries = 10;
+  while (retries > 0) {
+    try {
+      client = await pool.connect();
+      break;
+    } catch (err) {
+      retries--;
+      console.log(`[Database] Connection failed (${err.message}). Retrying in 2 seconds... (${retries} attempts left)`);
+      if (retries === 0) {
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+
   try {
     await client.query('BEGIN');
 
@@ -510,10 +525,14 @@ async function initializeDatabase() {
     await seedDefaultData();
 
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (client) {
+      await client.query('ROLLBACK');
+    }
     console.error('❌ Failed to migrate database tables:', err.message);
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 }
 
