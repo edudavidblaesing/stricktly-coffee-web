@@ -117,10 +117,10 @@
                                 <line x1="8" y1="21" x2="16" y2="21"></line>
                                 <line x1="12" y1="17" x2="12" y2="21"></line>
                             </svg>
-                            <span class="tier1-btn-label">{{ userRole.toLowerCase() === 'superadmin' ? 'Brands' : 'Channel' }}</span>
+                            <span class="tier1-btn-label">{{ (userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all') ? 'Brands' : 'Channel' }}</span>
                         </button>
  
-                        <button v-if="userRole.toLowerCase() !== 'superadmin'" class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
+                        <button v-if="userRole.toLowerCase() !== 'superadmin' || activeShopFilter !== 'all'" class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
                                 @click="handleTier1Click('catalog', 'products')" title="Products & Inventory">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -206,8 +206,8 @@
 
                         <!-- Storefront / Channels Links -->
                         <div v-if="activeTier1 === 'storefront'">
-                            <div class="tier2-section-title">{{ userRole.toLowerCase() === 'superadmin' ? 'Brands Manager' : 'Channels & Storefront' }}</div>
-                            <ul class="tier2-links" v-if="userRole.toLowerCase() === 'superadmin'">
+                            <div class="tier2-section-title">{{ (userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all') ? 'Brands Manager' : 'Channels & Storefront' }}</div>
+                            <ul class="tier2-links" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all'">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'brands' }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list';">
                                         <span class="tier2-btn-inner">
@@ -2259,32 +2259,43 @@ export default {
                 },
                 isSidebarLinkDisabled(viewName) {
                     if (!this.isLoggedIn) return true;
-                    // If superadmin is signed in, allow all sidebar links unconditionally
-                    if (this.userRole.toLowerCase() === 'superadmin') {
+                    
+                    // Views that are always accessible globally (no brand selection required)
+                    if (['overview', 'help', 'brands'].includes(viewName)) {
                         return false;
                     }
-                    if (['overview', 'help', 'billing-subscription', 'brands', 'learning'].includes(viewName)) {
+                    
+                    // Billing is global for superadmin, brand-specific for merchants
+                    if (viewName === 'billing-subscription') {
+                        if (this.userRole.toLowerCase() === 'superadmin') return false;
+                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
                         return false;
                     }
-                    if (viewName === 'settings' && this.userRole.toLowerCase() === 'superadmin' && this.activeShopFilter === 'all') {
+
+                    // Learning and settings are accessible globally or locally
+                    if (['learning', 'settings'].includes(viewName)) {
                         return false;
                     }
-                    if (viewName === 'settings') {
-                        return false;
-                    }
+                    
+                    // Brand strategy guide is brand-specific
                     if (viewName === 'brand-center') {
-                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) {
-                            return true;
-                        }
+                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
                         return false;
                     }
+                    
+                    // Brand must exist and a specific brand must be selected for all catalog/marketing/operations views
                     if (this.brands.length === 0) return true;
                     if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
-                    if (!this.isBrandStrategyConfigured) return true;
-                    if (viewName === 'campaigns') {
-                        const activeBrandProducts = this.products.filter(p => p.brand_id === this.activeShopFilter);
-                        if (activeBrandProducts.length === 0) return true;
+                    
+                    // For merchants only: check if brand strategy is configured before unlocking catalog/marketing/operations
+                    if (this.userRole.toLowerCase() !== 'superadmin') {
+                        if (!this.isBrandStrategyConfigured) return true;
+                        if (viewName === 'campaigns') {
+                            const activeBrandProducts = this.products.filter(p => p.brand_id === this.activeShopFilter);
+                            if (activeBrandProducts.length === 0) return true;
+                        }
                     }
+                    
                     return false;
                 },
                 startGlobalProtocolPolling() {

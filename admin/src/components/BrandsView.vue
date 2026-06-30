@@ -596,58 +596,10 @@
                         <!-- Secure payment input fields (Card payment wall) -->
                         <div v-if="newBrand.ai_tier !== 'none'" 
                              style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; flex-direction: column; gap: 12px;">
-                             <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Select Subscription Billing Method</h5>
+                             <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Subscription Payment Method</h5>
                              
-                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 12px;">
-                                 <!-- Credit Card -->
-                                 <div @click="newBrand.subscription_billing_method = 'stripe_card'"
-                                      :style="{
-                                          border: newBrand.subscription_billing_method === 'stripe_card' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                          background: newBrand.subscription_billing_method === 'stripe_card' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                      }"
-                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
-                                         <span>💳 Credit Card</span>
-                                     </div>
-                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
-                                         Fixed recurring billing processed via Stripe. Provide a card to securely authorize automatic monthly payments.
-                                     </div>
-                                 </div>
-
-                                 <!-- Stripe Connect -->
-                                 <div @click="newBrand.subscription_billing_method = 'stripe_connect'"
-                                      :style="{
-                                          border: newBrand.subscription_billing_method === 'stripe_connect' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                          background: newBrand.subscription_billing_method === 'stripe_connect' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                      }"
-                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
-                                         <span>🔗 Stripe Connect</span>
-                                     </div>
-                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
-                                         Split billing directly from storefront transaction proceeds. Link your Stripe account to authorize real-time payout splits.
-                                     </div>
-                                 </div>
-
-                                 <!-- Ledger Payout Deduction (Superadmin only) -->
-                                 <div v-if="userRole.toLowerCase() === 'superadmin'"
-                                      @click="newBrand.subscription_billing_method = 'ledger'"
-                                      :style="{
-                                          border: newBrand.subscription_billing_method === 'ledger' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                          background: newBrand.subscription_billing_method === 'ledger' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                      }"
-                                      style="padding: 16px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
-                                         <span>💡 Payout Ledger</span>
-                                     </div>
-                                     <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
-                                         Subscriptions are automatically deducted from the accumulated dropshipping payout ledger. No card required upfront.
-                                     </div>
-                                 </div>
-                             </div>
-
                              <!-- Status & Stripe Setup Actions -->
-                             <div v-if="newBrand.subscription_billing_method === 'stripe_card'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
                                  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                                      <span style="font-size: 0.8rem; color: var(--text-muted);">
                                          Card Linking Status: 
@@ -662,27 +614,6 @@
                                  <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
                                      You must click the button above to securely connect your card via Stripe before you can continue.
                                  </p>
-                             </div>
-
-                             <div v-if="newBrand.subscription_billing_method === 'stripe_connect'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
-                                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                                     <span style="font-size: 0.8rem; color: var(--text-muted);">
-                                         Stripe Connect Status: 
-                                         <strong :style="{ color: stripeConnectActive ? 'var(--success)' : '#ef4444' }">
-                                             {{ stripeConnectActive ? '✅ Active' : '❌ Incomplete / Unlinked' }}
-                                         </strong>
-                                     </span>
-                                     <button type="button" @click="startStripeConnectSetup" class="btn" style="background: #635bff; color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                         🔗 Link Stripe Account
-                                     </button>
-                                 </div>
-                                 <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
-                                     You must complete your Stripe Connect Express account onboarding before you can continue.
-                                 </p>
-                             </div>
-
-                             <div v-if="newBrand.subscription_billing_method === 'ledger'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted);">
-                                 💡 Ledger deduction is authorized. The platform admin will monitor performance and balance deductions.
                              </div>
                         </div>
 
@@ -707,8 +638,22 @@
 
                 <!-- STEP 5: BRAND STRATEGY ANALYSIS (AUTORUN) -->
                 <div v-if="currentStep === 5" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- If Sandbox Mode, show locked block -->
+                    <div v-if="newBrand.ai_tier === 'none'"
+                         style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 12px; padding: 40px 30px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+                        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); display: flex; align-items: center; justify-content: center; font-size: 2rem;">🔒</div>
+                        <div>
+                            <h4 style="margin: 0 0 8px 0; font-size: 1.1rem; font-weight: 700; color: var(--accent);">Brand Strategy Analysis (Sandbox Trial)</h4>
+                            <p style="margin: 0 auto; max-width: 550px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+                                AI Brand Strategy Analysis, including Voice & Tone Guidelines, Target Audience Personas, Controlled Vocabulary, and Visual Briefing generation, is disabled under the Sandbox Trial plan.
+                                <br><br>
+                                Once onboarding is completed, you can choose an active subscription plan (Professional or Enterprise) to perform this analysis automatically for your coffee brand.
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Analysis in progress loader -->
-                    <div v-if="app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'generating'" 
+                    <div v-else-if="app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'generating'" 
                          style="background: rgba(139, 92, 246, 0.05); border: 1px dashed #8b5cf6; border-radius: 12px; padding: 45px 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
                         <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; animation: pulse 2s infinite;">🚀</div>
                         <div>
@@ -842,9 +787,10 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Styling Options card for user adjustment -->
-                        <div class="canvas-card" style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+                    <!-- Styling Options card for user adjustment -->
+                    <div class="canvas-card" style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-top: 15px;">
                             <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
                                 🎨 Visual Theme & Styling Customization
                             </h4>
@@ -932,7 +878,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
             </div>
 
@@ -1492,6 +1437,7 @@ export default {
             easySetupUrl: '',
             stripeCardLinked: false,
             stripeConnectActive: false,
+            draftSavedToDb: false,
             autofilledStoreTag: '',
             scrapedProducts: [],
             platformAutoDetected: false,
@@ -1692,18 +1638,7 @@ export default {
         isBillingConfigured() {
             if (!this.newBrand || !this.newBrand.ai_tier) return false;
             if (this.newBrand.ai_tier === 'none') return true;
-            if (!this.newBrand.subscription_billing_method) return false;
-            
-            if (this.newBrand.subscription_billing_method === 'ledger') {
-                return this.userRole && this.userRole.toLowerCase() === 'superadmin';
-            }
-            if (this.newBrand.subscription_billing_method === 'stripe_card') {
-                return this.stripeCardLinked;
-            }
-            if (this.newBrand.subscription_billing_method === 'stripe_connect') {
-                return this.stripeConnectActive;
-            }
-            return false;
+            return this.stripeCardLinked;
         },
         brands() {
             const list = this.app.brands;
@@ -1794,7 +1729,7 @@ export default {
                 return;
             }
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
-                alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first, so we can save your draft before connecting to Shopify.');
+                alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first.');
                 return;
             }
             if (!this.newBrand.shopify_shop_name) {
@@ -1802,34 +1737,13 @@ export default {
                 return;
             }
 
-            this.app.showNotification('Saving brand draft configuration...');
+            const saved = await this.ensureBrandDraftSaved();
+            if (!saved) return;
+
             try {
-                this.newBrand.theme_settings = JSON.stringify({
-                    secondary_color: this.newBrand.secondary_color,
-                    bg_color: this.newBrand.bg_color,
-                    text_color: this.newBrand.text_color,
-                    button_radius: this.newBrand.button_radius,
-                    button_text_color: this.newBrand.button_text_color,
-                    header_bg_color: this.newBrand.header_bg_color
-                });
-                this.newBrand.status = 'draft';
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
-                    },
-                    body: JSON.stringify(this.newBrand)
-                });
-                if (response.ok) {
-                    await this.app.loadBrands();
-                    // Open Shopify OAuth in a popup window
-                    const authorizeUrl = `${this.app.apiBaseUrl}/api/global/shopify/auth?shop=${encodeURIComponent(this.newBrand.shopify_shop_name)}&brandId=${encodeURIComponent(this.newBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
-                    window.open(authorizeUrl, 'ShopifyOAuth', 'width=800,height=700,status=yes,resizable=yes');
-                } else {
-                    const err = await response.json();
-                    alert(`Error saving brand draft: ${err.error}`);
-                }
+                // Open Shopify OAuth in a popup window
+                const authorizeUrl = `${this.app.apiBaseUrl}/api/global/shopify/auth?shop=${encodeURIComponent(this.newBrand.shopify_shop_name)}&brandId=${encodeURIComponent(this.newBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+                window.open(authorizeUrl, 'ShopifyOAuth', 'width=800,height=700,status=yes,resizable=yes');
             } catch (err) {
                 alert(`Error connecting to Shopify: ${err.message}`);
             }
@@ -1840,7 +1754,7 @@ export default {
                 return;
             }
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
-                alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first, so we can save your draft before connecting to WooCommerce.');
+                alert('Please fill out Brand ID, Display Name, and Subdomain in Step 1 first.');
                 return;
             }
             if (!this.newBrand.woocommerce_shop_url) {
@@ -1848,40 +1762,20 @@ export default {
                 return;
             }
 
-            this.app.showNotification('Saving brand draft configuration...');
+            const saved = await this.ensureBrandDraftSaved();
+            if (!saved) return;
+
             try {
-                this.newBrand.theme_settings = JSON.stringify({
-                    secondary_color: this.newBrand.secondary_color,
-                    bg_color: this.newBrand.bg_color,
-                    text_color: this.newBrand.text_color,
-                    button_radius: this.newBrand.button_radius,
-                    button_text_color: this.newBrand.button_text_color,
-                    header_bg_color: this.newBrand.header_bg_color
-                });
-                this.newBrand.status = 'draft';
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
-                    },
-                    body: JSON.stringify(this.newBrand)
-                });
-                if (response.ok) {
-                    await this.app.loadBrands();
-                    // Open WooCommerce OAuth in a popup window
-                    const authorizeUrl = `${this.app.apiBaseUrl}/api/global/woocommerce/auth?shop=${encodeURIComponent(this.newBrand.woocommerce_shop_url)}&brandId=${encodeURIComponent(this.newBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
-                    window.open(authorizeUrl, 'WooCommerceOAuth', 'width=800,height=700,status=yes,resizable=yes');
-                } else {
-                    const err = await response.json();
-                    alert(`Error saving brand draft: ${err.error}`);
-                }
+                // Open WooCommerce OAuth in a popup window
+                const authorizeUrl = `${this.app.apiBaseUrl}/api/global/woocommerce/auth?shop=${encodeURIComponent(this.newBrand.woocommerce_shop_url)}&brandId=${encodeURIComponent(this.newBrand.id)}&adminUrl=${encodeURIComponent(window.location.origin + window.location.pathname)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+                window.open(authorizeUrl, 'WooCommerceOAuth', 'width=800,height=700,status=yes,resizable=yes');
             } catch (err) {
                 alert(`Error connecting to WooCommerce: ${err.message}`);
             }
         },
         restoreBrandWizardState(brandId, platform) {
             this.newBrandSavedId = brandId;
+            this.draftSavedToDb = true;
             const targetBrand = this.app.brands.find(b => b.id === brandId);
             if (targetBrand) {
                 this.app.newBrand = { 
@@ -1927,6 +1821,7 @@ export default {
         },
         resumeDraftOnboarding(brand) {
             this.newBrandSavedId = brand.id;
+            this.draftSavedToDb = true;
             this.platformAutoDetected = !!(brand.platform === 'shopify' || brand.platform === 'woocommerce');
             // Restore newBrand details
             this.app.newBrand = {
@@ -2404,6 +2299,9 @@ export default {
             }
         },
         async startOnboardingStrategy() {
+            if (this.newBrand.ai_tier === 'none') {
+                return;
+            }
             if (!this.newBrandSavedId) {
                 alert('Brand draft has not been saved yet.');
                 return;
@@ -2522,8 +2420,8 @@ export default {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.canvas) {
-                        this.canvas = data.canvas;
+                    if (data) {
+                        this.canvas = data.canvas || data;
                         const b = this.app.brands.find(x => x.id === this.newBrandSavedId);
                         if (b) {
                             if (b.primary_color) this.newBrand.primary_color = b.primary_color;
@@ -2927,34 +2825,29 @@ export default {
                     return;
                 }
             }
+
+            this.newBrandSavedId = this.newBrand.id;
+            this.app.previewActiveBrandId = this.newBrand.id;
+            this.currentStep = 2;
+        },
+        async ensureBrandDraftSaved() {
+            if (this.draftSavedToDb) return true;
             
-            // Auto-run verification checks if preview mode is disabled and not yet verified
-            if (this.currentStep > 1 && !this.previewMode) {
-                if (!this.dnsVerified) {
-                    this.app.showNotification('Auto-verifying DNS configuration...');
-                    await this.verifyDns();
-                    if (!this.dnsVerified) {
-                        alert(`DNS validation failed: ${this.dnsVerifyError || 'Subdomain DNS record does not exist on Cloudflare. Please check the setup or enable Preview Mode.'}`);
-                        return;
-                    }
-                }
-                
-                if (!this.connectionVerified) {
-                    this.app.showNotification('Auto-testing e-commerce API integration keys...');
-                    await this.verifyConnection();
-                    if (!this.connectionVerified) {
-                        alert(`API integration test failed: ${this.connectionVerifyError || 'Unable to connect to the WooCommerce/Shopify endpoint. Please check the credentials or enable Preview Mode.'}`);
-                        return;
-                    }
-                }
-            }
-            this.newBrand.status = 'draft';
-            if (!this.useCustomStripe) {
-                this.newBrand.stripe_secret_key = '';
-                this.newBrand.stripe_webhook_secret = '';
-            }
-            this.savingDraft = true;
+            this.app.showNotification('Initializing brand profile on the platform...');
             try {
+                this.newBrand.theme_settings = JSON.stringify({
+                    secondary_color: this.newBrand.secondary_color,
+                    bg_color: this.newBrand.bg_color,
+                    text_color: this.newBrand.text_color,
+                    button_radius: this.newBrand.button_radius,
+                    button_text_color: this.newBrand.button_text_color,
+                    header_bg_color: this.newBrand.header_bg_color
+                });
+                this.newBrand.status = 'draft';
+                if (!this.useCustomStripe) {
+                    this.newBrand.stripe_secret_key = '';
+                    this.newBrand.stripe_webhook_secret = '';
+                }
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
                     method: 'POST',
                     headers: {
@@ -2973,18 +2866,18 @@ export default {
                         this.app.activeShopFilter = resData.brandId;
                     }
                     this.newBrandSavedId = this.newBrand.id;
-                    this.app.showNotification('Draft shop configuration saved. Loading Channels Connection...');
+                    this.draftSavedToDb = true;
                     await this.app.loadBrands();
                     this.app.previewActiveBrandId = this.newBrand.id;
-                    this.currentStep = 2;
+                    return true;
                 } else {
                     const err = await response.json();
-                    alert(`Error saving draft: ${err.error}`);
+                    alert(`Error initializing profile: ${err.error}`);
+                    return false;
                 }
             } catch (err) {
-                alert(`Error: ${err.message}`);
-            } finally {
-                this.savingDraft = false;
+                alert(`Error initializing brand profile: ${err.message}`);
+                return false;
             }
         },
         async updatePreviewDesign() {
@@ -3027,6 +2920,7 @@ export default {
         startBrandCreation() {
             this.isCreatingBrand = true;
             this.currentStep = 1;
+            this.draftSavedToDb = false;
             this.dnsVerified = false;
             this.connectionVerified = false;
             this.previewMode = false;
@@ -3323,10 +3217,8 @@ export default {
             return '';
         },
         async startStripeCardSetup() {
-            if (!this.newBrandSavedId) {
-                alert('Please save the brand draft profile in Step 1 first.');
-                return;
-            }
+            const saved = await this.ensureBrandDraftSaved();
+            if (!saved) return;
             try {
                 const token = localStorage.getItem('sc_admin_token');
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/stripe-setup-session`, {
@@ -3350,10 +3242,8 @@ export default {
             }
         },
         async startStripeConnectSetup() {
-            if (!this.newBrandSavedId) {
-                alert('Please save the brand draft profile in Step 1 first.');
-                return;
-            }
+            const saved = await this.ensureBrandDraftSaved();
+            if (!saved) return;
             try {
                 const token = localStorage.getItem('sc_admin_token');
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/stripe-connect-link`, {

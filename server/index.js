@@ -10033,21 +10033,34 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       } catch (e) {}
     }
 
-    // 3. Assemble State-of-the-Art Demographic Scene Prompt
+    // 3. Assemble State-of-the-Art Adaptive Brand Prompt
     let structuredPrompt = prompt || '';
     if (action === 'image' || action === 'generate') {
       const subjectDesc = productDna ? productDna.subject : (targetProduct ? targetProduct.title : 'premium coffee accessories');
-      const lighting = visualGuidelines.lighting || 'natural soft side light';
-      const bgStyle = visualGuidelines.environment_style || 'modern minimalist setting';
-      const photoStyle = visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture';
       
-      const age = demographics.age || '25-35';
-      const role = demographics.role || 'barista enthusiast';
-      const expression = demographics.expression || 'focused';
-      const apparel = demographics.apparel || 'casual linen apron';
-
-      structuredPrompt = `Commercial advertising photography, ${subjectDesc} in focus. Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. Set in a ${bgStyle} background. Shot on professional camera, ${lighting}, ${photoStyle}, premium photo quality, realistic skin textures.`;
-      console.log(`[AI Studio] Assembled Visual DNA Prompt: "${structuredPrompt}"`);
+      const hasPerson = /(person|model|man|woman|girl|guy|people|barista|hands|holding|drinking|face|smile)/i.test(prompt || '');
+      const hasOnlyItem = /(just the item|only product|no model|no person|only item|no people)/i.test(prompt || '');
+      const bypassBrand = /(ignore style guide|no brand|raw style|generic style|without style guide)/i.test(prompt || '');
+      
+      const lighting = bypassBrand ? 'natural lighting' : (visualGuidelines.lighting || 'natural soft side light');
+      const bgStyle = bypassBrand ? 'clean background' : (visualGuidelines.environment_style || 'modern minimalist setting');
+      const photoStyle = bypassBrand ? 'standard digital photography' : (visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture');
+      
+      let demographicsDesc = '';
+      if (!hasOnlyItem && (hasPerson || demographics.demographic_profile)) {
+        const age = demographics.age || '25-35';
+        const role = demographics.role || 'barista enthusiast';
+        const expression = demographics.expression || 'focused';
+        const apparel = demographics.apparel || 'casual linen apron';
+        demographicsDesc = `Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. `;
+      }
+      
+      structuredPrompt = `Commercial advertising photography, ${subjectDesc} in focus. ${demographicsDesc}Set in a ${bgStyle} background. Shot on professional camera, ${lighting}, ${photoStyle}, premium photo quality, realistic textures.`;
+      
+      if (prompt) {
+        structuredPrompt += ` In the style of: ${prompt}.`;
+      }
+      console.log(`[AI Studio] Assembled Adaptive Brand Prompt: "${structuredPrompt}"`);
     }
 
     let mediaUrl = '';

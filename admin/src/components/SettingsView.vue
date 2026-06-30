@@ -548,7 +548,9 @@
                     <!-- Subscription Billing Method visual cards -->
                     <div class="form-group form-full" style="margin-top: 10px;">
                         <label style="margin-bottom: 12px; display: block; font-weight: bold; color: var(--text-main);">Subscription Billing Method</label>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 15px;">
+                        
+                        <!-- Cards block for Superadmin -->
+                        <div v-if="userRole.toLowerCase() === 'superadmin'" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 15px;">
                             <!-- Credit Card -->
                             <div @click="settingsBrand.subscription_billing_method = 'stripe_card'"
                                  :style="{
@@ -579,9 +581,8 @@
                                  </div>
                              </div>
 
-                             <!-- Ledger Payout Deduction (Superadmin only) -->
-                             <div v-if="userRole.toLowerCase() === 'superadmin'"
-                                  @click="settingsBrand.subscription_billing_method = 'ledger'"
+                             <!-- Ledger Payout Deduction -->
+                             <div @click="settingsBrand.subscription_billing_method = 'ledger'"
                                   :style="{
                                       border: settingsBrand.subscription_billing_method === 'ledger' ? '2px solid var(--accent)' : '1px solid var(--border)',
                                       background: settingsBrand.subscription_billing_method === 'ledger' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
@@ -594,20 +595,43 @@
                                      Subscriptions are automatically deducted from the accumulated dropshipping payout ledger. No card required upfront.
                                  </div>
                              </div>
-                         </div>
+                        </div>
 
-                         <!-- Status & Stripe Setup Actions -->
-                         <div v-if="settingsBrand.subscription_billing_method === 'stripe_card'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                                 <span style="font-size: 0.8rem; color: var(--text-muted);">
-                                     Card Linking Status: 
-                                     <strong :style="{ color: cardLinked ? 'var(--success)' : '#ef4444' }">
-                                         {{ cardLinked ? '✅ Linked' : '❌ Not Linked' }}
-                                     </strong>
-                                 </span>
-                                 <button type="button" @click="initiateStripeCardSetup" :disabled="loadingCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                     💳 {{ cardLinked ? 'Update Card via Stripe' : 'Link Credit Card via Stripe' }}
-                                 </button>
+                        <!-- Read-only description panel for Merchants -->
+                        <div v-else style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 15px; font-size: 0.8rem; line-height: 1.45; color: var(--text-muted);">
+                            <span v-if="settingsBrand.subscription_billing_method === 'stripe_connect'" style="color: var(--accent); font-weight: 700; display: block; margin-bottom: 4px;">
+                                💡 Payout Split Billing (Stripe Connect)
+                            </span>
+                            <span v-else-if="settingsBrand.subscription_billing_method === 'ledger'" style="color: var(--accent); font-weight: 700; display: block; margin-bottom: 4px;">
+                                💡 Payout Ledger Deduction
+                            </span>
+                            <span v-else style="color: var(--accent); font-weight: 700; display: block; margin-bottom: 4px;">
+                                💳 Credit Card Billing
+                            </span>
+                            
+                            <span v-if="settingsBrand.subscription_billing_method === 'stripe_connect'">
+                                Split billing from storefront proceeds is active for your brand. Please link your Stripe account below to authorize transaction splits.
+                            </span>
+                            <span v-else-if="settingsBrand.subscription_billing_method === 'ledger'">
+                                Subscriptions are automatically deducted from your dropshipping payout ledger. No credit card required.
+                            </span>
+                            <span v-else>
+                                Fixed recurring billing is active. Automatic subscription payments are securely processed via your linked credit card.
+                            </span>
+                        </div>
+
+                    <!-- Status & Stripe Setup Actions -->
+                    <div v-if="settingsBrand.subscription_billing_method === 'stripe_card'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                Card Linking Status: 
+                                <strong :style="{ color: cardLinked ? 'var(--success)' : '#ef4444' }">
+                                    {{ cardLinked ? '✅ Linked' : '❌ Not Linked' }}
+                                </strong>
+                            </span>
+                            <button type="button" @click="initiateStripeCardSetup" :disabled="loadingCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                💳 {{ cardLinked ? 'Update Card via Stripe' : 'Link Credit Card via Stripe' }}
+                            </button>
                              </div>
                          </div>
 

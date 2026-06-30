@@ -965,6 +965,14 @@
                                     style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.75rem; height: 40px; resize: none;"></textarea>
                             </div>
 
+                            <!-- Channel Recommendations Presets banner -->
+                            <div style="font-size: 0.65rem; color: var(--text-muted); background: rgba(255,255,255,0.01); border: 1px dashed var(--border); padding: 6px; border-radius: 4px; margin-bottom: 8px;">
+                                💡 Recommended Presets:
+                                <span @click="applyMainCreativePreset('feed')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-left: 4px; margin-right: 8px; font-weight: 600;">Feed (1:1)</span>
+                                <span @click="applyMainCreativePreset('reels')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 8px; font-weight: 600;">Reels/TikTok (9:16)</span>
+                                <span @click="applyMainCreativePreset('youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube/Wide (16:9)</span>
+                            </div>
+
                             <!-- Settings Row -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                                 <div>
@@ -1105,6 +1113,14 @@
 
                                 <textarea v-model="card.aiStudioPrompt" :placeholder="!card.aiStudioAction ? 'Select an AI action first...' : card.aiStudioAction === 'generate' ? 'Describe the card image...' : card.aiStudioAction === 'refine' ? 'Describe card refinements...' : 'Describe video motion...'" 
                                     style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.72rem; height: 40px; resize: none;"></textarea>
+
+                                <!-- Recommended card presets banner -->
+                                <div style="font-size: 0.62rem; color: var(--text-muted); margin-top: 2px;">
+                                    💡 Recommended: 
+                                    <span @click="applyCardCreativePreset(card, 'feed')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 6px; font-weight: 600;">Feed (1:1)</span>
+                                    <span @click="applyCardCreativePreset(card, 'reels')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 6px; font-weight: 600;">Reels/TikTok (9:16)</span>
+                                    <span @click="applyCardCreativePreset(card, 'youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube (16:9)</span>
+                                </div>
 
                                 <!-- AI Studio settings row -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
@@ -3936,6 +3952,36 @@ export default {
                 card.lastHeadlineCost = this.app.aiTicker.cost * 0.92;
                 this.$set(this.newCampaign.carousel_cards, idx, { ...card });
                 this.app.stopAiTicker();
+            }
+        },
+        applyMainCreativePreset(preset) {
+            if (preset === 'tiktok' || preset === 'reels') {
+                this.aiStudioAspectRatio = '9:16';
+                this.aiStudioMotion = 'high';
+                this.aiStudioDuration = '10s';
+            } else if (preset === 'youtube') {
+                this.aiStudioAspectRatio = '16:9';
+                this.aiStudioMotion = 'medium';
+                this.aiStudioDuration = '10s';
+            } else if (preset === 'feed') {
+                this.aiStudioAspectRatio = '1:1';
+                this.aiStudioMotion = 'medium';
+                this.aiStudioDuration = '5s';
+            }
+        },
+        applyCardCreativePreset(card, preset) {
+            if (preset === 'tiktok' || preset === 'reels') {
+                card.aspectRatio = '9:16';
+                card.motionIntensity = 'high';
+                card.duration = '10s';
+            } else if (preset === 'youtube') {
+                card.aspectRatio = '16:9';
+                card.motionIntensity = 'medium';
+                card.duration = '10s';
+            } else if (preset === 'feed') {
+                card.aspectRatio = '1:1';
+                card.motionIntensity = 'medium';
+                card.duration = '5s';
             }
         },
         getBrandCanvasVisualDirection() {
