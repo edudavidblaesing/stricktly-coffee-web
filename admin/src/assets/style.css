@@ -2378,27 +2378,27 @@
             width: 140px;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) {
+        .sidebar-tier2.compact-mode {
             width: 70px !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-section-title {
-            display: none;
+        .sidebar-tier2.compact-mode .tier2-section-title {
+            display: none !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .workspace-dropdown-divider {
-            display: none;
+        .sidebar-tier2.compact-mode .workspace-dropdown-divider {
+            display: none !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-btn-text {
-            display: none;
+        .sidebar-tier2.compact-mode .tier2-btn-text {
+            display: none !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-status-badge {
-            display: none;
+        .sidebar-tier2.compact-mode .tier2-status-badge {
+            display: none !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-link-btn {
+        .sidebar-tier2.compact-mode .tier2-link-btn {
             width: 44px !important;
             height: 44px !important;
             border-radius: 6px !important;
@@ -2409,7 +2409,15 @@
             display: flex !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-link-btn span {
+        .tier2-btn-inner {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            transition: var(--transition);
+        }
+
+        .sidebar-tier2.compact-mode .tier2-btn-inner {
             justify-content: center !important;
             align-items: center !important;
             display: inline-flex !important;
@@ -2417,9 +2425,37 @@
             gap: 0 !important;
         }
 
-        .sidebar-tier2.compact-mode:not(:hover) .tier2-link-btn.active {
+        .sidebar-tier2.compact-mode .tier2-link-btn.active {
             background: rgba(0, 82, 204, 0.1) !important;
             color: #0052cc !important;
+        }
+
+        .sidebar-tier2.compact-mode .tier2-collapse-footer {
+            padding: 10px 0 !important;
+            justify-content: center !important;
+            display: flex !important;
+        }
+
+        .sidebar-tier2.compact-mode .collapse-toggle-btn {
+            width: 44px !important;
+            height: 44px !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            align-items: center !important;
+            display: flex !important;
+            margin: 0 auto !important;
+        }
+
+        .tier2-btn-icon-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            font-size: 1.25rem;
+            line-height: 1;
+            flex-shrink: 0;
+            transition: var(--transition);
         }
 
         .tier2-workspace-selector {

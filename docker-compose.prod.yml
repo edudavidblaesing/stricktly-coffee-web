@@ -39,6 +39,7 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_BUCKET_MEDIA=${S3_BUCKET_MEDIA}
+      - BRAND_STYLED_DASHBOARD_ENABLED=${BRAND_STYLED_DASHBOARD_ENABLED:-true}
     networks:
       - web
     labels:

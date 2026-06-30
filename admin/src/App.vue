@@ -71,8 +71,9 @@
             <div class="mobile-sidebar-overlay" :class="{ open: mobileSidebarOpen }" @click="mobileSidebarOpen = false">
             </div>
 
+
             <!-- SIDEBAR NAVIGATION MENU -->
-            <aside class="meta-sidebar-layout" :class="{ collapsed: !sidebarExpanded, open: mobileSidebarOpen, 'compact-mode': activeTier1 === 'storefront' && brandsSelectedChannelId && !sidebarHovered }" v-if="isLoggedIn" @mouseenter="sidebarHovered = true" @mouseleave="sidebarHovered = false">
+            <aside class="meta-sidebar-layout" :class="{ collapsed: !sidebarExpanded, open: mobileSidebarOpen, 'compact-mode': hasTier2Content && !sidebarHovered }" v-if="isLoggedIn" @mouseenter="sidebarHovered = true" @mouseleave="sidebarHovered = false">
                 <!-- TIER 1: Narrow icon sidebar (70px wide) -->
                 <div class="sidebar-tier1">
                     <!-- Active Brand Switcher (Top of Tier 1) -->
@@ -93,41 +94,7 @@
                             </div>
                         </button>
 
-                        <!-- Brand Switcher dropdown menu overlay (Floats to the right of Tier 1) -->
-                        <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen" 
-                             style="position: absolute !important; left: 60px !important; top: 0 !important; z-index: 150 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
-                            <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')"
-                                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
-                                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🌐</div>
-                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                                    <strong style="font-size: 0.85rem; color: var(--text-main);">All Brands</strong>
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Consolidated overview metrics</span>
-                                </div>
-                            </div>
-                            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
-                            <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
-                                :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)"
-                                style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
-                                <div class="workspace-dropdown-avatar" :style="{ background: b.favicon ? '#ffffff' : '#111' }"
-                                     style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; border: 1px solid var(--border);">
-                                    <img v-if="b.favicon" :src="b.favicon" alt="favicon" style="width: 100%; height: 100%; object-fit: contain;" />
-                                    <span v-else style="color: var(--accent); font-size: 0.85rem;">{{ b.name.charAt(0) }}</span>
-                                </div>
-                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                                    <strong style="font-size: 0.85rem; color: var(--text-main);">{{ b.name }}</strong>
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">{{ getBrandSubdomain(b) }}</span>
-                                </div>
-                            </div>
-                            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
-                            <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" 
-                                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s; color: var(--accent);">
-                                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">➕</div>
-                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                                    <strong style="font-size: 0.85rem; color: var(--accent);">Register Brand Shop</strong>
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Provision storefront & API keys</span>
-                                </div>
-                            </div>
-                        </div>
+
                     </div>
 
                     <!-- Category Navigation Icons -->
@@ -211,7 +178,7 @@
                 </div>
 
                 <!-- TIER 2: Wider nested categories navigation pane (230px wide) -->
-                <div class="sidebar-tier2" :class="{ 'compact-mode': activeTier1 === 'storefront' && brandsSelectedChannelId && !sidebarHovered }" style="padding-top: 12px;">
+                <div class="sidebar-tier2" :class="{ 'compact-mode': hasTier2Content && !sidebarHovered }" style="padding-top: 12px;">
                     <!-- Category Content Links -->
                     <div class="tier2-nav-wrapper">
                         <!-- Dashboard Links -->
@@ -220,12 +187,18 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'overview' }" @click="switchView('overview')">
-                                        📊 Operations Overview
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📊</span>
+                                            <span class="tier2-btn-text">Operations Overview</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'reports' }" :disabled="isSidebarLinkDisabled('reports')" @click="switchView('reports')">
-                                        📈 Analytics Reports
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📈</span>
+                                            <span class="tier2-btn-text">Analytics Reports</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -237,8 +210,8 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && (brandsSubView === 'list' && !brandsSelectedChannelId) }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list'; if($refs.brandsView) { $refs.brandsView.activeSubView = 'list'; $refs.brandsView.selectedChannelId = null; }">
-                                        <span style="display: inline-flex; align-items: center; gap: 8px; width: 100%;">
-                                            <span class="channel-emoji-icon" style="font-size: 1.25rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;">🔌</span>
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🔌</span>
                                             <span class="tier2-btn-text">Brand Connections</span>
                                         </span>
                                     </button>
@@ -248,8 +221,8 @@
                                 
                                 <li v-for="ch in sidebarChannels" :key="ch.id">
                                     <button class="tier2-link-btn" :class="{ active: isChannelActiveInSidebar(ch.id) }" @click="selectChannel(ch.id)">
-                                        <span style="display: inline-flex; align-items: center; gap: 8px; width: 100%;">
-                                            <span v-html="getChannelIconSvg(ch.icon, 20)"></span>
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap" v-html="getChannelIconSvg(ch.icon, 20)"></span>
                                             <span class="tier2-btn-text" style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ch.name }}</span>
                                             <span class="tier2-status-badge" v-if="isChannelConnected(ch.id)" style="font-size: 0.65rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 1px 4px; border-radius: 4px; font-weight: 700;">Active</span>
                                             <span class="tier2-status-badge" v-else style="font-size: 0.65rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 1px 4px; border-radius: 4px; font-weight: 700;">Off</span>
@@ -265,12 +238,18 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'products' }" :disabled="isSidebarLinkDisabled('products')" @click="switchView('products')">
-                                        🛍️ Products
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🛍️</span>
+                                            <span class="tier2-btn-text">Products</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'media' }" :disabled="isSidebarLinkDisabled('media')" @click="switchView('media')">
-                                        🗂️ Media
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🗂️</span>
+                                            <span class="tier2-btn-text">Media</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -282,12 +261,18 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' && activeCampaignTab === 'board' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchCampaignTab('board')">
-                                        📋 Studio
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📋</span>
+                                            <span class="tier2-btn-text">Studio</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' && activeCampaignTab === 'performance' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchCampaignTab('performance')">
-                                        📊 Insights
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📊</span>
+                                            <span class="tier2-btn-text">Insights</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -299,22 +284,34 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'orders' }" :disabled="isSidebarLinkDisabled('orders')" @click="switchView('orders')">
-                                        📦 Orders & Transactions
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📦</span>
+                                            <span class="tier2-btn-text">Orders & Transactions</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'messages' }" :disabled="isSidebarLinkDisabled('messages')" @click="switchView('messages')">
-                                        💬 Inbox & Live Chat
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">💬</span>
+                                            <span class="tier2-btn-text">Inbox & Live Chat</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'customer-support' }" :disabled="isSidebarLinkDisabled('customer-support')" @click="switchView('customer-support')">
-                                        🛠️ Support Tickets
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🛠️</span>
+                                            <span class="tier2-btn-text">Support Tickets</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'team-performance' }" :disabled="isSidebarLinkDisabled('team-performance')" @click="switchView('team-performance')">
-                                        👥 Team Performance
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">👥</span>
+                                            <span class="tier2-btn-text">Team Performance</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -326,17 +323,26 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'learning' }" :disabled="isSidebarLinkDisabled('learning')" @click="switchView('learning')">
-                                        ✨ Learning Center
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">✨</span>
+                                            <span class="tier2-btn-text">Learning Center</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'ai-analytics' }" @click="switchView('ai-analytics')">
-                                        🧠 Console & Tokens
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🧠</span>
+                                            <span class="tier2-btn-text">Console & Tokens</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'brand-center' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="switchView('brand-center')">
-                                        🎯 Brand Strategy Guide
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🎯</span>
+                                            <span class="tier2-btn-text">Brand Strategy Guide</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -348,32 +354,50 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'general' }" @click="switchSettingsTab('general')">
-                                        ⚙️ General
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">⚙️</span>
+                                            <span class="tier2-btn-text">General</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'ecommerce' }" @click="switchSettingsTab('ecommerce')">
-                                        💳 E-commerce
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">💳</span>
+                                            <span class="tier2-btn-text">E-commerce</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'social' }" @click="switchSettingsTab('social')">
-                                        🔌 Social Accounts
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🔌</span>
+                                            <span class="tier2-btn-text">Social Accounts</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'roles-permissions' }" :disabled="isSidebarLinkDisabled('roles-permissions')" @click="switchView('roles-permissions')">
-                                        🔐 Roles & Security
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🔐</span>
+                                            <span class="tier2-btn-text">Roles & Security</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'billing-subscription' }" @click="switchView('billing-subscription')">
-                                        💳 Subscription Plan
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">💳</span>
+                                            <span class="tier2-btn-text">Subscription Plan</span>
+                                        </span>
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'help' }" @click="switchView('help')">
-                                        ❓ Support Documentation
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">❓</span>
+                                            <span class="tier2-btn-text">Support Documentation</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -382,37 +406,14 @@
 
                     <!-- Bottom Toggle Expand/Collapse Button -->
                     <div class="tier2-collapse-footer">
-                        <button type="button" class="collapse-toggle-btn" @click="toggleSidebarPin">
-                            <span>{{ sidebarPinned ? '📌 Pinned' : '🔓 Hover-to-Expand' }}</span>
+                        <button type="button" class="collapse-toggle-btn" @click="toggleSidebarPin" style="width: 100%; display: flex; align-items: center; background: none; border: none; cursor: pointer; color: var(--text-main); font-weight: 550; gap: 8px;">
+                            <span class="tier2-btn-icon-wrap">{{ sidebarPinned ? '📌' : '🔒' }}</span>
+                            <span class="tier2-btn-text" style="font-size: 0.72rem; font-weight: 700;">{{ sidebarPinned ? 'Pinned' : 'Hover-to-Expand' }}</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Profile Switcher Menu Overlay (Bottom Float) -->
-                <div class="profile-dropdown-menu" v-if="profileDropdownOpen" style="position: absolute; bottom: 80px; left: 20px; right: 20px; z-index: 120;">
-                    <div class="profile-dropdown-header">
-                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
-                    </div>
-                    <div class="profile-dropdown-divider"></div>
-                    
-                    <button v-if="userRole.toLowerCase() === 'merchant'" class="profile-dropdown-item" @click.stop="toggleDemoRole">
-                        🔄 Switch back to Super Admin
-                    </button>
-                    
-                    <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
-                        👤 Act as {{ activeWorkspaceName }} Admin
-                    </button>
-                    
-                    <button class="profile-dropdown-item" @click.stop="openProfileModal">
-                        👤 Profile Settings
-                    </button>
-                    
-                    <div class="profile-dropdown-divider"></div>
-                    <button class="profile-dropdown-item logout" @click.stop="handleLogout">
-                        🚪 Log Out
-                    </button>
-                </div>
+
             </aside>
 
         <!-- BOTTOM MOBILE NAVBAR -->
@@ -1073,6 +1074,69 @@
                 </div>
             </div>
         </div>        
+
+        <!-- Brand Switcher dropdown menu overlay (Floats to the right of Tier 1, position fixed to prevent clipping) -->
+        <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen" 
+             style="position: fixed !important; left: 74px !important; right: auto !important; top: 12px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
+            <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')"
+                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
+                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🌐</div>
+                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                    <strong style="font-size: 0.85rem; color: var(--text-main);">All Brands</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Consolidated overview metrics</span>
+                </div>
+            </div>
+            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+            <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
+                :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)"
+                style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
+                <div class="workspace-dropdown-avatar" :style="{ background: b.favicon ? '#ffffff' : '#111' }"
+                     style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; border: 1px solid var(--border);">
+                    <img v-if="b.favicon" :src="b.favicon" alt="favicon" style="width: 100%; height: 100%; object-fit: contain;" />
+                    <span v-else style="color: var(--accent); font-size: 0.85rem;">{{ b.name.charAt(0) }}</span>
+                </div>
+                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                    <strong style="font-size: 0.85rem; color: var(--text-main);">{{ b.name }}</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">{{ getBrandSubdomain(b) }}</span>
+                </div>
+            </div>
+            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+            <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" 
+                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s; color: var(--accent);">
+                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">➕</div>
+                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                    <strong style="font-size: 0.85rem; color: var(--accent);">Register Brand Shop</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Provision storefront & API keys</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Switcher Menu Overlay (Bottom Float, position fixed to prevent layout squeezing) -->
+        <div class="profile-dropdown-menu" v-if="profileDropdownOpen" 
+             style="position: fixed !important; left: 74px !important; right: auto !important; bottom: 12px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
+            <div class="profile-dropdown-header">
+                <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            
+            <button v-if="userRole.toLowerCase() === 'merchant'" class="profile-dropdown-item" @click.stop="toggleDemoRole">
+                🔄 Switch back to Super Admin
+            </button>
+            
+            <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
+                👤 Act as {{ activeWorkspaceName }} Admin
+            </button>
+            
+            <button class="profile-dropdown-item" @click.stop="openProfileModal">
+                👤 Profile Settings
+            </button>
+            
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item logout" @click.stop="handleLogout">
+                🚪 Log Out
+            </button>
+        </div>
         <!-- Unsaved Changes Alert Dialog Overlay -->
         <div v-if="showUnsavedChangesModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 11000; backdrop-filter: blur(10px);">
             <div class="panel" style="width: 100%; max-width: 420px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
@@ -1362,7 +1426,6 @@ export default {
             computed: {
                 sidebarExpanded() {
                     if (this.isCampaignCreatorFullscreen) return false;
-                    if (this.isDesignerOpen && !this.sidebarHovered) return false;
                     if (!this.hasTier2Content) return false;
                     return this.sidebarPinned || this.sidebarHovered;
                 },
@@ -1375,14 +1438,7 @@ export default {
                     return validTiers.includes(this.activeTier1);
                 },
                 getMainStyle() {
-                    let width = '70px';
-                    if (this.sidebarExpanded) {
-                        const isCompact = this.activeTier1 === 'storefront' && this.brandsSelectedChannelId && !this.sidebarHovered;
-                        width = isCompact ? '140px' : '300px';
-                    } else {
-                        const isCompact = this.activeTier1 === 'storefront' && this.brandsSelectedChannelId;
-                        width = isCompact ? '140px' : '70px';
-                    }
+                    const width = this.hasTier2Content ? '140px' : '70px';
                     return {
                         marginLeft: width,
                         width: `calc(100% - ${width})`
