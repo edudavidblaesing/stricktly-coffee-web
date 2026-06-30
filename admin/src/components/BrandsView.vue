@@ -917,7 +917,7 @@
                                     </td>
                                     <td style="padding: 12px;">
                                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                            <a :href="'https://' + app.getBrandSubdomain(b)" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500;">
+                                            <a :href="(app.currentEnv === 'local' ? 'http://' : 'https://') + app.getBrandSubdomain(b)" target="_blank" style="color: var(--text-main); text-decoration: none; font-weight: 500;">
                                                 🔗 {{ app.getBrandSubdomain(b) }}
                                             </a>
                                             <template v-if="userRole.toLowerCase() === 'superadmin'">

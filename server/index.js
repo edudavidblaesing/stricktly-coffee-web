@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import { runQuery, getQuery, allQuery } from './db.js';
 import nodemailer from 'nodemailer';
+import { GoogleAdsService } from './googleAdsService.js';
 
 dotenv.config();
 
@@ -7798,16 +7799,30 @@ app.post('/api/global/marketing-campaigns/:id/recommendations/:recId/apply', ver
       return res.status(404).json({ error: 'Campaign not found.' });
     }
 
+    let updatedBudget = parseFloat(campaign.budget);
     if (rec.action === 'pause') {
       await runQuery("UPDATE marketing_campaigns SET status = 'paused' WHERE id = $1", [campaignId]);
     } else if (rec.action === 'increase_budget') {
       const changePct = parseFloat(rec.action_value) || 0;
-      const newBudget = parseFloat(campaign.budget) * (1 + changePct / 100);
-      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(newBudget.toFixed(2)), campaignId]);
+      updatedBudget = parseFloat(campaign.budget) * (1 + changePct / 100);
+      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(updatedBudget.toFixed(2)), campaignId]);
     } else if (rec.action === 'reduce_budget') {
       const changePct = parseFloat(rec.action_value) || 0;
-      const newBudget = parseFloat(campaign.budget) * (1 - changePct / 100);
-      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(newBudget.toFixed(2)), campaignId]);
+      updatedBudget = parseFloat(campaign.budget) * (1 - changePct / 100);
+      await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(updatedBudget.toFixed(2)), campaignId]);
+    }
+
+    // Programmatic Google Ads sync integration
+    if (campaign.platform === 'google') {
+      try {
+        if (rec.action === 'pause') {
+          await GoogleAdsService.updateCampaignStatus(campaignId, 'paused');
+        } else if (rec.action === 'increase_budget' || rec.action === 'reduce_budget') {
+          await GoogleAdsService.updateCampaignBudget(campaignId, 'budget_' + campaignId, updatedBudget);
+        }
+      } catch (adErr) {
+        console.error(`[Google Ads AutoSync] Failed to sync update to Google:`, adErr.message);
+      }
     }
 
     await runQuery("UPDATE campaign_agent_recommendations SET status = 'applied', applied_at = CURRENT_TIMESTAMP WHERE id = $1", [recId]);
@@ -7884,6 +7899,16 @@ async function runAutopilotAgentAnalysis(brandId) {
       const triggerMsg = safetyReason;
       if (mode === 'autonomous') {
         await runQuery("UPDATE marketing_campaigns SET status = 'paused' WHERE id = $1", [c.id]);
+        
+        // Sync to Google Ads API
+        if (c.platform === 'google') {
+          try {
+            await GoogleAdsService.updateCampaignStatus(c.id, 'paused');
+          } catch (adErr) {
+            console.error(`[Google Ads Autopilot Sync] Failed to pause campaign:`, adErr.message);
+          }
+        }
+
         await runQuery(`
           INSERT INTO campaign_agent_recommendations (campaign_id, metric, operator, trigger_value, current_value, action, action_value, status, agent_role, performance_impact)
           VALUES ($1, 'roas', 'lt', $2, $3, 'pause', NULL, 'auto_executed', 'safety_director', $4)
@@ -7987,6 +8012,19 @@ async function runAutopilotAgentAnalysis(brandId) {
         } else if (rule.action === 'reduce_budget') {
           updatedBudget = updatedBudget * (1 - actionVal / 100);
           await runQuery("UPDATE marketing_campaigns SET budget = $1 WHERE id = $2", [parseFloat(updatedBudget.toFixed(2)), c.id]);
+        }
+
+        // Programmatic Google Ads sync integration
+        if (c.platform === 'google') {
+          try {
+            if (rule.action === 'pause') {
+              await GoogleAdsService.updateCampaignStatus(c.id, 'paused');
+            } else if (rule.action === 'increase_budget' || rule.action === 'reduce_budget') {
+              await GoogleAdsService.updateCampaignBudget(c.id, 'budget_' + c.id, updatedBudget);
+            }
+          } catch (adErr) {
+            console.error(`[Google Ads Autopilot Sync] Failed to sync rule execution to Google:`, adErr.message);
+          }
         }
 
         await runQuery(`
@@ -9221,15 +9259,17 @@ app.put('/api/global/media/:id', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
-  const { title, folder } = req.body;
+  const { title, folder, metadata } = req.body;
   if (!title) return res.status(400).json({ error: 'Missing required field: title.' });
+
+  const metadataStr = metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : null;
 
   try {
     await runQuery(`
       UPDATE media_library
-      SET title = $1, folder = $2
-      WHERE id = $3 AND brand_id = $4
-    `, [title, folder || 'General', req.params.id, brandId]);
+      SET title = $1, folder = $2, metadata = $3
+      WHERE id = $4 AND brand_id = $5
+    `, [title, folder || 'General', metadataStr, req.params.id, brandId]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -141,7 +141,7 @@
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
                                         <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
                                         <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
+                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEstCost }}]</span>
                                     </button>
                                     <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo" operation="Product SEO Content Generation" :inputText="newProduct.long_description || newProduct.title" />
                                 </div>
@@ -323,7 +323,7 @@
                                         <span v-if="!app.isFeatureAllowed('allow_seo')">🔒 Write AI SEO Pitch</span>
                                         <span v-else-if="generatingSeo">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
                                         <span v-else-if="lastSeoCost">✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Last: €{{ lastSeoCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [~$0.0002]</span>
+                                        <span v-else>✨ Write AI SEO Pitch [Gemini 2.5 Flash] [Est: {{ seoEditEstCost }}]</span>
                                     </button>
                                     <AiEstimateBadge v-if="app.isFeatureAllowed('allow_seo') && !generatingSeo && editingProduct.details_source !== 'external'" operation="Product SEO Content Generation" :inputText="editingProduct.long_description || editingProduct.title" />
                                 </div>
@@ -543,6 +543,8 @@ export default {
             lastSeoCost: null,
             activeLangTab: 'en',
             importingStoreWide: false,
+            seoEstCost: '€0.00020',
+            seoEditEstCost: '€0.00020',
             editingProduct: {
                 id: null,
                 brand_id: '',
@@ -617,7 +619,33 @@ export default {
             return list;
         }
     },
+    watch: {
+        'newProduct.long_description': {
+            immediate: true,
+            handler(newVal) {
+                this.updateNewSeoEstimate(newVal);
+            }
+        },
+        'editingProduct.long_description': {
+            immediate: true,
+            handler(newVal) {
+                this.updateEditSeoEstimate(newVal);
+            }
+        }
+    },
     methods: {
+        async updateNewSeoEstimate(text) {
+            const data = await this.app.fetchAiEstimate('Product SEO Content Generation', text || '');
+            if (data && data.costUsd) {
+                this.seoEstCost = `€${(data.costUsd * 0.92).toFixed(5)}`;
+            }
+        },
+        async updateEditSeoEstimate(text) {
+            const data = await this.app.fetchAiEstimate('Product SEO Content Generation', text || '');
+            if (data && data.costUsd) {
+                this.seoEditEstCost = `€${(data.costUsd * 0.92).toFixed(5)}`;
+            }
+        },
         toggleSelectProduct(id) {
             const idx = this.selectedProductIds.indexOf(id);
             if (idx > -1) {

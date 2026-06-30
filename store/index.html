@@ -1023,36 +1023,39 @@
         </div>
     </header>
 
-    <!-- Hero -->
-    <section class="hero">
-        <div class="container hero-grid">
-            <div class="hero-content">
-                <span class="hero-tag">Sartorial Precision</span>
-                <h1>Crafting the perfect extraction with <span>Pesado</span></h1>
-                <p>Designed in Melbourne, engineered for absolute consistency. Elevate your espresso ritual with premium wood modular handles, precision machined heads, and gravity distribution technology.</p>
-                <div class="hero-actions">
-                    <a href="#products" class="btn btn-primary">Shop Collection</a>
+    <!-- Main Content Sections Container -->
+    <main id="storefront-sections-container">
+        <!-- Hero -->
+        <section class="hero">
+            <div class="container hero-grid">
+                <div class="hero-content">
+                    <span class="hero-tag">Sartorial Precision</span>
+                    <h1>Crafting the perfect extraction with <span>Pesado</span></h1>
+                    <p>Designed in Melbourne, engineered for absolute consistency. Elevate your espresso ritual with premium wood modular handles, precision machined heads, and gravity distribution technology.</p>
+                    <div class="hero-actions">
+                        <a href="#products" class="btn btn-primary">Shop Collection</a>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Products Collection -->
-    <section class="products-section" id="products">
-        <div class="container">
-            <div class="section-header">
-                <h2>The Precision Collection</h2>
-                <p>Meticulously engineered tools for the discerning barista.</p>
-            </div>
-            
-            <div class="products-grid" id="products-grid">
-                <!-- Products will load dynamically via API -->
-                <div style="grid-column: 1/-1; text-align: center; padding: 48px; color: var(--text-muted);">
-                    Loading premium espresso collection...
+        <!-- Products Collection -->
+        <section class="products-section" id="products">
+            <div class="container">
+                <div class="section-header">
+                    <h2>The Precision Collection</h2>
+                    <p>Meticulously engineered tools for the discerning barista.</p>
+                </div>
+                
+                <div class="products-grid" id="products-grid">
+                    <!-- Products will load dynamically via API -->
+                    <div style="grid-column: 1/-1; text-align: center; padding: 48px; color: var(--text-muted);">
+                        Loading premium espresso collection...
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
     <!-- Footer -->
     <footer>
@@ -1766,6 +1769,9 @@
                         renderLandingPage(window.previewLandingPageOverride);
                     } else {
                         applyThemeSettings(event.data);
+                        if (window.renderPageSections) {
+                            window.renderPageSections(event.data.sections);
+                        }
                         if (window.applyStorefrontTexts) window.applyStorefrontTexts();
                         const store404 = document.getElementById('store-404-container');
                         if (store404 && store404.style.display === 'flex' && window.renderBranded404) {
@@ -2579,6 +2585,11 @@
             if (footer) footer.style.display = 'block';
             if (lpc) lpc.style.display = 'none';
             if (err404) err404.style.display = 'none';
+
+            // Draw dynamic sections if present in settings
+            if (window.brandSettings && window.brandSettings.sections && window.renderPageSections) {
+                window.renderPageSections(window.brandSettings.sections);
+            }
         }
 
         function renderProducts() {
@@ -3941,6 +3952,239 @@
                 setupEditable(document.getElementById('landing-prod-buy-btn'), 'cta', activeSlug);
             }
         }
+
+        // Dynamic page sections rendering engine for visual builder
+        function renderPageSections(sections) {
+            if (!sections || !Array.isArray(sections) || sections.length === 0) {
+                const staticHero = document.querySelector('main > section.hero');
+                const staticProds = document.querySelector('main > section.products-section');
+                if (staticHero) staticHero.style.display = 'block';
+                if (staticProds) staticProds.style.display = 'block';
+                document.querySelectorAll('.sc-dynamic-section').forEach(el => el.remove());
+                return;
+            }
+
+            const container = document.getElementById('storefront-sections-container');
+            if (!container) return;
+
+            const staticHero = container.querySelector('section.hero');
+            if (staticHero) staticHero.style.display = 'none';
+            const staticProds = container.querySelector('section.products-section');
+            if (staticProds) staticProds.style.display = 'none';
+
+            container.querySelectorAll('.sc-dynamic-section').forEach(el => el.remove());
+
+            sections.forEach((section, index) => {
+                if (section.active === false) return;
+                
+                const sectionEl = document.createElement('section');
+                sectionEl.className = 'sc-dynamic-section';
+                sectionEl.dataset.sectionId = section.id;
+                sectionEl.dataset.sectionType = section.type;
+                sectionEl.style.position = 'relative';
+                sectionEl.style.transition = 'outline 0.2s ease, box-shadow 0.2s ease';
+                
+                // Highlight border style on hover if editor editing mode is active
+                sectionEl.addEventListener('mouseenter', () => {
+                    if (window.inlineEditingEnabled) {
+                        sectionEl.style.boxShadow = '0 0 0 2px dashed var(--primary, #c5a059)';
+                    }
+                });
+                sectionEl.addEventListener('mouseleave', () => {
+                    sectionEl.style.boxShadow = 'none';
+                });
+
+                sectionEl.addEventListener('click', (e) => {
+                    if (window.inlineEditingEnabled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.parent.postMessage({ type: 'SELECT_SECTION', sectionId: section.id }, '*');
+                    }
+                });
+
+                const settings = section.settings || {};
+
+                if (section.type === 'hero') {
+                    const isVideo = settings.hero_img && (settings.hero_img.endsWith('.mp4') || settings.hero_img.includes('mixkit.co'));
+                    sectionEl.innerHTML = `
+                        <div class="hero-media-wrapper" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:-1; overflow:hidden;">
+                            ${isVideo ? 
+                                `<video src="${settings.hero_img}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; opacity:0.85;"></video>` :
+                                `<div style="background-image: url('${settings.hero_img || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1200'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.85;"></div>`
+                            }
+                            <div style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.8) 100%);"></div>
+                        </div>
+                        <div class="container" style="min-height: 80vh; display: flex; align-items: center; padding: 80px 24px;">
+                            <div class="hero-content" style="max-width: 650px; text-align: left;">
+                                <span class="hero-tag" style="color: var(--primary); text-transform: uppercase; font-size: 0.85rem; font-weight: 700; letter-spacing: 2px; margin-bottom: 12px; display: block;">Sartorial Precision</span>
+                                <h1 class="dynamic-bind" data-field="headline" style="font-size: 3.2rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: var(--text-main);">${settings.headline || 'Crafting the perfect extraction'}</h1>
+                                <p class="dynamic-bind" data-field="subheadline" style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 30px;">${settings.subheadline || 'Designed for absolute consistency.'}</p>
+                                <div class="hero-actions">
+                                    <a href="${settings.cta_link || '#products'}" class="btn btn-primary dynamic-bind" data-field="cta" style="background: var(--primary); color: var(--primary-contrast); border: none; padding: 12px 28px; border-radius: var(--button-radius); text-transform: uppercase; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-block;">${settings.cta || 'Shop Collection'}</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                else if (section.type === 'featured_collection') {
+                    const colTitle = settings.title || 'Featured Collection';
+                    const colSubtitle = settings.subtitle || '';
+                    const colLimit = parseInt(settings.limit) || 4;
+                    const colId = settings.collection_id || 'all';
+
+                    sectionEl.innerHTML = `
+                        <div class="container" style="padding: 80px 24px;">
+                            <div class="section-header" style="text-align: center; margin-bottom: 48px;">
+                                <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 12px; color: var(--text-main);">${colTitle}</h2>
+                                ${colSubtitle ? `<p style="color: var(--text-muted); font-size: 1rem;">${colSubtitle}</p>` : ''}
+                            </div>
+                            <div class="products-grid sc-dynamic-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px;">
+                            </div>
+                        </div>
+                    `;
+
+                    const grid = sectionEl.querySelector('.sc-dynamic-grid');
+                    if (grid) {
+                        const items = storeProducts.filter(p => {
+                            if (colId === 'all') return true;
+                            const text = `${p.title} ${p.description} ${p.tag}`.toLowerCase();
+                            return text.includes(colId.toLowerCase());
+                        }).slice(0, colLimit);
+
+                        if (items.length === 0) {
+                            grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding: 40px; color:var(--text-muted);">No products found in collection "${colId}".</div>`;
+                        } else {
+                            items.forEach(prod => {
+                                const card = document.createElement('div');
+                                card.className = 'product-card';
+                                card.style.cursor = 'pointer';
+                                card.onclick = (e) => {
+                                    if (e.target.closest('.add-to-cart-btn')) return;
+                                    openProductDetails(prod.id);
+                                };
+                                card.innerHTML = `
+                                    ${prod.tag ? `<span class="product-badge">${prod.tag}</span>` : ''}
+                                    <div class="product-image-wrapper">
+                                        <img src="${prod.image}" alt="${prod.title}" class="product-image">
+                                    </div>
+                                    <div class="product-info">
+                                        <h3 class="product-title">${prod.title}</h3>
+                                        <p class="product-description">${prod.description}</p>
+                                        <div class="product-meta">
+                                            <span class="product-price">€${prod.price.toFixed(2)}</span>
+                                            <button class="add-to-cart-btn" onclick="addToCart(${prod.id})">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                                Add to Cart
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                                grid.appendChild(card);
+                            });
+                        }
+                    }
+                }
+                else if (section.type === 'rich_text') {
+                    const align = settings.align || 'center';
+                    sectionEl.innerHTML = `
+                        <div class="container" style="padding: 60px 24px; text-align: ${align}; max-width: 800px; margin: 0 auto;">
+                            <h2 class="dynamic-bind" data-field="title" style="font-size: 2.2rem; font-weight: 800; margin-bottom: 16px; color: var(--text-main); font-family: var(--font-heading);">${settings.title || 'Rich Text'}</h2>
+                            <p class="dynamic-bind" data-field="content" style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; max-width: 650px; margin: 0 auto;">${settings.content || 'Share details about your brand, philosophy, or product craftsmanship here.'}</p>
+                        </div>
+                    `;
+                }
+                else if (section.type === 'collection_list') {
+                    const blocks = section.blocks || [];
+                    sectionEl.innerHTML = `
+                        <div class="container" style="padding: 80px 24px;">
+                            <div class="section-header" style="text-align: center; margin-bottom: 40px;">
+                                <h2 style="font-size: 2.2rem; font-weight: 800; color: var(--text-main);">${settings.title || 'Collections'}</h2>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+                                ${blocks.map((block, bIdx) => `
+                                    <div class="sc-dynamic-block" data-block-id="${block.id}" style="position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--card-bg); aspect-ratio: 4/3; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                        <div style="background-image: url('${block.settings.image || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.8;"></div>
+                                        <div style="position: absolute; bottom: 0; left: 0; width:100%; padding: 20px; background: linear-gradient(360deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%); display: flex; align-items: flex-end; justify-content: space-between;">
+                                            <span style="font-weight: 700; font-size: 1.2rem; color: #ffffff;">${block.settings.title || 'Collection Title'} →</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    sectionEl.querySelectorAll('.sc-dynamic-block').forEach((blkEl, bIdx) => {
+                        blkEl.addEventListener('click', (e) => {
+                            if (window.inlineEditingEnabled) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const blockId = blkEl.dataset.blockId;
+                                window.parent.postMessage({ type: 'SELECT_SECTION', sectionId: section.id, blockId: blockId }, '*');
+                            } else {
+                                const block = blocks[bIdx];
+                                if (block && block.settings.link) {
+                                    window.location.hash = block.settings.link;
+                                }
+                            }
+                        });
+                    });
+                }
+                else if (section.type === 'video') {
+                    sectionEl.innerHTML = `
+                        <div class="container" style="padding: 80px 24px; max-width: 1000px; margin: 0 auto; text-align: center;">
+                            ${settings.title ? `<h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 24px; color: var(--text-main);">${settings.title}</h2>` : ''}
+                            <div style="border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 12px 40px rgba(0,0,0,0.4); aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; position: relative;">
+                                <video src="${settings.video_url || 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4'}"
+                                       ${settings.autoplay ? 'autoplay' : ''} 
+                                       ${settings.loop ? 'loop' : ''} 
+                                       muted playsinline controls 
+                                       style="width: 100%; height: 100%; object-fit: cover;">
+                                </video>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.appendChild(sectionEl);
+
+                // Set up inline editing bindings
+                if (window.inlineEditingEnabled) {
+                    sectionEl.querySelectorAll('.dynamic-bind').forEach(bindEl => {
+                        const field = bindEl.dataset.field;
+                        bindEl.contentEditable = "true";
+                        bindEl.style.cursor = "text";
+                        bindEl.style.outline = "none";
+                        bindEl.addEventListener('mouseenter', () => {
+                            if (window.inlineEditingEnabled) {
+                                bindEl.style.boxShadow = "0 0 0 2px var(--primary, #c5a059)";
+                                bindEl.style.borderRadius = "4px";
+                            }
+                        });
+                        bindEl.addEventListener('mouseleave', () => {
+                            bindEl.style.boxShadow = "none";
+                        });
+                        bindEl.addEventListener('focus', () => {
+                            if (window.inlineEditingEnabled) {
+                                bindEl.style.boxShadow = "0 0 0 2px var(--primary, #c5a059), 0 0 8px rgba(197, 160, 89, 0.4)";
+                                showToolbar(bindEl, `section_${section.id}_${field}`, 'home');
+                            }
+                        });
+                        bindEl.addEventListener('blur', () => {
+                            bindEl.style.boxShadow = "none";
+                            const text = bindEl.innerText.trim();
+                            window.parent.postMessage({
+                                type: 'SECTION_SETTING_EDIT',
+                                sectionId: section.id,
+                                field: field,
+                                value: text
+                            }, '*');
+                        });
+                    });
+                }
+            });
+        }
+        window.renderPageSections = renderPageSections;
+
         window.initializeInlineEditing = initializeInlineEditing;
         initializeInlineEditing();
     </script>

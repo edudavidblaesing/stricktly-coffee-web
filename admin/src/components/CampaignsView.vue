@@ -1189,8 +1189,8 @@
                             <button type="button" @click="toggleGenerateAICopy" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 10px; height: 28px; display: flex; align-items: center; gap: 4px; margin: 0; flex-shrink: 0;">
                                 <span v-if="!app.isFeatureAllowed('allow_copywriter')">🔒 Write Copy</span>
                                 <span v-else-if="generatingAICopy">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                <span v-else-if="lastGeneratingAICopyCost">Write Copy [{{ getAiModelDisplay(getAiModelName) }}] [Last: €{{ lastGeneratingAICopyCost.toFixed(4) }}]</span>
-                                <span v-else>Write Copy [{{ getAiModelDisplay(getAiModelName) }}]</span>
+                                <span v-else-if="lastGeneratingAICopyCost">Write Copy [Est: {{ copywriterEstCost }}] [Last: €{{ lastGeneratingAICopyCost.toFixed(4) }}]</span>
+                                <span v-else>Write Copy [Est: {{ copywriterEstCost }}]</span>
                             </button>
                             <AiEstimateBadge v-if="app.isFeatureAllowed('allow_copywriter') && !generatingAICopy" operation="Campaign Ad Copy Generation" />
                         </div>
@@ -1629,7 +1629,7 @@
                             <div style="background: #f1f3f4; color: #202124; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">Ad</div>
                             <div>
                                 <span style="font-size: 0.75rem; color: #202124; display: block; font-weight: 500;">Sponsor: {{ activeBrand.name }}</span>
-                                <span style="font-size: 0.7rem; color: #5f6368; display: block;">https://{{ previewDestinationUrl }}</span>
+                                <span style="font-size: 0.7rem; color: #5f6368; display: block;">{{ app.currentEnv === 'local' ? 'http' : 'https' }}://{{ previewDestinationUrl }}</span>
                             </div>
                         </div>
                         <h4 @click="previewChannel = 'destination'" style="font-size: 1.15rem; color: #1a0dab; font-weight: 400; line-height: 1.3; margin: 4px 0; cursor: pointer; text-decoration: none;">
@@ -2769,6 +2769,7 @@ export default {
             selectedCreativeDirection: 'General',
             generatingAICopy: false,
             lastGeneratingAICopyCost: null,
+            copywriterEstCost: '€0.00030',
             abVariantPreview: 'A',
             generatingABVariants: false,
             newCampaign: {
@@ -2913,17 +2914,18 @@ export default {
             if (!brand || !brand.theme_settings) return [];
             try {
                 const settings = typeof brand.theme_settings === 'string' ? JSON.parse(brand.theme_settings) : brand.theme_settings;
+                const protocol = this.app.currentEnv === 'local' ? 'http' : 'https';
                 if (settings.landing_pages && Array.isArray(settings.landing_pages)) {
                     return settings.landing_pages.map(p => ({
                         id: p.id,
                         title: p.headline || `Landing Page (${p.id})`,
-                        url: `https://${this.app.getBrandSubdomain(brand)}/${p.id}`
+                        url: `${protocol}://${this.app.getBrandSubdomain(brand)}/${p.id}`
                     }));
                 } else if (settings.landing_headline) {
                     return [{
                         id: 'promo-offer',
                         title: settings.landing_headline,
-                        url: `https://${this.app.getBrandSubdomain(brand)}/promo-offer`
+                        url: `${protocol}://${this.app.getBrandSubdomain(brand)}/promo-offer`
                     }];
                 }
             } catch(e) {}
@@ -3067,6 +3069,12 @@ export default {
     watch: {
         isCreatingCampaign(newVal) {
             this.$emit('toggle-fullscreen-creator', newVal);
+        },
+        'newCampaign.ad_copy': {
+            immediate: true,
+            handler(newVal) {
+                this.updateCopywriterEstimate(newVal);
+            }
         },
         'newCampaign.format'(newVal) {
             if (newVal === 'Carousel') {
@@ -4356,6 +4364,12 @@ export default {
             
             this.app.showNotification('Ad creative copy optimized with high-CTR variants!');
         },
+        async updateCopywriterEstimate(text) {
+            const data = await this.app.fetchAiEstimate('Campaign Ad Copy Generation', text || '');
+            if (data && data.costUsd) {
+                this.copywriterEstCost = `€${(data.costUsd * 0.92).toFixed(5)}`;
+            }
+        },
         toggleGenerateAICopy() {
             if (this.generatingAICopy) {
                 if (this.copyAbortController) {
@@ -4663,7 +4677,7 @@ export default {
             brand.theme_settings = JSON.stringify(theme);
 
             try {
-                const response = await fetch('/api/global/brands/save-theme-settings', {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
                     method: 'POST',
                     headers: {
                         ...this.authHeaders,

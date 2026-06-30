@@ -72,422 +72,333 @@
             </div>
 
             <!-- SIDEBAR NAVIGATION MENU -->
-            <aside :class="{ open: mobileSidebarOpen }" v-if="isLoggedIn && !isCampaignCreatorFullscreen">
-            <!-- Top Workspace / Context Selector -->
-            <div style="position: relative; margin-bottom: 24px;">
-                <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
-                    :style="{ cursor: userRole.toLowerCase() === 'superadmin' ? 'pointer' : 'default' }"
-                    style="margin-bottom: 0;">
-                    <div class="workspace-selector-avatar" 
-                         :style="{ background: activeWorkspaceFavicon ? '#ffffff' : '#1a1d1f', border: activeWorkspaceFavicon ? '1px solid rgba(255,255,255,0.1)' : 'none' }"
-                         style="display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 6px;">
-                        <img v-if="activeWorkspaceFavicon" :src="activeWorkspaceFavicon" style="width: 100%; height: 100%; object-fit: contain; padding: 4px; box-sizing: border-box;" alt="favicon" />
-                        <span v-else>{{ activeWorkspaceLetter }}</span>
+            <aside class="meta-sidebar-layout" :class="{ collapsed: !sidebarExpanded, open: mobileSidebarOpen }" v-if="isLoggedIn && !isCampaignCreatorFullscreen">
+                <!-- TIER 1: Narrow icon sidebar (70px wide) -->
+                <div class="sidebar-tier1">
+                    <!-- Top Logo/Icon -->
+                    <div class="tier1-logo-container" @click="handleTier1Click('dashboard', 'overview')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                            <path d="M2 17l10 5 10-5"></path>
+                            <path d="M2 12l10 5 10-5"></path>
+                        </svg>
                     </div>
-                    <div class="profile-selector-meta">
-                        <div
-                            style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; line-height: 1; display: flex; align-items: center; gap: 6px;">
-                            <span>{{ activeWorkspaceRoleLabel }}</span>
-                            <span v-if="activeWorkspaceTier" 
-                                  style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); letter-spacing: 0;">
-                                {{ activeWorkspaceTier }}
-                            </span>
-                            <span v-if="activeWorkspaceFreeTier"
-                                  style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; letter-spacing: 0;">
-                                FREE
-                            </span>
-                        </div>
-                        <div class="profile-selector-title"
-                            style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-top: 4px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            {{ activeWorkspaceName }}</div>
-                    </div>
-                    <span class="profile-selector-arrow" style="color: var(--text-muted); font-size: 0.65rem;" v-if="userRole.toLowerCase() === 'superadmin'">▼</span>
-                </div>
 
-                <!-- Custom Workspace switcher dropdown list -->
-                <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen">
-                    <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }"
-                        @click="selectWorkspace('all')">
-                        <div class="workspace-dropdown-icon">🌐</div>
-                        <div class="workspace-dropdown-text">
-                            <strong>All Brands</strong>
-                            <span>Show consolidated metrics</span>
-                        </div>
-                    </div>
-                    <div class="workspace-dropdown-divider"></div>
-                    <div class="workspace-dropdown-section-title">Brands</div>
-                    <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
-                        :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)">
-                        <div class="workspace-dropdown-avatar" 
-                             :style="{ background: b.favicon ? '#ffffff' : '#1a1d1f' }"
-                             style="width: 20px; height: 20px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                            <img v-if="b.favicon" :src="b.favicon" style="width: 100%; height: 100%; object-fit: contain; padding: 2px; box-sizing: border-box;" alt="favicon" />
-                            <span v-else>{{ b.name.charAt(0) }}</span>
-                        </div>
-                        <div class="workspace-dropdown-text">
-                            <strong style="display: flex; align-items: center; gap: 6px;">
-                                <span>{{ b.name }}</span>
-                                <span style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(197, 160, 89, 0.15); color: var(--accent); text-transform: uppercase;">
-                                    {{ b.ai_tier || 'professional' }}
-                                </span>
-                                <span v-if="b.ai_free_tier" style="font-size: 0.58rem; font-weight: 800; padding: 1px 4px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; text-transform: uppercase;">
-                                    FREE
-                                </span>
-                            </strong>
-                            <span>{{ getBrandSubdomain(b) }}</span>
-                        </div>
-                    </div>
-                    <div class="workspace-dropdown-divider"></div>
-                    <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')"
-                        style="color: var(--accent);">
-                        <div class="workspace-dropdown-icon">➕</div>
-                        <div class="workspace-dropdown-text">
-                            <strong style="color: var(--accent);">Spin Up New Brand</strong>
-                            <span>Provision subdomain & stack</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sidebar-nav-container">
-                <!-- Group 1: Main Menu -->
-                <div class="nav-group">
-                <div class="nav-group-title">Main Menu</div>
-                <ul class="nav-links">
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'overview' }"
-                            @click="switchView('overview')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Category Navigation Icons -->
+                    <nav class="tier1-nav-links">
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'dashboard' }" 
+                                @click="handleTier1Click('dashboard', 'overview')" title="Dashboard & Reports">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="3" y="3" width="7" height="7"></rect>
                                 <rect x="14" y="3" width="7" height="7"></rect>
                                 <rect x="14" y="14" width="7" height="7"></rect>
                                 <rect x="3" y="14" width="7" height="7"></rect>
                             </svg>
-                            Dashboard
+                            <span class="tier1-btn-label">Home</span>
                         </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'brand-center', 'generating-purple-glow': isStrategyGenerating }"
-                            :disabled="isSidebarLinkDisabled('brand-center')"
-                            :style="{ opacity: isSidebarLinkDisabled('brand-center') ? 0.35 : 1, cursor: isSidebarLinkDisabled('brand-center') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('brand-center')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'storefront' }" 
+                                @click="handleTier1Click('storefront', 'brands')" title="Sales Channels & Customizer">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                <line x1="8" y1="21" x2="16" y2="21"></line>
+                                <line x1="12" y1="17" x2="12" y2="21"></line>
                             </svg>
-                            Brand Center <span v-if="isSidebarLinkDisabled('brand-center')">🔒</span>
+                            <span class="tier1-btn-label">Shops</span>
                         </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'products' }"
-                            :disabled="isSidebarLinkDisabled('products')"
-                            :style="{ opacity: isSidebarLinkDisabled('products') ? 0.35 : 1, cursor: isSidebarLinkDisabled('products') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('products')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path
-                                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-                                </path>
+
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
+                                @click="handleTier1Click('catalog', 'products')" title="Products & Inventory">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
                             </svg>
-                            Products <span v-if="isSidebarLinkDisabled('products')">🔒</span>
+                            <span class="tier1-btn-label">Catalog</span>
                         </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'media' }"
-                            :disabled="isSidebarLinkDisabled('media')"
-                            :style="{ opacity: isSidebarLinkDisabled('media') ? 0.35 : 1, cursor: isSidebarLinkDisabled('media') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('media')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21 15 16 10 5 21"></polyline>
-                            </svg>
-                            Media Library <span v-if="isSidebarLinkDisabled('media')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'orders' }"
-                            :disabled="isSidebarLinkDisabled('orders')"
-                            :style="{ opacity: isSidebarLinkDisabled('orders') ? 0.35 : 1, cursor: isSidebarLinkDisabled('orders') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('orders')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                                <line x1="1" y1="10" x2="23" y2="10"></line>
-                            </svg>
-                            Transactions <span v-if="isSidebarLinkDisabled('orders')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'reports' }"
-                            :disabled="isSidebarLinkDisabled('reports')"
-                            :style="{ opacity: isSidebarLinkDisabled('reports') ? 0.35 : 1, cursor: isSidebarLinkDisabled('reports') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('reports')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="20" x2="18" y2="10"></line>
-                                <line x1="12" y1="20" x2="12" y2="4"></line>
-                                <line x1="6" y1="20" x2="6" y2="14"></line>
-                            </svg>
-                            Reports & Analytics <span v-if="isSidebarLinkDisabled('reports')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'messages' }"
-                            :disabled="isSidebarLinkDisabled('messages')"
-                            :style="{ opacity: isSidebarLinkDisabled('messages') ? 0.35 : 1, cursor: isSidebarLinkDisabled('messages') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('messages')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            Messages <span v-if="isSidebarLinkDisabled('messages')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'team-performance' }"
-                            :disabled="isSidebarLinkDisabled('team-performance')"
-                            :style="{ opacity: isSidebarLinkDisabled('team-performance') ? 0.35 : 1, cursor: isSidebarLinkDisabled('team-performance') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('team-performance')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                            </svg>
-                            Team Performance <span v-if="isSidebarLinkDisabled('team-performance')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'campaigns' }"
-                            :disabled="isSidebarLinkDisabled('campaigns')"
-                            :style="{ opacity: isSidebarLinkDisabled('campaigns') ? 0.35 : 1, cursor: isSidebarLinkDisabled('campaigns') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('campaigns')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                                <path d="M2 17l10 5 10-5"></path>
-                                <path d="M2 12l10 5 10-5"></path>
-                            </svg>
-                            Ad Studio <span v-if="isSidebarLinkDisabled('campaigns')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'learning' }"
-                            :disabled="isSidebarLinkDisabled('learning')"
-                            :style="{ opacity: isSidebarLinkDisabled('learning') ? 0.35 : 1, cursor: isSidebarLinkDisabled('learning') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('learning')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                            AI Learning Center <span v-if="isSidebarLinkDisabled('learning')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'coupons' }"
-                            :disabled="isSidebarLinkDisabled('coupons')"
-                            :style="{ opacity: isSidebarLinkDisabled('coupons') ? 0.35 : 1, cursor: isSidebarLinkDisabled('coupons') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('coupons')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-                                <line x1="7" y1="8" x2="17" y2="8"></line>
-                                <line x1="7" y1="12" x2="17" y2="12"></line>
-                                <line x1="7" y1="16" x2="13" y2="16"></line>
-                            </svg>
-                            Coupons <span v-if="isSidebarLinkDisabled('coupons')">🔒</span>
-                        </button>
-                    </li>
-                </ul>
-            </div>
 
-            <!-- Group 2: Customers -->
-            <div class="nav-group">
-                <div class="nav-group-title">Customers</div>
-                <ul class="nav-links">
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'customers' }"
-                            :disabled="isSidebarLinkDisabled('customers')"
-                            :style="{ opacity: isSidebarLinkDisabled('customers') ? 0.35 : 1, cursor: isSidebarLinkDisabled('customers') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('customers')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'marketing' }" 
+                                @click="handleTier1Click('marketing', 'campaigns')" title="Ad Studio Campaigns">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                             </svg>
-                            Customer List <span v-if="isSidebarLinkDisabled('customers')">🔒</span>
+                            <span class="tier1-btn-label">Ads</span>
                         </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'brands' }"
-                            @click="switchView('brands')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'operations' }" 
+                                @click="handleTier1Click('operations', 'orders')" title="Operations & Support">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                            </svg>
+                            <span class="tier1-btn-label">Ops</span>
+                        </button>
+
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'ai' }" 
+                                @click="handleTier1Click('ai', 'ai-analytics')" title="AI Learning & Strategy">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
                                 <polyline points="2 17 12 22 22 17"></polyline>
                                 <polyline points="2 12 12 17 22 12"></polyline>
                             </svg>
-                            Channels
+                            <span class="tier1-btn-label">AI Studio</span>
                         </button>
-                    </li>
-                </ul>
-            </div>
+                    </nav>
 
-            <!-- Group 3: Management -->
-            <div class="nav-group">
-                <div class="nav-group-title">Management</div>
-                <ul class="nav-links">
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'roles-permissions' }"
-                            :disabled="isSidebarLinkDisabled('roles-permissions')"
-                            :style="{ opacity: isSidebarLinkDisabled('roles-permissions') ? 0.35 : 1, cursor: isSidebarLinkDisabled('roles-permissions') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('roles-permissions')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
-                            Roles & Permissions <span v-if="isSidebarLinkDisabled('roles-permissions')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'billing-subscription' }"
-                            @click="switchView('billing-subscription')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="12" y1="1" x2="12" y2="23"></line>
-                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                            </svg>
-                            Billing & Subscription
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'ai-analytics' }"
-                            @click="switchView('ai-analytics')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="4" y="4" width="16" height="16" rx="2" />
-                                <rect x="9" y="9" width="6" height="6" />
-                                <line x1="9" y1="1" x2="9" y2="4" />
-                                <line x1="15" y1="1" x2="15" y2="4" />
-                                <line x1="9" y1="20" x2="9" y2="23" />
-                                <line x1="15" y1="20" x2="15" y2="23" />
-                                <line x1="20" y1="9" x2="23" y2="9" />
-                                <line x1="20" y1="15" x2="23" y2="15" />
-                                <line x1="1" y1="9" x2="4" y2="9" />
-                                <line x1="1" y1="15" x2="4" y2="15" />
-                            </svg>
-                            AI Console & Analytics
-                        </button>
-                    </li>
-                    <li v-if="userRole.toLowerCase() !== 'superadmin' || activeShopFilter !== 'all'">
-                        <button class="nav-link-btn" :class="{ active: activeView === 'settings' }"
-                            @click="switchView('settings')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                            </svg>
-                            Integrations
-                        </button>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Group 4: Settings -->
-            <div class="nav-group">
-                <div class="nav-group-title">Settings</div>
-                <ul class="nav-links">
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'customer-support' }"
-                            :disabled="isSidebarLinkDisabled('customer-support')"
-                            :style="{ opacity: isSidebarLinkDisabled('customer-support') ? 0.35 : 1, cursor: isSidebarLinkDisabled('customer-support') ? 'not-allowed' : 'pointer' }"
-                            @click="switchView('customer-support')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path
-                                    d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
-                                </path>
-                            </svg>
-                            Customer Support <span v-if="isSidebarLinkDisabled('customer-support')">🔒</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="nav-link-btn" :class="{ active: activeView === 'help' }"
-                            @click="switchView('help')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                            </svg>
-                            Help Center
-                        </button>
-                    </li>
-                    <li v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all'">
-                        <button class="nav-link-btn" :class="{ active: activeView === 'settings' }" @click="switchView('settings')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Bottom Category Gear, Profile Avatar -->
+                    <div class="tier1-bottom-links">
+                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'settings' }"
+                                @click="handleTier1Click('settings', 'settings')" title="Settings & Billing">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="3"></circle>
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
-                            System Settings
                         </button>
-                    </li>
-                </ul>
-            </div>
-            </div> <!-- end .sidebar-nav-container -->
 
-            <!-- Profile Selector Dropdown Menu -->
-            <div class="profile-dropdown-menu" v-if="profileDropdownOpen" style="position: absolute; bottom: 80px; left: 20px; right: 20px;">
-                <div class="profile-dropdown-header">
-                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
+                        <div class="tier1-profile-trigger" @click.stop="profileDropdownOpen = !profileDropdownOpen" title="Account Settings">
+                            <div class="tier1-avatar-circle">
+                                <img v-if="userRole.toLowerCase() === 'merchant' && activeWorkspaceFavicon" :src="activeWorkspaceFavicon" />
+                                <img v-else-if="operatorAvatarSrc" :src="operatorAvatarSrc" />
+                                <span v-else>{{ operatorInitials }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="profile-dropdown-divider"></div>
-                
-                <!-- If acting as merchant, show switch back -->
-                <button v-if="userRole.toLowerCase() === 'merchant'" class="profile-dropdown-item" @click.stop="toggleDemoRole">
-                    🔄 Switch back to Super Admin
-                </button>
-                
-                <!-- If superadmin and a specific brand is selected, allow acting as brand admin -->
-                <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
-                    👤 Act as {{ activeWorkspaceName }} Admin
-                </button>
-                
-                <button class="profile-dropdown-item" @click.stop="openProfileModal">
-                    👤 Profile Settings
-                </button>
-                
-                <div class="profile-dropdown-divider"></div>
-                <button class="profile-dropdown-item logout" @click.stop="handleLogout">
-                    🚪 Log Out
-                </button>
-            </div>
 
-            <!-- Footer Profile Container -->
-            <div class="footer-profile" @click.stop="profileDropdownOpen = !profileDropdownOpen" style="cursor: pointer;">
-                <div class="footer-profile-avatar">
-                    <img v-if="userRole.toLowerCase() === 'merchant' && activeWorkspaceFavicon" :src="activeWorkspaceFavicon" style="width: 100%; height: 100%; object-fit: cover;" />
-                    <img v-else-if="operatorAvatarSrc" :src="operatorAvatarSrc" style="width: 100%; height: 100%; object-fit: cover;" />
-                    <div v-else class="footer-profile-avatar-placeholder">{{ operatorInitials }}</div>
+                <!-- TIER 2: Wider nested categories navigation pane (230px wide) -->
+                <div class="sidebar-tier2">
+                    <!-- Brand Switcher Selector (Flush at Top of Tier 2) -->
+                    <div class="tier2-workspace-selector">
+                        <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
+                            :style="{ cursor: userRole.toLowerCase() === 'superadmin' ? 'pointer' : 'default' }">
+                            <div class="workspace-selector-avatar" :style="{ background: activeWorkspaceFavicon ? '#ffffff' : '#111' }">
+                                <img v-if="activeWorkspaceFavicon" :src="activeWorkspaceFavicon" alt="favicon" />
+                                <span v-else>{{ activeWorkspaceLetter }}</span>
+                            </div>
+                            <div class="profile-selector-meta">
+                                <span class="workspace-role-tag">{{ activeWorkspaceRoleLabel }}</span>
+                                <div class="profile-selector-title">{{ activeWorkspaceName }}</div>
+                            </div>
+                            <span class="profile-selector-arrow" v-if="userRole.toLowerCase() === 'superadmin'">▼</span>
+                        </div>
+
+                        <!-- Brand Switcher dropdown menu overlay -->
+                        <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen">
+                            <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')">
+                                <div class="workspace-dropdown-icon">🌐</div>
+                                <div class="workspace-dropdown-text">
+                                    <strong>All Brands</strong>
+                                    <span>Consolidated overview metrics</span>
+                                </div>
+                            </div>
+                            <div class="workspace-dropdown-divider"></div>
+                            <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
+                                :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)">
+                                <div class="workspace-dropdown-avatar" :style="{ background: b.favicon ? '#ffffff' : '#111' }">
+                                    <img v-if="b.favicon" :src="b.favicon" alt="favicon" />
+                                    <span v-else>{{ b.name.charAt(0) }}</span>
+                                </div>
+                                <div class="workspace-dropdown-text">
+                                    <strong>{{ b.name }}</strong>
+                                    <span>{{ getBrandSubdomain(b) }}</span>
+                                </div>
+                            </div>
+                            <div class="workspace-dropdown-divider"></div>
+                            <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" style="color: var(--accent);">
+                                <div class="workspace-dropdown-icon">➕</div>
+                                <div class="workspace-dropdown-text">
+                                    <strong style="color: var(--accent);">Register Brand Shop</strong>
+                                    <span>Provision storefront & API keys</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category Content Links -->
+                    <div class="tier2-nav-wrapper">
+                        <!-- Dashboard Links -->
+                        <div v-if="activeTier1 === 'dashboard'">
+                            <div class="tier2-section-title">Dashboard & Insights</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'overview' }" @click="switchView('overview')">
+                                        📊 Operations Overview
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'reports' }" :disabled="isSidebarLinkDisabled('reports')" @click="switchView('reports')">
+                                        📈 Analytics Reports
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Storefront / Channels Links -->
+                        <div v-if="activeTier1 === 'storefront'">
+                            <div class="tier2-section-title">Channels & Storefront</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && (!$refs.brandsView || ($refs.brandsView.activeSubView !== 'designer' && $refs.brandsView.activeSubView !== 'landing-designer')) }" @click="switchView('brands')">
+                                        🔌 Brand Connections
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && $refs.brandsView && $refs.brandsView.activeSubView === 'designer' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="navigateToStorefrontDesigner">
+                                        🎨 Storefront Customizer
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && $refs.brandsView && $refs.brandsView.activeSubView === 'landing-designer' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="navigateToLandingDesigner">
+                                        📄 Campaign Landing Pages
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Catalog Links -->
+                        <div v-if="activeTier1 === 'catalog'">
+                            <div class="tier2-section-title">Catalog Management</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'products' }" :disabled="isSidebarLinkDisabled('products')" @click="switchView('products')">
+                                        🛍️ Products Inventory
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'media' }" :disabled="isSidebarLinkDisabled('media')" @click="switchView('media')">
+                                        🗂️ Media Library
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Marketing Links -->
+                        <div v-if="activeTier1 === 'marketing'">
+                            <div class="tier2-section-title">AI Campaigns</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchView('campaigns')">
+                                        📣 Smart Ad Studio
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'coupons' }" :disabled="isSidebarLinkDisabled('coupons')" @click="switchView('coupons')">
+                                        🏷️ Coupons & Promos
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Operations Links -->
+                        <div v-if="activeTier1 === 'operations'">
+                            <div class="tier2-section-title">Store Operations</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'orders' }" :disabled="isSidebarLinkDisabled('orders')" @click="switchView('orders')">
+                                        📦 Orders & Transactions
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'messages' }" :disabled="isSidebarLinkDisabled('messages')" @click="switchView('messages')">
+                                        💬 Inbox & Live Chat
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'customer-support' }" :disabled="isSidebarLinkDisabled('customer-support')" @click="switchView('customer-support')">
+                                        🛠️ Support Tickets
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'team-performance' }" :disabled="isSidebarLinkDisabled('team-performance')" @click="switchView('team-performance')">
+                                        👥 Team Performance
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- AI & Strategy Links -->
+                        <div v-if="activeTier1 === 'ai'">
+                            <div class="tier2-section-title">Cognitive Studio</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'learning' }" :disabled="isSidebarLinkDisabled('learning')" @click="switchView('learning')">
+                                        ✨ Learning Center
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'ai-analytics' }" @click="switchView('ai-analytics')">
+                                        🧠 Console & Tokens
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brand-center' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="switchView('brand-center')">
+                                        🎯 Brand Strategy Guide
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Settings Links -->
+                        <div v-if="activeTier1 === 'settings'">
+                            <div class="tier2-section-title">System Configuration</div>
+                            <ul class="tier2-links">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'settings' }" @click="switchView('settings')">
+                                        🔌 Integrations & Keys
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'roles-permissions' }" :disabled="isSidebarLinkDisabled('roles-permissions')" @click="switchView('roles-permissions')">
+                                        🔐 Roles & Security
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'billing-subscription' }" @click="switchView('billing-subscription')">
+                                        💳 Subscription Plan
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'help' }" @click="switchView('help')">
+                                        ❓ Support Documentation
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Toggle Expand/Collapse Button -->
+                    <div class="tier2-collapse-footer">
+                        <button class="collapse-toggle-btn" @click="sidebarExpanded = !sidebarExpanded; localStorage.setItem('sc_sidebar_expanded', sidebarExpanded);">
+                            <span>◀ Collapse Menu</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="footer-profile-meta">
-                    <div class="footer-profile-name">{{ operatorName }}</div>
-                    <div class="footer-profile-role">{{ operatorRole }}</div>
+
+                <!-- Profile Switcher Menu Overlay (Bottom Float) -->
+                <div class="profile-dropdown-menu" v-if="profileDropdownOpen" style="position: absolute; bottom: 80px; left: 20px; right: 20px; z-index: 120;">
+                    <div class="profile-dropdown-header">
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
+                    </div>
+                    <div class="profile-dropdown-divider"></div>
+                    
+                    <button v-if="userRole.toLowerCase() === 'merchant'" class="profile-dropdown-item" @click.stop="toggleDemoRole">
+                        🔄 Switch back to Super Admin
+                    </button>
+                    
+                    <button class="profile-dropdown-item" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter !== 'all'" @click.stop="assumeStoreAdmin">
+                        👤 Act as {{ activeWorkspaceName }} Admin
+                    </button>
+                    
+                    <button class="profile-dropdown-item" @click.stop="openProfileModal">
+                        👤 Profile Settings
+                    </button>
+                    
+                    <div class="profile-dropdown-divider"></div>
+                    <button class="profile-dropdown-item logout" @click.stop="handleLogout">
+                        🚪 Log Out
+                    </button>
                 </div>
-                <span style="color: var(--text-muted); font-size: 0.72rem;">▼</span>
-            </div>
-        </aside>
+            </aside>
 
         <!-- BOTTOM MOBILE NAVBAR -->
         <div class="bottom-navbar" v-if="isLoggedIn">
@@ -534,7 +445,7 @@
         </div>
 
         <!-- MAIN WORKSPACE -->
-        <main v-if="isLoggedIn" :style="isCampaignCreatorFullscreen ? { marginLeft: 0, width: '100%' } : {}">
+        <main v-if="isLoggedIn" :style="getMainStyle">
             <!-- Top Navigation Header -->
             <!-- Top Navigation Header -->
             <header v-if="!isCampaignCreatorFullscreen">
@@ -1243,6 +1154,8 @@ export default {
                     profilePasswordConfirm: '',
                     appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
+                    activeTier1: 'dashboard',
+                    sidebarExpanded: localStorage.getItem('sc_sidebar_expanded') !== 'false',
                     isCampaignCreatorFullscreen: false,
                     requestedInitialView: 'overview',
                     currentEnv: 'local',
@@ -1415,6 +1328,16 @@ export default {
                 };
             },
             computed: {
+                getMainStyle() {
+                    if (this.isCampaignCreatorFullscreen) {
+                        return { marginLeft: 0, width: '100%' };
+                    }
+                    const width = this.sidebarExpanded ? '300px' : '70px';
+                    return {
+                        marginLeft: width,
+                        width: `calc(100% - ${width})`
+                    };
+                },
                 adminToken() {
                     return localStorage.getItem('sc_admin_token');
                 },
@@ -1897,6 +1820,9 @@ export default {
                     } else {
                         this.stopGlobalProtocolPolling();
                     }
+                },
+                activeView(newVal) {
+                    this.syncTier1FromView(newVal);
                 }
             },
             mounted() {
@@ -1943,6 +1869,7 @@ export default {
                     this.activeShopFilter = brandId || 'all';
                     this.bootDashboard();
                     this.resolveRouteFromURL();
+                    this.syncTier1FromView(this.activeView);
                     this.fetchCurrentProfile();
                 }
 
@@ -1998,6 +1925,52 @@ export default {
                 this.stopGlobalProtocolPolling();
             },
             methods: {
+                handleTier1Click(tier1Id, defaultViewId) {
+                    if (this.activeTier1 === tier1Id) {
+                        this.sidebarExpanded = !this.sidebarExpanded;
+                        localStorage.setItem('sc_sidebar_expanded', this.sidebarExpanded);
+                    } else {
+                        this.activeTier1 = tier1Id;
+                        this.sidebarExpanded = true;
+                        localStorage.setItem('sc_sidebar_expanded', true);
+                        this.switchView(defaultViewId);
+                    }
+                },
+                syncTier1FromView(viewId) {
+                    if (['overview', 'reports'].includes(viewId)) {
+                        this.activeTier1 = 'dashboard';
+                    } else if (['brands'].includes(viewId)) {
+                        this.activeTier1 = 'storefront';
+                    } else if (['products', 'media'].includes(viewId)) {
+                        this.activeTier1 = 'catalog';
+                    } else if (['campaigns', 'coupons'].includes(viewId)) {
+                        this.activeTier1 = 'marketing';
+                    } else if (['orders', 'messages', 'customer-support', 'team-performance'].includes(viewId)) {
+                        this.activeTier1 = 'operations';
+                    } else if (['learning', 'ai-analytics', 'brand-center'].includes(viewId)) {
+                        this.activeTier1 = 'ai';
+                    } else if (['settings', 'roles-permissions', 'billing-subscription', 'help'].includes(viewId)) {
+                        this.activeTier1 = 'settings';
+                    }
+                },
+                navigateToStorefrontDesigner() {
+                    this.switchView('brands');
+                    this.$nextTick(() => {
+                        if (this.$refs.brandsView) {
+                            this.$refs.brandsView.activeSubView = 'designer';
+                            this.updateURL();
+                        }
+                    });
+                },
+                navigateToLandingDesigner() {
+                    this.switchView('brands');
+                    this.$nextTick(() => {
+                        if (this.$refs.brandsView) {
+                            this.$refs.brandsView.activeSubView = 'landing-designer';
+                            this.updateURL();
+                        }
+                    });
+                },
                 isSidebarLinkDisabled(viewName) {
                     if (!this.isLoggedIn) return true;
                     // If superadmin is on "ALL" view (no brand context selected), allow all sidebar links

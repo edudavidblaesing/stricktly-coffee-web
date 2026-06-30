@@ -1,14 +1,32 @@
 <template>
-    <div id="designer-workspace-container" style="width: 100%;">
-        <div class="panel-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div id="designer-workspace-container" style="width: 100%; display: flex; flex-direction: column;">
+        <!-- Top Toolbar -->
+        <div class="panel-header" style="margin-bottom: 0px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: var(--card-bg); padding: 12px 20px; border-radius: 0px; border: none; border-bottom: 1px solid var(--border);">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button type="button" class="btn" style="padding: 6px 12px; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border);" @click="$emit('back')">
                     ⬅ Back to Channels
                 </button>
-                <h2 class="panel-title" style="margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
+                <h2 class="panel-title" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
                     🎨 Storefront Designer Workspace
                 </h2>
             </div>
+            
+            <!-- Page Selector Dropdown -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Page:</span>
+                <select v-model="activeContentPage" @change="navigateToPage(activeContentPage)" style="border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 6px 12px; font-weight: 700; cursor: pointer; outline: none;">
+                    <option value="home">🏠 Home page</option>
+                    <option value="track">📦 Track order page</option>
+                    <option value="404">⚠️ 404 error page</option>
+                    <option v-for="page in (designerBrand.landing_pages || [])" :key="page.id" :value="page.id">
+                        📄 /{{ page.id }} (Custom Page)
+                    </option>
+                </select>
+                <button type="button" class="btn btn-accent" style="margin: 0; font-size: 0.8rem; height: 34px; padding: 0 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" @click="showAddPageModal = true">
+                    ➕ Add Page
+                </button>
+            </div>
+
             <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
                 Active Brand: <strong style="color: var(--accent);">{{ activeBrandName }}</strong>
             </div>
@@ -22,179 +40,212 @@
             </p>
         </div>
 
-        <div v-else class="designer-workspace-layout" style="display: flex; gap: 24px; flex-wrap: wrap;">
-            <!-- Left Side: Styling Controls -->
-            <div class="panel" style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 16px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
-                    <h4 style="margin: 0; color: var(--accent); font-weight: 700;">Theme Customizer</h4>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <input type="checkbox" id="auto-update-toggle" v-model="autoUpdatePreview" style="cursor: pointer; margin: 0; width: 14px; height: 14px;">
-                        <label for="auto-update-toggle" style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none; margin: 0;">Auto-Update</label>
-                        <button v-if="!autoUpdatePreview" type="button" class="btn btn-accent" style="margin: 0; padding: 2px 8px; font-size: 0.7rem; height: 22px; line-height: 1; border-radius: 4px;" @click="updatePreviewStyles">Sync Preview</button>
-                    </div>
+        <!-- 3-Column Layout Container -->
+        <div v-else class="designer-workspace-layout" style="display: grid; grid-template-columns: 280px 1fr 340px; gap: 0px; align-items: stretch; min-height: calc(100vh - 120px);">
+            
+            <!-- Column 1: Storefront Layout Tree (Left) -->
+            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-right: 1px solid var(--border); box-sizing: border-box;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Layout Sections</h4>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 8px 0;">
-                    Tweak colors, shapes, and brand images below. Unsaved changes are safely sandboxed in the preview on the right. Click "Publish Live" to make them visible to customers.
-                </p>
-
-                <!-- Inherit Styles Toggle -->
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px; cursor: pointer; user-select: none; background: var(--workspace-bg); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);">
-                    <input type="checkbox" id="inherit-toggle" v-model="inheritStyles" style="width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;">
-                    <label for="inherit-toggle" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem; cursor: pointer; margin: 0;">
-                        Inherit Master Brand Styles
-                    </label>
-                </div>
-
-                <!-- Contrast Checker Warning Box -->
-                <div v-if="contrastIssues.length > 0" 
-                     style="background: rgba(240, 80, 80, 0.08); border-left: 3px solid #ff5555; padding: 12px; border-radius: 6px; color: var(--text-main); font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
-                    <div style="font-weight: 700; color: #ff5555; display: flex; align-items: center; gap: 6px; margin: 0;">
-                        <span>⚠️ Color Contrast Conflicts Detected</span>
-                    </div>
-                    <ul style="margin: 0; padding-left: 18px; line-height: 1.4; color: var(--text-muted); list-style-type: disc;">
-                        <li v-for="issue in contrastIssues" :key="issue.id" style="margin-bottom: 4px;">{{ issue.message }}</li>
-                    </ul>
-                    <button type="button" class="btn btn-accent" 
-                            style="margin-top: 4px; height: 32px; font-size: 0.78rem; font-weight: 700; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; cursor: pointer; align-self: flex-start; border: 1px solid var(--border);"
-                            @click="autoFixContrast">
-                        ✨ One-Tap Auto-Fix Contrast
-                    </button>
-                </div>
-
-                <!-- Simplified Sidebar Navigation Tabs -->
-                <div style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 10px; overflow-x: auto;">
-                    <button type="button" @click="activeTab = 'style'" :style="{ background: activeTab === 'style' ? 'var(--accent)' : 'transparent', color: activeTab === 'style' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'style' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🎨 Style</button>
-                    <button type="button" @click="activeTab = 'typography'" :style="{ background: activeTab === 'typography' ? 'var(--accent)' : 'transparent', color: activeTab === 'typography' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'typography' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">📐 Fonts</button>
-                    <button type="button" @click="activeTab = 'copywriter'" :style="{ background: activeTab === 'copywriter' ? 'var(--accent)' : 'transparent', color: activeTab === 'copywriter' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'copywriter' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">✍️ Content</button>
-                    <button type="button" @click="activeTab = 'localization'" :style="{ background: activeTab === 'localization' ? 'var(--accent)' : 'transparent', color: activeTab === 'localization' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'localization' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🌐 Socials</button>
-                    <button type="button" @click="activeTab = 'ai'" :style="{ background: activeTab === 'ai' ? 'var(--accent)' : 'transparent', color: activeTab === 'ai' ? 'var(--workspace-bg)' : 'var(--text-muted)', border: activeTab === 'ai' ? 'none' : '1px solid var(--border)' }" style="padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 0; height: 28px; display: flex; align-items: center;">🤖 AI Lab</button>
-                </div>
-
-                <div v-if="inheritStyles" style="font-size: 0.78rem; background: var(--workspace-bg); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px;">
-                    ℹ️ Using default colors and assets from <strong>System Settings</strong>. Uncheck above to define custom layout overrides.
-                </div>
-
-                <!-- Grey-out wrapper for styling properties -->
-                <div :style="inheritStyles ? { opacity: 0.4, pointerEvents: 'none', userSelect: 'none' } : {}" style="transition: all 0.2s ease; display: flex; flex-direction: column; gap: 16px;">
+                
+                <!-- General Section Hierarchy Tree -->
+                <div class="sections-tree-list" style="display: flex; flex-direction: column; gap: 10px;">
                     
-                    <!-- TAB 1: STYLE & PRESETS -->
-                    <div v-if="activeTab === 'style'" style="display: flex; flex-direction: column; gap: 16px;">
-                        <!-- Presets Section -->
-                        <div class="presets-section" style="background: var(--workspace-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">🎨 Storefront Color Theme Presets</div>
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #0b0d0c; color: #ffffff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('obsidian')">🌑 Obsidian</button>
-                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #fdf5e6; color: #4a2c11; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('latte')">☕ Cream Latte</button>
-                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #1e140a; color: #f5f5dc; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('espresso')">🪵 Espresso</button>
-                                <button type="button" class="btn" style="font-size: 0.72rem; font-weight: 700; padding: 6px; margin: 0; background: #090514; color: #f3e8ff; border: 1px solid var(--border); text-align: center; border-radius: 6px; cursor: pointer; height: 32px;" @click="applyPreset('velvet')">🔮 Royal Velvet</button>
+                    <!-- Announcement Bar Card -->
+                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'announcement' }" @click="selectSection('announcement')" 
+                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.9rem;">📢</span>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Announcement Bar</span>
+                        </div>
+                        <input type="checkbox" v-model="designerBrand.announcement_active" @click.stop style="cursor: pointer;">
+                    </div>
+
+                    <!-- Header Card -->
+                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'header' }" @click="selectSection('header')" 
+                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.9rem;">🧱</span>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Header</span>
+                        </div>
+                    </div>
+
+                    <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
+
+                    <!-- Dynamic Layout Sections Tree -->
+                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Main Template Sections</div>
+                    
+                    <div v-for="(sec, idx) in designerBrand.sections" :key="sec.id" 
+                         class="section-tree-item" :class="{ active: selectedSectionId === sec.id }" @click="selectSection(sec.id)" 
+                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; position: relative;">
+                        
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 8px; width: 60%; overflow: hidden;">
+                                <span style="font-size: 0.95rem;">{{ getSectionIcon(sec.type) }}</span>
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{{ sec.title }}</span>
+                            </div>
+                            
+                            <!-- Move / Toggle / Delete Actions -->
+                            <div style="display: flex; align-items: center; gap: 6px;" @click.stop>
+                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Up" @click="moveSection(idx, -1)">▲</button>
+                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Down" @click="moveSection(idx, 1)">▼</button>
+                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px;" title="Toggle Active" @click="toggleSectionActive(sec)">
+                                    {{ sec.active !== false ? '👁️' : '🙈' }}
+                                </button>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- AI Generated Style Presets Queue -->
-                        <div v-if="aiStylePresets.length > 0" class="presets-section" style="background: rgba(197, 160, 89, 0.03); padding: 12px; border-radius: 8px; border: 1px dashed var(--accent); display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 700; color: var(--accent); font-size: 0.82rem; display: flex; align-items: center; gap: 4px;">✨ Reusable AI Style Presets</div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                                <div v-for="(pr, idx) in aiStylePresets" :key="idx" style="display: flex; align-items: center; justify-content: space-between; background: var(--workspace-bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
-                                    <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-main);">AI Preset #{{ idx + 1 }}</span>
-                                    <button type="button" class="btn btn-accent" style="font-size: 0.7rem; padding: 3px 8px; height: auto; margin: 0;" @click="applyAILayoutPreset(pr)">Apply</button>
+                    <!-- Add Section Block -->
+                    <div style="margin-top: 10px; position: relative;">
+                        <button type="button" class="btn" style="width: 100%; border: 1px dashed var(--border); font-size: 0.78rem; font-weight: 700; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: rgba(255,255,255,0.02); color: var(--accent);" @click="showAddSectionMenu = !showAddSectionMenu">
+                            ➕ Add Section
+                        </button>
+                        
+                        <!-- Add Section Dropdown Options -->
+                        <div v-if="showAddSectionMenu" style="position: absolute; bottom: 42px; left: 0; width: 100%; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 100; overflow: hidden; display: flex; flex-direction: column;">
+                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('hero')">🌄 Image Banner (Hero)</button>
+                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('featured_collection')">🛍️ Featured Collection</button>
+                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('rich_text')">📝 Rich Text</button>
+                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('collection_list')">🗂️ Collection List</button>
+                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('video')">🎥 Video Banner</button>
+                        </div>
+                    </div>
+
+                    <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
+
+                    <!-- Footer Card -->
+                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'footer' }" @click="selectSection('footer')" 
+                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.9rem;">🧱</span>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Footer</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Column 2: Sandbox Canvas Preview (Middle) -->
+            <div style="display: flex; flex-direction: column; gap: 0px; transition: all 0.3s ease; background: var(--bg-color); box-sizing: border-box;">
+                <!-- Browser Bar Controls -->
+                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 8px 16px; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeBack" title="Back">
+                            ⬅
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeForward" title="Forward">
+                            ➡
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeReload" title="Reload">
+                            🔄
+                        </button>
+                        
+                        <div style="width: 1px; height: 16px; background: var(--border);"></div>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="undo" title="Undo (Ctrl+Z)">↩ Undo</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="redo" title="Redo (Ctrl+Y)">↪ Redo</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700; color: #ef4444;" @click="resetDesign" title="Reset Design">❌ Reset</button>
+                    </div>
+                    <div style="flex: 1; font-family: monospace; font-size: 0.78rem; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; text-align: left;">
+                        {{ displayUrl }}
+                    </div>
+                    
+                    <!-- Mode switch Edit/Play -->
+                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px; align-items: center;">
+                        <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = true">✏️ Edit</button>
+                        <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = false">👁️ Play</button>
+                    </div>
+ 
+                    <!-- Device sizes -->
+                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px;">
+                        <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'desktop'">🖥️</button>
+                        <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'tablet'">📟</button>
+                        <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'mobile'">📱</button>
+                    </div>
+                </div>
+ 
+                <div :style="previewContainerStyle" style="border: none; border-radius: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-color); flex: 1; padding: 16px; box-sizing: border-box;">
+                    <div :style="viewportIframeStyle" style="height: 100%; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden;">
+                        <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" style="width: 100%; height: 100%; border: none;"></iframe>
+                    </div>
+                </div>
+            </div>
+ 
+            <!-- Column 3: Block Inspector & General Settings (Right) -->
+            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box;">
+                
+                <!-- Section Settings Contextual Inspector -->
+                <div v-if="selectedSectionId" style="display: flex; flex-direction: column; gap: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
+                            {{ getSelectedSectionTitle() }} Settings
+                        </h4>
+                        <button type="button" class="btn" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; height: 22px;" @click="selectedSectionId = ''">
+                            Back
+                        </button>
+                    </div>
+
+                    <!-- General Block Reordering Actions -->
+                    <div v-if="isDynamicSection(selectedSectionId)" style="display: flex; gap: 6px;">
+                        <button type="button" class="btn" style="flex: 1; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px;" @click="moveSelectedSection(-1)">▲ Move Up</button>
+                        <button type="button" class="btn" style="flex: 1; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px;" @click="moveSelectedSection(1)">▼ Move Down</button>
+                        <button type="button" class="btn" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px; flex: 1.2;" @click="deleteSelectedSection">🗑️ Delete Block</button>
+                    </div>
+
+                    <!-- INSPECTOR FIELDS: ANNOUNCEMENT BAR -->
+                    <div v-if="selectedSectionId === 'announcement'" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="announce-act" v-model="designerBrand.announcement_active" style="width: 16px; height: 16px; cursor: pointer; margin: 0;">
+                            <label for="announce-act" style="font-weight: 700; font-size: 0.8rem; cursor: pointer; margin: 0;">Enable Banner</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Banner Text</label>
+                            <input type="text" v-model="designerBrand.announcement_text" placeholder="Free shipping on orders over €75!">
+                        </div>
+                        <div class="form-group">
+                            <label>Banner Background</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.announcement_bg" style="width: 38px; height: 32px; padding: 2px; border-radius: 4px; border: 1px solid var(--border); background: none; cursor: pointer; margin: 0;">
+                                <input type="text" v-model="designerBrand.announcement_bg" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Banner Text Color</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="color" v-model="designerBrand.announcement_text_color" style="width: 38px; height: 32px; padding: 2px; border-radius: 4px; border: 1px solid var(--border); background: none; cursor: pointer; margin: 0;">
+                                <input type="text" v-model="designerBrand.announcement_text_color" style="flex: 1; margin: 0;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- INSPECTOR FIELDS: HEADER -->
+                    <div v-if="selectedSectionId === 'header'" style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Logo Upload -->
+                        <div class="form-group">
+                            <label>Logo Asset</label>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" v-model="designerBrand.logo" placeholder="https://..." style="flex: 1; margin: 0;">
+                                    <button type="button" class="btn" style="margin: 0; padding: 0 10px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center;" @click="triggerFileUpload('header_logo')">📁</button>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Brand Primary Color (Accent)</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.primary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.primary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Secondary Color (Hover, details)</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.secondary_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.secondary_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#767676" style="flex: 1; margin: 0;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Storefront Background Color</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Primary Text Color</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
+                                <input type="file" ref="header_logo_file" style="display: none;" @change="handleSectionFileUpload($event, 'header', 'logo')">
+                                <!-- Drag & Drop Dropzone Box -->
+                                <div class="dropzone-box" @dragover.prevent @drop.prevent="handleSectionFileDrop($event, 'header', 'logo')" 
+                                     style="border: 2px dashed var(--border); border-radius: 8px; padding: 12px; text-align: center; font-size: 0.72rem; color: var(--text-muted); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'" @click="triggerFileUpload('header_logo')">
+                                    <span v-if="uploadingField === 'header_logo'">Uploading file... ⏳</span>
+                                    <span v-else>Drag logo here or click to upload</span>
+                                </div>
+                                <img v-if="designerBrand.logo" :src="designerBrand.logo" style="max-height: 40px; object-fit: contain; margin: 0 auto; display: block; border-radius: 4px; border: 1px solid var(--border); padding: 4px; background: white;" />
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Header Background Color</label>
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.header_bg_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
+                                <input type="color" v-model="designerBrand.header_bg_color" style="width: 38px; height: 32px; padding: 2px; border-radius: 4px; border: 1px solid var(--border); background: none; cursor: pointer; margin: 0;" />
+                                <input type="text" v-model="designerBrand.header_bg_color" style="flex: 1; margin: 0;" />
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Button Text Color</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="designerBrand.button_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="designerBrand.button_text_color" :disabled="inheritStyles" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: TYPOGRAPHY & SHAPES -->
-                    <div v-if="activeTab === 'typography'" style="display: flex; flex-direction: column; gap: 16px;">
-                        <div class="form-group">
-                            <label>Font Family</label>
-                            <select v-model="designerBrand.font_family" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                                <option value="Outfit">Outfit (Default)</option>
-                                <option value="Space Grotesk">Space Grotesk</option>
-                                <option value="Inter">Inter</option>
-                                <option value="Roboto">Roboto</option>
-                                <option value="Open Sans">Open Sans</option>
-                                <option value="Montserrat">Montserrat</option>
-                                <option value="Lora">Lora</option>
-                                <option value="Playfair Display">Playfair Display</option>
-                                <option value="Poppins">Poppins</option>
-                                <option value="Lato">Lato</option>
-                                <option value="Merriweather">Merriweather</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Button Shape (Border Radius)</label>
-                            <select v-model="designerBrand.button_radius" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                                <option value="0px">Sharp Square (0px)</option>
-                                <option value="4px">Slightly Rounded (4px)</option>
-                                <option value="8px">Rounded Card (8px)</option>
-                                <option value="12px">Extra Rounded (12px)</option>
-                                <option value="9999px">Pill / Stadium (9999px)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Base Font Size</label>
-                            <select v-model="designerBrand.font_size_scale" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                                <option value="small">Small (14px)</option>
-                                <option value="medium">Medium (16px - Default)</option>
-                                <option value="large">Large (18px)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Line Height Scale</label>
-                            <select v-model="designerBrand.line_height_scale" :disabled="inheritStyles" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px;">
-                                <option value="compact">Compact (1.4)</option>
-                                <option value="comfortable">Comfortable (1.6 - Default)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Logo URL</label>
-                            <input type="text" v-model="designerBrand.logo" :disabled="inheritStyles" placeholder="https://pesado585.com/logo.png" style="width: 100%;">
-                        </div>
-                        <div class="form-group">
-                            <label>Favicon URL</label>
-                            <input type="text" v-model="designerBrand.favicon" :disabled="inheritStyles" placeholder="https://pesado585.com/favicon.ico" style="width: 100%;">
                         </div>
                     </div>
                 </div>
@@ -891,7 +942,8 @@ export default {
                 text_404_subheadline: 'The page you are looking for doesn\'t exist or has been moved.',
                 text_404_cta: 'Back to Shop',
                 landing_pages: [],
-                content_translations: {}
+                content_translations: {},
+                sections: []
             },
             saving: false,
             isFullscreen: false,
@@ -917,7 +969,63 @@ export default {
             aiUsageBreakdown: [],
             undoStack: [],
             redoStack: [],
-            isApplyingHistory: false
+            isApplyingHistory: false,
+            
+            // Visual website builder states
+            selectedSectionId: '',
+            selectedBlockId: '',
+            showAddSectionMenu: false,
+            uploadingField: '',
+            defaultSections: [
+                {
+                  id: 'hero_1',
+                  type: 'hero',
+                  title: 'Image Banner (Hero)',
+                  active: true,
+                  settings: {
+                    headline: 'Crafting the perfect extraction with Pesado',
+                    subheadline: 'Designed in Melbourne, engineered for absolute consistency. Elevate your espresso ritual.',
+                    cta: 'Shop Collection',
+                    cta_link: '#products',
+                    hero_img: ''
+                  }
+                },
+                {
+                  id: 'featured_1',
+                  type: 'featured_collection',
+                  title: 'Featured Collection',
+                  active: true,
+                  settings: {
+                    title: 'The Precision Collection',
+                    subtitle: 'Meticulously engineered tools for the discerning barista.',
+                    collection_id: 'all',
+                    limit: 4
+                  }
+                },
+                {
+                  id: 'rich_1',
+                  type: 'rich_text',
+                  title: 'Rich Text',
+                  active: true,
+                  settings: {
+                    title: 'Obsessive Attention. Intelligent Effort.',
+                    content: 'Functional coffee gear made of premium materials to improve people\'s lives in small but mighty ways.',
+                    align: 'center'
+                  }
+                },
+                {
+                  id: 'video_1',
+                  type: 'video',
+                  title: 'Video Banner',
+                  active: true,
+                  settings: {
+                    title: 'Crafted to Perfection',
+                    video_url: 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4',
+                    autoplay: true,
+                    loop: true
+                  }
+                }
+            ]
         };
     },
     mounted() {
@@ -996,6 +1104,17 @@ export default {
             } else if (event.data && event.data.type === 'REQUEST_AI_REWRITE') {
                 const { text, tone, field, page } = event.data;
                 this.handleInlineAiRewrite(text, tone, field, page);
+            } else if (event.data && event.data.type === 'SELECT_SECTION') {
+                this.selectedSectionId = event.data.sectionId;
+                if (event.data.blockId) {
+                    this.selectedBlockId = event.data.blockId;
+                }
+            } else if (event.data && event.data.type === 'SECTION_SETTING_EDIT') {
+                const { sectionId, field, value } = event.data;
+                const sec = this.designerBrand.sections.find(s => s.id === sectionId);
+                if (sec) {
+                    sec.settings[field] = value;
+                }
             }
         };
         window.addEventListener('message', this.messageListener);
@@ -1606,7 +1725,8 @@ export default {
                             text_404_headline: theme.text_404_headline || overrides.text_404_headline || 'Page Not Found',
                             text_404_subheadline: theme.text_404_subheadline || overrides.text_404_subheadline || 'The page you are looking for doesn\'t exist or has been moved.',
                             text_404_cta: theme.text_404_cta || overrides.text_404_cta || 'Back to Shop',
-                            content_translations: theme.content_translations || overrides.content_translations || {}
+                            content_translations: theme.content_translations || overrides.content_translations || {},
+                            sections: []
                         };
                     } else {
                         this.designerBrand = {
@@ -1641,9 +1761,20 @@ export default {
                             text_404_headline: overrides.text_404_headline || theme.text_404_headline || 'Page Not Found',
                             text_404_subheadline: overrides.text_404_subheadline || theme.text_404_subheadline || 'The page you are looking for doesn\'t exist or has been moved.',
                             text_404_cta: overrides.text_404_cta || theme.text_404_cta || 'Back to Shop',
-                            content_translations: overrides.content_translations || theme.content_translations || {}
+                            content_translations: overrides.content_translations || theme.content_translations || {},
+                            sections: []
                         };
                     }
+                    
+                    let sections = [];
+                    if (theme.sections && Array.isArray(theme.sections)) {
+                        sections = theme.sections;
+                    } else if (overrides.sections && Array.isArray(overrides.sections)) {
+                        sections = overrides.sections;
+                    } else {
+                        sections = JSON.parse(JSON.stringify(this.defaultSections));
+                    }
+                    this.designerBrand.sections = sections;
                 }
                 this.$nextTick(() => {
                     this.captureOriginalSettings();
@@ -1688,7 +1819,8 @@ export default {
                 text_404_headline: this.designerBrand.text_404_headline,
                 text_404_subheadline: this.designerBrand.text_404_subheadline,
                 text_404_cta: this.designerBrand.text_404_cta,
-                content_translations: this.designerBrand.content_translations
+                content_translations: this.designerBrand.content_translations,
+                sections: this.designerBrand.sections
             };
 
             this.designerBrand.theme_settings = JSON.stringify({
@@ -1701,6 +1833,7 @@ export default {
                 text_404_subheadline: this.designerBrand.text_404_subheadline,
                 text_404_cta: this.designerBrand.text_404_cta,
                 content_translations: this.designerBrand.content_translations,
+                sections: this.designerBrand.sections,
                 storefront: storefrontOverrides
             });
             try {
@@ -2068,6 +2201,7 @@ export default {
                         text_404_cta: this.designerBrand.text_404_cta,
                         content_translations: this.designerBrand.content_translations,
                         landing_pages: this.designerBrand.landing_pages,
+                        sections: this.designerBrand.sections,
                         theme_settings: this.designerBrand.theme_settings
                     };
                     const cleanStyles = JSON.parse(JSON.stringify(styles));
@@ -2324,6 +2458,7 @@ export default {
             this.designerBrand.text_404_cta = original.text_404_cta;
             this.designerBrand.content_translations = original.content_translations;
             this.designerBrand.landing_pages = original.landing_pages || [];
+            this.designerBrand.sections = original.sections || [];
             
             this.updatePreviewStyles();
             
@@ -2379,9 +2514,255 @@ export default {
                 text_404_headline: this.designerBrand.text_404_headline,
                 text_404_subheadline: this.designerBrand.text_404_subheadline,
                 text_404_cta: this.designerBrand.text_404_cta,
-                content_translations: this.designerBrand.content_translations
+                content_translations: this.designerBrand.content_translations,
+                sections: this.designerBrand.sections
             };
             this.originalBrandSettings = JSON.stringify(currentObj);
+        },
+        
+        // --- VISUAL WEBSITE BUILDER HELPER METHODS ---
+        selectSection(id) {
+            this.selectedSectionId = id;
+            this.selectedBlockId = '';
+            const iframe = this.$refs.previewIframe;
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'HIGHLIGHT_SECTION', sectionId: id }, '*');
+            }
+        },
+        getSelectedSection() {
+            if (!this.selectedSectionId) return null;
+            return this.designerBrand.sections.find(s => s.id === this.selectedSectionId);
+        },
+        getSelectedSectionTitle() {
+            if (this.selectedSectionId === 'announcement') return 'Announcement Bar';
+            if (this.selectedSectionId === 'header') return 'Header';
+            if (this.selectedSectionId === 'footer') return 'Footer';
+            const sec = this.getSelectedSection();
+            return sec ? sec.title : 'Block';
+        },
+        isDynamicSection(id) {
+            return id && !['announcement', 'header', 'footer'].includes(id);
+        },
+        isSectionType(id, type) {
+            const sec = this.getSelectedSection();
+            return sec && sec.type === type;
+        },
+        getSectionIcon(type) {
+            const icons = { hero: '🌄', featured_collection: '🛍️', rich_text: '📝', collection_list: '🗂️', video: '🎥' };
+            return icons[type] || '🧱';
+        },
+        addSection(type) {
+            this.showAddSectionMenu = false;
+            const secId = `sec_${Date.now()}`;
+            let title = '';
+            let settings = {};
+            let blocks = [];
+            
+            if (type === 'hero') {
+                title = 'Image Banner';
+                settings = {
+                    headline: 'Elevate Your Coffee Ritual',
+                    subheadline: 'Shop precision espresso gear engineered for consistency.',
+                    cta: 'Shop Now',
+                    cta_link: '#products',
+                    hero_img: ''
+                };
+            } else if (type === 'featured_collection') {
+                title = 'Featured Collection';
+                settings = {
+                    title: 'The Precision Collection',
+                    subtitle: 'Meticulously engineered tools for the discerning barista.',
+                    collection_id: 'all',
+                    limit: 4
+                };
+            } else if (type === 'rich_text') {
+                title = 'Rich Text';
+                settings = {
+                    title: 'Obsessive Attention. Intelligent Effort.',
+                    content: 'Functional products made of premium materials to improve people\'s lives in small but mighty ways.',
+                    align: 'center'
+                };
+            } else if (type === 'collection_list') {
+                title = 'Collection List';
+                settings = {
+                    title: 'Shop Categories'
+                };
+                blocks = [
+                    { id: `blk_${Date.now()}_1`, type: 'collection', settings: { title: 'Wood Handles', image: '', link: '#products' } },
+                    { id: `blk_${Date.now()}_2`, type: 'collection', settings: { title: 'Precision Baskets', image: '', link: '#products' } }
+                ];
+            } else if (type === 'video') {
+                title = 'Video Section';
+                settings = {
+                    title: 'How we engineer consistency',
+                    video_url: 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4',
+                    autoplay: true,
+                    loop: true
+                };
+            }
+            
+            this.designerBrand.sections.push({
+                id: secId,
+                type,
+                title,
+                active: true,
+                settings,
+                blocks
+            });
+            
+            this.selectedSectionId = secId;
+            this.updatePreviewStyles();
+        },
+        moveSection(idx, direction) {
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= this.designerBrand.sections.length) return;
+            const temp = this.designerBrand.sections[idx];
+            this.designerBrand.sections.splice(idx, 1);
+            this.designerBrand.sections.splice(targetIdx, 0, temp);
+            this.updatePreviewStyles();
+        },
+        moveSelectedSection(direction) {
+            const idx = this.designerBrand.sections.findIndex(s => s.id === this.selectedSectionId);
+            if (idx !== -1) {
+                this.moveSection(idx, direction);
+            }
+        },
+        toggleSectionActive(section) {
+            section.active = section.active === false ? true : false;
+            this.updatePreviewStyles();
+        },
+        deleteSelectedSection() {
+            const idx = this.designerBrand.sections.findIndex(s => s.id === this.selectedSectionId);
+            if (idx !== -1) {
+                this.designerBrand.sections.splice(idx, 1);
+                this.selectedSectionId = '';
+                this.updatePreviewStyles();
+            }
+        },
+        addCollectionBlock(section) {
+            if (!section.blocks) section.blocks = [];
+            section.blocks.push({
+                id: `blk_${Date.now()}_${section.blocks.length + 1}`,
+                type: 'collection',
+                settings: {
+                    title: 'New Collection',
+                    image: '',
+                    link: '#products'
+                }
+            });
+            this.updatePreviewStyles();
+        },
+        deleteCollectionBlock(section, bIdx) {
+            section.blocks.splice(bIdx, 1);
+            this.updatePreviewStyles();
+        },
+        triggerFileUpload(fieldName) {
+            const refName = `${fieldName}_file`;
+            const el = this.$refs[refName];
+            if (el) el.click();
+        },
+        async handleSectionFileUpload(event, target, fieldName) {
+            const file = event.target.files[0];
+            if (!file) return;
+            await this.uploadSectionFile(file, target, fieldName);
+        },
+        handleSectionFileDrop(event, target, fieldName) {
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                this.uploadSectionFile(file, target, fieldName);
+            }
+        },
+        triggerBlockFileUpload(blockId) {
+            const refName = `block_file_${blockId}`;
+            const el = this.$refs[refName];
+            if (el && el[0]) el[0].click();
+        },
+        async handleBlockFileUpload(event, block) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            this.app.showNotification('Uploading collection asset...');
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'Storefront Designer');
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` },
+                    body: formData
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    block.settings.image = data.item.url;
+                    this.updatePreviewStyles();
+                    this.app.showNotification('Collection image updated successfully!');
+                } else {
+                    alert('Upload failed.');
+                }
+            } catch (e) {
+                alert('Upload error: ' + e.message);
+            }
+        },
+        async uploadSectionFile(file, target, fieldName) {
+            const key = `${target.id || target}_${fieldName}`;
+            this.uploadingField = key;
+            this.app.showNotification('Uploading asset to server storage...');
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'Storefront Designer');
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` },
+                    body: formData
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const url = data.item.url;
+                    if (typeof target === 'string') {
+                        this.designerBrand[fieldName] = url;
+                    } else {
+                        target.settings[fieldName] = url;
+                    }
+                    this.updatePreviewStyles();
+                    this.app.showNotification('Asset uploaded and linked successfully!');
+                } else {
+                    alert('Upload failed.');
+                }
+            } catch (e) {
+                alert('Upload error: ' + e.message);
+            } finally {
+                this.uploadingField = '';
+            }
+        },
+        async runAISectionRewrite(field) {
+            const sec = this.getSelectedSection();
+            if (!sec) return;
+            const originalText = sec.settings[field] || '';
+            this.app.showNotification('AI is optimizing headline copy...');
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    },
+                    body: JSON.stringify({
+                        text: originalText,
+                        tone: 'premium',
+                        field: field,
+                        page: 'home'
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    sec.settings[field] = data.rewrite;
+                    this.updatePreviewStyles();
+                    this.app.showNotification('AI optimization complete!');
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }
     }
 };
