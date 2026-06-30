@@ -105,7 +105,7 @@
                     </div>
 
                     <!-- Card 3: Autopilot -->
-                    <div @click="setWorkspaceMode('autopilot')" class="mode-selection-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; cursor: pointer; transition: all 0.3s; background: rgba(197,160,89,0.05); border-color: rgba(197,160,89,0.3); display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div v-if="app.userRole.toLowerCase() === 'superadmin'" @click="setWorkspaceMode('autopilot')" class="mode-selection-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; cursor: pointer; transition: all 0.3s; background: rgba(197,160,89,0.05); border-color: rgba(197,160,89,0.3); display: flex; flex-direction: column; align-items: center; gap: 8px;">
                         <span style="font-size: 2rem;">⚡</span>
                         <strong style="font-size: 0.95rem; color: var(--accent);">AI Autopilot (One-Tap)</strong>
                         <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4; margin: 0; min-height: 58px;">
@@ -130,7 +130,7 @@
                         <div style="display: flex; gap: 4px; background: var(--border); padding: 2px; border-radius: 6px;">
                             <button type="button" @click="setWorkspaceMode('manual')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'manual' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">✍️ Manual</button>
                             <button type="button" @click="setWorkspaceMode('copilot')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'copilot' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">💡 Co-Pilot</button>
-                            <button type="button" @click="setWorkspaceMode('autopilot')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'autopilot' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">⚡ Autopilot</button>
+                            <button v-if="app.userRole.toLowerCase() === 'superadmin'" type="button" @click="setWorkspaceMode('autopilot')" style="font-size: 0.65rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="newCampaign.creation_mode === 'autopilot' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">⚡ Autopilot</button>
                         </div>
                     </div>
                     
@@ -246,6 +246,19 @@
                                 <span>{{ tick }}</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Target Coffee Brand select (Only shown if activeShopFilter is 'all') -->
+                    <div v-if="app.activeShopFilter === 'all'" class="form-group" style="margin-bottom: 16px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem; margin-bottom: 6px;">
+                            <span>Target Coffee Brand</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Since you are managing campaigns at the agency level, select which specific coffee brand storefront this campaign belongs to.">i</span>
+                        </label>
+                        <select v-model="newCampaign.brand_id" style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;" required>
+                            <option v-for="b in app.brands" :key="b.id" :value="b.id">
+                                {{ b.name }} (subdomain: {{ b.subdomain }})
+                            </option>
+                        </select>
                     </div>
 
                     <!-- Campaign Focus / Goal Selector -->
@@ -1767,8 +1780,8 @@
                         <button type="button" @click="activeTab = 'calendar'" :style="{ borderBottom: activeTab === 'calendar' ? '2px solid var(--accent)' : 'none', color: activeTab === 'calendar' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
                             📅 Ad Planner (Calendar)
                         </button>
-                        <button type="button" @click="activeTab = 'autopilot'" :style="{ borderBottom: activeTab === 'autopilot' ? '2px solid var(--accent)' : 'none', color: activeTab === 'autopilot' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
-                            🤖 Autopilot Console
+                        <button v-if="app.userRole.toLowerCase() === 'superadmin'" type="button" @click="activeTab = 'autopilot'" :style="{ borderBottom: activeTab === 'autopilot' ? '2px solid var(--accent)' : 'none', color: activeTab === 'autopilot' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            🤖 AI Optimization (Fine-Tuning)
                         </button>
                         <button type="button" @click="activeTab = 'performance'" :style="{ borderBottom: activeTab === 'performance' ? '2px solid var(--accent)' : 'none', color: activeTab === 'performance' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
                             📊 Performance Insights
@@ -2878,9 +2891,10 @@ export default {
     },
     computed: {
         authHeaders() {
+            const targetBrandId = (this.isCreatingCampaign && this.newCampaign && this.newCampaign.brand_id) || this.app.activeShopFilter;
             return {
                 'Authorization': `Bearer ${this.app.adminToken}`,
-                'X-Brand-Id': this.app.activeShopFilter
+                'X-Brand-Id': targetBrandId
             };
         },
         isAllCampaignsSelected() {
@@ -2912,6 +2926,10 @@ export default {
             };
         },
         activeBrand() {
+            if (this.newCampaign && this.newCampaign.brand_id) {
+                const brand = this.app.brands.find(b => b.id === this.newCampaign.brand_id);
+                if (brand) return brand;
+            }
             if (this.app && this.app.activeShopFilter && this.app.activeShopFilter !== 'all') {
                 const brand = this.app.brands.find(b => b.id === this.app.activeShopFilter);
                 if (brand) return brand;
@@ -3430,11 +3448,11 @@ export default {
                 alert('You must onboard at least one coffee brand storefront under the "Shops" tab before you can launch campaigns.');
                 return;
             }
-            if (this.app.activeShopFilter === 'all') {
-                alert('Please select a specific coffee brand from the top dropdown to manage and launch its campaigns.');
-                return;
+            let tier = 'professional';
+            if (this.app.activeShopFilter !== 'all') {
+                const brand = this.app.brands.find(b => b.id === this.app.activeShopFilter);
+                if (brand) tier = brand.ai_tier;
             }
-            const tier = this.activeBrand ? this.activeBrand.ai_tier : 'professional';
             let defaultModel = 'gemini-2.5-flash';
             if (tier === 'professional') defaultModel = 'gemini-3.1-pro';
             if (tier === 'enterprise') defaultModel = 'deep-research-pro-preview';
@@ -3442,6 +3460,7 @@ export default {
             this.newCampaign = {
                 id: '',
                 name: '',
+                brand_id: this.app.activeShopFilter === 'all' ? (this.app.brands[0] ? this.app.brands[0].id : '') : this.app.activeShopFilter,
                 selectedModel: defaultModel,
                 campaign_type: 'manual',
                 platforms: ['meta'],
@@ -4772,49 +4791,64 @@ export default {
                 `;
             }
 
-            const popup = window.open('', 'OAuthConsent', 'width=580,height=580,status=yes,resizable=yes');
-            if (popup) {
-                popup.document.write(`
-                    <html>
-                      <head>
-                        <title>${title}</title>
-                        <style>
-                          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #121212; color: #e0e0e0; padding: 30px; text-align: center; }
-                          .card { max-width: 420px; margin: 20px auto; background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 28px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); }
-                          .title { font-size: 1.3rem; font-weight: bold; margin-bottom: 12px; color: #fff; }
-                          .desc { font-size: 0.88rem; color: #a0a0a0; line-height: 1.5; margin-bottom: 24px; }
-                          .scopes { text-align: left; background: #151515; border-radius: 8px; padding: 16px; font-size: 0.82rem; color: #d0d0d0; margin-bottom: 24px; border: 1px solid #282828; }
-                          .scopes li { margin-bottom: 8px; }
-                          .btn { background: #3b82f6; color: #fff; border: none; font-weight: bold; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 0.92rem; width: 100%; transition: background 0.2s; }
-                          .btn:hover { background: #2563eb; }
-                          .btn-cancel { background: none; border: 1px solid #333; color: #a0a0a0; margin-top: 10px; width: 100%; padding: 10px; font-size: 0.85rem; cursor: pointer; border-radius: 6px; }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="card">
-                          <div style="font-size: 3rem; margin-bottom: 16px;">${icon}</div>
-                          <div class="title">${title}</div>
-                          <p class="desc">${desc}</p>
-                          <div class="scopes">
-                            <strong>Requested Scopes:</strong>
-                            <ul style="margin: 8px 0 0 0; padding-left: 20px;">
-                              ${scopesHtml}
-                            </ul>
-                          </div>
-                          <button class="btn" onclick="window.opener.postMessage('oauth_success_campaigns_${platform}', '*'); window.close();">Authorize & Connect</button>
-                          <button class="btn-cancel" onclick="window.close();">Cancel</button>
-                        </div>
-                      </body>
-                    </html>
-                `);
+            if (platform === 'facebook' || platform === 'instagram') {
+                const brand = this.activeBrand;
+                if (!brand) return;
+                const authorizeUrl = `${this.app.apiBaseUrl}/api/global/brands/oauth/facebook/init?brandId=${encodeURIComponent(brand.id)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+                window.open(authorizeUrl, 'MetaOAuth', 'width=800,height=700,status=yes,resizable=yes');
 
                 const onMessage = async (event) => {
-                    if (event.data === `oauth_success_campaigns_${platform}`) {
+                    if (event.data === 'oauth_success_campaigns_meta' || event.data === `oauth_success_campaigns_${platform}`) {
                         window.removeEventListener('message', onMessage);
                         await this.saveCampaignsSocialConnection(dbPlatformName);
                     }
                 };
                 window.addEventListener('message', onMessage);
+            } else {
+                const popup = window.open('', 'OAuthConsent', 'width=580,height=580,status=yes,resizable=yes');
+                if (popup) {
+                    popup.document.write(`
+                        <html>
+                          <head>
+                            <title>${title}</title>
+                            <style>
+                              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #121212; color: #e0e0e0; padding: 30px; text-align: center; }
+                              .card { max-width: 420px; margin: 20px auto; background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 28px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); }
+                              .title { font-size: 1.3rem; font-weight: bold; margin-bottom: 12px; color: #fff; }
+                              .desc { font-size: 0.88rem; color: #a0a0a0; line-height: 1.5; margin-bottom: 24px; }
+                              .scopes { text-align: left; background: #151515; border-radius: 8px; padding: 16px; font-size: 0.82rem; color: #d0d0d0; margin-bottom: 24px; border: 1px solid #282828; }
+                              .scopes li { margin-bottom: 8px; }
+                              .btn { background: #3b82f6; color: #fff; border: none; font-weight: bold; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 0.92rem; width: 100%; transition: background 0.2s; }
+                              .btn:hover { background: #2563eb; }
+                              .btn-cancel { background: none; border: 1px solid #333; color: #a0a0a0; margin-top: 10px; width: 100%; padding: 10px; font-size: 0.85rem; cursor: pointer; border-radius: 6px; }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="card">
+                              <div style="font-size: 3rem; margin-bottom: 16px;">${icon}</div>
+                              <div class="title">${title}</div>
+                              <p class="desc">${desc}</p>
+                              <div class="scopes">
+                                <strong>Requested Scopes:</strong>
+                                <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                                  ${scopesHtml}
+                                </ul>
+                              </div>
+                              <button class="btn" onclick="window.opener.postMessage('oauth_success_campaigns_${platform}', '*'); window.close();">Authorize & Connect</button>
+                              <button class="btn-cancel" onclick="window.close();">Cancel</button>
+                            </div>
+                          </body>
+                        </html>
+                    `);
+
+                    const onMessage = async (event) => {
+                        if (event.data === `oauth_success_campaigns_${platform}`) {
+                            window.removeEventListener('message', onMessage);
+                            await this.saveCampaignsSocialConnection(dbPlatformName);
+                        }
+                    };
+                    window.addEventListener('message', onMessage);
+                }
             }
         },
         async saveCampaignsSocialConnection(platformName) {

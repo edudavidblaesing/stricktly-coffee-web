@@ -76,6 +76,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS brand_canvas TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS active_model VARCHAR(255)`);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS meta_pixel_id VARCHAR(255)`);
+    await client.query(`UPDATE brands SET meta_pixel_id = 'mock_pixel_' || id WHERE meta_pixel_id IS NULL OR meta_pixel_id = ''`);
     await client.query(`UPDATE brands SET status = 'active', stripe_enabled = TRUE WHERE id = 'pesado'`);
     await client.query(`UPDATE brands SET status = 'active' WHERE status IS NULL`);
 

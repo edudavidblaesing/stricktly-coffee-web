@@ -117,10 +117,10 @@
                                 <line x1="8" y1="21" x2="16" y2="21"></line>
                                 <line x1="12" y1="17" x2="12" y2="21"></line>
                             </svg>
-                            <span class="tier1-btn-label">Channel</span>
+                            <span class="tier1-btn-label">{{ userRole.toLowerCase() === 'superadmin' ? 'Brands' : 'Channel' }}</span>
                         </button>
-
-                        <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
+ 
+                        <button v-if="userRole.toLowerCase() !== 'superadmin'" class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
                                 @click="handleTier1Click('catalog', 'products')" title="Products & Inventory">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -206,8 +206,26 @@
 
                         <!-- Storefront / Channels Links -->
                         <div v-if="activeTier1 === 'storefront'">
-                            <div class="tier2-section-title">Channels & Storefront</div>
-                            <ul class="tier2-links">
+                            <div class="tier2-section-title">{{ userRole.toLowerCase() === 'superadmin' ? 'Brands Manager' : 'Channels & Storefront' }}</div>
+                            <ul class="tier2-links" v-if="userRole.toLowerCase() === 'superadmin'">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list';">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🏢</span>
+                                            <span class="tier2-btn-text">Brand Overview</span>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'reports' }" @click="switchView('reports')">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">📈</span>
+                                            <span class="tier2-btn-text">Insights</span>
+                                        </span>
+                                    </button>
+                                </li>
+                            </ul>
+                            <ul class="tier2-links" v-else>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && (brandsSubView === 'list' && !brandsSelectedChannelId) }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list'; if($refs.brandsView) { $refs.brandsView.activeSubView = 'list'; $refs.brandsView.selectedChannelId = null; }">
                                         <span class="tier2-btn-inner">
@@ -1077,7 +1095,7 @@
 
         <!-- Brand Switcher dropdown menu overlay (Floats to the right of Tier 1, position fixed to prevent clipping) -->
         <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen" 
-             style="position: fixed !important; left: 74px !important; right: auto !important; top: 12px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
+             style="position: fixed !important; left: 12px !important; right: auto !important; top: 64px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
             <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')"
                  style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
                 <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🌐</div>
@@ -1113,7 +1131,7 @@
 
         <!-- Profile Switcher Menu Overlay (Bottom Float, position fixed to prevent layout squeezing) -->
         <div class="profile-dropdown-menu" v-if="profileDropdownOpen" 
-             style="position: fixed !important; left: 74px !important; right: auto !important; bottom: 12px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
+             style="position: fixed !important; left: 12px !important; right: auto !important; bottom: 64px !important; z-index: 10000 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
             <div class="profile-dropdown-header">
                 <div style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ operatorName }}</div>
                 <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ loginEmail }}</div>
@@ -2235,8 +2253,8 @@ export default {
                 },
                 isSidebarLinkDisabled(viewName) {
                     if (!this.isLoggedIn) return true;
-                    // If superadmin is on "ALL" view (no brand context selected), allow all sidebar links
-                    if (this.userRole.toLowerCase() === 'superadmin' && (this.activeShopFilter === 'all' || !this.activeShopFilter)) {
+                    // If superadmin is signed in, allow all sidebar links unconditionally
+                    if (this.userRole.toLowerCase() === 'superadmin') {
                         return false;
                     }
                     if (['overview', 'help', 'billing-subscription', 'brands', 'learning'].includes(viewName)) {

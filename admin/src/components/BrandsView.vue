@@ -58,7 +58,7 @@
             
              <!-- Step Progress Indicator -->
              <div class="step-progress-bar" style="display: flex; justify-content: space-between; margin: 10px 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 10px; flex-shrink: 0;">
-                 <div v-for="step in [1, 2, 3, 4]" :key="step" 
+                 <div v-for="step in [1, 2, 3, 4, 5]" :key="step" 
                       :style="{ 
                          flex: 1, 
                          textAlign: 'center', 
@@ -74,7 +74,7 @@
                  </div>
              </div>
             
-             <form @submit.prevent style="margin-top: 15px; display: flex; flex-direction: column; height: 100%;">
+             <form @submit.prevent style="margin-top: 15px; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
                  <div style="flex: 1; overflow-y: auto; padding-right: 8px; margin-bottom: 10px;">
                      <!-- STEP 1: VERIFICATION & DETAILS -->
                      <div v-if="currentStep === 1">
@@ -368,7 +368,12 @@
 
                         <!-- Product Selection Table (rendered once products are loaded) -->
                         <div v-if="importedProducts.length > 0" style="border-top: 1px solid var(--border); padding-top: 20px; display: flex; flex-direction: column; gap: 15px;">
-                            <h5 style="margin: 0; font-weight: 700; color: var(--text-main);">🛒 Select Products to Import ({{ importedProducts.length }} found)</h5>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <h5 style="margin: 0; font-weight: 700; color: var(--text-main);">🛒 Select Products to Import ({{ importedProducts.length }} found)</h5>
+                                <span style="font-size: 0.76rem; color: var(--text-muted);">
+                                    This is a preview of your products. Type in the search box to find other products from your store, or import everything once onboarding is complete.
+                                </span>
+                            </div>
 
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
                                 <div style="position: relative; flex-grow: 1; max-width: 320px;">
@@ -390,7 +395,7 @@
                                     </label>
                                     <span style="font-size: 0.78rem; color: var(--text-muted);">{{ Object.values(selectedProducts).filter(Boolean).length }} selected</span>
                                 </div>
-                                <div style="max-height: 250px; overflow-y: auto;">
+                                <div style="width: 100%; overflow-x: auto; box-sizing: border-box;">
                                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                                         <thead>
                                             <tr style="border-bottom: 1px solid var(--border); text-align: left; background: rgba(255,255,255,0.01);">
@@ -608,7 +613,7 @@
                         </div>
 
                         <!-- Secure payment input fields (Card payment wall) -->
-                        <div v-if="newBrand.ai_tier !== 'none' && userRole.toLowerCase() !== 'superadmin'" 
+                        <div v-if="newBrand.ai_tier !== 'none'" 
                              style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; flex-direction: column; gap: 12px;">
                              <h5 style="margin: 0 0 4px 0; color: var(--text-main); font-weight: 700;">💳 Checkout & Billing Authorization</h5>
                              
@@ -677,40 +682,240 @@
                         </div>
                     </div>
                 </div>
-                </div>
 
-                <!-- Fixed Sticky Footer Actions at the bottom of the form -->
-                <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; background: var(--card-bg); z-index: 100; box-sizing: border-box; margin-top: 5px;">
-                    <div>
-                        <!-- Back Buttons -->
-                        <button v-if="currentStep === 2" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 1">
-                            ⬅️ Back to Profile
-                        </button>
-                        <button v-if="currentStep === 3" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 2">
-                            ⬅️ Back to eCommerce Connect
-                        </button>
-                        <button v-if="currentStep === 4" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 3">
-                            ⬅️ Back to Sales Channels
+                <!-- STEP 5: BRAND STRATEGY ANALYSIS (AUTORUN) -->
+                <div v-if="currentStep === 5" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Analysis in progress loader -->
+                    <div v-if="app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'generating'" 
+                         style="background: rgba(139, 92, 246, 0.05); border: 1px dashed #8b5cf6; border-radius: 12px; padding: 45px 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; animation: pulse 2s infinite;">🚀</div>
+                        <div>
+                            <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; color: #8b5cf6;">Initiating Brand Performance Strategy...</h4>
+                            <p style="margin: 0 auto 12px auto; max-width: 500px; font-size: 0.76rem; color: var(--text-muted); line-height: 1.5;">
+                                AI is currently crawling your storefront website, analyzing product catalogs, indexing competitor metrics, and building the strategic playbook. This will automatically distill into your Guidelines Canvas within 1-2 minutes.
+                            </p>
+                        </div>
+                        <div style="width: 320px; background: var(--border); height: 8px; border-radius: 4px; overflow: hidden; position: relative; box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);">
+                            <div :style="{ width: protocolProgressPct + '%' }" 
+                                 class="progress-bar-striped-animated"
+                                 style="position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%); border-radius: 4px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);">
+                            </div>
+                        </div>
+                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: -6px; display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                            <span style="font-weight: 600;">
+                                Analysis Progress: {{ protocolProgressPct }}%
+                            </span>
+                            <span style="font-size: 0.62rem; opacity: 0.8; font-family: monospace;">
+                                Processed: {{ liveEstimatedTokens }} tokens / Est. Cost: €{{ liveEstimatedCost.toFixed(4) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Failed analysis state -->
+                    <div v-else-if="app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'failed'"
+                         style="background: rgba(239, 68, 68, 0.05); border: 1px dashed #ef4444; border-radius: 12px; padding: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <span style="font-size: 2rem;">⚠️</span>
+                        <h4 style="margin: 0; color: #ef4444;">AI Strategy Generation Failed</h4>
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">
+                            {{ app.brands.find(x => x.id === newBrandSavedId).protocol_error || 'An unexpected error occurred.' }}
+                        </p>
+                        <button type="button" class="btn btn-accent" style="margin: 10px 0 0 0;" @click="startOnboardingStrategy">
+                            🔄 Retry Strategy Generation
                         </button>
                     </div>
-                    <div>
-                        <!-- Next/Submit Buttons -->
-                        <button v-if="currentStep === 1" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; gap: 8px; margin: 0;" @click="saveBrandDraft" :disabled="savingDraft || brandIdConflict || !autofilledStoreTag">
-                            <span v-if="savingDraft" class="spinner"></span>
-                            <span>{{ savingDraft ? 'Saving Profile...' : 'Save Profile & eCommerce Connect ➡️' }}</span>
-                        </button>
-                        <button v-if="currentStep === 2" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(3)">
-                            <span>Continue to Sales Channels ➡️</span>
-                        </button>
-                        <button v-if="currentStep === 3" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(4)">
-                            <span>Continue to Final Summary ➡️</span>
-                        </button>
-                        <button v-if="currentStep === 4" type="button" class="btn btn-accent" style="margin: 0; background: #10b981; color: #fff; font-weight: 700; padding: 0 30px; height: 44px; border-color: #10b981; display: flex; align-items: center; gap: 8px;" @click="finalizeOnboarding" :disabled="savingFinal">
-                            <span v-if="savingFinal" class="spinner"></span>
-                            <span>{{ savingFinal ? 'Finalizing...' : 'Complete Onboarding & Save 🚀' }}</span>
-                        </button>
+
+                    <!-- Success Distilled Guidelines Canvas -->
+                    <div v-else style="display: flex; flex-direction: column; gap: 20px;">
+                        <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 15px; display: flex; align-items: center; gap: 10px;">
+                          <span style="font-size: 1.2rem;">✨</span>
+                          <div style="font-size: 0.78rem; color: var(--text-muted);">
+                              Strategy Manuscript & Brand Canvas generated successfully! Below are the derived core positioning variables. Edit any section to adjust tone, vocabulary, or visual directions before launching.
+                          </div>
+                        </div>
+
+                        <!-- Inline Editor Panel if editing a card -->
+                        <div v-if="isEditingOnboardingCanvas" style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                            <h4 style="margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--accent);">
+                                Edit: {{ onboardingCanvasEditField.replace('_', ' ').toUpperCase() }}
+                            </h4>
+                            <p style="margin: 0; font-size: 0.72rem; color: var(--text-muted);" v-if="onboardingCanvasEditField === 'controlled_vocabulary' || onboardingCanvasEditField === 'personas'">
+                                ⚠️ Note: This field is formatted as JSON. Ensure the structure remains valid when saving.
+                            </p>
+                            <textarea v-model="onboardingCanvasEditText" rows="8" style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 12px; font-size: 0.82rem; font-family: monospace; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                <button type="button" class="btn btn-secondary" style="margin: 0; height: 34px; padding: 0 12px; font-size: 0.78rem;" @click="isEditingOnboardingCanvas = false">Cancel</button>
+                                <button type="button" class="btn btn-accent" style="margin: 0; height: 34px; padding: 0 16px; font-size: 0.78rem;" @click="saveEditedCanvasField">Save Changes</button>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                            <!-- Card 1: Brand Voice -->
+                            <div class="canvas-card" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 10px;">
+                                        <strong style="color: var(--accent); font-size: 0.85rem;">🗣️ Voice & Tone Guidelines</strong>
+                                        <button type="button" class="card-edit-btn" @click="startEditingCanvas('brand_voice')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
+                                    </div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.brand_voice }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Narrative Positioning -->
+                            <div class="canvas-card" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 10px;">
+                                        <strong style="color: var(--accent); font-size: 0.85rem;">⚙️ Narrative Positioning</strong>
+                                        <button type="button" class="card-edit-btn" @click="startEditingCanvas('product_architecture')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
+                                    </div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.product_architecture }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Vocabulary -->
+                            <div class="canvas-card" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 10px;">
+                                        <strong style="color: var(--accent); font-size: 0.85rem;">📚 Controlled Vocabulary</strong>
+                                        <button type="button" class="card-edit-btn" @click="startEditingCanvas('controlled_vocabulary')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <strong style="color: var(--success); font-size: 0.7rem; display: block; margin-bottom: 4px;">✅ APPROVED TERMS</strong>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                            <span v-for="word in canvas.controlled_vocabulary?.approved" :key="word" class="vocab-tag tag-approved" style="background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; border: 1px solid rgba(16, 185, 129, 0.25);">{{ word }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #ef4444; font-size: 0.7rem; display: block; margin-bottom: 4px;">❌ BANNED TERMS</strong>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                            <span v-for="word in canvas.controlled_vocabulary?.banned" :key="word" class="vocab-tag tag-banned" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; border: 1px solid rgba(239, 68, 68, 0.25);">{{ word }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 4: Visual Briefing -->
+                            <div class="canvas-card" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 10px;">
+                                        <strong style="color: var(--accent); font-size: 0.85rem;">🖼️ Visual Briefing Rules</strong>
+                                        <button type="button" class="card-edit-btn" @click="startEditingCanvas('visual_direction')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
+                                    </div>
+                                    <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); white-space: pre-line;">{{ canvas.visual_direction }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Card 5: Personas -->
+                            <div class="canvas-card" style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; grid-column: span 1;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 10px;">
+                                        <strong style="color: var(--accent); font-size: 0.85rem;">👥 Target Audience Personas</strong>
+                                        <button type="button" class="card-edit-btn" @click="startEditingCanvas('personas')" style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.76rem;">✍️ Edit</button>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                                        <div v-for="p in canvas.personas" :key="p.name" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                                            <strong style="font-size: 0.76rem; color: var(--accent); display: block;">{{ p.name }} ({{ p.demographics }})</strong>
+                                            <p style="margin: 4px 0 0 0; font-size: 0.74rem; color: var(--text-muted);">{{ p.description }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Styling Options card for user adjustment -->
+                        <div class="canvas-card" style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+                            <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                🎨 Visual Theme & Styling Customization
+                            </h4>
+                            <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 15px;">
+                                Review the AI-generated contrast-safe brand colors. Modify any palette color, and the changes will fully apply to your storefront design and landing pages when finishing onboarding.
+                            </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Primary Theme Color</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.primary_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.primary_color" placeholder="#c5a059" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Secondary Theme Color</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.secondary_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.secondary_color" placeholder="#767676" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Store Background</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.bg_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.bg_color" placeholder="#ffffff" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Text/Typography Color</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.text_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.text_color" placeholder="#111111" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Button Text Color</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.button_text_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.button_text_color" placeholder="#ffffff" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Header/Nav Background</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" v-model="newBrand.header_bg_color" style="width: 38px; height: 38px; border: none; padding: 0; background: none; cursor: pointer; border-radius: 4px;">
+                                        <input type="text" v-model="newBrand.header_bg_color" placeholder="#ffffff" style="flex: 1; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Fixed Sticky Footer Actions at the bottom of the form -->
+            <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; background: var(--card-bg); z-index: 100; box-sizing: border-box; margin-top: 5px;">
+                <div>
+                    <!-- Back Buttons -->
+                    <button v-if="currentStep === 2" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 1">
+                        ⬅️ Back to Profile
+                    </button>
+                    <button v-if="currentStep === 3" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 2">
+                        ⬅️ Back to eCommerce Connect
+                    </button>
+                    <button v-if="currentStep === 4" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 3">
+                        ⬅️ Back to Sales Channels
+                    </button>
+                    <button v-if="currentStep === 5" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 4" :disabled="isGeneratingProtocol">
+                        ⬅️ Back to Final Summary
+                    </button>
+                </div>
+                <div>
+                    <!-- Next/Submit Buttons -->
+                    <button v-if="currentStep === 1" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; gap: 8px; margin: 0;" @click="saveBrandDraft" :disabled="savingDraft || brandIdConflict || !autofilledStoreTag">
+                        <span v-if="savingDraft" class="spinner"></span>
+                        <span>{{ savingDraft ? 'Saving Profile...' : 'Save Profile & eCommerce Connect ➡️' }}</span>
+                    </button>
+                    <button v-if="currentStep === 2" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(3)">
+                        <span>Continue to Sales Channels ➡️</span>
+                    </button>
+                    <button v-if="currentStep === 3" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(4)">
+                        <span>Continue to Final Summary ➡️</span>
+                    </button>
+                    <button v-if="currentStep === 4" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(5)">
+                        <span>Continue to Brand Strategy Analysis ➡️</span>
+                    </button>
+                    <button v-if="currentStep === 5" type="button" class="btn btn-accent" style="margin: 0; background: #10b981; color: #fff; font-weight: 700; padding: 0 30px; height: 44px; border-color: #10b981; display: flex; align-items: center; gap: 8px;" @click="finalizeOnboarding" :disabled="savingFinal || isGeneratingProtocol || (app.brands.find(x => x.id === newBrandSavedId) && app.brands.find(x => x.id === newBrandSavedId).protocol_status === 'generating')">
+                        <span v-if="savingFinal" class="spinner"></span>
+                        <span>{{ savingFinal ? 'Finalizing...' : 'Complete Onboarding & Save 🚀' }}</span>
+                    </button>
+                </div>
+            </div>
             </form>
         </div>
 
@@ -1045,6 +1250,26 @@
                                         <span style="font-size: 0.76rem; color: var(--text-muted);">Sync inventory using a static data endpoint feed. No automatic profile bio updates allowed.</span>
                                     </div>
                                 </label>
+                                <!-- API Key connection option (Always available for Meta/Facebook/Instagram) -->
+                                <label v-if="socialModalPlatform.includes('Instagram') || socialModalPlatform.includes('Facebook')" style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer;" @click="socialConnectionType = 'api_key'">
+                                    <input type="radio" value="api_key" v-model="socialConnectionType" style="margin-top: 3px;" @click.stop>
+                                    <div>
+                                        <strong style="font-size: 0.88rem; color: var(--text-main); display: block;">Direct API Key / Access Token Link</strong>
+                                        <span style="font-size: 0.76rem; color: var(--text-muted);">Paste a Meta Graph API Access Token directly to connect without using standard OAuth consent screens.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Manual Access Token Form Fields -->
+                        <div v-if="socialConnectionType === 'api_key'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+                            <div>
+                                <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Meta Graph API Access Token</label>
+                                <input type="password" v-model="socialAccessToken" placeholder="EAAb..." style="width: 100%; height: 34px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Ad Account / Page Name (Optional)</label>
+                                <input type="text" v-model="socialAccountName" placeholder="My Business Ad Account" style="width: 100%; height: 34px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                             </div>
                         </div>
 
@@ -1188,6 +1413,20 @@ export default {
             // Onboarding Wizard State
             currentStep: 1,
             newBrandSavedId: null,
+            // Onboarding Step 5 (Strategy Analysis) state
+            loadingCanvas: false,
+            canvas: { brand_voice: '', product_architecture: '', controlled_vocabulary: { approved: [], banned: [] }, personas: [], visual_direction: '' },
+            isGeneratingProtocol: false,
+            protocolPollInterval: null,
+            liveEstimatedTokens: 0,
+            liveEstimatedCost: 0,
+            estimatedTargetTokens: 45000,
+            protocolProgressPct: 0,
+            refiningCanvas: false,
+            refinementPrompt: '',
+            isEditingOnboardingCanvas: false,
+            onboardingCanvasEditField: '',
+            onboardingCanvasEditText: '',
             dnsVerified: false,
             dnsVerifying: false,
             dnsVerifyError: '',
@@ -1200,6 +1439,8 @@ export default {
             socialModalPlatform: '',
             socialModalBrand: null,
             socialConnectionType: 'oauth',
+            socialAccessToken: '',
+            socialAccountName: '',
             socialAutoSync: true,
             socialAutoLink: true,
             socialAutoPin: false,
@@ -1235,10 +1476,17 @@ export default {
             customStock: {},
             customDescriptions: {},
             productSyncing: false,
-            productSyncSuccess: false
+            productSyncSuccess: false,
+            searchTimeout: null
         };
     },
     watch: {
+        catalogSearchQuery(newVal) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                this.loadImportProducts(newVal);
+            }, 500);
+        },
         'app.brands': {
             immediate: true,
             handler(newVal) {
@@ -1680,7 +1928,7 @@ export default {
             this.socialModalOpen = true;
         },
         handleOAuthMessage(e) {
-            if (e.data === 'oauth_success') {
+            if (e.data === 'oauth_success' || e.data === 'oauth_success_campaigns_meta' || e.data === 'oauth_success_campaigns_Facebook' || e.data === 'oauth_success_campaigns_Instagram') {
                 this.handleOAuthSuccess();
             } else if (e.data && e.data.type === 'shopify_oauth_success') {
                 this.app.loadBrands().then(() => {
@@ -1736,8 +1984,18 @@ export default {
                 autoSync: this.socialAutoSync,
                 autoLink: this.socialAutoLink,
                 autoPin: this.socialAutoPin,
-                connectedAt: new Date().toISOString()
+                connectedAt: new Date().toISOString(),
+                accessToken: this.socialConnectionType === 'api_key' ? this.socialAccessToken : undefined,
+                accountName: this.socialConnectionType === 'api_key' ? (this.socialAccountName || `${this.socialModalPlatform} Account`) : undefined
             };
+
+            // Keep Facebook & Instagram connections synced
+            if (this.socialModalPlatform === 'Facebook') {
+                theme.connected_channels['Instagram'] = { ...theme.connected_channels['Facebook'] };
+            } else if (this.socialModalPlatform === 'Instagram') {
+                theme.connected_channels['Facebook'] = { ...theme.connected_channels['Instagram'] };
+            }
+
             brand.theme_settings = JSON.stringify(theme);
 
             try {
@@ -1765,6 +2023,21 @@ export default {
                 setTimeout(() => {
                     this.handleOAuthSuccess();
                 }, 1500);
+            } else if (this.socialConnectionType === 'api_key') {
+                if (!this.socialAccessToken) {
+                    alert('Please enter your Meta Graph API Access Token.');
+                    return;
+                }
+                this.socialConnecting = true;
+                setTimeout(() => {
+                    this.handleOAuthSuccess();
+                }, 1000);
+            } else if (this.socialModalPlatform.includes('Instagram') || this.socialModalPlatform.includes('Facebook')) {
+                this.socialConnecting = true;
+                const brand = this.socialModalBrand;
+                if (!brand) return;
+                const authorizeUrl = `${this.app.apiBaseUrl}/api/global/brands/oauth/facebook/init?brandId=${encodeURIComponent(brand.id)}&token=${encodeURIComponent(localStorage.getItem('sc_admin_token') || '')}`;
+                window.open(authorizeUrl, 'MetaOAuth', 'width=800,height=700,status=yes,resizable=yes');
             } else {
                 this.socialConnecting = true;
                 const platform = this.socialModalPlatform;
@@ -1847,6 +2120,8 @@ export default {
         },
         closeSocialModal() {
             this.socialModalOpen = false;
+            this.socialAccessToken = '';
+            this.socialAccountName = '';
             if (this.socialConnectSuccess && this.activeSubView === 'channel-connect') {
                 this.activeSubView = 'designer';
                 this.app.sidebarPinned = false;
@@ -1948,7 +2223,8 @@ export default {
             if (step === 1) return 'Details';
             if (step === 2) return 'eCommerce & Sync';
             if (step === 3) return 'Sales Channels';
-            return 'Publish';
+            if (step === 4) return 'Summary';
+            return 'Strategy Analysis';
         },
         async goToStep(step) {
             if (step > this.currentStep) {
@@ -1983,6 +2259,192 @@ export default {
                 }
             }
             this.currentStep = step;
+            if (step === 5) {
+                this.startOnboardingStrategy();
+            }
+        },
+        async startOnboardingStrategy() {
+            if (!this.newBrandSavedId) {
+                alert('Brand draft has not been saved yet.');
+                return;
+            }
+            
+            // Check if strategy has already run or is currently generating
+            const b = this.app.brands.find(x => x.id === this.newBrandSavedId);
+            if (b) {
+                if (b.protocol_status === 'completed' && b.brand_canvas) {
+                    this.loadOnboardingCanvas();
+                    return;
+                }
+                if (b.protocol_status === 'generating') {
+                    this.startOnboardingProtocolPolling();
+                    return;
+                }
+            }
+
+            this.isGeneratingProtocol = true;
+            this.liveEstimatedTokens = 0;
+            this.liveEstimatedCost = 0;
+            this.protocolProgressPct = 0;
+            this.startOnboardingLiveTicker();
+
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/generate-protocol`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: this.newBrand.shopify_shop_name || this.newBrand.woocommerce_shop_url || '',
+                        competitors: this.newBrand.competitors || '',
+                        auto_find_competitors: this.newBrand.auto_find_competitors || true
+                    })
+                });
+
+                if (response.ok) {
+                    this.app.showNotification('AI brand strategy analysis auto-started...');
+                    await this.app.loadBrands();
+                    this.startOnboardingProtocolPolling();
+                } else {
+                    const err = await response.json();
+                    alert('Strategy analysis failed to start: ' + (err.error || 'Unknown error'));
+                    this.stopOnboardingLiveTicker();
+                }
+            } catch (e) {
+                alert('Strategy analysis trigger error: ' + e.message);
+                this.stopOnboardingLiveTicker();
+            } finally {
+                this.isGeneratingProtocol = false;
+            }
+        },
+        startOnboardingProtocolPolling() {
+            this.stopOnboardingProtocolPolling();
+            this.protocolPollInterval = setInterval(async () => {
+                const b = this.app.brands.find(x => x.id === this.newBrandSavedId);
+                if (b && b.protocol_status === 'generating') {
+                    if (!this.liveTickerInterval) {
+                        this.startOnboardingLiveTicker();
+                    }
+                    await this.app.loadBrands();
+                    
+                    if (this.protocolProgressPct < 95) {
+                        this.protocolProgressPct += Math.floor(Math.random() * 5) + 2;
+                        if (this.protocolProgressPct > 95) this.protocolProgressPct = 95;
+                    }
+
+                    const updatedBrand = this.app.brands.find(x => x.id === this.newBrandSavedId);
+                    if (updatedBrand && updatedBrand.protocol_status !== 'generating') {
+                        this.stopOnboardingLiveTicker();
+                        if (updatedBrand.protocol_status === 'completed') {
+                            this.protocolProgressPct = 100;
+                            this.app.showNotification('AI Brand Strategy Analysis completed!');
+                            this.loadOnboardingCanvas();
+                        } else if (updatedBrand.protocol_status === 'failed') {
+                            this.app.showNotification(`AI strategy playbook generation failed: ${updatedBrand.protocol_error || 'Unknown error'}`);
+                        }
+                    }
+                } else {
+                    this.stopOnboardingLiveTicker();
+                    if (b && b.protocol_status === 'completed') {
+                        this.protocolProgressPct = 100;
+                        this.loadOnboardingCanvas();
+                    }
+                }
+            }, 4000);
+        },
+        stopOnboardingProtocolPolling() {
+            if (this.protocolPollInterval) {
+                clearInterval(this.protocolPollInterval);
+                this.protocolPollInterval = null;
+            }
+        },
+        startOnboardingLiveTicker() {
+            this.stopOnboardingLiveTicker();
+            this.liveTickerInterval = setInterval(() => {
+                this.liveEstimatedTokens += Math.floor(Math.random() * 80) + 40;
+                this.liveEstimatedCost = this.liveEstimatedTokens * 0.00000125 * 0.92;
+            }, 200);
+        },
+        stopOnboardingLiveTicker() {
+            if (this.liveTickerInterval) {
+                clearInterval(this.liveTickerInterval);
+                this.liveTickerInterval = null;
+            }
+        },
+        async loadOnboardingCanvas() {
+            this.loadingCanvas = true;
+            try {
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/canvas`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.canvas) {
+                        this.canvas = data.canvas;
+                        const b = this.app.brands.find(x => x.id === this.newBrandSavedId);
+                        if (b) {
+                            if (b.primary_color) this.newBrand.primary_color = b.primary_color;
+                            if (b.theme_settings) {
+                                try {
+                                    const ts = JSON.parse(b.theme_settings);
+                                    if (ts.secondary_color) this.newBrand.secondary_color = ts.secondary_color;
+                                    if (ts.bg_color) this.newBrand.bg_color = ts.bg_color;
+                                    if (ts.text_color) this.newBrand.text_color = ts.text_color;
+                                    if (ts.button_text_color) this.newBrand.button_text_color = ts.button_text_color;
+                                    if (ts.header_bg_color) this.newBrand.header_bg_color = ts.header_bg_color;
+                                    if (ts.font_family) this.newBrand.font_family = ts.font_family;
+                                    if (ts.button_radius) this.newBrand.button_radius = ts.button_radius;
+                                } catch(e) {}
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading onboarding canvas:', e);
+            } finally {
+                this.loadingCanvas = false;
+            }
+        },
+        startEditingCanvas(field) {
+            this.isEditingOnboardingCanvas = true;
+            this.onboardingCanvasEditField = field;
+            if (field === 'controlled_vocabulary') {
+                this.onboardingCanvasEditText = JSON.stringify(this.canvas.controlled_vocabulary, null, 2);
+            } else if (field === 'personas') {
+                this.onboardingCanvasEditText = JSON.stringify(this.canvas.personas, null, 2);
+            } else {
+                this.onboardingCanvasEditText = this.canvas[field] || '';
+            }
+        },
+        async saveEditedCanvasField() {
+            try {
+                let parsedVal = this.onboardingCanvasEditText;
+                if (this.onboardingCanvasEditField === 'controlled_vocabulary' || this.onboardingCanvasEditField === 'personas') {
+                    parsedVal = JSON.parse(this.onboardingCanvasEditText);
+                }
+                this.canvas[this.onboardingCanvasEditField] = parsedVal;
+                
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/canvas`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ canvas: this.canvas })
+                });
+                if (response.ok) {
+                    this.app.showNotification('Brand guidelines canvas updated.');
+                    this.isEditingOnboardingCanvas = false;
+                } else {
+                    alert('Failed to save canvas updates.');
+                }
+            } catch(e) {
+                alert('Invalid JSON formatting: ' + e.message);
+            }
         },
         async verifyAndLoadProducts() {
             this.loadingProducts = true;
@@ -2298,8 +2760,8 @@ export default {
             this.customDescriptions = {};
         },
         applyLiveWizardTheme() {
-            if (this.app && this.app.updateDashboardBranding && this.isCreatingBrand) {
-                this.app.updateDashboardBranding(this.newBrand);
+            if (this.app && this.app.resetDashboardBranding) {
+                this.app.resetDashboardBranding();
             }
         },
         async saveBrandDraft() {
@@ -2554,34 +3016,47 @@ export default {
             }
             return null;
         },
-        async loadImportProducts() {
+        async loadImportProducts(searchQuery = '') {
             this.loadingProducts = true;
             this.productSyncError = '';
             this.importedProducts = [];
             
             try {
                 if (this.previewMode) {
+                    let sourceList = [];
                     if (this.scrapedProducts && this.scrapedProducts.length > 0) {
-                        this.importedProducts = [...this.scrapedProducts];
+                        sourceList = [...this.scrapedProducts];
                     } else {
-                        this.importedProducts = [
+                        sourceList = [
                             { id: 'mock-1', title: 'Tamper 58.5mm Classic', price: 49.00, image: '', description: 'Precision espresso tamper with stainless steel base.' },
                             { id: 'mock-2', title: 'IMS Precision Shower Screen', price: 29.90, image: '', description: 'Competition shower screen for standard group heads.' },
                             { id: 'mock-3', title: 'Organic Dark Roast Beans (500g)', price: 18.50, image: '', description: 'Rich single-origin Arabica with chocolatey finish.' }
                         ];
                     }
+                    if (searchQuery) {
+                        const q = searchQuery.toLowerCase();
+                        this.importedProducts = sourceList.filter(p => (p.title || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q));
+                    } else {
+                        this.importedProducts = sourceList;
+                    }
                     this.importedProducts.forEach((p, idx) => {
                         const id = p.id || `p-${idx}`;
-                        this.selectedProducts[id] = true;
-                        this.customPrices[id] = p.price || 55.00;
-                        this.customStock[id] = 100;
-                        this.customDescriptions[id] = p.description || '';
+                        if (this.selectedProducts[id] === undefined) {
+                            this.selectedProducts[id] = true;
+                            this.customPrices[id] = p.price || 55.00;
+                            this.customStock[id] = 100;
+                            this.customDescriptions[id] = p.description || '';
+                        }
                     });
                     this.loadingProducts = false;
                     return;
                 }
 
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/shopify-import?brandId=${this.newBrand.id}`, {
+                const url = searchQuery 
+                    ? `${this.app.apiBaseUrl}/api/global/shopify-import?brandId=${this.newBrand.id}&search=${encodeURIComponent(searchQuery)}`
+                    : `${this.app.apiBaseUrl}/api/global/shopify-import?brandId=${this.newBrand.id}`;
+
+                const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                 });
                 if (response.ok) {
@@ -2708,7 +3183,7 @@ export default {
         },
         async finalizeOnboarding() {
             this.savingFinal = true;
-            if (this.newBrand.ai_tier !== 'none' && this.newBrand.subscription_billing_method === 'stripe_card' && this.app.userRole.toLowerCase() !== 'superadmin') {
+            if (this.newBrand.ai_tier !== 'none' && this.newBrand.subscription_billing_method === 'stripe_card') {
                 if (!this.billingCardNumber || !this.billingCardExpiry || !this.billingCardCvc) {
                     alert('Please enter your credit card details to subscribe and activate your brand.');
                     this.savingFinal = false;
@@ -2761,23 +3236,40 @@ export default {
                 this.newBrand.header_bg_color = headerBg;
 
                 let existingTheme = {};
-                if (this.newBrand.theme_settings) {
+                const b = this.app.brands.find(x => x.id === this.newBrandSavedId);
+                if (b && b.theme_settings) {
                     try {
-                        existingTheme = typeof this.newBrand.theme_settings === 'string'
-                            ? JSON.parse(this.newBrand.theme_settings)
-                            : this.newBrand.theme_settings;
+                        existingTheme = typeof b.theme_settings === 'string'
+                            ? JSON.parse(b.theme_settings)
+                            : b.theme_settings;
                     } catch(e) {}
                 }
+
+                const storefrontOverrides = {
+                    primary_color: this.newBrand.primary_color,
+                    secondary_color: this.newBrand.secondary_color,
+                    bg_color: this.newBrand.bg_color,
+                    text_color: this.newBrand.text_color,
+                    button_radius: this.newBrand.button_radius || '4px',
+                    button_text_color: this.newBrand.button_text_color,
+                    header_bg_color: this.newBrand.header_bg_color,
+                    font_family: this.newBrand.font_family || 'Outfit'
+                };
+
                 this.newBrand.theme_settings = JSON.stringify({
                     ...existingTheme,
+                    inherit: false,
+                    primary_color: this.newBrand.primary_color,
                     secondary_color: this.newBrand.secondary_color,
                     bg_color: this.newBrand.bg_color,
                     text_color: this.newBrand.text_color,
                     button_radius: this.newBrand.button_radius,
                     button_text_color: this.newBrand.button_text_color,
                     header_bg_color: this.newBrand.header_bg_color,
-                    font_family: this.newBrand.font_family || 'Outfit'
+                    font_family: this.newBrand.font_family || 'Outfit',
+                    storefront: storefrontOverrides
                 });
+
                 this.newBrand.price_markup = parseFloat(this.globalMarkupPercent) || 0.00;
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands`, {
                     method: 'POST',

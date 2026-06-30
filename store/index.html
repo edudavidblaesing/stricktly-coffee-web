@@ -1858,6 +1858,22 @@
                 const brand = await response.json();
                 window.brandName = brand.name;
 
+                // Dynamically initialize Meta Pixel if configured
+                if (brand.meta_pixel_id) {
+                    (function(f,b,e,v,n,t,s)
+                    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                    n.queue=[];t=b.createElement(e);t.async=!0;
+                    t.src=v;s=b.getElementsByTagName(e)[0];
+                    s.parentNode.insertBefore(t,s)}(window, document,'script',
+                    'https://connect.facebook.net/en_US/fbevents.js');
+                    
+                    fbq('init', brand.meta_pixel_id);
+                    fbq('track', 'PageView');
+                    console.log(`[Meta Pixel] Initialized pixel for ${brand.name}: ${brand.meta_pixel_id}`);
+                }
+
                 // Log traffic/pageview analytics
                 (function() {
                     try {
@@ -2890,6 +2906,18 @@
                 });
             }
             updateCartUI();
+
+            // Track Meta Pixel AddToCart
+            if (window.fbq) {
+                fbq('track', 'AddToCart', {
+                    content_name: prod.title,
+                    content_ids: [prod.id],
+                    content_type: 'product',
+                    value: prod.price,
+                    currency: 'EUR'
+                });
+                console.log(`[Meta Pixel] AddToCart tracked for: ${prod.title}`);
+            }
             
             // Auto open cart drawer when adding item
             if (!cartDrawer.classList.contains('open')) {
@@ -3022,6 +3050,16 @@
             toggleCart(); // Close cart drawer
             customerModal.classList.add('open');
             cartOverlay.classList.add('show');
+
+            // Track Meta Pixel InitiateCheckout
+            if (window.fbq) {
+                fbq('track', 'InitiateCheckout', {
+                    num_items: cart.reduce((acc, item) => acc + item.quantity, 0),
+                    value: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+                    currency: 'EUR'
+                });
+                console.log('[Meta Pixel] InitiateCheckout tracked');
+            }
         });
 
         // Close Customer modal
@@ -3205,6 +3243,14 @@
                 }
 
                 const data = await response.json();
+
+                // Save checkout data for success tracking
+                const purchaseDetails = {
+                    value: cart.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+                    currency: 'EUR',
+                    num_items: cart.reduce((acc, item) => acc + item.quantity, 0)
+                };
+                sessionStorage.setItem('pending_purchase', JSON.stringify(purchaseDetails));
                 
                 // Clear cart state
                 cart.length = 0;
@@ -3264,6 +3310,23 @@
         if (successUrlParams.get('status') === 'success') {
             setTimeout(() => {
                 modal.classList.add('open');
+                
+                // Track Meta Pixel Purchase event
+                const pending = sessionStorage.getItem('pending_purchase');
+                if (pending && window.fbq) {
+                    try {
+                        const details = JSON.parse(pending);
+                        fbq('track', 'Purchase', {
+                            value: details.value,
+                            currency: details.currency
+                        });
+                        console.log(`[Meta Pixel] Purchase tracked successfully for total value: €${details.value}`);
+                        sessionStorage.removeItem('pending_purchase');
+                    } catch (pe) {
+                        console.error('[Meta Pixel] Error parsing purchase details:', pe);
+                    }
+                }
+                
                 // Clean up URL query parameters
                 window.history.replaceState({}, document.title, window.location.pathname);
             }, 500);
@@ -4016,11 +4079,11 @@
                         </div>
                         <div class="container" style="min-height: 80vh; display: flex; align-items: center; padding: 80px 24px;">
                             <div class="hero-content" style="max-width: 650px; text-align: left;">
-                                <span class="hero-tag" style="color: var(--primary); text-transform: uppercase; font-size: 0.85rem; font-weight: 700; letter-spacing: 2px; margin-bottom: 12px; display: block;">Sartorial Precision</span>
-                                <h1 class="dynamic-bind" data-field="headline" style="font-size: 3.2rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: var(--text-main);">${settings.headline || 'Crafting the perfect extraction'}</h1>
-                                <p class="dynamic-bind" data-field="subheadline" style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 30px;">${settings.subheadline || 'Designed for absolute consistency.'}</p>
+                                <span class="hero-tag" style="color: var(--primary); text-transform: uppercase; font-size: 0.85rem; font-weight: 700; letter-spacing: 2px; margin-bottom: 12px; display: block; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">Sartorial Precision</span>
+                                <h1 class="dynamic-bind" data-field="headline" style="font-size: 3.2rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.4);">${settings.headline || 'Crafting the perfect extraction'}</h1>
+                                <p class="dynamic-bind" data-field="subheadline" style="font-size: 1.1rem; color: rgba(255, 255, 255, 0.85); line-height: 1.6; margin-bottom: 30px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${settings.subheadline || 'Designed for absolute consistency.'}</p>
                                 <div class="hero-actions">
-                                    <a href="${settings.cta_link || '#products'}" class="btn btn-primary dynamic-bind" data-field="cta" style="background: var(--primary); color: var(--primary-contrast); border: none; padding: 12px 28px; border-radius: var(--button-radius); text-transform: uppercase; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-block;">${settings.cta || 'Shop Collection'}</a>
+                                    <a href="${settings.cta_link || '#products'}" class="btn btn-primary dynamic-bind" data-field="cta" style="background: var(--primary); color: var(--btn-text-color, #ffffff); border: none; padding: 12px 28px; border-radius: var(--button-radius); text-transform: uppercase; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-block;">${settings.cta || 'Shop Collection'}</a>
                                 </div>
                             </div>
                         </div>

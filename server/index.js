@@ -2152,8 +2152,8 @@ app.post('/api/coupons/verify', async (req, res) => {
 
 // Get resolved brand config (public safe properties)
 app.get('/api/brand', (req, res) => {
-  const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings } = req.brand;
-  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings });
+  const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id } = req.brand;
+  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id });
 });
 
 // Get Products for the active brand
@@ -3166,7 +3166,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data FROM brands WHERE id = $1', [reqId]);
+    const existing = await getQuery('SELECT subdomain, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, stripe_secret_key, stripe_webhook_secret, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id FROM brands WHERE id = $1', [reqId]);
 
     if (req.user.role !== 'superadmin') {
       if (existing) {
@@ -3280,10 +3280,11 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     const finalSegment = business_segment || (existing ? existing.business_segment : 'Food & Beverage');
     const finalNiche = business_niche || (existing ? existing.business_niche : 'Specialty Coffee');
     const finalSharing = share_performance_data !== undefined ? (share_performance_data === true || share_performance_data === 'true') : (existing ? existing.share_performance_data : true);
+    const finalMetaPixelId = req.body.meta_pixel_id !== undefined ? req.body.meta_pixel_id : (existing && existing.meta_pixel_id ? existing.meta_pixel_id : `mock_pixel_${brandId}`);
 
     await runQuery(`
-      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+      INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
       ON CONFLICT (id) DO UPDATE SET 
         name = EXCLUDED.name,
         subdomain = EXCLUDED.subdomain,
@@ -3316,6 +3317,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         business_segment = EXCLUDED.business_segment,
         business_niche = EXCLUDED.business_niche,
         share_performance_data = EXCLUDED.share_performance_data,
+        meta_pixel_id = EXCLUDED.meta_pixel_id,
         updated_at = CURRENT_TIMESTAMP
     `, [
       brandId,
@@ -3349,7 +3351,8 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalStatus,
       finalSegment,
       finalNiche,
-      finalSharing
+      finalSharing,
+      finalMetaPixelId
     ]);
 
     // If price_markup changed, update all external synced products' prices
@@ -4189,7 +4192,19 @@ Output the complete Markdown document directly. Write all ad copy and email temp
         }
 
         if (canvas) {
-          await runQuery("UPDATE brands SET marketing_protocol = $1, brand_canvas = $2, protocol_status = 'completed', protocol_error = NULL WHERE id = $3", [generatedProtocol, JSON.stringify(canvas), brandId]);
+          try {
+            console.log(`[AI Designer] Auto-generating custom design and pages for brand ${brandId}...`);
+            const generatedTheme = await generateBrandThemeSettings(brandId, brand.name, canvas, products, brand.ai_tier);
+            if (generatedTheme) {
+              await runQuery("UPDATE brands SET marketing_protocol = $1, brand_canvas = $2, theme_settings = $3, primary_color = $4, protocol_status = 'completed', protocol_error = NULL WHERE id = $5", 
+                [generatedProtocol, JSON.stringify(canvas), JSON.stringify(generatedTheme), generatedTheme.primary_color || brand.primary_color || '#c5a059', brandId]);
+            } else {
+              await runQuery("UPDATE brands SET marketing_protocol = $1, brand_canvas = $2, protocol_status = 'completed', protocol_error = NULL WHERE id = $3", [generatedProtocol, JSON.stringify(canvas), brandId]);
+            }
+          } catch (designErr) {
+            console.error('[AI Designer] Error auto-generating brand design:', designErr.message);
+            await runQuery("UPDATE brands SET marketing_protocol = $1, brand_canvas = $2, protocol_status = 'completed', protocol_error = NULL WHERE id = $3", [generatedProtocol, JSON.stringify(canvas), brandId]);
+          }
         } else {
           await runQuery("UPDATE brands SET marketing_protocol = $1, protocol_status = 'completed', protocol_error = NULL WHERE id = $2", [generatedProtocol, brandId]);
         }
@@ -4357,6 +4372,140 @@ Return ONLY a JSON object in this format:
     return parseRobustJson(textResult);
   } catch (err) {
     console.error('[AI Canvas Parser] Failed to parse manuscript to canvas:', err.message);
+  }
+  return null;
+}
+
+// Helper function to generate dynamic storefront layout and custom landing pages from strategy canvas
+async function generateBrandThemeSettings(brandId, brandName, canvas, products, aiTier) {
+  const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  const targetModel = getTargetModel(aiTier || 'professional');
+
+  const catalogContext = (products || []).map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+  const prompt = `You are a professional web designer and UX copywriter. Based on the following Brand Identity Canvas and Product Catalog, generate the complete, high-quality, and high-converting storefront layout sections, landing pages, and styling options.
+
+Brand Name: ${brandName}
+Brand Identity Canvas:
+${JSON.stringify(canvas, null, 2)}
+
+Product Catalog:
+${catalogContext}
+
+IMPORTANT INSTRUCTIONS:
+1. Ensure the generated design is tailored to the brand's niche (specialty coffee, premium homeware, luxury accessories, etc.) based on its products and canvas.
+2. Select appropriate, high-quality Unsplash image URLs for the hero section and landing pages from the following curated list (or similar high-quality ones that exist):
+   - Espresso/Barista: https://images.unsplash.com/photo-1507133750040-4a8f57021571?q=80&w=1200
+   - Modern Coffee Shop: https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1200
+   - Coffee Brewing Equipment: https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=1200
+   - Pour-over Coffee: https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1200
+   - Coffee beans roasting: https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=1200
+   - Kitchen counter: https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=1200
+   - Premium lifestyle: https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1200
+3. Ensure the colors (primary_color, secondary_color, bg_color, text_color, button_text_color, header_bg_color) are CONTRAST-SAFE and match the brand's aesthetic:
+   - For dark themes, ensure text_color is very light (e.g. #f3f4f3) and bg_color is dark (e.g. #0b0d0c).
+   - For light themes, ensure text_color is dark (e.g. #111111) and bg_color is white/light (e.g. #ffffff).
+   - Ensure the button text color (button_text_color) has a contrast ratio of at least 4.5:1 relative to the primary_color. If the primary_color is blue/dark, button_text_color must be white (#ffffff).
+4. Do NOT output any LaTeX math notation or backslashes. Write text clearly.
+5. The output must be valid, well-formed JSON. Return ONLY the raw JSON object.
+
+Output ONLY a JSON object in the following format:
+{
+  "inherit": false,
+  "primary_color": "#c5a059",
+  "secondary_color": "#767676",
+  "bg_color": "#ffffff",
+  "text_color": "#111111",
+  "button_radius": "6px",
+  "button_text_color": "#ffffff",
+  "header_bg_color": "#ffffff",
+  "font_family": "Outfit",
+  "text_hero_headline": "Headline for primary static layout",
+  "text_hero_subheadline": "Subheadline for primary static layout",
+  "text_hero_cta": "SHOP NOW",
+  "text_404_headline": "Lost in the grind?",
+  "text_404_subheadline": "The page you are looking for has evaporated. Let's get you back to fresh coffee.",
+  "text_404_cta": "Back to Shop",
+  "sections": [
+    {
+      "id": "hero_1",
+      "type": "hero",
+      "title": "Image Banner (Hero)",
+      "active": true,
+      "settings": {
+        "headline": "A captivating hero headline",
+        "subheadline": "A subheadline explaining the unique value proposition",
+        "cta": "Shop Collection",
+        "cta_link": "#products",
+        "hero_img": "selected Unsplash image URL"
+      }
+    },
+    {
+      "id": "featured_1",
+      "type": "featured_collection",
+      "title": "Featured Collection",
+      "active": true,
+      "settings": {
+        "title": "Collection title",
+        "subtitle": "Collection subtitle",
+        "collection_id": "all",
+        "limit": 4
+      }
+    },
+    {
+      "id": "rich_1",
+      "type": "rich_text",
+      "title": "Rich Text",
+      "active": true,
+      "settings": {
+        "title": "Value statement title",
+        "content": "Value statement paragraph body",
+        "align": "center"
+      }
+    },
+    {
+      "id": "video_1",
+      "type": "video",
+      "title": "Video Banner",
+      "active": true,
+      "settings": {
+        "title": "Video section title",
+        "video_url": "https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4",
+        "autoplay": true,
+        "loop": true
+      }
+    }
+  ],
+  "landing_pages": [
+    {
+      "id": "promo-offer",
+      "type": "coupon",
+      "headline": "Exclusive landing page headline targeting a persona hook",
+      "subheadline": "Description of the offer",
+      "cta": "Claim Offer",
+      "hero_img": "Unsplash URL",
+      "features": "⚡ Free Worldwide Shipping\\n🔒 100% Quality Guarantee\\n☕ Loved by Passionate Customers",
+      "coupon_code": "OFFER10"
+    }
+  ],
+  "storefront": {
+    "primary_color": "#c5a059",
+    "secondary_color": "#767676",
+    "bg_color": "#ffffff",
+    "text_color": "#111111",
+    "button_radius": "6px",
+    "button_text_color": "#ffffff",
+    "header_bg_color": "#ffffff",
+    "font_family": "Outfit"
+  }
+}`;
+
+  try {
+    const textResult = await callAiModel(targetModel, prompt, true);
+    return parseRobustJson(textResult);
+  } catch (err) {
+    console.error('[AI Designer] Failed to generate theme settings:', err.message);
   }
   return null;
 }
@@ -6709,7 +6858,7 @@ async function syncWooCommerceCustomersAndOrders(brandId) {
 
 // Fetch products from Shopify or fallback to mock list
 app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
-  const { brandId } = req.query;
+  const { brandId, search } = req.query;
   if (!brandId) {
     return res.status(400).json({ error: 'Brand ID is required.' });
   }
@@ -6734,7 +6883,12 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
 
     if (brand.shopify_shop_name && brand.shopify_access_token) {
       try {
-        const response = await fetch(`https://${brand.shopify_shop_name}/admin/api/2024-04/products.json`, {
+        let shopifyUrl = `https://${brand.shopify_shop_name}/admin/api/2024-04/products.json?limit=100`;
+        if (search) {
+          shopifyUrl += `&title=${encodeURIComponent(search)}`;
+        }
+
+        const response = await fetch(shopifyUrl, {
           headers: {
             'X-Shopify-Access-Token': brand.shopify_access_token,
             'Content-Type': 'application/json'
@@ -6775,7 +6929,11 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
         }
         const parsedShopUrl = new URL(shopUrl);
         const auth = Buffer.from(`${brand.woocommerce_consumer_key}:${brand.woocommerce_consumer_secret}`).toString('base64');
-        const wcUrl = `https://${parsedShopUrl.hostname}/wp-json/wc/v3/products?per_page=100`;
+        
+        let wcUrl = `https://${parsedShopUrl.hostname}/wp-json/wc/v3/products?per_page=100`;
+        if (search) {
+          wcUrl += `&search=${encodeURIComponent(search)}`;
+        }
         
         console.log(`[WooCommerce Import] Fetching products from: ${wcUrl}`);
         const response = await fetch(wcUrl, {
@@ -7358,6 +7516,30 @@ app.post('/api/global/referral-rules', verifyAdminToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Initiate Meta/Facebook OAuth Redirection
+app.get('/api/global/brands/oauth/facebook/init', verifyAdminToken, async (req, res) => {
+  const { brandId } = req.query;
+
+  if (!brandId) {
+    return res.status(400).send('Missing required query parameter: brandId');
+  }
+
+  const clientId = process.env.META_CLIENT_ID;
+  const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  const redirectUri = `${protocol}://${req.get('host')}/api/global/brands/oauth/facebook/callback`;
+
+  if (!clientId || clientId === 'mock_meta_client_id_placeholder') {
+    console.log(`[Meta OAuth API] No META_CLIENT_ID configured. Redirecting directly to simulation callback for brand: ${brandId}`);
+    return res.redirect(`${redirectUri}?code=mock_code&state=${brandId}`);
+  }
+
+  const scopes = 'pages_show_list,pages_read_engagement,pages_manage_ads,instagram_basic,instagram_manage_insights,ads_management';
+  const authorizeUrl = `https://www.facebook.com/v16.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${brandId}&scope=${scopes}`;
+
+  console.log(`[Meta OAuth] Initiating OAuth for brand ${brandId}. Redirecting to Facebook...`);
+  res.redirect(authorizeUrl);
 });
 
 // Public Facebook/Meta OAuth Callback
