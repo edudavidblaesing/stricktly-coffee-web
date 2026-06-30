@@ -24,22 +24,22 @@
             <div v-if="activeTab === 'analytics'" style="display: flex; flex-direction: column; gap: 24px;">
                 <!-- Key Metrics Cards -->
                 <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-                    <div class="metric-card panel">
+                    <div class="metric-card">
                         <div class="metric-card-label">Total Coupon Redemptions</div>
                         <div class="metric-card-value">{{ metrics.totalRedemptions }}</div>
                         <div class="metric-card-desc">Total codes used at checkout</div>
                     </div>
-                    <div class="metric-card panel">
+                    <div class="metric-card">
                         <div class="metric-card-label">Referral Revenue</div>
                         <div class="metric-card-value">€{{ metrics.referralRevenue.toFixed(2) }}</div>
                         <div class="metric-card-desc">Total checkout income from referrals</div>
                     </div>
-                    <div class="metric-card panel">
+                    <div class="metric-card">
                         <div class="metric-card-label">Avg. Referral Order</div>
                         <div class="metric-card-value">€{{ metrics.avgReferralOrder.toFixed(2) }}</div>
                         <div class="metric-card-desc">Average cart value of referral conversions</div>
                     </div>
-                    <div class="metric-card panel">
+                    <div class="metric-card">
                         <div class="metric-card-label">Pending E-mails in Queue</div>
                         <div class="metric-card-value">{{ metrics.pendingEmails }}</div>
                         <div class="metric-card-desc">Scheduled referrals awaiting send</div>

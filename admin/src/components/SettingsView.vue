@@ -881,13 +881,15 @@ export default {
     inject: ['app'],
     data() {
         return {
+            settingsBrandNicheInput: '',
             availableLanguages: [
                 { code: 'en', name: 'English', flag: '🇬🇧' },
                 { code: 'de', name: 'German', flag: '🇩🇪' },
                 { code: 'fr', name: 'French', flag: '🇫🇷' },
                 { code: 'nl', name: 'Dutch', flag: '🇳🇱' },
                 { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-                { code: 'it', name: 'Italian', flag: '🇮🇹' }
+                { code: 'it', name: 'Italian', flag: '🇮🇹' },
+                { code: 'ko', name: 'Korean', flag: '🇰🇷' }
             ],
             dnsVerified: false,
             dnsVerifying: false,
@@ -993,6 +995,17 @@ export default {
         }
     },
     computed: {
+        settingsBrandNicheTags: {
+            get() {
+                if (!this.settingsBrand || !this.settingsBrand.business_niche) return [];
+                return this.settingsBrand.business_niche.split(',').map(s => s.trim()).filter(Boolean);
+            },
+            set(val) {
+                if (this.settingsBrand) {
+                    this.settingsBrand.business_niche = val.join(', ');
+                }
+            }
+        },
         oldTierDisplay() {
             if (!this.settingsBrand) return 'None';
             const tier = this.settingsBrand.ai_tier || 'none';

@@ -30,6 +30,23 @@
         </div>
 
         <div v-else style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Stripe Connect Action Prompt Banner -->
+            <div v-if="settingsBrand.subscription_billing_method === 'stripe_connect' && !settingsBrand.stripe_enabled"
+                 style="background: rgba(197, 160, 89, 0.08); border: 1px solid var(--accent); border-radius: 12px; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.8rem; display: flex; align-items: center;">🔗</span>
+                    <div>
+                        <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--accent);">Stripe Connect Account Required</h4>
+                        <p style="margin: 3px 0 0 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Payout Split Billing (Stripe Connect) is active for your brand. Please link your Stripe Connect account to enable transaction payouts and billing sync.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" @click="app.switchSettingsTab('ecommerce')" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 36px; padding: 0 16px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    Link Stripe Account ➡️
+                </button>
+            </div>
+
             <!-- Tab 1: Guidelines Canvas -->
             <div v-if="activeTab === 'canvas'" class="panel" style="position: relative;">
                 <!-- AI Refinement Prompt Bar -->

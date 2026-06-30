@@ -825,6 +825,46 @@
                 <!-- ==================== STEP 3: COPY & CREATIVES ==================== -->
                 <div v-show="currentStep === 3">
 
+                    <!-- AI Creative & Copy Autopilot Section -->
+                    <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 10px; padding: 16px; margin-bottom: 20px; text-align: left; display: flex; flex-direction: column; gap: 12px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; color: #8b5cf6; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                🤖 AI Creative & Copy Autopilot Assistant
+                            </h4>
+                            <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.45;">
+                                Auto-generate headlines, marketing descriptions, media format styles, and ad visual prompts using Gemini models tailored for your brand canvas.
+                            </p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Campaign Theme/Goal Direction</label>
+                                <input type="text" v-model="aiAutopilotDirection" placeholder="e.g. Focus on organic coffee, warm morning vibe..." style="font-size: 0.75rem; padding: 6px 10px; height: 32px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0;">
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Format Selection</label>
+                                <select v-model="aiAutopilotFormat" style="font-size: 0.75rem; padding: 4px 10px; height: 32px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0;">
+                                    <option value="auto">Let AI Decide Format</option>
+                                    <option value="Image">Single Image Ad</option>
+                                    <option value="Video">Video Ad Variant</option>
+                                    <option value="Carousel">Dynamic Product Carousel</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Style Reference</label>
+                                <select v-model="aiAutopilotStyle" style="font-size: 0.75rem; padding: 4px 10px; height: 32px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0;">
+                                    <option value="brand">Match Brand visual guidelines</option>
+                                    <option value="raw">Raw realist product photography</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <button type="button" @click="runAiAutopilotSection" :disabled="runningAutopilotSection" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none; font-size: 0.78rem; font-weight: 700; border-radius: 6px; height: 36px; padding: 0 16px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%;">
+                                <span v-if="runningAutopilotSection">⏳ Generating Copys & Visual Prompts...</span>
+                                <span v-else>✨ Auto-Generate Copy & Creatives</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Target Languages based on active brand locales -->
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
@@ -2813,6 +2853,10 @@ export default {
             selectedProductId: '',
             selectedProductIds: [],
             mediaTab: 'upload',
+            aiAutopilotDirection: '',
+            aiAutopilotFormat: 'auto',
+            aiAutopilotStyle: 'brand',
+            runningAutopilotSection: false,
             uploadingMedia: false,
             widgetSearchQuery: '',
             mediaLibraryItems: [],
@@ -3984,6 +4028,56 @@ export default {
                 card.duration = '5s';
             }
         },
+        async runAiAutopilotSection() {
+            this.runningAutopilotSection = true;
+            this.app.startAiTicker(this.getAiModelName);
+            try {
+                const response = await fetch(`/api/global/brands/${this.app.activeShopFilter}/ai-generate-creative-section`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        direction: this.aiAutopilotDirection,
+                        formatPreference: this.aiAutopilotFormat,
+                        stylePreference: this.aiAutopilotStyle
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.creative) {
+                        const creative = data.creative;
+                        this.newCampaign.headline = creative.headline || this.newCampaign.headline;
+                        this.newCampaign.ad_copy = creative.ad_copy || this.newCampaign.ad_copy;
+                        this.newCampaign.format = creative.format || this.newCampaign.format;
+                        
+                        this.aiStudioPrompt = creative.aiStudioPrompt || this.aiStudioPrompt;
+                        this.aiStudioAction = creative.aiStudioAction || this.aiStudioAction;
+                        this.aiStudioAspectRatio = creative.aspectRatio || this.aiStudioAspectRatio;
+                        this.aiStudioMotion = creative.motionIntensity || this.aiStudioMotion;
+                        this.aiStudioDuration = creative.duration || this.aiStudioDuration;
+
+                        this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + 0.04;
+                        this.app.showNotification('✨ AI Autopilot successfully designed the creatives and copy section!');
+                        
+                        // Autofill cards if it decided on a Carousel
+                        if (creative.format === 'Carousel') {
+                            this.autofillCarousel();
+                        }
+                    }
+                } else {
+                    const err = await response.json();
+                    alert(`AI Autopilot failed: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error running AI Autopilot: ${err.message}`);
+            } finally {
+                this.runningAutopilotSection = false;
+                this.app.stopAiTicker();
+            }
+        },
         getBrandCanvasVisualDirection() {
             if (!this.activeBrand || !this.activeBrand.brand_canvas) return 'High-fidelity DTC photography';
             try {
@@ -4965,6 +5059,7 @@ export default {
                     this.newCampaign.headline = `Discover our premium ${listTitles} series!`;
                     this.newCampaign.ad_copy = `Shop our exclusive selection including ${titles}. Hand-picked premium quality coffee and gears.`;
                     this.newCampaign.media_url = selectedProducts[0].image || '';
+                    this.newCampaign.format = 'Carousel';
                 }
                 this.newCampaign.destination_type = 'homepage';
                 

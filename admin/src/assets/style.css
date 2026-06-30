@@ -45,18 +45,30 @@
             --accent: #ffffff;
         }
 
+        .btn-option {
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .btn-option:hover {
+            background: rgba(0, 0, 0, 0.05) !important;
+        }
+
         /* System Automatic Dark Mode Detection */
         @media (prefers-color-scheme: dark) {
             :root:not(.light-theme) {
                 --bg-color: #0b0c0d;
                 --workspace-bg: #131517;
                 --card-bg: #1a1d1f;
+                --panel-bg: #1a1d1f;
                 --text-main: #f3f4f3;
                 --text-muted: #8e9290;
                 --border: #272b30;
                 --primary: #ffffff;
                 --primary-hover: #e4e4e4;
                 --accent: #ffffff;
+            }
+
+            .btn-option:hover {
+                background: rgba(255, 255, 255, 0.05) !important;
             }
 
             body {
@@ -647,7 +659,7 @@
         }
 
         .metric-card {
-            background: var(--card-bg);
+            background: transparent;
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex;

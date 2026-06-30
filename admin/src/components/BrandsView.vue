@@ -849,32 +849,48 @@
                                 🏷️ Brand Identity & Tracking Settings
                             </h4>
                             <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 15px;">
-                                Configure the category/segment tags and tracking scripts used by storefront sales channels and marketing algorithms.
+                                Configure industry vertical, tag classification niche mappings, and pixel tracking integrations.
                             </p>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Industry Vertical</label>
-                                    <select v-model="newBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
-                                        <option value="Food & Beverage">Food & Beverage</option>
-                                        <option value="Apparel & Fashion">Apparel & Fashion</option>
-                                        <option value="Electronics">Electronics</option>
-                                        <option value="Health & Beauty">Health & Beauty</option>
-                                        <option value="Home & Living">Home & Living</option>
-                                        <option value="Fitness & Sports">Fitness & Sports</option>
-                                        <option value="Software & Tech">Software & Tech</option>
-                                    </select>
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; flex-wrap: wrap;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Industry Vertical</label>
+                                        <select v-model="newBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                            <option value="Food & Beverage">Food & Beverage</option>
+                                            <option value="Apparel & Fashion">Apparel & Fashion</option>
+                                            <option value="Electronics">Electronics</option>
+                                            <option value="Health & Beauty">Health & Beauty</option>
+                                            <option value="Home & Living">Home & Living</option>
+                                            <option value="Fitness & Sports">Fitness & Sports</option>
+                                            <option value="Software & Tech">Software & Tech</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 4px;">
+                                        <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block;">Specific Niche / Tags</label>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; min-height: 38px; align-items: center; box-sizing: border-box;">
+                                            <span v-for="(tag, idx) in newBrandNicheTags" :key="tag" 
+                                                  style="background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                                <span>{{ tag }}</span>
+                                                <span style="cursor: pointer; opacity: 0.6; font-size: 0.85rem;" @click="removeNewBrandNicheTag(idx)">&times;</span>
+                                            </span>
+                                            <input type="text" 
+                                                   v-model="newBrandNicheInput" 
+                                                   placeholder="Type tag & press Enter" 
+                                                   @keydown.enter.prevent="addNewBrandNicheTag"
+                                                   @keydown.comma.prevent="addNewBrandNicheTag"
+                                                   style="flex: 1; border: none; background: transparent; color: var(--text-main); font-size: 0.8rem; height: 26px; padding: 0 4px; margin: 0; outline: none; min-width: 120px;">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Specific Niche / Tags</label>
-                                    <input type="text" v-model="newBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
-                                </div>
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Meta Pixel ID</label>
-                                    <input type="text" v-model="newBrand.meta_pixel_id" placeholder="e.g. 15-digit ID" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
-                                </div>
-                                <div class="form-group" style="margin: 0;">
-                                    <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Google Analytics ID</label>
-                                    <input type="text" v-model="newBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                <div v-if="userRole && userRole.toLowerCase() === 'superadmin'" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Meta Pixel ID</label>
+                                        <input type="text" v-model="newBrand.meta_pixel_id" placeholder="e.g. 15-digit ID" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 4px;">Google Analytics ID</label>
+                                        <input type="text" v-model="newBrand.google_analytics_id" placeholder="e.g. G-XXXXXXXXXX" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; margin: 0;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1434,6 +1450,7 @@ export default {
     },
     data() {
         return {
+            newBrandNicheInput: '',
             easySetupUrl: '',
             stripeCardLinked: false,
             stripeConnectActive: false,
@@ -1462,7 +1479,8 @@ export default {
                 { code: 'fr', name: 'French', flag: '🇫🇷' },
                 { code: 'nl', name: 'Dutch', flag: '🇳🇱' },
                 { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-                { code: 'it', name: 'Italian', flag: '🇮🇹' }
+                { code: 'it', name: 'Italian', flag: '🇮🇹' },
+                { code: 'ko', name: 'Korean', flag: '🇰🇷' }
             ],
             
             // Onboarding Wizard State
@@ -1635,6 +1653,17 @@ export default {
     },
     computed: {
         userRole() { return this.app.userRole; },
+        newBrandNicheTags: {
+            get() {
+                if (!this.newBrand || !this.newBrand.business_niche) return [];
+                return this.newBrand.business_niche.split(',').map(s => s.trim()).filter(Boolean);
+            },
+            set(val) {
+                if (this.newBrand) {
+                    this.newBrand.business_niche = val.join(', ');
+                }
+            }
+        },
         isBillingConfigured() {
             if (!this.newBrand || !this.newBrand.ai_tier) return false;
             if (this.newBrand.ai_tier === 'none') return true;
@@ -1723,6 +1752,22 @@ export default {
         settingsBrand() { return this.app.settingsBrand; }
     },
     methods: {
+        addNewBrandNicheTag() {
+            const val = this.newBrandNicheInput ? this.newBrandNicheInput.trim() : '';
+            if (val) {
+                const tags = [...this.newBrandNicheTags];
+                if (!tags.includes(val)) {
+                    tags.push(val);
+                    this.newBrandNicheTags = tags;
+                }
+            }
+            this.newBrandNicheInput = '';
+        },
+        removeNewBrandNicheTag(idx) {
+            const tags = [...this.newBrandNicheTags];
+            tags.splice(idx, 1);
+            this.newBrandNicheTags = tags;
+        },
         async connectShopifyOAuth() {
             if (this.brandIdConflict) {
                 alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');

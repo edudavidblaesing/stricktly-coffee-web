@@ -5373,6 +5373,67 @@ Expected JSON structure:
   }
 });
 
+// POST AI Creative Studio autopilot design for creative & copy section
+app.post('/api/global/brands/:id/ai-generate-creative-section', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { direction, formatPreference, stylePreference } = req.body;
+
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    await checkAiLimits(brandId);
+    const brand = await getQuery('SELECT name, ai_tier, marketing_protocol, visual_identity_guidelines, target_audience_demographics FROM brands WHERE id = $1', [brandId]);
+    const brandName = brand ? brand.name : 'our cafe';
+
+    const visualGuidelines = brand && brand.visual_identity_guidelines ? (typeof brand.visual_identity_guidelines === 'string' ? JSON.parse(brand.visual_identity_guidelines) : brand.visual_identity_guidelines) : {};
+    const demographics = brand && brand.target_audience_demographics ? (typeof brand.target_audience_demographics === 'string' ? JSON.parse(brand.target_audience_demographics) : brand.target_audience_demographics) : {};
+
+    let targetModel = getTargetModel(brand ? brand.ai_tier : 'professional');
+
+    const systemPrompt = `You are an expert luxury brand campaign director and ad designer.
+Generate a structured JSON configuration for the creative and copy section of an ad campaign.
+
+Brand Context:
+- Brand Name: "${brandName}"
+- Voice Guidelines: ${brand ? brand.marketing_protocol : 'Default premium brand voice.'}
+- Visual Guidelines: ${JSON.stringify(visualGuidelines)}
+- Demographics: ${JSON.stringify(demographics)}
+
+User Input Configuration:
+- Campaign Theme/Direction: "${direction || 'General Best Sellers Promo'}"
+- Ad Format Preference: "${formatPreference || 'auto'}"
+- Style Preference: "${stylePreference || 'brand'}"
+
+You must return a valid parseable JSON object matching the structure below. Do NOT wrap the JSON in markdown code blocks or add markdown formatting.
+
+Expected JSON structure:
+{
+  "headline": "A short engaging ad headline (max 50 chars)",
+  "ad_copy": "A high-converting description body copy (max 150 chars)",
+  "format": "Image" | "Video" | "Carousel" (Choose based on format preference or select the best fit),
+  "aiStudioAction": "generate" | "video",
+  "aiStudioPrompt": "A highly detailed, professional prompt for generating custom product media matching the theme and brand style",
+  "aspectRatio": "1:1" | "16:9" | "9:16",
+  "motionIntensity": "low" | "medium" | "high",
+  "duration": "3s" | "5s" | "10s"
+}
+
+Notes for prompt generation:
+- If style preference is 'raw', make the prompt photography-realistic and simple, avoiding complex brand presets.
+- If format is 'Video' or action is 'video', ensure aiStudioAction is 'video' and motionIntensity/duration reflect standard motion specifications.`;
+
+    const textResult = await callAiModel(targetModel, systemPrompt, true);
+    const parsedResult = parseRobustJson(textResult);
+
+    await logAiUsage(brandId, 'AI Creative Autopilot', targetModel, { promptTokenCount: 800, candidatesTokenCount: 400, totalTokenCount: 1200 });
+    res.json({ success: true, creative: parsedResult });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST AI copywriting translate single field helper
 app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;

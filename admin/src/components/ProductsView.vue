@@ -1099,7 +1099,8 @@ export default {
                 fr: '🇫🇷 FR',
                 de: '🇩🇪 DE',
                 es: '🇪🇸 ES',
-                it: '🇮🇹 IT'
+                it: '🇮🇹 IT',
+                ko: '🇰🇷 KO'
             };
             return flags[lang.toLowerCase()] || `🌐 ${lang.toUpperCase()}`;
         }

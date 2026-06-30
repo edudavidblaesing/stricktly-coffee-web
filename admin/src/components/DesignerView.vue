@@ -278,7 +278,7 @@
                     </div>
                 </div>
             </div>
-        </div>\n
+        </div>
         <!-- ADD CUSTOM PAGE MODAL -->
         <div v-if="showAddPageModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
             <div class="panel" style="width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin: 20px;">
@@ -831,7 +831,8 @@ export default {
                 fr: '🇫🇷 FR',
                 nl: '🇳🇱 NL',
                 es: '🇪🇸 ES',
-                it: '🇮🇹 IT'
+                it: '🇮🇹 IT',
+                ko: '🇰🇷 KO'
             };
             return labels[code] || code.toUpperCase();
         },
