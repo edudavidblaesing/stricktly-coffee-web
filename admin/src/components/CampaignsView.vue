@@ -982,7 +982,10 @@
 
                             <!-- Action Button -->
                             <button type="button" @click="generateAIStudioAsset" :disabled="aiStudioGenerating || (aiStudioAction !== 'generate' && !newCampaign.media_url)" class="sc-ai-button" style="font-size: 0.72rem; padding: 4px 12px; height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;">
-                                <span v-if="aiStudioGenerating">⏳ Generating Creative Assets...</span>
+                                <span v-if="aiStudioGenerating">⏳ Generating... [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                <span v-else-if="lastGeneratingAIStudioCost && aiStudioAction === 'generate'">🎨 Generate Ad Image [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
+                                <span v-else-if="lastGeneratingAIStudioCost && aiStudioAction === 'refine'">✨ Refine Selected Image [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
+                                <span v-else-if="lastGeneratingAIStudioCost">🎬 Animate Image to Video [Last: €{{ lastGeneratingAIStudioCost.toFixed(4) }}]</span>
                                 <span v-else-if="aiStudioAction === 'generate'">🎨 Generate Ad Image</span>
                                 <span v-else-if="aiStudioAction === 'refine'">✨ Refine Selected Image</span>
                                 <span v-else>🎬 Animate Image to Video</span>
@@ -1080,13 +1083,14 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="font-size: 0.7rem; font-weight: 700; color: #8b5cf6;">✨ Card AI Studio</span>
                                     <select v-model="card.aiStudioAction" style="font-size: 0.65rem; padding: 2px 14px 2px 4px !important; height: 20px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0; width: auto;">
+                                        <option value="">Select Option</option>
                                         <option value="generate">🎨 Generate New Image</option>
                                         <option value="refine">✏️ Refine Card Image</option>
                                         <option value="video">🎬 Animate to Video</option>
                                     </select>
                                 </div>
 
-                                <textarea v-model="card.aiStudioPrompt" :placeholder="card.aiStudioAction === 'generate' ? 'Describe the card image...' : card.aiStudioAction === 'refine' ? 'Describe card refinements...' : 'Describe video motion...'" 
+                                <textarea v-model="card.aiStudioPrompt" :placeholder="!card.aiStudioAction ? 'Select an AI action first...' : card.aiStudioAction === 'generate' ? 'Describe the card image...' : card.aiStudioAction === 'refine' ? 'Describe card refinements...' : 'Describe video motion...'" 
                                     style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.72rem; height: 40px; resize: none;"></textarea>
 
                                 <!-- AI Studio settings row -->
@@ -1117,8 +1121,11 @@
                                     </div>
                                 </div>
 
-                                <button type="button" @click="generateCardAIStudioAsset(idx)" :disabled="card.aiStudioGenerating || (card.aiStudioAction !== 'generate' && !card.image)" class="sc-ai-button" style="font-size: 0.68rem; padding: 2px 8px; height: 24px; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;">
-                                    <span v-if="card.aiStudioGenerating">⏳ Generating Card Asset...</span>
+                                <button type="button" @click="generateCardAIStudioAsset(idx)" :disabled="card.aiStudioGenerating || !card.aiStudioAction || (card.aiStudioAction !== 'generate' && !card.image)" class="sc-ai-button" style="font-size: 0.68rem; padding: 2px 8px; height: 24px; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;">
+                                    <span v-if="card.aiStudioGenerating">⏳ Generating... [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                    <span v-else-if="card.lastAiStudioCost && card.aiStudioAction === 'generate'">🎨 Generate Image [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
+                                    <span v-else-if="card.lastAiStudioCost && card.aiStudioAction === 'refine'">✨ Refine Image [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
+                                    <span v-else-if="card.lastAiStudioCost">🎬 Animate to Video [Last: €{{ card.lastAiStudioCost.toFixed(4) }}]</span>
                                     <span v-else-if="card.aiStudioAction === 'generate'">🎨 Generate Image</span>
                                     <span v-else-if="card.aiStudioAction === 'refine'">✨ Refine Image</span>
                                     <span v-else>🎬 Animate to Video</span>
@@ -1127,7 +1134,14 @@
 
                             <!-- Card Title (Headline) input -->
                             <div>
-                                <label style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Card Headline / CTA Text</label>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                    <label style="font-size: 0.68rem; color: var(--text-muted); margin: 0;">Card Headline / CTA Text</label>
+                                    <button type="button" @click="generateCardHeadlineViaAI(idx)" :disabled="card.generatingHeadline" class="sc-ai-button" style="font-size: 0.62rem; padding: 2px 6px; height: 18px; margin: 0; line-height: 1; display: inline-flex; align-items: center; gap: 2px;">
+                                        <span v-if="card.generatingHeadline">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }}]</span>
+                                        <span v-else-if="card.lastHeadlineCost">✨ AI Generate [Last: €{{ card.lastHeadlineCost.toFixed(4) }}]</span>
+                                        <span v-else>✨ AI Generate</span>
+                                    </button>
+                                </div>
                                 <input type="text" v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" style="font-size: 0.75rem; padding: 6px 10px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
                             </div>
                         </div>
@@ -2697,6 +2711,38 @@
                 </div>
             </div>
         </div>
+        <!-- AI Exit Confirmation Modal -->
+        <div v-if="showAiExitConfirmModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 16px;">
+            <div class="modal-content" style="background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 24px 38px 3px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02);">
+                    <span style="font-size: 1.25rem;">⚠️</span>
+                    <h3 style="margin: 0; color: var(--text-main); font-size: 1.1rem; font-weight: 700;">AI Generation in Progress</h3>
+                </div>
+                
+                <!-- Body -->
+                <div style="padding: 20px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
+                    <p style="margin: 0;">An AI asset generation task is currently running in the background.</p>
+                    <p style="margin: 0; background: rgba(139, 92, 246, 0.05); border-left: 3px solid #8b5cf6; padding: 8px 12px; border-radius: 4px; color: var(--text-main);">
+                        ℹ️ <strong>Note:</strong> The generation will continue in the background and the media asset will be successfully saved to your <strong>Media Library</strong> regardless of your choice.
+                    </p>
+                    <p style="margin: 0;">What would you like to do with the current campaign configuration edits?</p>
+                </div>
+                
+                <!-- Footer -->
+                <div style="padding: 12px 20px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.015); display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" class="btn btn-accent" style="width: 100%; font-size: 0.78rem; font-weight: 700; height: 34px; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" @click="confirmAiExit('draft')">
+                        💾 Save as Draft & Close
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%; font-size: 0.78rem; height: 34px; border: 1px solid #ef4444; color: #ef4444; margin: 0; background: rgba(239, 68, 68, 0.05); display: flex; align-items: center; justify-content: center; gap: 6px;" @click="confirmAiExit('discard')">
+                        🗑️ Discard Edits & Close
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%; font-size: 0.78rem; height: 34px; border: 1px solid var(--border); margin: 0; display: flex; align-items: center; justify-content: center;" @click="showAiExitConfirmModal = false">
+                        ✕ Cancel (Keep Editing)
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -2732,6 +2778,8 @@ export default {
             aiStudioAspectRatio: '1:1',
             aiStudioMotion: 'medium',
             aiStudioDuration: '5s',
+            lastGeneratingAIStudioCost: null,
+            showAiExitConfirmModal: false,
             selectedLandingPageId: '',
             selectedProductId: '',
             selectedProductIds: [],
@@ -2791,9 +2839,9 @@ export default {
                 landing_page_id: '',
                 custom_url: '',
                 carousel_cards: [
-                    { image: '', title: '', link: '' },
-                    { image: '', title: '', link: '' },
-                    { image: '', title: '', link: '' }
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null }
                 ],
                 start_date: new Date().toISOString().split('T')[0],
                 end_date: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
@@ -3067,6 +3115,11 @@ export default {
         }
     },
     watch: {
+        activeTab(newVal) {
+            if (this.app) {
+                this.app.activeCampaignTab = newVal;
+            }
+        },
         isCreatingCampaign(newVal) {
             this.$emit('toggle-fullscreen-creator', newVal);
         },
@@ -3317,7 +3370,16 @@ export default {
                         image: p.image || '',
                         title: p.title || '',
                         link: `/store/${this.activeBrand.id}?product=${p.id}`,
-                        activeTab: 'url'
+                        activeTab: 'url',
+                        aiStudioAction: '',
+                        aiStudioPrompt: '',
+                        aspectRatio: '1:1',
+                        motionIntensity: 'medium',
+                        duration: '5s',
+                        aiStudioGenerating: false,
+                        lastAiStudioCost: null,
+                        generatingHeadline: false,
+                        lastHeadlineCost: null
                     });
                 }
                 this.app.showNotification(`Autofilled ${count} Carousel cards matching your selected showcase products.`);
@@ -3330,7 +3392,21 @@ export default {
                 alert('Maximum 10 carousel cards are allowed.');
                 return;
             }
-            this.newCampaign.carousel_cards.push({ image: '', title: '', link: '', activeTab: 'url' });
+            this.newCampaign.carousel_cards.push({
+                image: '',
+                title: '',
+                link: '',
+                activeTab: 'url',
+                aiStudioAction: '',
+                aiStudioPrompt: '',
+                aspectRatio: '1:1',
+                motionIntensity: 'medium',
+                duration: '5s',
+                aiStudioGenerating: false,
+                lastAiStudioCost: null,
+                generatingHeadline: false,
+                lastHeadlineCost: null
+            });
         },
         removeCarouselCard(idx) {
             if (this.newCampaign.carousel_cards.length <= 2) {
@@ -3383,9 +3459,9 @@ export default {
                 landing_page_id: '',
                 custom_url: '',
                 carousel_cards: [
-                    { image: '', title: '', link: '' },
-                    { image: '', title: '', link: '' },
-                    { image: '', title: '', link: '' }
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                    { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null }
                 ],
                 status: 'active',
                 autopilot_enabled: false,
@@ -3414,6 +3490,25 @@ export default {
             this.isCreatingCampaign = true;
         },
         closeCreateCampaignModal() {
+            // Check if any AI generation task is currently running
+            const isGenerating = this.aiStudioGenerating || 
+                                 (this.newCampaign.carousel_cards && this.newCampaign.carousel_cards.some(c => c.aiStudioGenerating || c.generatingHeadline)) || 
+                                 this.generatingAICopy || 
+                                 this.translatingCampaign || 
+                                 this.generatingABVariants || 
+                                 this.simulatingAgent;
+
+            if (isGenerating) {
+                this.showAiExitConfirmModal = true;
+            } else {
+                this.isCreatingCampaign = false;
+            }
+        },
+        async confirmAiExit(action) {
+            this.showAiExitConfirmModal = false;
+            if (action === 'draft') {
+                await this.saveCampaignAsDraft();
+            }
             this.isCreatingCampaign = false;
         },
         async loadAiProviders() {
@@ -3485,9 +3580,9 @@ export default {
                         landing_page_id: '',
                         custom_url: '',
                         carousel_cards: [
-                            { image: '', title: '', link: '' },
-                            { image: '', title: '', link: '' },
-                            { image: '', title: '', link: '' }
+                            { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                            { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null },
+                            { image: '', title: '', link: '', activeTab: 'url', aiStudioAction: '', aiStudioPrompt: '', aspectRatio: '1:1', motionIntensity: 'medium', duration: '5s', aiStudioGenerating: false, lastAiStudioCost: null, generatingHeadline: false, lastHeadlineCost: null }
                         ],
                         start_date: new Date().toISOString().split('T')[0],
                         end_date: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
@@ -3677,6 +3772,7 @@ export default {
         },
         async generateAIStudioAsset() {
             this.aiStudioGenerating = true;
+            this.app.startAiTicker(this.getAiModelName);
             try {
                 const response = await fetch(`/api/global/media/ai-studio`, {
                     method: 'POST',
@@ -3704,6 +3800,7 @@ export default {
                         } else {
                             this.newCampaign.format = 'SingleImage';
                         }
+                        this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + (parseFloat(data.estimated_cost) || 0.05);
                         this.app.showNotification(`✨ AI Studio generated asset successfully and saved to Media Library.`);
                         // Reload media library lists in the dashboard
                         if (this.app.loadMediaItems) {
@@ -3718,6 +3815,8 @@ export default {
                 alert(`Error generating asset: ${err.message}`);
             } finally {
                 this.aiStudioGenerating = false;
+                this.lastGeneratingAIStudioCost = this.app.aiTicker.cost * 0.92;
+                this.app.stopAiTicker();
             }
         },
         async generateCardAIStudioAsset(idx) {
@@ -3725,6 +3824,7 @@ export default {
             if (!card) return;
             card.aiStudioGenerating = true;
             this.$set(this.newCampaign.carousel_cards, idx, { ...card });
+            this.app.startAiTicker(this.getAiModelName);
             
             try {
                 const response = await fetch(`/api/global/media/ai-studio`, {
@@ -3747,6 +3847,7 @@ export default {
                     const data = await response.json();
                     if (data.success && data.item) {
                         card.image = data.item.url;
+                        this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + (parseFloat(data.estimated_cost) || 0.05);
                         this.app.showNotification(`✨ AI Studio generated card asset successfully.`);
                         if (this.app.loadMediaItems) {
                             await this.app.loadMediaItems();
@@ -3760,7 +3861,62 @@ export default {
                 alert(`Error generating card asset: ${err.message}`);
             } finally {
                 card.aiStudioGenerating = false;
+                card.lastAiStudioCost = this.app.aiTicker.cost * 0.92;
                 this.$set(this.newCampaign.carousel_cards, idx, { ...card });
+                this.app.stopAiTicker();
+            }
+        },
+        async generateCardHeadlineViaAI(idx) {
+            const card = this.newCampaign.carousel_cards[idx];
+            if (!card) return;
+
+            let productContext = '';
+            if (card.link) {
+                const match = card.link.match(/product=(\d+)/);
+                const productId = match ? match[1] : null;
+                if (productId) {
+                    const prod = this.app.products.find(p => String(p.id) === String(productId));
+                    if (prod) {
+                        productContext = `product: ${prod.title} (Price: €${parseFloat(prod.price).toFixed(2)}) - ${prod.description || ''}`;
+                    }
+                }
+            }
+
+            const baseText = card.title || productContext || 'Shop Best Sellers';
+            card.generatingHeadline = true;
+            this.$set(this.newCampaign.carousel_cards, idx, { ...card });
+            this.app.startAiTicker(this.getAiModelName);
+
+            try {
+                const response = await fetch(`/api/global/brands/${this.app.activeShopFilter}/ai-rewrite`, {
+                    method: 'POST',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: baseText,
+                        tone: 'hype',
+                        field: 'Card Headline / CTA Text'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    card.title = data.text;
+                    this.newCampaign.ai_cost = (parseFloat(this.newCampaign.ai_cost) || 0) + 0.005;
+                    this.app.showNotification('✨ Generated card headline via AI.');
+                } else {
+                    const err = await response.json();
+                    alert(`AI Headline generation failed: ${err.error}`);
+                }
+            } catch (err) {
+                alert(`Error generating card headline: ${err.message}`);
+            } finally {
+                card.generatingHeadline = false;
+                card.lastHeadlineCost = this.app.aiTicker.cost * 0.92;
+                this.$set(this.newCampaign.carousel_cards, idx, { ...card });
+                this.app.stopAiTicker();
             }
         },
         getBrandCanvasVisualDirection() {
@@ -4411,7 +4567,17 @@ export default {
                         this.newCampaign.carousel_cards = data.benefits.map((b, idx) => ({
                             title: b,
                             image: this.newCampaign.carousel_cards[idx]?.image || '',
-                            link: this.newCampaign.carousel_cards[idx]?.link || ''
+                            link: this.newCampaign.carousel_cards[idx]?.link || '',
+                            activeTab: this.newCampaign.carousel_cards[idx]?.activeTab || 'url',
+                            aiStudioAction: this.newCampaign.carousel_cards[idx]?.aiStudioAction || '',
+                            aiStudioPrompt: this.newCampaign.carousel_cards[idx]?.aiStudioPrompt || '',
+                            aspectRatio: this.newCampaign.carousel_cards[idx]?.aspectRatio || '1:1',
+                            motionIntensity: this.newCampaign.carousel_cards[idx]?.motionIntensity || 'medium',
+                            duration: this.newCampaign.carousel_cards[idx]?.duration || '5s',
+                            aiStudioGenerating: this.newCampaign.carousel_cards[idx]?.aiStudioGenerating || false,
+                            lastAiStudioCost: this.newCampaign.carousel_cards[idx]?.lastAiStudioCost || null,
+                            generatingHeadline: this.newCampaign.carousel_cards[idx]?.generatingHeadline || false,
+                            lastHeadlineCost: this.newCampaign.carousel_cards[idx]?.lastHeadlineCost || null
                         }));
                     }
                     

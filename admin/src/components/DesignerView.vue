@@ -27,8 +27,12 @@
                 </button>
             </div>
 
-            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
-                Active Brand: <strong style="color: var(--accent);">{{ activeBrandName }}</strong>
+            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 16px;">
+                <div>Active Brand: <strong style="color: var(--accent);">{{ activeBrandName }}</strong></div>
+                <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 34px; padding: 0 16px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px;" @click="saveDesignSettings" :disabled="saving">
+                    <span v-if="saving" class="spinner"></span>
+                    <span>{{ saving ? 'Publishing...' : '🚀 Publish Live' }}</span>
+                </button>
             </div>
         </div>
 
@@ -40,150 +44,20 @@
             </p>
         </div>
 
-        <!-- 3-Column Layout Container -->
-        <div v-else class="designer-workspace-layout" style="display: grid; grid-template-columns: 280px 1fr 340px; gap: 0px; align-items: stretch; min-height: calc(100vh - 120px);">
+        <!-- 2-Column Layout Container -->
+        <div v-else class="designer-workspace-layout" style="display: grid; grid-template-columns: 320px 1fr; gap: 0px; align-items: stretch; min-height: calc(100vh - 120px);">
             
-            <!-- Column 1: Storefront Layout Tree (Left) -->
-            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-right: 1px solid var(--border); box-sizing: border-box;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Layout Sections</h4>
-                </div>
+            <!-- Column 1: Storefront Layout Tree / Inspector Settings (Left Sidebar) -->
+            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-right: 1px solid var(--border); box-sizing: border-box; overflow-y: auto;">
                 
-                <!-- General Section Hierarchy Tree -->
-                <div class="sections-tree-list" style="display: flex; flex-direction: column; gap: 10px;">
-                    
-                    <!-- Announcement Bar Card -->
-                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'announcement' }" @click="selectSection('announcement')" 
-                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.9rem;">📢</span>
-                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Announcement Bar</span>
-                        </div>
-                        <input type="checkbox" v-model="designerBrand.announcement_active" @click.stop style="cursor: pointer;">
-                    </div>
-
-                    <!-- Header Card -->
-                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'header' }" @click="selectSection('header')" 
-                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.9rem;">🧱</span>
-                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Header</span>
-                        </div>
-                    </div>
-
-                    <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
-
-                    <!-- Dynamic Layout Sections Tree -->
-                    <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Main Template Sections</div>
-                    
-                    <div v-for="(sec, idx) in designerBrand.sections" :key="sec.id" 
-                         class="section-tree-item" :class="{ active: selectedSectionId === sec.id }" @click="selectSection(sec.id)" 
-                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; position: relative;">
-                        
-                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 8px; width: 60%; overflow: hidden;">
-                                <span style="font-size: 0.95rem;">{{ getSectionIcon(sec.type) }}</span>
-                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{{ sec.title }}</span>
-                            </div>
-                            
-                            <!-- Move / Toggle / Delete Actions -->
-                            <div style="display: flex; align-items: center; gap: 6px;" @click.stop>
-                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Up" @click="moveSection(idx, -1)">▲</button>
-                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Down" @click="moveSection(idx, 1)">▼</button>
-                                <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px;" title="Toggle Active" @click="toggleSectionActive(sec)">
-                                    {{ sec.active !== false ? '👁️' : '🙈' }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Add Section Block -->
-                    <div style="margin-top: 10px; position: relative;">
-                        <button type="button" class="btn" style="width: 100%; border: 1px dashed var(--border); font-size: 0.78rem; font-weight: 700; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: rgba(255,255,255,0.02); color: var(--accent);" @click="showAddSectionMenu = !showAddSectionMenu">
-                            ➕ Add Section
-                        </button>
-                        
-                        <!-- Add Section Dropdown Options -->
-                        <div v-if="showAddSectionMenu" style="position: absolute; bottom: 42px; left: 0; width: 100%; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 100; overflow: hidden; display: flex; flex-direction: column;">
-                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('hero')">🌄 Image Banner (Hero)</button>
-                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('featured_collection')">🛍️ Featured Collection</button>
-                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('rich_text')">📝 Rich Text</button>
-                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('collection_list')">🗂️ Collection List</button>
-                            <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('video')">🎥 Video Banner</button>
-                        </div>
-                    </div>
-
-                    <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
-
-                    <!-- Footer Card -->
-                    <div class="section-tree-item" :class="{ active: selectedSectionId === 'footer' }" @click="selectSection('footer')" 
-                         style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.9rem;">🧱</span>
-                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Footer</span>
-                        </div>
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- Column 2: Sandbox Canvas Preview (Middle) -->
-            <div style="display: flex; flex-direction: column; gap: 0px; transition: all 0.3s ease; background: var(--bg-color); box-sizing: border-box;">
-                <!-- Browser Bar Controls -->
-                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 8px 16px; gap: 12px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeBack" title="Back">
-                            ⬅
-                        </button>
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeForward" title="Forward">
-                            ➡
-                        </button>
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeReload" title="Reload">
-                            🔄
-                        </button>
-                        
-                        <div style="width: 1px; height: 16px; background: var(--border);"></div>
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="undo" title="Undo (Ctrl+Z)">↩ Undo</button>
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="redo" title="Redo (Ctrl+Y)">↪ Redo</button>
-                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700; color: #ef4444;" @click="resetDesign" title="Reset Design">❌ Reset</button>
-                    </div>
-                    <div style="flex: 1; font-family: monospace; font-size: 0.78rem; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; text-align: left;">
-                        {{ displayUrl }}
-                    </div>
-                    
-                    <!-- Mode switch Edit/Play -->
-                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px; align-items: center;">
-                        <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = true">✏️ Edit</button>
-                        <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = false">👁️ Play</button>
-                    </div>
- 
-                    <!-- Device sizes -->
-                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px;">
-                        <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'desktop'">🖥️</button>
-                        <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'tablet'">📟</button>
-                        <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'mobile'">📱</button>
-                    </div>
-                </div>
- 
-                <div :style="previewContainerStyle" style="border: none; border-radius: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-color); flex: 1; padding: 16px; box-sizing: border-box;">
-                    <div :style="viewportIframeStyle" style="height: 100%; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden;">
-                        <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" style="width: 100%; height: 100%; border: none;"></iframe>
-                    </div>
-                </div>
-            </div>
- 
-            <!-- Column 3: Block Inspector & General Settings (Right) -->
-            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box;">
-                
-                <!-- Section Settings Contextual Inspector -->
+                <!-- Subview A: If a section is selected: Render its Settings Inspector -->
                 <div v-if="selectedSectionId" style="display: flex; flex-direction: column; gap: 14px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
                         <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
                             {{ getSelectedSectionTitle() }} Settings
                         </h4>
                         <button type="button" class="btn" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; height: 22px;" @click="selectedSectionId = ''">
-                            Back
+                            ← Back
                         </button>
                     </div>
 
@@ -191,7 +65,7 @@
                     <div v-if="isDynamicSection(selectedSectionId)" style="display: flex; gap: 6px;">
                         <button type="button" class="btn" style="flex: 1; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px;" @click="moveSelectedSection(-1)">▲ Move Up</button>
                         <button type="button" class="btn" style="flex: 1; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px;" @click="moveSelectedSection(1)">▼ Move Down</button>
-                        <button type="button" class="btn" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px; flex: 1.2;" @click="deleteSelectedSection">🗑️ Delete Block</button>
+                        <button type="button" class="btn" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; font-size: 0.72rem; padding: 6px 0; margin: 0; height: 28px; flex: 1.2;" @click="deleteSelectedSection">🗑️ Delete</button>
                     </div>
 
                     <!-- INSPECTOR FIELDS: ANNOUNCEMENT BAR -->
@@ -202,7 +76,7 @@
                         </div>
                         <div class="form-group">
                             <label>Banner Text</label>
-                            <input type="text" v-model="designerBrand.announcement_text" placeholder="Free shipping on orders over €75!">
+                            <input type="text" v-model="designerBrand.announcement_text" placeholder="Free shipping on orders over €75!" style="width: 100%;">
                         </div>
                         <div class="form-group">
                             <label>Banner Background</label>
@@ -250,618 +124,157 @@
                     </div>
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
-                    <!-- TAB 3: COPYWRITER & TEXT -->
-                    <div v-if="activeTab === 'copywriter'" style="display: flex; flex-direction: column; gap: 16px;">
-                        
-                        <!-- Page Context Switcher Selector -->
-                        <div>
-                            <div style="font-weight: 700; color: var(--text-main); font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
-                                <span>📝 Select Page to Edit</span>
-                                <button type="button" class="btn btn-accent" style="padding: 2px 8px; margin: 0; font-size: 0.68rem; font-weight: 700; height: 22px; border-radius: 4px; display: inline-flex; align-items: center;" @click="showAddPageModal = true">
-                                    ➕ Add Custom Page
-                                </button>
-                            </div>
-                            <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px; gap: 2px; flex-wrap: wrap;">
-                                <button type="button" class="btn" 
-                                        :style="activeContentPage === 'home' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
-                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
-                                        @click="navigateToPage('home')">
-                                    🏠 Home
-                                </button>
-                                <button type="button" class="btn" 
-                                        :style="activeContentPage === 'track' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
-                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
-                                        @click="navigateToPage('track')">
-                                    📦 Track
-                                </button>
-                                <button type="button" class="btn" 
-                                        :style="activeContentPage === '404' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
-                                        style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
-                                        @click="navigateToPage('404')">
-                                    ⚠️ 404
-                                </button>
-                                <!-- Dynamic custom pages -->
-                                <div v-for="page in (designerBrand.landing_pages || [])" :key="page.id" style="display: flex; align-items: center; gap: 2px;">
-                                    <button type="button" class="btn" 
-                                            :style="activeContentPage === page.id ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-muted)' }" 
-                                            style="padding: 6px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px;" 
-                                            @click="navigateToPage(page.id)">
-                                        📄 /{{ page.id }}
-                                    </button>
-                                    <button type="button" style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.72rem; padding: 0 4px;" title="Delete custom page" @click.stop="deleteCustomPage(page.id)">
-                                        ✕
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bulk translation button -->
-                        <div style="margin-top: 4px; margin-bottom: 8px;">
-                            <button type="button" class="sc-ai-button" style="width: 100%; margin: 0; font-size: 0.72rem; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" @click="toggleAIBulkTranslate(translationActiveLang === 'en' ? '' : translationActiveLang)">
-                                <span v-if="isBulkTranslating">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                <span v-else-if="lastBulkTranslateCost">
-                                    <span v-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [Last: €{{ lastBulkTranslateCost.toFixed(4) }}]</span>
-                                    <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [Last: €{{ lastBulkTranslateCost.toFixed(4) }}]</span>
-                                </span>
-                                <span v-else>
-                                    <span v-if="translationActiveLang === 'en'">✨ Auto-Translate All Pages to Other Languages [Gemini 1.5 Flash] [~$0.0028]</span>
-                                    <span v-else>✨ Auto-Translate All Pages to {{ translationActiveLang.toUpperCase() }} [Gemini 1.5 Flash] [~$0.0028]</span>
-                                </span>
-                            </button>
-                            
-                            <!-- Real token and cost usage stats for Translator -->
-                            <div v-if="translateAiStats && translateAiStats.calls_count > 0" 
-                                 style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                                <span>📊 Accumulated translations: <strong>{{ translateAiStats.calls_count }} runs</strong></span>
-                                <span><strong>{{ formatTokens(translateAiStats.total_tokens) }} tokens</strong></span>
-                                <span>Cost: <strong style="color: var(--accent);">€{{ (translateAiStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
-                            </div>
-                        </div>
-
-                        <!-- Language switcher tab bar -->
-                        <div style="display: flex; gap: 4px; margin-bottom: 4px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border);">
-                            <button type="button" 
-                                v-for="lang in availableLanguages" 
-                                :key="lang"
-                                @click="translationActiveLang = lang"
-                                :style="{
-                                    background: translationActiveLang === lang ? 'var(--accent)' : 'transparent',
-                                    color: translationActiveLang === lang ? 'var(--workspace-bg)' : 'var(--text-muted)',
-                                    border: 'none',
-                                    padding: '4px 10px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    textTransform: 'uppercase',
-                                    whiteSpace: 'nowrap'
-                                }"
-                            >
-                                {{ getLanguageLabel(lang) }}
-                            </button>
-                        </div>
-
-                        <!-- English / Default Editor (active lang is 'en') -->
-                        <div v-if="translationActiveLang === 'en'" style="display: flex; flex-direction: column; gap: 12px;">
-                            
-                            <!-- Home Page Fields -->
-                            <div v-if="activeContentPage === 'home'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Headline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_headline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_hero_headline" placeholder="Elevate Your Coffee Ritual" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Subheadline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_subheadline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <textarea v-model="designerBrand.text_hero_subheadline" rows="3" placeholder="Shop precision coffee gear." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Button Text</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_hero_cta')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_hero_cta" placeholder="SHOP COLLECTION" style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- Track Order Fields -->
-                            <div v-if="activeContentPage === 'track'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Headline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_headline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_track_headline" placeholder="Track Your Shipment" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Subtitle / Description</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_subheadline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <textarea v-model="designerBrand.text_track_subheadline" rows="3" placeholder="Check current dispatch status." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Input Placeholder</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_placeholder')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_track_placeholder" placeholder="Enter Order ID (e.g. PES_171954...)" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Button Text</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_track_cta')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_track_cta" placeholder="Track" style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- 404 Error Fields -->
-                            <div v-if="activeContentPage === '404'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Headline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_headline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_404_headline" placeholder="Page Not Found" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Subheadline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_subheadline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <textarea v-model="designerBrand.text_404_subheadline" rows="2" placeholder="The page you are looking for doesn't exist." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Button Text</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewrite('text_404_cta')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="designerBrand.text_404_cta" placeholder="Back to Shop" style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- Dynamic Custom Page Fields -->
-                            <div v-if="isCustomPage(activeContentPage)" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Headline</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('headline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="getCustomPageRef(activeContentPage).headline" placeholder="Exclusive Promo: Get 20% off!" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Subheadline / Description</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('subheadline')">✨ AI Rewrite</button>
-                                    </div>
-                                    <textarea v-model="getCustomPageRef(activeContentPage).subheadline" rows="3" placeholder="Describe the promotion..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">CTA Button Text</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAIRewriteCustomPage('cta')">✨ AI Rewrite</button>
-                                    </div>
-                                    <input type="text" v-model="getCustomPageRef(activeContentPage).cta" placeholder="Claim Offer Now" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <label>Hero Image URL</label>
-                                    <input type="text" v-model="getCustomPageRef(activeContentPage).hero_img" placeholder="https://example.com/image.jpg" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <label>Coupon Code (optional)</label>
-                                    <input type="text" v-model="getCustomPageRef(activeContentPage).coupon_code" placeholder="e.g. COFFEE20" style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <label>Features / Bullet Points (one per line)</label>
-                                    <textarea v-model="getCustomPageRef(activeContentPage).features" rows="4" placeholder="⚡ Free Worldwide Shipping&#10;🔒 100% Precision Guaranteed" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <!-- Translation Editor (active lang is not 'en') -->
-                        <div v-else style="display: flex; flex-direction: column; gap: 12px;">
-                            
-                            <!-- Home Page Fields -->
-                            <div v-if="activeContentPage === 'home'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_headline')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_headline" placeholder="Headline Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_subheadline')">✨ Translate from EN</button>
-                                    </div>
-                                    <textarea v-model="getTranslationRef(translationActiveLang).text_hero_subheadline" rows="3" placeholder="Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Hero Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_hero_cta')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_hero_cta" placeholder="Button Translation..." style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- Track Order Fields -->
-                            <div v-if="activeContentPage === 'track'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_headline')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_headline" placeholder="Headline Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Subtitle / Description ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_subheadline')">✨ Translate from EN</button>
-                                    </div>
-                                    <textarea v-model="getTranslationRef(translationActiveLang).text_track_subheadline" rows="3" placeholder="Description Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Input Placeholder ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_placeholder')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_placeholder" placeholder="Placeholder Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_track_cta')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_track_cta" placeholder="Button Translation..." style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- 404 Error Fields -->
-                            <div v-if="activeContentPage === '404'" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_headline')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_headline" placeholder="404 Headline Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Subheadline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_subheadline')">✨ Translate from EN</button>
-                                    </div>
-                                    <textarea v-model="getTranslationRef(translationActiveLang).text_404_subheadline" rows="2" placeholder="404 Subheadline Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">404 Page Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateSingle('text_404_cta')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getTranslationRef(translationActiveLang).text_404_cta" placeholder="404 Button Translation..." style="width: 100%;">
-                                </div>
-                            </div>
-
-                            <!-- Dynamic Custom Page Fields (Translations) -->
-                            <div v-if="isCustomPage(activeContentPage)" style="display: flex; flex-direction: column; gap: 12px;">
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Headline ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('headline')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).headline" placeholder="Headline Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">Subheadline / Description ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('subheadline')">✨ Translate from EN</button>
-                                    </div>
-                                    <textarea v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).subheadline" rows="3" placeholder="Description Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label style="margin: 0;">CTA Button Text ({{ translationActiveLang.toUpperCase() }})</label>
-                                        <button type="button" style="background: none; border: none; color: var(--accent); font-size: 0.68rem; cursor: pointer; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px;" @click="runAITranslateCustomPage('cta')">✨ Translate from EN</button>
-                                    </div>
-                                    <input type="text" v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).cta" placeholder="Button Translation..." style="width: 100%;">
-                                </div>
-                                <div class="form-group">
-                                    <label>Features / Bullet Points ({{ translationActiveLang.toUpperCase() }})</label>
-                                    <textarea v-model="getCustomPageTranslationRef(getCustomPageRef(activeContentPage), translationActiveLang).features" rows="4" placeholder="Features Translation..." style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; outline: none;"></textarea>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <!-- TAB 4: LOCALIZATION & SOCIALS -->
-                    <div v-if="activeTab === 'localization'" style="display: flex; flex-direction: column; gap: 16px;">
-                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="announce-toggle" v-model="designerBrand.announcement_active" :disabled="inheritStyles" style="width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;">
-                            <label for="announce-toggle" style="font-weight: 600; color: var(--text-main); font-size: 0.8rem; cursor: pointer; margin: 0;">Enable Announcement Banner</label>
-                        </div>
-                        <div v-if="designerBrand.announcement_active" style="display: flex; flex-direction: column; gap: 12px;">
-                            <div class="form-group">
-                                <label>Announcement Banner Text</label>
-                                <input type="text" v-model="designerBrand.announcement_text" :disabled="inheritStyles" placeholder="Free shipping on all orders over €75!" style="width: 100%;">
-                            </div>
-                            <div class="form-group">
-                                <label>Banner Background</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="color" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                    <input type="text" v-model="designerBrand.announcement_bg" :disabled="inheritStyles" placeholder="#c5a059" style="flex: 1; margin: 0;">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Banner Text Color</label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="color" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                    <input type="text" v-model="designerBrand.announcement_text_color" :disabled="inheritStyles" placeholder="#ffffff" style="flex: 1; margin: 0;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
-                            <div style="font-weight: 700; color: var(--accent); font-size: 0.8rem; margin-bottom: 8px;">SOCIAL PROFILES</div>
-                            <div class="form-group" style="margin-bottom: 12px;">
-                                <label>Instagram Handle URL</label>
-                                <input type="text" v-model="designerBrand.instagram_link" :disabled="inheritStyles" placeholder="https://instagram.com/handle" style="width: 100%;">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 12px;">
-                                <label>Facebook Page URL</label>
-                                <input type="text" v-model="designerBrand.facebook_link" :disabled="inheritStyles" placeholder="https://facebook.com/page" style="width: 100%;">
-                            </div>
-                            <div class="form-group">
-                                <label>X / Twitter URL</label>
-                                <input type="text" v-model="designerBrand.twitter_link" :disabled="inheritStyles" placeholder="https://x.com/username" style="width: 100%;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 5: AI DESIGN LAB -->
-                    <div v-if="activeTab === 'ai'" style="display: flex; flex-direction: column; gap: 16px; position: relative; min-height: 180px;">
-                        <!-- Locked Overlay -->
-                        <div v-if="!app.isFeatureAllowed('allow_designer')" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,15,17,0.92); border-radius: 8px; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; box-sizing: border-box; text-align: center;">
-                            <div>
-                                <span style="font-size: 1.8rem; display: block; margin-bottom: 8px;">🔒</span>
-                                <span style="font-size: 0.76rem; font-weight: 800; color: var(--accent); background: rgba(197,160,89,0.15); padding: 2px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase; border: 1px solid rgba(197,160,89,0.3);">
-                                    Professional Feature
-                                </span>
-                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; max-width: 250px; line-height: 1.4;">
-                                    Upgrade to Professional or Enterprise Tier to unlock automated Brand Look-Alike theme generators.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(197, 160, 89, 0.05); border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-size: 0.8rem; line-height: 1.5; color: var(--text-main);">
-                            <span style="font-size: 1.1rem; display: block; margin-bottom: 4px;">🤖 AI Storefront Designer</span>
-                            The AI matches color themes, button roundness, font styles, and landing copy parameters directly to the brand's verified strategy manuscript guidelines.
-                        </div>
-
-                        <button type="button" class="sc-ai-button" style="margin: 0; height: 38px; width: 100%;" :disabled="inheritStyles" @click="toggleAILookAlikeLayout">
-                            <span v-if="isGeneratingLayout">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                            <span v-else-if="lastLayoutCost">✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [Last: €{{ lastLayoutCost.toFixed(4) }}]</span>
-                            <span v-else>✨ Generate Brand Look-Alike Theme [Gemini 2.5 Flash] [~$0.0005]</span>
-                        </button>
-                        
-                        <!-- Real token and cost usage stats for Designer -->
-                        <div v-if="layoutAiStats && layoutAiStats.calls_count > 0" 
-                             style="background: rgba(197, 160, 89, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                            <span>📊 Accumulated layout builds: <strong>{{ layoutAiStats.calls_count }}</strong></span>
-                            <span><strong>{{ formatTokens(layoutAiStats.total_tokens) }} tokens</strong></span>
-                            <span>Cost: <strong style="color: var(--accent);">€{{ (layoutAiStats.cost_usd * 0.92).toFixed(4) }}</strong></span>
-                        </div>
-
-                        <p v-if="inheritStyles" style="font-size: 0.72rem; color: #ef4444; margin: 8px 0 0 0; text-align: center;">
-                            ⚠️ Please uncheck "Inherit Master Brand Styles" above to enable custom AI design overrides.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Custom CSS Override (always visible inside the grey-out wrapper) -->
-                    <div class="form-group" style="margin-top: 10px; margin-bottom: 12px;">
-                        <label>Custom CSS Override</label>
-                        <textarea v-model="designerBrand.custom_css" :disabled="inheritStyles" placeholder="/* Add custom CSS rules here to override layouts */&#10;body {&#10;  font-size: 16px;&#10;}" style="width: 100%; height: 120px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;"></textarea>
-                    </div>
-
-                <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="saveDesignSettings" :disabled="saving">
-                    <span v-if="saving" class="spinner"></span>
-                    <span>{{ saving ? 'Publishing Live...' : '🚀 Publish Live to Storefront' }}</span>
-                </button>
-                <p style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin: 6px 0 0 0;">
-                    💡 Publishing writes changes directly to the database to go live on your storefront immediately.
-                </p>
-            </div>
-
-            <!-- Right Side: Storefront Sandbox Preview -->
-            <div style="flex: 1.5; min-width: 450px; transition: all 0.3s ease;"
-                :style="isFullscreen ? {
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    zIndex: 99999,
-                    margin: 0,
-                    borderRadius: 0,
-                    background: 'var(--bg-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '24px'
-                } : {}">
-                <div v-if="isFullscreen" 
-                     style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 19, 17, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 16px; gap: 10px; margin-bottom: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100000; flex-wrap: nowrap; overflow-x: auto;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                        <span style="font-size: 1.1rem;">🛠️</span>
-                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.95rem; white-space: nowrap;">Sandbox Full Editor Mode</h4>
-                        <span v-if="hasUnsavedChanges" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; flex-shrink: 0;">
-                            Unsaved Changes
-                        </span>
+                <!-- Subview B: Otherwise: Render General Layout Sections List -->
+                <div v-else style="display: flex; flex-direction: column; height: 100%;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Layout Sections</h4>
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap;">
-                        <!-- Undo / Redo / Reset Actions -->
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="undo" title="Undo (Ctrl+Z)">
-                            ↩ Undo
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="redo" title="Redo (Ctrl+Y)">
-                            ↪ Redo
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 30px; font-size: 0.72rem; font-weight: 700; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="resetDesign" title="Reset Design">
-                            ❌ Reset
-                        </button>
+                    <!-- General Section Hierarchy Tree -->
+                    <div class="sections-tree-list" style="display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;">
                         
-                        <div style="width: 1px; height: 20px; background: var(--border);"></div>
-
-                        <!-- Inline Edit / Preview Mode Toggle inside Fullscreen Bar -->
-                        <span style="color: var(--text-muted); font-size: 0.76rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;">Mode:</span>
-                        <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 30px; align-items: center; box-sizing: border-box; flex-shrink: 0;">
-                            <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="inlineEditMode = true">
-                                ✏️ Edit
-                            </button>
-                            <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="inlineEditMode = false">
-                                👁️ Preview
-                            </button>
+                        <!-- Announcement Bar Card -->
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'announcement' }" @click="selectSection('announcement')" 
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.9rem;">📢</span>
+                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Announcement Bar</span>
+                            </div>
+                            <input type="checkbox" v-model="designerBrand.announcement_active" @click.stop style="cursor: pointer;">
                         </div>
 
-                        <!-- Inline Language Selector in Fullscreen Bar -->
-                        <span style="color: var(--text-muted); font-size: 0.76rem; font-weight: 600; margin-left: 4px; white-space: nowrap; flex-shrink: 0;">Language:</span>
+                        <!-- Header Card -->
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'header' }" @click="selectSection('header')" 
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.9rem;">🧱</span>
+                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Header</span>
+                            </div>
+                        </div>
+
+                        <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
+
+                        <!-- Dynamic Layout Sections Tree -->
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Main Template Sections</div>
+                        
+                        <div v-for="(sec, idx) in designerBrand.sections" :key="sec.id" 
+                             class="section-tree-item" :class="{ active: selectedSectionId === sec.id }" @click="selectSection(sec.id)" 
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; position: relative;">
+                            
+                            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                                <div style="display: flex; align-items: center; gap: 8px; width: 60%; overflow: hidden;">
+                                    <span style="font-size: 0.95rem;">{{ getSectionIcon(sec.type) }}</span>
+                                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{{ sec.title }}</span>
+                                </div>
+                                
+                                <!-- Move / Toggle / Delete Actions -->
+                                <div style="display: flex; align-items: center; gap: 6px;" @click.stop>
+                                    <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Up" @click="moveSection(idx, -1)">▲</button>
+                                    <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; padding: 2px;" title="Move Down" @click="moveSection(idx, 1)">▼</button>
+                                    <button type="button" style="border: none; background: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 2px;" title="Toggle Active" @click="toggleSectionActive(sec)">
+                                        {{ sec.active !== false ? '👁️' : '🙈' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Section Block -->
+                        <div style="margin-top: 10px; position: relative;">
+                            <button type="button" class="btn" style="width: 100%; border: 1px dashed var(--border); font-size: 0.78rem; font-weight: 700; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; background: rgba(255,255,255,0.02); color: var(--accent);" @click="showAddSectionMenu = !showAddSectionMenu">
+                                ➕ Add Section
+                            </button>
+                            
+                            <!-- Add Section Dropdown Options -->
+                            <div v-if="showAddSectionMenu" style="position: absolute; bottom: 42px; left: 0; width: 100%; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 100; overflow: hidden; display: flex; flex-direction: column;">
+                                <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('hero')">🌄 Image Banner (Hero)</button>
+                                <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('featured_collection')">🛍️ Featured Collection</button>
+                                <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('rich_text')">📝 Rich Text</button>
+                                <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('collection_list')">🗂️ Collection List</button>
+                                <button type="button" class="btn-option" style="padding: 10px 14px; font-size: 0.76rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;" @click="addSection('video')">🎥 Video Banner</button>
+                            </div>
+                        </div>
+
+                        <div style="margin: 6px 0; border-top: 1px dashed var(--border);"></div>
+
+                        <!-- Footer Card -->
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'footer' }" @click="selectSection('footer')" 
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.9rem;">🧱</span>
+                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Footer</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Collapsible Custom CSS Override section at the bottom of left sidebar -->
+                    <div style="margin-top: auto; padding-top: 16px; border-top: 1px dashed var(--border);">
+                        <button type="button" class="btn" style="width: 100%; margin: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700; height: 36px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);" @click="showCustomCss = !showCustomCss">
+                            💻 {{ showCustomCss ? 'Hide Custom CSS' : 'Show Custom CSS Override' }}
+                        </button>
+                        <div v-if="showCustomCss" class="form-group" style="margin-top: 10px; margin-bottom: 0;">
+                            <textarea v-model="designerBrand.custom_css" :disabled="inheritStyles" placeholder="/* Add custom CSS rules here to override layouts */&#10;body {&#10;  font-size: 16px;&#10;}" style="width: 100%; height: 120px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 2: Sandbox Canvas Preview (Right Sidebar/Main View) -->
+            <div style="display: flex; flex-direction: column; gap: 0px; transition: all 0.3s ease; background: var(--bg-color); box-sizing: border-box;">
+                <!-- Browser Bar Controls -->
+                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 8px 16px; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeBack" title="Back">
+                            ⬅
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeForward" title="Forward">
+                            ➡
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="iframeReload" title="Reload">
+                            🔄
+                        </button>
+                        
+                        <div style="width: 1px; height: 16px; background: var(--border);"></div>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="undo" title="Undo (Ctrl+Z)">↩ Undo</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700;" @click="redo" title="Redo (Ctrl+Y)">↪ Redo</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 4px 8px; margin: 0; height: 28px; font-size: 0.72rem; font-weight: 700; color: #ef4444;" @click="resetDesign" title="Reset Design">❌ Reset</button>
+                    </div>
+                    <div style="flex: 1; font-family: monospace; font-size: 0.78rem; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30%; text-align: left;">
+                        {{ displayUrl }}
+                    </div>
+                    
+                    <!-- Mode switch Edit/Play -->
+                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px; align-items: center;">
+                        <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = true">✏️ Edit</button>
+                        <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = false">👁️ Play</button>
+                    </div>
+ 
+                    <!-- Device sizes -->
+                    <div style="display: flex; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px; height: 28px;">
+                        <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'desktop'">🖥️</button>
+                        <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'tablet'">📟</button>
+                        <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 2px 6px; margin: 0; font-size: 0.7rem; border: none; border-radius: 4px;" @click="viewportMode = 'mobile'">📱</button>
+                    </div>
+
+                    <!-- Language Selector (copied from the duplicate block for full functionality) -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">🌐</span>
                         <select v-model="previewActiveLang" @change="changePreviewLanguage" 
-                                style="border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.72rem; padding: 4px 6px; font-weight: 700; cursor: pointer; outline: none; height: 30px; max-width: 90px; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;">
+                                style="border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.72rem; padding: 2px 4px; font-weight: 700; cursor: pointer; outline: none; height: 28px; line-height: 1;">
                             <option v-for="lang in availableLanguages" :key="lang" :value="lang">
                                 {{ getLanguageLabel(lang).toUpperCase() }}
                             </option>
                         </select>
-                        
-                        <!-- Device Switcher inside Fullscreen Bar -->
-                        <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 30px; align-items: center; box-sizing: border-box; flex-shrink: 0;">
-                            <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'desktop'">
-                                🖥️ Desktop
-                            </button>
-                            <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'tablet'">
-                                📟 Tablet
-                            </button>
-                            <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 8px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;" @click="viewportMode = 'mobile'">
-                                📱 Mobile
-                            </button>
-                        </div>
-                        
-                        <div style="width: 1px; height: 20px; background: var(--border);"></div>
-
-                        <!-- Publish Settings Button -->
-                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 30px; padding: 0 12px; font-size: 0.76rem; white-space: nowrap; flex-shrink: 0;" @click="saveDesignSettings" :disabled="saving">
-                            {{ saving ? 'Publishing...' : '🚀 Publish Live' }}
-                        </button>
-                        
-                        <!-- Collapse Fullscreen Button -->
-                        <button type="button" class="btn" style="margin: 0; font-weight: 700; height: 30px; padding: 0 10px; font-size: 0.76rem; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); white-space: nowrap; flex-shrink: 0;" @click="toggleFullscreen">
-                            🗖 Exit Full View
-                        </button>
                     </div>
                 </div>
-
-                <h4 style="margin: 0 0 10px 0; color: var(--accent); display: flex; align-items: center; justify-content: space-between;" v-if="!isFullscreen">
-                    <span style="display: flex; align-items: center; gap: 8px;">
-                        🖥️ Live Storefront Sandbox Preview
-                        <span v-if="hasUnsavedChanges" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
-                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
-                            Interactive Sandbox Draft
-                        </span>
-                        <span v-else style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
-                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
-                            Published & Synced
-                        </span>
-                    </span>
-                    <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">Local Port Routing</span>
-                </h4>
-
-                <!-- Browser Toolbar -->
-                <div v-if="!isFullscreen" style="display: flex; align-items: center; justify-content: space-between; background: var(--border); border: 1px solid var(--border); border-bottom: none; border-top-left-radius: 8px; border-top-right-radius: 8px; padding: 8px 12px; gap: 12px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" @click="iframeBack" title="Back" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" @click="iframeForward" title="Forward" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 8px; margin: 0; height: 28px; width: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" @click="iframeReload" title="Reload" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-                        </button>
-                        
-                        <!-- Undo / Redo / Reset Actions -->
-                        <div style="width: 1px; height: 16px; background: var(--border);"></div>
-                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="undo" title="Undo (Ctrl+Z)" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
-                            ↩ Undo
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--workspace-bg); color: var(--text-main); border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="redo" title="Redo (Ctrl+Y)" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--workspace-bg)'">
-                            ↪ Redo
-                        </button>
-                        <button type="button" class="btn" style="padding: 4px 6px; margin: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px; white-space: nowrap;" @click="resetDesign" title="Reset Design" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
-                            ❌ Reset
-                        </button>
-                    </div>
-                    <div style="flex: 1; font-family: monospace; font-size: 0.78rem; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; text-align: left; user-select: none;">
-                        {{ displayUrl }}
-                    </div>
-                    <button type="button" class="btn" style="padding: 4px 12px; margin: 0; font-size: 0.78rem; height: 28px; font-weight: 700; background: var(--text-main); color: var(--workspace-bg); border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'" @click="toggleFullscreen">
-                        {{ isFullscreen ? '🗖 Collapse View' : '🗖 Fullscreen Mode' }}
-                    </button>
-                </div>
-
-                <!-- Responsive Device Switcher Row -->
-                <div v-if="!isFullscreen" style="display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--workspace-bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px; font-size: 0.8rem; user-select: none;">
-                    <span style="color: var(--text-muted); font-weight: 600;">Device:</span>
-                    <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px;">
-                        <button type="button" class="btn" :style="viewportMode === 'desktop' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'desktop'">
-                            🖥️ Desktop
-                        </button>
-                        <button type="button" class="btn" :style="viewportMode === 'tablet' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'tablet'">
-                            📟 Tablet
-                        </button>
-                        <button type="button" class="btn" :style="viewportMode === 'mobile' ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.72rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="viewportMode = 'mobile'">
-                            📱 Mobile
-                        </button>
-                    </div>
-                    
-                    <span style="color: var(--text-muted); font-weight: 600; margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                        🌐 Lang:
-                    </span>
-                    <select v-model="previewActiveLang" @change="changePreviewLanguage" 
-                            style="border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.72rem; padding: 4px 8px; font-weight: 700; cursor: pointer; outline: none; height: 28px; line-height: 1;">
-                        <option v-for="lang in availableLanguages" :key="lang" :value="lang">
-                            {{ getLanguageLabel(lang).toUpperCase() }}
-                        </option>
-                    </select>
-
-                    <span style="color: var(--text-muted); font-weight: 600; margin-left: 12px;">Mode:</span>
-                    <div style="display: flex; background: var(--border); border-radius: 6px; padding: 2px; gap: 2px; height: 28px; align-items: center; box-sizing: border-box;">
-                        <button type="button" class="btn" :style="inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = true">
-                            ✏️ Edit
-                        </button>
-                        <button type="button" class="btn" :style="!inlineEditMode ? { background: 'var(--accent)', color: 'var(--workspace-bg)' } : { background: 'transparent', color: 'var(--text-main)' }" style="padding: 4px 10px; margin: 0; font-size: 0.7rem; font-weight: 700; border: none; border-radius: 4px; cursor: pointer;" @click="inlineEditMode = false">
-                            👁️ Play
-                        </button>
-                    </div>
-                </div>
-
-                <div :style="previewContainerStyle"
-                    style="border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
-                    <div :style="viewportIframeStyle" style="height: 100%; transition: all 0.3s ease; background: var(--workspace-bg);">
+ 
+                <div :style="previewContainerStyle" style="border: none; border-radius: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-color); flex: 1; padding: 16px; box-sizing: border-box;">
+                    <div :style="viewportIframeStyle" style="height: 100%; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden;">
                         <iframe ref="previewIframe" class="preview-iframe" :src="previewIframeSrc" @load="handleIframeLoad" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
             </div>
-        </div>
-
+        </div>\n
         <!-- ADD CUSTOM PAGE MODAL -->
         <div v-if="showAddPageModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
             <div class="panel" style="width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin: 20px;">
@@ -955,6 +368,7 @@ export default {
             inlineEditMode: true,
             originalBrandSettings: '',
             activeTab: 'style',
+            showCustomCss: false,
             isGeneratingLayout: false,
             lastLayoutCost: null,
             aiStylePresets: [],

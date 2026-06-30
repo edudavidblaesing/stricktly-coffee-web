@@ -111,6 +111,11 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price NUMERIC(10, 2)`);
     await client.query(`UPDATE products SET original_price = price WHERE original_price IS NULL`);
     await client.query(`UPDATE products SET price_source = 'manual', details_source = 'manual' WHERE external_id IS NULL`);
+    
+    // Inventory & Platform Allocation migrations
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS inventory_quantity INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sales_limit INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS total_sold INTEGER DEFAULT 0`);
 
     // 3. Create Orders Table
     await client.query(`

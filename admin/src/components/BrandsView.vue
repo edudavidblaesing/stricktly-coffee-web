@@ -1,5 +1,5 @@
 <template>
-    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands', 'creator-fullscreen': isCreatingBrand }">
+    <div id="view-brands" class="admin-view" :class="{ active: app.activeView === 'brands', 'creator-fullscreen': isCreatingBrand || activeSubView === 'designer' || activeSubView === 'landing-designer' }">
         <!-- Sub-View: Embedded Storefront Designer -->
         <div v-if="activeSubView === 'designer'" style="width: 100%;">
             <DesignerView @back="activeSubView = 'list'" />
@@ -10,9 +10,33 @@
             <LandingPageDesignerView @back="activeSubView = 'list'" />
         </div>
 
-        <div v-else style="width: 100%;">
+        <!-- Sub-View: Channel Connection / Setup -->
+        <div v-else-if="activeSubView === 'channel-connect'" style="width: 100%;">
+            <div class="panel" style="max-width: 600px; margin: 40px auto; padding: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-bg); text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.35);">
+                <div style="font-size: 3.5rem; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; height: 80px;">
+                    <span v-html="getChannelLogoSvg(selectedChannelId || '', 54)"></span>
+                </div>
+                <h3 style="margin: 0 0 12px 0; color: var(--text-main); font-weight: 700; font-size: 1.45rem;">
+                    {{ getChannelName(selectedChannelId) }}
+                </h3>
+                <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin: 0 0 28px 0; max-width: 480px; margin-left: auto; margin-right: auto;">
+                    This channel is not connected yet. Connect your brand shop to sync products, enable social commerce, and track redirect routing.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center;">
+                    <button type="button" class="btn btn-accent" style="height: 40px; padding: 0 28px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px;" @click="connectChannel(selectedChannelId)">
+                        <span v-html="getChannelLogoSvg(selectedChannelId || '', 14, '#ffffff')"></span>
+                        <span>Connect Channel</span>
+                    </button>
+                    <button type="button" class="btn" style="height: 38px; padding: 0 20px; font-size: 0.82rem; font-weight: 600; border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text-main);" @click="activeSubView = 'list'; selectedChannelId = null;">
+                        ← Back to Channels List
+                    </button>
+                </div>
+            </div>
+        </div>
 
-             <div class="panel" v-if="isCreatingBrand" style="border: none; background: transparent; padding: 0;">
+        <div v-else style="width: 100%; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; overflow: hidden;">
+
+             <div class="panel" v-if="isCreatingBrand" style="border: none; background: transparent; padding: 0; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; overflow: hidden;">
              <!-- Workspace Header -->
              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; flex-shrink: 0;">
                  <div style="display: flex; align-items: center; gap: 12px;">
@@ -32,653 +56,494 @@
                  </div>
              </div>
             
-            <!-- Step Progress Indicator -->
-            <div class="step-progress-bar" style="display: flex; justify-content: space-between; margin: 10px 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 10px;">
-                <div v-for="step in [1, 2, 3, 4]" :key="step" 
-                     :style="{ 
-                        flex: 1, 
-                        textAlign: 'center', 
-                        padding: '4px 0', 
-                        borderBottom: currentStep === step ? '2px solid var(--accent)' : '2px solid transparent',
-                        color: currentStep === step ? 'var(--text-main)' : 'var(--text-muted)',
-                        fontWeight: currentStep === step ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        fontSize: '0.82rem'
-                     }"
-                     @click="goToStep(step)">
-                    Step {{ step }}: {{ getStepTitle(step) }}
-                </div>
-            </div>
+             <!-- Step Progress Indicator -->
+             <div class="step-progress-bar" style="display: flex; justify-content: space-between; margin: 10px 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 10px; flex-shrink: 0;">
+                 <div v-for="step in [1, 2, 3, 4]" :key="step" 
+                      :style="{ 
+                         flex: 1, 
+                         textAlign: 'center', 
+                         padding: '4px 0', 
+                         borderBottom: currentStep === step ? '2px solid var(--accent)' : '2px solid transparent',
+                         color: currentStep === step ? 'var(--text-main)' : 'var(--text-muted)',
+                         fontWeight: currentStep === step ? 'bold' : 'normal',
+                         cursor: 'pointer',
+                         fontSize: '0.82rem'
+                      }"
+                      @click="goToStep(step)">
+                     Step {{ step }}: {{ getStepTitle(step) }}
+                 </div>
+             </div>
+            
+             <form @submit.prevent style="margin-top: 15px; display: flex; flex-direction: column; height: 100%;">
+                 <div style="flex: 1; overflow-y: auto; padding-right: 8px; margin-bottom: 10px;">
+                     <!-- STEP 1: VERIFICATION & DETAILS -->
+                     <div v-if="currentStep === 1">
+                         <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+                        <div>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🌐 Let's build your Storefront profile</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                                Provide your main brand URL. We will crawl it to analyze layout styles, logo, brand assets, and colors.
+                            </p>
+                        </div>
 
-            <form @submit.prevent style="margin-top: 15px;">
-                <!-- STEP 1: CONNECTION & VERIFICATION -->
-                <div v-if="currentStep === 1">
-                    <!-- Easy Setup section -->
-                    <div class="easy-setup-container" style="margin: 15px 0 25px 0; padding: 18px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border); border-radius: 8px;">
-                        <label style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">⚡ Easy Setup (Autofill via Website/Shopify URL)</label>
-                        <div style="display: flex; gap: 12px; align-items: center;">
-                            <div v-if="autofilledStoreTag" style="display: flex; align-items: center; gap: 6px; flex: 1; padding: 6px 12px; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; min-height: 42px; box-sizing: border-box;">
-                                <div class="store-tag" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
-                                    <img v-if="newBrand.favicon" :src="newBrand.favicon" style="width: 14px; height: 14px; border-radius: 2px; object-fit: contain;" />
-                                    <span v-else>🌐</span>
-                                    <span>{{ autofilledStoreTag }}</span>
-                                    <button type="button" @click="clearAutofillTag" style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.75rem; padding: 0 2px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-left: 2px;">✕</button>
+                        <!-- Brand URL check button row -->
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-weight: 700; margin-bottom: 8px; color: var(--text-main); display: block;">Website URL</label>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <div v-if="autofilledStoreTag" style="display: flex; align-items: center; gap: 6px; flex: 1; padding: 6px 12px; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; min-height: 42px; box-sizing: border-box;">
+                                    <div class="store-tag" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
+                                        <img v-if="newBrand.favicon" :src="newBrand.favicon" style="width: 14px; height: 14px; border-radius: 2px; object-fit: contain;" />
+                                        <span v-else>🌐</span>
+                                        <span>{{ autofilledStoreTag }}</span>
+                                        <button type="button" @click="clearAutofillTag" style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.75rem; padding: 0 2px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-left: 2px;">✕</button>
+                                    </div>
+                                </div>
+                                <input v-else type="text" v-model="easySetupUrl" placeholder="e.g. https://pesado585.com" style="margin: 0; flex: 1; height: 42px; border-radius: 8px; border: 1px solid var(--border); padding: 0 12px; background: var(--workspace-bg); color: var(--text-main);" @keydown.enter.prevent="runEasySetup">
+                                
+                                <button v-if="!autofilledStoreTag" type="button" class="btn btn-accent" @click="runEasySetup" :disabled="easySetupLoading" style="margin: 0; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 140px; font-weight: 700;">
+                                    <span v-if="easySetupLoading" class="spinner"></span>
+                                    <span>{{ easySetupLoading ? 'Checking...' : 'Check Brand' }}</span>
+                                </button>
+                            </div>
+                            <div v-if="easySetupError" style="color: #ef4444; font-size: 0.82rem; margin-top: 8px; font-weight: 500;">
+                                ❌ {{ easySetupError }}
+                            </div>
+                        </div>
+
+                        <!-- Brand details form shown ONLY when crawled/checked -->
+                        <div v-if="autofilledStoreTag" style="border-top: 1px solid var(--border); padding-top: 20px; display: flex; flex-direction: column; gap: 20px;">
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                                <div class="form-group">
+                                    <label>Unique Shop ID (Slug for subdomain)</label>
+                                    <input type="text" v-model="newBrand.id" required placeholder="pesado" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                    <div v-if="brandIdConflict" style="color: #ef4444; font-size: 0.76rem; margin-top: 4px; font-weight: 600;">
+                                        ⚠️ This Brand ID is already registered in the system.
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Brand Display Name</label>
+                                    <input type="text" v-model="newBrand.name" required placeholder="Pesado 58.5" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                </div>
+                                <div class="form-group form-full" style="grid-column: span 2;">
+                                    <label>Storefront Domain Routing Address</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="text" v-model="domainInputValue" :placeholder="localDomainType === 'external' ? 'coffee-brandsite.com' : 'brand-slug'" required style="flex: 1; margin: 0; background: var(--workspace-bg); height: 42px; border-radius: 8px; border: 1px solid var(--border); color: var(--text-main); padding: 0 12px;">
+                                        <select v-model="localDomainType" style="width: 200px; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; font-weight: 700; margin: 0;">
+                                            <option value="subdomain">.{{ app.baseBrandDomain }}</option>
+                                            <option value="external">Custom Domain</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Support Contact Email</label>
+                                    <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Brand Logo URL</label>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <div style="width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                            <img v-if="newBrand.logo" :src="newBrand.logo" style="width: 100%; height: 100%; object-fit: contain;" />
+                                            <span v-else style="font-size: 0.75rem;">🖼️</span>
+                                        </div>
+                                        <input type="text" v-model="newBrand.logo" placeholder="Logo image link" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0;">
+                                    </div>
                                 </div>
                             </div>
-                            <input v-else type="text" v-model="easySetupUrl" placeholder="Enter shop URL (e.g., https://pesado585.com)" style="margin: 0; flex: 1;" @keydown.enter.prevent="runEasySetup">
-                            <button v-if="!autofilledStoreTag" type="button" class="btn btn-accent" @click="runEasySetup" :disabled="easySetupLoading" style="margin: 0; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 140px; font-weight: 700;">
-                                <span v-if="easySetupLoading" class="spinner"></span>
-                                <span>{{ easySetupLoading ? 'Scraping...' : 'Autofill Form' }}</span>
-                            </button>
-                        </div>
-                        <div v-if="easySetupError" style="color: #ef4444; font-size: 0.82rem; margin-top: 8px; font-weight: 500;">
-                            ❌ {{ easySetupError }}
-                        </div>
-                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">
-                            Enter any website or store link. We will crawl it to auto-extract the Brand ID slug, name, subdomain, support contact, custom colors, logo, favicon, and detect the platform type.
+
+                            <!-- Colors section -->
+                            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <h5 style="margin: 0 0 12px 0; color: var(--text-main); font-weight: 700;">🎨 Brand Style Palette</h5>
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                        <label style="font-size: 0.72rem; color: var(--text-muted);">Primary</label>
+                                        <input type="color" v-model="newBrand.primary_color" style="width: 50px; height: 35px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; background: transparent; padding: 0; margin: 0;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                        <label style="font-size: 0.72rem; color: var(--text-muted);">Secondary</label>
+                                        <input type="color" v-model="newBrand.secondary_color" style="width: 50px; height: 35px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; background: transparent; padding: 0; margin: 0;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                        <label style="font-size: 0.72rem; color: var(--text-muted);">Background</label>
+                                        <input type="color" v-model="newBrand.bg_color" style="width: 50px; height: 35px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; background: transparent; padding: 0; margin: 0;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                        <label style="font-size: 0.72rem; color: var(--text-muted);">Text</label>
+                                        <input type="color" v-model="newBrand.text_color" style="width: 50px; height: 35px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; background: transparent; padding: 0; margin: 0;">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Brand ID (Unique Slug, e.g. "pesado")</label>
-                            <input type="text" v-model="newBrand.id" required placeholder="pesado" :disabled="dnsVerified && !previewMode">
-                            <div v-if="brandIdConflict" style="color: #ef4444; font-size: 0.76rem; margin-top: 4px; font-weight: 600;">
-                                ⚠️ This Brand ID is already registered in the system.
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Brand Display Name</label>
-                            <input type="text" v-model="newBrand.name" required placeholder="Pesado 58.5">
-                        </div>
-                        <div class="form-group form-full">
-                            <label>Storefront Domain Routing Address</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="text" 
-                                    v-model="domainInputValue" 
-                                    :placeholder="localDomainType === 'external' ? 'coffee-brandsite.com' : 'brand-slug'" 
-                                    :pattern="localDomainType === 'external' ? '^(?!:\\/\\/)([a-zA-Z0-9\\-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9\\-_]+\\.[a-zA-Z]{2,11}$' : '^[a-z0-9\\-]+$'" 
-                                    required 
-                                    :disabled="dnsVerified && !previewMode" 
-                                    style="flex: 1; margin: 0; background: var(--workspace-bg);">
-                                
-                                <select v-model="localDomainType" 
-                                    :disabled="dnsVerified && !previewMode" 
-                                    style="width: 200px; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; font-weight: 700; margin: 0;">
-                                    <option value="subdomain">.{{ app.baseBrandDomain }}</option>
-                                    <option value="external">Custom Domain</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Support Contact Email</label>
-                            <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com">
-                        </div>
-                        <div class="form-group">
-                            <label>AI Performance Studio Tier</label>
-                            <select v-model="newBrand.ai_tier" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
-                                <option value="none">No AI / Basic Tier (No AI Access)</option>
-                                <option value="standard">Standard Tier (Gemini 2.5 Flash)</option>
-                                <option value="professional">Professional Tier (Gemini 3.1 Pro)</option>
-                                <option value="enterprise">Enterprise Tier (Deep Research Pro Preview)</option>
-                            </select>
+                <!-- STEP 2: ECOMMERCE CONNECTION & PRODUCT SYNC -->
+                <div v-if="currentStep === 2">
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+                        <div>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🔌 Connect eCommerce Platform</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                                Connect your Shopify or WooCommerce store to synchronize products. You can also select Preview Mode to instantly browse mocked/crawled listings.
+                            </p>
                         </div>
 
-                        <div class="form-group">
-                            <label>Billing & Payout Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, or free ledger model.">i</span></label>
-                            <select v-model="newBrand.billing_type" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
-                                <option value="" disabled>Please select a billing model...</option>
-                                <option value="standard">Standard (Direct Stripe gateway)</option>
-                                <option value="external_split">External Split Billing (Platform Checkout split)</option>
-                                <option value="free">Free Model (0% Platform Take Rate / Ledger-based)</option>
-                            </select>
-                        </div>
-
-                        <!-- Direct Stripe Credentials (Visible in wizard when Standard Billing Model is selected) -->
-                        <template v-if="newBrand.billing_type === 'standard'">
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 6px;">Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="Stripe account API Secret key used to process customer card checkouts directly to your balance.">i</span></label>
-                                <input type="password" v-model="newBrand.stripe_secret_key"
-                                    placeholder="Stripe Secret Key (sk_live_...)" pattern="^sk_(?:live|test)_[a-zA-Z0-9]+$">
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 6px;">Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signing secret used to verify payment success notification events from Stripe.">i</span></label>
-                                <input type="password" v-model="newBrand.stripe_webhook_secret"
-                                    placeholder="Stripe Webhook Secret (whsec_...)" pattern="^whsec_[a-zA-Z0-9]+$">
-                            </div>
-                        </template>
-
-                        <div class="form-group" v-if="newBrand.billing_type === 'external_split'">
-                            <label>Platform Take Rate (%) <span class="info-tooltip-trigger" data-tooltip="Platform commission percentage retained on checkouts.">i</span></label>
-                            <input type="number" min="0" max="100" step="0.1" :value="newBrand.platform_take_rate * 100" @input="newBrand.platform_take_rate = parseFloat($event.target.value) / 100" style="margin: 0;" placeholder="15">
-                        </div>
-                        <div class="form-group" v-if="newBrand.billing_type === 'external_split'">
-                            <label>Stripe Connect Account ID (Optional) <span class="info-tooltip-trigger" data-tooltip="The merchant Connected Account ID to route split funds programmatically.">i</span></label>
-                            <input type="text" v-model="newBrand.stripe_connect_account_id" style="margin: 0;" placeholder="acct_1x2y3z...">
-                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">If provided, checkout splits route automatically. Otherwise, earnings accumulate in the ledger.</span>
-                        </div>
-                        <div class="form-group">
-                            <label>Subscription Billing Method <span class="info-tooltip-trigger" data-tooltip="Define how monthly subscription fees are billed.">i</span></label>
-                            <select v-model="newBrand.subscription_billing_method" style="width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; font-size: 0.85rem; cursor: pointer; margin: 0;">
-                                <option value="" disabled>Please select a billing method...</option>
-                                <option value="ledger">Deduct from Payout Ledger Balance</option>
-                                <option value="stripe_card">Charge Credit Card on File</option>
-                                <option value="stripe_connect">Split from checkout proceeds via Stripe Connect</option>
-                            </select>
-                        </div>
-
-                        <!-- Language Selection -->
-                        <div class="form-group form-full">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Storefront Supported Languages</label>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-                                <label v-for="lang in availableLanguages" :key="lang.code" 
-                                       :style="{
-                                           display: 'inline-flex',
-                                           alignItems: 'center',
-                                           gap: '6px',
-                                           padding: '6px 12px',
-                                           borderRadius: '20px',
-                                           border: '1px solid ' + (newBrand.languages && newBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'var(--border)'),
-                                           background: newBrand.languages && newBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'transparent',
-                                           color: newBrand.languages && newBrand.languages.includes(lang.code) ? 'var(--workspace-bg)' : 'var(--text-main)',
-                                           cursor: 'pointer',
-                                           fontSize: '0.82rem',
-                                           fontWeight: '600',
-                                           userSelect: 'none',
-                                           transition: 'all 0.2s ease'
-                                       }">
-                                    <input type="checkbox" :value="lang.code" v-model="newBrand.languages" style="display: none;">
-                                    <span>{{ lang.flag }} {{ lang.name }}</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Platform Selection -->
-                        <div class="form-group form-full">
-                            <label style="margin-bottom: 8px; display: block;">Integration Platform / Shop Type</label>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                                <div @click="!(connectionVerified && !previewMode) ? newBrand.platform = 'shopify' : null"
-                                     :style="{
-                                         border: '1px solid ' + (newBrand.platform === 'shopify' ? 'var(--accent)' : 'var(--border)'),
-                                         background: newBrand.platform === 'shopify' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
-                                         cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
-                                         opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'shopify') ? 0.4 : 1
-                                     }"
-                                     style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
-                                     class="platform-card">
-                                    <span v-html="getPlatformLogoSvg('shopify', 32)"></span>
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Shopify</span>
+                        <!-- Platform cards / Auto-detected Info -->
+                        <div class="form-group form-full" style="margin: 0;">
+                            <template v-if="platformAutoDetected">
+                                <div style="background: rgba(255, 255, 255, 0.02); padding: 16px; border-radius: 10px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; text-align: left; box-sizing: border-box; width: 100%;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span v-html="getPlatformLogoSvg(newBrand.platform, 32)"></span>
+                                        <div>
+                                            <strong style="color: var(--text-main); font-size: 0.95rem; text-transform: uppercase;">{{ newBrand.platform }} Storefront Detected</strong>
+                                            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">Your platform type was auto-resolved during website crawling.</div>
+                                        </div>
+                                    </div>
+                                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; color: var(--accent); margin: 0; user-select: none;">
+                                        <input type="checkbox" v-model="previewMode" @change="handlePreviewModeChange" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                                        <span>Preview Mode</span>
+                                    </label>
                                 </div>
-                                <div @click="!(connectionVerified && !previewMode) ? newBrand.platform = 'woocommerce' : null"
-                                     :style="{
-                                         border: '1px solid ' + (newBrand.platform === 'woocommerce' ? 'var(--accent)' : 'var(--border)'),
-                                         background: newBrand.platform === 'woocommerce' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
-                                         cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
-                                         opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'woocommerce') ? 0.4 : 1
-                                     }"
-                                     style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
-                                     class="platform-card">
-                                    <span v-html="getPlatformLogoSvg('woocommerce', 32)"></span>
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">WooCommerce</span>
+                            </template>
+                            <template v-else>
+                                <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main);">Platform Type</label>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                                    <div @click="!(connectionVerified && !previewMode) ? newBrand.platform = 'shopify' : null"
+                                         :style="{
+                                             border: '1px solid ' + (newBrand.platform === 'shopify' ? 'var(--accent)' : 'var(--border)'),
+                                             background: newBrand.platform === 'shopify' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                             cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
+                                             opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'shopify') ? 0.4 : 1
+                                         }"
+                                         style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
+                                         class="platform-card">
+                                        <span v-html="getPlatformLogoSvg('shopify', 32)"></span>
+                                        <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Shopify</span>
+                                    </div>
+                                    <div @click="!(connectionVerified && !previewMode) ? newBrand.platform = 'woocommerce' : null"
+                                         :style="{
+                                             border: '1px solid ' + (newBrand.platform === 'woocommerce' ? 'var(--accent)' : 'var(--border)'),
+                                             background: newBrand.platform === 'woocommerce' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                             cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
+                                             opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'woocommerce') ? 0.4 : 1
+                                         }"
+                                         style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
+                                         class="platform-card">
+                                        <span v-html="getPlatformLogoSvg('woocommerce', 32)"></span>
+                                        <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">WooCommerce</span>
+                                    </div>
+                                    <div @click="!(connectionVerified && !previewMode) ? (newBrand.platform = 'custom', previewMode = true, handlePreviewModeChange()) : null"
+                                         :style="{
+                                             border: '1px solid ' + (newBrand.platform === 'custom' || previewMode ? 'var(--accent)' : 'var(--border)'),
+                                             background: newBrand.platform === 'custom' || previewMode ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
+                                             cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
+                                             opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'custom') ? 0.4 : 1
+                                         }"
+                                         style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
+                                         class="platform-card">
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1;">⚙️</div>
+                                        <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Preview Mode</span>
+                                    </div>
                                 </div>
-                                <div @click="!(connectionVerified && !previewMode) ? newBrand.platform = 'custom' : null"
-                                     :style="{
-                                         border: '1px solid ' + (newBrand.platform === 'custom' ? 'var(--accent)' : 'var(--border)'),
-                                         background: newBrand.platform === 'custom' ? 'rgba(197, 160, 89, 0.06)' : 'rgba(255,255,255,0.01)',
-                                         cursor: (connectionVerified && !previewMode) ? 'not-allowed' : 'pointer',
-                                         opacity: ((connectionVerified && !previewMode) && newBrand.platform !== 'custom') ? 0.4 : 1
-                                     }"
-                                     style="border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; transition: all 0.2s ease;"
-                                     class="platform-card">
-                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1;">🛠️</div>
-                                    <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-main); margin-top: 2px;">Manual / Sandbox</span>
-                                </div>
-                            </div>
+                            </template>
                         </div>
 
                         <!-- Shopify Fields -->
-                        <template v-if="newBrand.platform === 'shopify'">
-                            <div style="background: rgba(149, 191, 71, 0.04); border: 1px solid rgba(149, 191, 71, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left; margin-bottom: 15px;">
+                        <template v-if="newBrand.platform === 'shopify' && !previewMode">
+                            <div style="background: rgba(149, 191, 71, 0.04); border: 1px solid rgba(149, 191, 71, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left;">
                                 <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
                                     <span v-html="getPlatformLogoSvg('shopify', 20)"></span>
                                     <span>Shopify Storefront Integration</span>
                                 </div>
-
-                                <!-- OAuth vs Manual Segment Selector -->
                                 <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
-                                    <button type="button" 
-                                            :style="{
-                                                flex: 1,
-                                                border: 'none',
-                                                padding: '8px',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                background: shopifyConnectionMode === 'oauth' ? '#95BF47' : 'transparent',
-                                                color: shopifyConnectionMode === 'oauth' ? '#000000' : 'var(--text-muted)',
-                                                transition: 'all 0.2s ease'
-                                            }"
-                                             @click="shopifyConnectionMode = 'oauth'">
+                                    <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: shopifyConnectionMode === 'oauth' ? '#95BF47' : 'transparent', color: shopifyConnectionMode === 'oauth' ? '#000000' : 'var(--text-muted)' }" @click="shopifyConnectionMode = 'oauth'">
                                          ⚡ Single-Click Connect (OAuth)
                                     </button>
-                                    <button type="button" 
-                                            :style="{
-                                                flex: 1,
-                                                border: 'none',
-                                                padding: '8px',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                background: shopifyConnectionMode === 'manual' ? '#95BF47' : 'transparent',
-                                                color: shopifyConnectionMode === 'manual' ? '#000000' : 'var(--text-muted)',
-                                                transition: 'all 0.2s ease'
-                                            }"
-                                             @click="shopifyConnectionMode = 'manual'">
+                                    <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: shopifyConnectionMode === 'manual' ? '#95BF47' : 'transparent', color: shopifyConnectionMode === 'manual' ? '#000000' : 'var(--text-muted)' }" @click="shopifyConnectionMode = 'manual'">
                                          ⚙️ Manual API Keys Setup
                                     </button>
                                 </div>
-
                                 <div class="form-group form-full" style="margin: 0;">
                                     <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Shopify Shop Address (URL)</label>
-                                    <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.myshopify.com" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                    <input type="text" v-model="newBrand.shopify_shop_name" placeholder="pesado585.myshopify.com" :disabled="connectionVerified" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                 </div>
-
-                                <!-- OAuth Connect Button -->
                                 <template v-if="shopifyConnectionMode === 'oauth'">
                                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                                        <button type="button" class="btn" 
-                                                style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #95BF47; color: #000000; border: 1px solid #95BF47;"
-                                                @click="connectShopifyOAuth" :disabled="!newBrand.shopify_shop_name || connectionVerified">
+                                        <button type="button" class="btn" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #95BF47; color: #000000; border: 1px solid #95BF47;" @click="connectShopifyOAuth" :disabled="!newBrand.shopify_shop_name || connectionVerified">
                                             <span v-html="getPlatformLogoSvg('shopify', 18)"></span>
                                             <span>Link Shopify Account</span>
                                         </button>
-                                        <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 4px;">
-                                            ✅ Connected via Shopify App OAuth
-                                        </div>
                                     </div>
                                 </template>
-
-                                <!-- Manual Token Input -->
                                 <template v-else>
                                     <div class="form-group form-full" style="margin: 0;">
                                         <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Shopify Admin API Access Token</label>
-                                        <input type="password" v-model="newBrand.shopify_access_token" placeholder="Shopify Admin API Access Token (shpat_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                        <input type="password" v-model="newBrand.shopify_access_token" placeholder="shpat_..." :disabled="connectionVerified" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                      </div>
                                 </template>
                             </div>
                         </template>
 
                         <!-- WooCommerce Fields -->
-                        <template v-if="newBrand.platform === 'woocommerce'">
-                            <div style="background: rgba(127, 84, 179, 0.04); border: 1px solid rgba(127, 84, 179, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left; margin-bottom: 15px;">
+                        <template v-if="newBrand.platform === 'woocommerce' && !previewMode">
+                            <div style="background: rgba(127, 84, 179, 0.04); border: 1px solid rgba(127, 84, 179, 0.15); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box; text-align: left;">
                                 <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
                                     <span v-html="getPlatformLogoSvg('woocommerce', 20)"></span>
                                     <span>WooCommerce Storefront Integration</span>
                                 </div>
-
-                                <!-- OAuth vs Manual Segment Selector -->
                                 <div style="display: flex; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 4px;">
-                                    <button type="button" 
-                                            :style="{
-                                                flex: 1,
-                                                border: 'none',
-                                                padding: '8px',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                background: woocommerceConnectionMode === 'oauth' ? '#7F54B3' : 'transparent',
-                                                color: woocommerceConnectionMode === 'oauth' ? '#ffffff' : 'var(--text-muted)',
-                                                transition: 'all 0.2s ease'
-                                            }"
-                                             @click="woocommerceConnectionMode = 'oauth'">
+                                    <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: woocommerceConnectionMode === 'oauth' ? '#7F54B3' : 'transparent', color: woocommerceConnectionMode === 'oauth' ? '#ffffff' : 'var(--text-muted)' }" @click="woocommerceConnectionMode = 'oauth'">
                                          ⚡ Single-Click Connect (OAuth)
                                     </button>
-                                    <button type="button" 
-                                            :style="{
-                                                flex: 1,
-                                                border: 'none',
-                                                padding: '8px',
-                                                borderRadius: '6px',
-                                                fontSize: '0.8rem',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                background: woocommerceConnectionMode === 'manual' ? '#7F54B3' : 'transparent',
-                                                color: woocommerceConnectionMode === 'manual' ? '#ffffff' : 'var(--text-muted)',
-                                                transition: 'all 0.2s ease'
-                                            }"
-                                             @click="woocommerceConnectionMode = 'manual'">
+                                    <button type="button" :style="{ flex: 1, border: 'none', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', background: woocommerceConnectionMode === 'manual' ? '#7F54B3' : 'transparent', color: woocommerceConnectionMode === 'manual' ? '#ffffff' : 'var(--text-muted)' }" @click="woocommerceConnectionMode = 'manual'">
                                          ⚙️ Manual API Keys Setup
                                     </button>
                                 </div>
-
                                 <div class="form-group form-full" style="margin: 0;">
                                     <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Store URL</label>
-                                    <input type="text" v-model="newBrand.woocommerce_shop_url" placeholder="barista-essentials.de" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                    <input type="text" v-model="newBrand.woocommerce_shop_url" placeholder="barista-essentials.de" :disabled="connectionVerified" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                 </div>
-
-                                <!-- OAuth Connect Button -->
                                 <template v-if="woocommerceConnectionMode === 'oauth'">
                                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                                        <button type="button" class="btn" 
-                                                style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #7F54B3; color: #ffffff; border: 1px solid #7F54B3;"
-                                                @click="connectWooCommerceOAuth" :disabled="!newBrand.woocommerce_shop_url || connectionVerified">
+                                        <button type="button" class="btn" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; height: 38px; width: 100%; background: #7F54B3; color: #ffffff; border: 1px solid #7F54B3;" @click="connectWooCommerceOAuth" :disabled="!newBrand.woocommerce_shop_url || connectionVerified">
                                             <span v-html="getPlatformLogoSvg('woocommerce', 18)"></span>
                                             <span>Link WooCommerce Account</span>
                                         </button>
-                                        <div v-if="connectionVerified" style="color: #10b981; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 4px;">
-                                            ✅ Connected via WooCommerce API OAuth
-                                        </div>
                                     </div>
                                 </template>
-
-                                <!-- Manual Key Inputs -->
                                 <template v-else>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%;">
                                         <div class="form-group" style="margin: 0;">
-                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Consumer Key</label>
-                                            <input type="password" v-model="newBrand.woocommerce_consumer_key" placeholder="WooCommerce Consumer Key (ck_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Consumer Key</label>
+                                            <input type="password" v-model="newBrand.woocommerce_consumer_key" placeholder="ck_..." :disabled="connectionVerified" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                         </div>
                                         <div class="form-group" style="margin: 0;">
-                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">WooCommerce Consumer Secret</label>
-                                            <input type="password" v-model="newBrand.woocommerce_consumer_secret" placeholder="WooCommerce Consumer Secret (cs_...)" :disabled="connectionVerified && !previewMode" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                                            <label style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 6px; display: block;">Consumer Secret</label>
+                                            <input type="password" v-model="newBrand.woocommerce_consumer_secret" placeholder="cs_..." :disabled="connectionVerified" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
                                         </div>
                                     </div>
                                 </template>
                             </div>
                         </template>
 
-                        <!-- Stripe Config Selection Toggle -->
-                        <div class="form-group form-full" style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 10px;">
-                            <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--text-main);">
-                                <input type="checkbox" v-model="useCustomStripe" style="margin: 0; width: 18px; height: 18px;">
-                                Configure Custom Stripe Gateway (Optional)
-                            </label>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                                If unconfigured, the storefront defaults to the global agency Stripe keys.
-                            </div>
-                        </div>
 
-                        <template v-if="useCustomStripe">
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Secret Key (API Key)</label>
-                                <input type="password" v-model="newBrand.stripe_secret_key" placeholder="Stripe Secret Key (sk_live_...)">
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getStripeLogoSvg()"></span>Stripe Webhook Secret</label>
-                                <input type="password" v-model="newBrand.stripe_webhook_secret" placeholder="Stripe Webhook Secret (whsec_...)">
-                            </div>
-                        </template>
 
-                        <!-- Preview Mode Toggle (Skip connection verification) -->
-                        <div class="form-group form-full" style="background: rgba(255, 255, 255, 0.02); padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border); margin-top: 10px;">
-                            <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--text-main);">
-                                <input type="checkbox" v-model="previewMode" style="margin: 0; width: 18px; height: 18px;" @change="handlePreviewModeChange">
-                                Enable Offline Preview Mode (Skip DNS & API Checks)
-                            </label>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                                Select this to spin up a sandbox storefront instantly using mock products, skipping integration validation.
-                            </div>
-                        </div>
-
-                        <!-- Verification Dashboard -->
-                        <div v-if="!previewMode" class="form-group form-full" style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 15px; display: flex; flex-direction: column; gap: 15px;">
-                            <h4 style="margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 6px;">🛡️ Onboarding Verification & Checks</h4>
-                            
-                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
-                                <div style="flex: 1; min-width: 250px;">
-                                    <div style="font-weight: 600; font-size: 0.9rem;">1. Cloudflare DNS Subdomain routing</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Validates subdomain DNS status.</div>
-                                    <div v-if="dnsVerifyError" style="color: #ef4444; font-size: 0.78rem; margin-top: 2px;">❌ {{ dnsVerifyError }}</div>
+                        <!-- Verification Actions -->
+                        <div v-if="!previewMode" style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">1. Cloudflare DNS Subdomain routing</div>
+                                    <div v-if="dnsVerifyError" style="color: #ef4444; font-size: 0.75rem; margin-top: 2px;">❌ {{ dnsVerifyError }}</div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span v-if="dnsVerified" style="color: #10b981; font-weight: bold; font-size: 0.85rem;">✅ DNS Verified</span>
-                                    <button type="button" class="btn" style="margin: 0;" @click="verifyDns" :disabled="dnsVerifying">
-                                        {{ dnsVerifying ? 'Checking...' : (dnsVerified ? 'Re-Verify' : 'Verify DNS') }}
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span v-if="dnsVerified" style="color: #10b981; font-weight: bold; font-size: 0.8rem;">✅ Verified</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" @click="verifyDns" :disabled="dnsVerifying">
+                                        Check DNS
                                     </button>
-                                    <button v-if="dnsMissing && !dnsVerified" type="button" class="btn btn-accent" style="margin: 0; font-weight: 700;" @click="createDnsRecord" :disabled="dnsCreating">
-                                        {{ dnsCreating ? 'Registering...' : 'Register on Cloudflare' }}
+                                    <button v-if="dnsMissing && !dnsVerified" type="button" class="btn btn-accent" style="margin: 0; padding: 6px 12px; font-size: 0.78rem; font-weight: 700;" @click="createDnsRecord" :disabled="dnsCreating">
+                                        Register Subdomain
                                     </button>
                                 </div>
                             </div>
 
-                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; flex-wrap: wrap;">
-                                <div style="flex: 1; min-width: 250px;">
-                                    <div style="font-weight: 600; font-size: 0.9rem;">2. E-Commerce API integration keys</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Establishes connection to sync product listings.</div>
-                                    <div v-if="connectionVerifyError" style="color: #ef4444; font-size: 0.78rem; margin-top: 2px;">❌ {{ connectionVerifyError }}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; flex-wrap: wrap;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">2. E-Commerce API integration keys</div>
+                                    <div v-if="connectionVerifyError" style="color: #ef4444; font-size: 0.75rem; margin-top: 2px;">❌ {{ connectionVerifyError }}</div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span v-if="connectionVerified" style="color: #10b981; font-weight: bold; font-size: 0.85rem;">✅ API Connected</span>
-                                    <button type="button" class="btn" style="margin: 0;" @click="verifyConnection" :disabled="connectionVerifying">
-                                        {{ connectionVerifying ? 'Testing...' : (connectionVerified ? 'Re-Test' : 'Test API') }}
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span v-if="connectionVerified" style="color: #10b981; font-weight: bold; font-size: 0.8rem;">✅ Connected</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" @click="verifyConnection" :disabled="connectionVerifying">
+                                        Test API
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        <div v-else class="form-group form-full" style="background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 8px; border: 1px solid #10b981; margin-top: 15px; font-weight: 600; color: #10b981; text-align: center;">
-                            ✨ Sandbox Preview Mode Enabled: Verification checks bypassed!
-                        </div>
-                        <div class="form-group form-full" style="display: flex; justify-content: flex-end; margin-top: 15px;">
-                            <button type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; gap: 8px;" @click="saveBrandDraft" :disabled="savingDraft">
-                                <span v-if="savingDraft" class="spinner"></span>
-                                <span>{{ savingDraft ? 'Saving Draft...' : 'Create Draft & Select Channels ➡️' }}</span>
+
+                        <!-- Sync Trigger Button -->
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-accent" style="margin: 0; height: 42px; font-weight: 700; display: flex; align-items: center; gap: 8px;" @click="verifyAndLoadProducts" :disabled="loadingProducts || connectionVerifying">
+                                <span v-if="loadingProducts" class="spinner"></span>
+                                <span>{{ loadingProducts ? 'Syncing...' : 'Test Connection & Sync Products' }}</span>
                             </button>
                         </div>
-                    </div>
-                </div>
 
-                <!-- STEP 2: SELECT CHANNELS TO CONNECT -->
-                <div v-if="currentStep === 2">
-                    <h4 style="margin: 0 0 8px 0; color: var(--accent);">🛍️ Select Channels to Connect</h4>
-                    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 24px;">
-                        Choose which sales and marketing channels you want to activate for your brand storefront. You can connect, design, and configure these channels later in the dashboard.
-                    </p>
+                        <!-- Product Selection Table (rendered once products are loaded) -->
+                        <div v-if="importedProducts.length > 0" style="border-top: 1px solid var(--border); padding-top: 20px; display: flex; flex-direction: column; gap: 15px;">
+                            <h5 style="margin: 0; font-weight: 700; color: var(--text-main);">🛒 Select Products to Import ({{ importedProducts.length }} found)</h5>
 
-                    <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px;">
-                        <!-- Storefront Checkbox Card -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer;" @click="selectedChannels.storefront = !selectedChannels.storefront">
-                            <input type="checkbox" v-model="selectedChannels.storefront" style="width: 20px; height: 20px; cursor: pointer; margin: 4px 0 0 0;" @click.stop>
-                            <div>
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 0.92rem; color: var(--text-main);">
-                                    <span v-html="getChannelLogoSvg('storefront', 16)"></span>
-                                    <span>Storefront E-Commerce Shop</span>
-                                </strong>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: block; margin-top: 2px;">
-                                    Host a custom checkout experience on your subdomain (.{{ app.baseBrandDomain }}) or your own external custom domain.
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Campaign Landing Page Checkbox Card -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer;" @click="selectedChannels.landingpage = !selectedChannels.landingpage">
-                            <input type="checkbox" v-model="selectedChannels.landingpage" style="width: 20px; height: 20px; cursor: pointer; margin: 4px 0 0 0;" @click.stop>
-                            <div>
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 0.92rem; color: var(--text-main);">
-                                    <span v-html="getChannelLogoSvg('landingpage', 16)"></span>
-                                    <span>Campaign Landing Page</span>
-                                </strong>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: block; margin-top: 2px;">
-                                    A dedicated marketing landing page to drive promotional campaign traffic and newsletter signups.
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Instagram Shopping Checkbox Card -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer;" @click="selectedChannels.instagram = !selectedChannels.instagram">
-                            <input type="checkbox" v-model="selectedChannels.instagram" style="width: 20px; height: 20px; cursor: pointer; margin: 4px 0 0 0;" @click.stop>
-                            <div>
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 0.92rem; color: var(--text-main);">
-                                    <span v-html="getChannelLogoSvg('instagram', 16)"></span>
-                                    <span>Instagram Shopping Feed</span>
-                                </strong>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: block; margin-top: 2px;">
-                                    Sync your product catalog to Instagram posts, reels, and stories, enabling users to shop directly on-platform.
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Facebook Page Shop Checkbox Card -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer;" @click="selectedChannels.facebook = !selectedChannels.facebook">
-                            <input type="checkbox" v-model="selectedChannels.facebook" style="width: 20px; height: 20px; cursor: pointer; margin: 4px 0 0 0;" @click.stop>
-                            <div>
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 0.92rem; color: var(--text-main);">
-                                    <span v-html="getChannelLogoSvg('facebook', 16)"></span>
-                                    <span>Facebook Page Shop</span>
-                                </strong>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: block; margin-top: 2px;">
-                                    Synchronize your catalog list and create a shopping tab inside your brand's official Facebook Page.
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Twitter/X Profile Checkbox Card -->
-                        <div style="display: flex; align-items: flex-start; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer;" @click="selectedChannels.twitter = !selectedChannels.twitter">
-                            <input type="checkbox" v-model="selectedChannels.twitter" style="width: 20px; height: 20px; cursor: pointer; margin: 4px 0 0 0;" @click.stop>
-                            <div>
-                                <strong style="display: flex; align-items: center; gap: 6px; font-size: 0.92rem; color: var(--text-main);">
-                                    <span v-html="getChannelLogoSvg('twitter', 16)"></span>
-                                    <span>Twitter / X Profile Shop</span>
-                                </strong>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: block; margin-top: 2px;">
-                                    Display a product showcase module on your professional profile on X (Twitter).
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 20px;">
-                        <button type="button" class="btn" style="margin: 0;" @click="currentStep = 1">
-                            ⬅️ Back to Connection
-                        </button>
-                        <button type="button" class="btn" style="margin: 0; background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center;" @click="goToStep(3)">
-                            <span>Continue to Catalog Setup ➡️</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- STEP 3: CATALOG SETUP (SELECT PRODUCTS) -->
-                <div v-if="currentStep === 3">
-                    <h4 style="margin: 0 0 8px 0; color: var(--accent);">🛒 Catalog Setup & Product Sync</h4>
-                    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px;">
-                        Select which products you want to import into your storefront catalog. You can set custom price overrides and descriptions now or edit them later.
-                    </p>
-
-                    <div v-if="loadingProducts" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 10px;">
-                        <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
-                        <span style="font-size: 0.85rem; color: var(--text-muted);">Fetching store catalog products...</span>
-                    </div>
-
-                    <div v-else-if="productSyncError" style="background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 12px; border-radius: 6px; color: var(--text-main); font-size: 0.85rem; margin-bottom: 15px;">
-                        ❌ Failed to load products: {{ productSyncError }}
-                    </div>
-
-                    <template v-else>
-                        <!-- Search & Markup Controls -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;">
-                            <!-- Search products -->
-                            <div style="position: relative; flex-grow: 1; max-width: 320px;">
-                                <input type="text" v-model="catalogSearchQuery" placeholder="Search catalog products..." 
-                                    style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px 12px 8px 32px; font-size: 0.85rem; margin: 0;">
-                                <span style="position: absolute; left: 10px; top: 10px; color: var(--text-muted); font-size: 0.85rem;">🔍</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                                <div style="position: relative; flex-grow: 1; max-width: 320px;">
+                                    <input type="text" v-model="catalogSearchQuery" placeholder="Search products..." style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px 12px 8px 32px; font-size: 0.85rem; margin: 0;">
+                                    <span style="position: absolute; left: 10px; top: 10px; color: var(--text-muted); font-size: 0.85rem;">🔍</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px;">
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">💰 Price Markup:</span>
+                                    <input type="number" min="0" step="1" v-model="globalMarkupPercent" @input="applyGlobalMarkup" placeholder="0" style="width: 60px; height: 26px; padding: 4px 6px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); text-align: center; font-weight: bold; margin: 0;">
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">%</span>
+                                </div>
                             </div>
 
-                            <!-- Markup Percentage -->
-                            <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px;">
-                                <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">💰 Global Price Markup:</span>
-                                <input type="number" min="0" step="1" v-model="globalMarkupPercent" @input="applyGlobalMarkup" placeholder="0"
-                                       style="width: 60px; height: 26px; padding: 4px 6px; line-height: normal; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); text-align: center; font-weight: bold; margin: 0;">
-                                <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">%</span>
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
-                            <div style="padding: 10px 14px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 0.85rem; margin: 0;">
-                                    <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                                    Select All Products
-                                </label>
-                                <span style="font-size: 0.78rem; color: var(--text-muted);">{{ Object.values(selectedProducts).filter(Boolean).length }} of {{ importedProducts.length }} selected</span>
-                            </div>
-
-                            <div style="max-height: 380px; overflow-y: auto;">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                                    <thead>
-                                        <tr style="border-bottom: 1px solid var(--border); text-align: left; background: rgba(255,255,255,0.01);">
-                                            <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 8%; text-align: center;">Select</th>
-                                            <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 42%;">Product</th>
-                                            <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Storefront Price (€)</th>
-                                            <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Custom Description</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="p in filteredImportedProducts" :key="p.id || 'p-' + importedProducts.indexOf(p)" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                                            <td style="padding: 10px; text-align: center;">
-                                                <input type="checkbox" v-model="selectedProducts[p.id || 'p-' + importedProducts.indexOf(p)]" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
-                                            </td>
-                                            <td style="padding: 10px;">
-                                                <div style="display: flex; align-items: center; gap: 10px;">
-                                                    <div style="width: 36px; height: 36px; border-radius: 6px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border);">
-                                                        <img v-if="p.image" :src="p.image" style="width: 100%; height: 100%; object-fit: contain;" />
-                                                        <span v-else style="font-size: 0.7rem; color: var(--text-muted);">☕</span>
-                                                    </div>
-                                                    <div>
-                                                        <div style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                                                            <span>{{ p.title }}</span>
-                                                            <a v-if="p.original_link" :href="p.original_link" target="_blank" style="text-decoration: none; color: var(--text-muted); opacity: 0.6; transition: opacity 0.2s; display: inline-flex; align-items: center;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="View original product page">
-                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
-                                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                                                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                                                                </svg>
-                                                            </a>
+                            <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                                <div style="padding: 10px 14px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main); font-weight: bold; font-size: 0.85rem; margin: 0;">
+                                        <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                                        Select All
+                                    </label>
+                                    <span style="font-size: 0.78rem; color: var(--text-muted);">{{ Object.values(selectedProducts).filter(Boolean).length }} selected</span>
+                                </div>
+                                <div style="max-height: 250px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                        <thead>
+                                            <tr style="border-bottom: 1px solid var(--border); text-align: left; background: rgba(255,255,255,0.01);">
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 8%; text-align: center;">Select</th>
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 42%;">Product</th>
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Storefront Price (€)</th>
+                                                <th style="padding: 10px; font-weight: 700; color: var(--text-muted); width: 25%;">Custom Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="p in filteredImportedProducts" :key="p.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                                <td style="padding: 10px; text-align: center;">
+                                                    <input type="checkbox" v-model="selectedProducts[p.id]" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                                                </td>
+                                                <td style="padding: 10px;">
+                                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                                        <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border);">
+                                                            <img v-if="p.image" :src="p.image" style="width: 100%; height: 100%; object-fit: contain;" />
+                                                            <span v-else style="font-size: 0.7rem; color: var(--text-muted);">☕</span>
                                                         </div>
-                                                        <div style="font-size: 0.72rem; color: var(--text-muted);">Orig. Price: €{{ p.price ? p.price.toFixed(2) : '55.00' }}</div>
+                                                        <div>
+                                                            <div style="font-weight: 600; color: var(--text-main);">{{ p.title }}</div>
+                                                            <div style="font-size: 0.72rem; color: var(--text-muted);">Orig. Price: €{{ p.price ? p.price.toFixed(2) : '55.00' }}</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td style="padding: 10px;">
-                                                <input type="number" step="0.01" v-model="customPrices[p.id || 'p-' + importedProducts.indexOf(p)]" style="width: 90px; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id || 'p-' + importedProducts.indexOf(p)]">
-                                            </td>
-                                            <td style="padding: 10px;">
-                                                <input type="text" v-model="customDescriptions[p.id || 'p-' + importedProducts.indexOf(p)]" placeholder="Keep original" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id || 'p-' + importedProducts.indexOf(p)]">
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                                </td>
+                                                <td style="padding: 10px;">
+                                                    <input type="number" step="0.01" v-model="customPrices[p.id]" style="width: 90px; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id]">
+                                                </td>
+                                                <td style="padding: 10px;">
+                                                    <input type="text" v-model="customDescriptions[p.id]" placeholder="Keep original" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; margin: 0; background: var(--workspace-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px;" :disabled="!selectedProducts[p.id]">
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-                    </template>
 
-                    <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 20px;">
-                        <button type="button" class="btn" style="margin: 0;" @click="currentStep = 2">
-                            ⬅️ Back to Channels
-                        </button>
-                        <button type="button" class="btn" style="margin: 0; background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center;" @click="currentStep = 4">
-                            <span>Continue to Publish ➡️</span>
-                        </button>
                     </div>
                 </div>
 
-                <!-- STEP 4: FINALIZE & PUBLISH -->
-                <div v-if="currentStep === 4">
-                    <h4 style="margin: 0 0 15px 0; color: var(--accent);">🚀 Publish Storefront & Save Channel</h4>
-
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 24px; border-radius: 8px; display: flex; flex-direction: column; gap: 20px;">
+                <!-- STEP 3: CONNECT SALES CHANNELS -->
+                <div v-if="currentStep === 3">
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
                         <div>
-                            <label style="font-weight: 700; display: block; margin-bottom: 8px; color: var(--text-main);">Storefront Status</label>
-                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main);">
-                                    <input type="radio" value="active" v-model="newBrand.status" style="width: 18px; height: 18px; margin: 0;">
-                                    <span style="font-weight: 600;">🟢 Active (Live & online on subdomain)</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-main);">
-                                    <input type="radio" value="draft" v-model="newBrand.status" style="width: 18px; height: 18px; margin: 0;">
-                                    <span style="font-weight: 600;">🟡 Draft (Offline, only visible in preview mode)</span>
-                                </label>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🛍️ Connect Sales Channels</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                                Select and authorize marketing channels to showcase your catalog. You can skip any channel to configure it later.
+                            </p>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            <!-- Storefront Card -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span v-html="getChannelLogoSvg('storefront', 24)"></span>
+                                    <div>
+                                        <strong style="color: var(--text-main); font-size: 0.9rem;">Storefront Web Shop</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Subdomain checkout routing</span>
+                                    </div>
+                                </div>
+                                <span style="color: #10b981; font-weight: bold; font-size: 0.82rem;">✅ Active (Default)</span>
                             </div>
+
+                            <!-- Campaign Landing Page -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span v-html="getChannelLogoSvg('landingpage', 24)"></span>
+                                    <div>
+                                        <strong style="color: var(--text-main); font-size: 0.9rem;">Campaign Landing Page</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Lead generation & newsletter signup pages</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span v-if="selectedChannels.landingpage" style="color: #10b981; font-weight: bold; font-size: 0.82rem;">✅ Linked</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" @click="selectedChannels.landingpage = !selectedChannels.landingpage">
+                                        {{ selectedChannels.landingpage ? 'Deactivate' : 'Link Channel' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Instagram Shopping -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span v-html="getChannelLogoSvg('instagram', 24)"></span>
+                                    <div>
+                                        <strong style="color: var(--text-main); font-size: 0.9rem;">Instagram Shopping Feed</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Sync catalog items to Instagram posts & stories</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span v-if="selectedChannels.instagram" style="color: #10b981; font-weight: bold; font-size: 0.82rem;">✅ Connected</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem; font-weight: 700; background: #e1306c; color: white; border: none;" v-if="!selectedChannels.instagram" @click="selectedChannels.instagram = true">
+                                        OAuth Connect
+                                    </button>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" v-else @click="selectedChannels.instagram = false">
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Facebook Page Shop -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span v-html="getChannelLogoSvg('facebook', 24)"></span>
+                                    <div>
+                                        <strong style="color: var(--text-main); font-size: 0.9rem;">Facebook Page Shop</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Synchronize catalog listings with Facebook Shop</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span v-if="selectedChannels.facebook" style="color: #10b981; font-weight: bold; font-size: 0.82rem;">✅ Connected</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem; font-weight: 700; background: #1877f2; color: white; border: none;" v-if="!selectedChannels.facebook" @click="selectedChannels.facebook = true">
+                                        OAuth Connect
+                                    </button>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" v-else @click="selectedChannels.facebook = false">
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Twitter/X Shop -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span v-html="getChannelLogoSvg('twitter', 24)"></span>
+                                    <div>
+                                        <strong style="color: var(--text-main); font-size: 0.9rem;">Twitter / X Profile Shop</strong>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Display shop items panel on your professional profile</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span v-if="selectedChannels.twitter" style="color: #10b981; font-weight: bold; font-size: 0.82rem;">✅ Connected</span>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem; font-weight: 700; background: #000000; color: white; border: 1px solid #333;" v-if="!selectedChannels.twitter" @click="selectedChannels.twitter = true">
+                                        OAuth Connect
+                                    </button>
+                                    <button type="button" class="btn" style="margin: 0; padding: 6px 12px; font-size: 0.78rem;" v-else @click="selectedChannels.twitter = false">
+                                        Disconnect
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 4: SUMMARY & PUBLISH -->
+                <div v-if="currentStep === 4">
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+                        <div>
+                            <h4 style="margin: 0 0 6px 0; color: var(--text-main); font-weight: 700;">🚀 Publish Storefront & Save Channel</h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                                Select subscription settings and authorize checkout processing parameters below.
+                            </p>
                         </div>
 
                         <!-- Step 4 Billing Details & Payment Wall -->
@@ -811,14 +676,38 @@
                             </ul>
                         </div>
                     </div>
+                </div>
+                </div>
 
-                    <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 25px;">
-                        <button type="button" class="btn" style="margin: 0;" @click="currentStep = 3">
-                            ⬅️ Back to Catalog Setup
+                <!-- Fixed Sticky Footer Actions at the bottom of the form -->
+                <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; background: var(--card-bg); z-index: 100; box-sizing: border-box; margin-top: 5px;">
+                    <div>
+                        <!-- Back Buttons -->
+                        <button v-if="currentStep === 2" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 1">
+                            ⬅️ Back to Profile
                         </button>
-                        <button type="button" class="btn" style="margin: 0; background: #10b981; color: #fff; font-weight: 700; padding: 0 30px; border-color: #10b981; display: flex; align-items: center; gap: 8px;" @click="finalizeOnboarding" :disabled="savingFinal">
+                        <button v-if="currentStep === 3" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 2">
+                            ⬅️ Back to eCommerce Connect
+                        </button>
+                        <button v-if="currentStep === 4" type="button" class="btn btn-secondary" style="margin: 0; height: 44px; border: 1px solid var(--border);" @click="currentStep = 3">
+                            ⬅️ Back to Sales Channels
+                        </button>
+                    </div>
+                    <div>
+                        <!-- Next/Submit Buttons -->
+                        <button v-if="currentStep === 1" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; gap: 8px; margin: 0;" @click="saveBrandDraft" :disabled="savingDraft || brandIdConflict || !autofilledStoreTag">
+                            <span v-if="savingDraft" class="spinner"></span>
+                            <span>{{ savingDraft ? 'Saving Profile...' : 'Save Profile & eCommerce Connect ➡️' }}</span>
+                        </button>
+                        <button v-if="currentStep === 2" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(3)">
+                            <span>Continue to Sales Channels ➡️</span>
+                        </button>
+                        <button v-if="currentStep === 3" type="button" class="btn" style="background-color: var(--primary); color: var(--workspace-bg); font-weight: 700; height: 44px; padding: 0 30px; display: flex; align-items: center; margin: 0;" @click="goToStep(4)">
+                            <span>Continue to Final Summary ➡️</span>
+                        </button>
+                        <button v-if="currentStep === 4" type="button" class="btn btn-accent" style="margin: 0; background: #10b981; color: #fff; font-weight: 700; padding: 0 30px; height: 44px; border-color: #10b981; display: flex; align-items: center; gap: 8px;" @click="finalizeOnboarding" :disabled="savingFinal">
                             <span v-if="savingFinal" class="spinner"></span>
-                            <span>{{ savingFinal ? 'Finalizing...' : 'Complete Onboarding & Save' }}</span>
+                            <span>{{ savingFinal ? 'Finalizing...' : 'Complete Onboarding & Save 🚀' }}</span>
                         </button>
                     </div>
                 </div>
@@ -1091,7 +980,7 @@
                     <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                         <span>🔌</span> Connect {{ socialModalPlatform }} Channel
                     </h3>
-                    <button type="button" @click="socialModalOpen = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+                    <button type="button" @click="closeSocialModal" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
                 </div>
                 <div class="panel-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
                     
@@ -1111,7 +1000,7 @@
                         <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 320px; margin: 0; line-height: 1.4;">
                             Stricktly Coffee has successfully authenticated with {{ socialModalPlatform }}. Catalog items will synchronize automatically.
                         </p>
-                        <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; border: none; border-radius: 6px; padding: 10px 24px; height: 38px; display: flex; align-items: center; justify-content: center;" @click="socialModalOpen = false">
+                        <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; border: none; border-radius: 6px; padding: 10px 24px; height: 38px; display: flex; align-items: center; justify-content: center;" @click="closeSocialModal">
                             Done
                         </button>
                     </div>
@@ -1185,7 +1074,7 @@
                         </div>
 
                         <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px;">
-                            <button type="button" class="btn" style="margin: 0; background: none; border: 1px solid var(--border); color: var(--text-main);" @click="socialModalOpen = false">
+                            <button type="button" class="btn" style="margin: 0; background: none; border: 1px solid var(--border); color: var(--text-main);" @click="closeSocialModal">
                                 Cancel
                             </button>
                             <button type="button" class="btn btn-accent" style="margin: 0; padding: 0 24px; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;" @click="submitSocialConnection">
@@ -1270,11 +1159,14 @@ export default {
         return {
             easySetupUrl: '',
             autofilledStoreTag: '',
+            scrapedProducts: [],
+            platformAutoDetected: false,
             easySetupLoading: false,
             easySetupError: '',
             localDomainType: 'subdomain',
             catalogSearchQuery: '',
             activeSubView: 'list',
+            selectedChannelId: null,
             isFullscreen: false,
             iframeCurrentUrl: '',
             selectedChannels: {
@@ -1364,11 +1256,36 @@ export default {
                 this.app.brandsSubView = newVal;
             }
         },
+        selectedChannelId: {
+            immediate: true,
+            handler(newVal) {
+                this.app.brandsSelectedChannelId = newVal;
+            }
+        },
         isCreatingBrand: {
             immediate: true,
             handler(newVal) {
                 this.app.isCreatingBrand = newVal;
+                if (!newVal) {
+                    if (this.app && this.app.loadBrands) {
+                        this.app.loadBrands();
+                    }
+                } else {
+                    this.applyLiveWizardTheme();
+                }
             }
+        },
+        'newBrand.primary_color'() {
+            this.applyLiveWizardTheme();
+        },
+        'newBrand.secondary_color'() {
+            this.applyLiveWizardTheme();
+        },
+        'newBrand.bg_color'() {
+            this.applyLiveWizardTheme();
+        },
+        'newBrand.text_color'() {
+            this.applyLiveWizardTheme();
         },
         'newBrand.custom_domain': {
             immediate: true,
@@ -1409,7 +1326,7 @@ export default {
         userRole() { return this.app.userRole; },
         brands() {
             const list = this.app.brands;
-            if (this.userRole.toLowerCase() === 'merchant' && this.app.activeShopFilter !== 'all') {
+            if (this.app.activeShopFilter && this.app.activeShopFilter !== 'all') {
                 return list.filter(b => b.id === this.app.activeShopFilter);
             }
             return list;
@@ -1623,6 +1540,7 @@ export default {
         },
         resumeDraftOnboarding(brand) {
             this.newBrandSavedId = brand.id;
+            this.platformAutoDetected = !!(brand.platform === 'shopify' || brand.platform === 'woocommerce');
             // Restore newBrand details
             this.app.newBrand = {
                 ...this.app.newBrand,
@@ -1663,12 +1581,37 @@ export default {
         goToDesigner(brandId) {
             this.app.activeShopFilter = brandId;
             this.app.updateSettingsContext();
+            this.selectedChannelId = 'storefront';
             this.activeSubView = 'designer';
         },
         goToLandingDesigner(brandId) {
             this.app.activeShopFilter = brandId;
             this.app.updateSettingsContext();
+            this.selectedChannelId = 'landingpage';
             this.activeSubView = 'landing-designer';
+        },
+        getChannelPlatformName(channelId) {
+            if (channelId === 'instagram') return 'Instagram';
+            if (channelId === 'facebook') return 'Facebook';
+            if (channelId === 'twitter') return 'X / Twitter';
+            return channelId;
+        },
+        getChannelName(channelId) {
+            if (channelId === 'storefront') return 'Storefront E-Shop';
+            if (channelId === 'landingpage') return 'Campaign Landing Page';
+            if (channelId === 'instagram') return 'Instagram Shopping Feed';
+            if (channelId === 'facebook') return 'Facebook Page Shop';
+            if (channelId === 'twitter') return 'Twitter / X Profile Shop';
+            return channelId || '';
+        },
+        connectChannel(channelId) {
+            const activeBrand = this.brands[0] || this.app.brands[0];
+            if (!activeBrand) {
+                this.app.showNotification('Please register or select a brand shop first.');
+                return;
+            }
+            const platformName = this.getChannelPlatformName(channelId);
+            this.connectMockSocial(platformName, activeBrand);
         },
         hasLandingPage(brand) {
             if (!brand.theme_settings) return false;
@@ -1902,6 +1845,13 @@ export default {
                 }
             }
         },
+        closeSocialModal() {
+            this.socialModalOpen = false;
+            if (this.socialConnectSuccess && this.activeSubView === 'channel-connect') {
+                this.activeSubView = 'designer';
+                this.app.sidebarPinned = false;
+            }
+        },
         async disconnectSocial(platform, brand) {
             const confirmed = confirm(`🔌 Are you sure you want to disconnect ${platform} shopping channel for ${brand.name}?`);
             if (!confirmed) return;
@@ -1995,14 +1945,13 @@ export default {
         deOnboardBrand(id) { return this.app.deOnboardBrand(id); },
         updateBrandStatus(id, status) { return this.app.updateBrandStatus(id, status); },
         getStepTitle(step) {
-            if (step === 1) return 'Connection';
-            if (step === 2) return 'Select Channels';
-            if (step === 3) return 'Catalog Setup';
+            if (step === 1) return 'Details';
+            if (step === 2) return 'eCommerce & Sync';
+            if (step === 3) return 'Sales Channels';
             return 'Publish';
         },
         async goToStep(step) {
             if (step > this.currentStep) {
-                // If moving forward past Step 1, must save draft first
                 if (this.currentStep === 1) {
                     if (this.brandIdConflict) {
                         alert('This Brand ID is already registered in the system. Please choose a unique Brand ID.');
@@ -2013,25 +1962,61 @@ export default {
                         return;
                     }
                     if (!this.newBrandSavedId || this.app.newBrand.id.toLowerCase() !== this.newBrandSavedId.toLowerCase()) {
-                        this.app.showNotification('Saving draft shop configuration...');
+                        this.app.showNotification('Saving draft shop profile...');
                         await this.saveBrandDraft();
                         if (!this.newBrandSavedId) {
-                            // If saving draft failed, stop transition
                             return;
                         }
                     }
                 }
-                
-                // Other validation checks
-                if (step > 1 && (!this.dnsVerified || !this.connectionVerified) && !this.previewMode) {
-                    alert('Please verify both DNS setup and Integration Connection in Step 1 first, or check "Enable Offline Preview Mode".');
-                    return;
+                if (this.currentStep === 2) {
+                    if (!this.previewMode && (!this.dnsVerified || !this.connectionVerified)) {
+                        alert('Please connect your store or check Preview Mode before moving forward.');
+                        return;
+                    }
+                    const hasSelectedProducts = Object.keys(this.selectedProducts).some(id => this.selectedProducts[id]);
+                    if (!hasSelectedProducts && this.importedProducts.length > 0) {
+                        if (!confirm('You have not selected any products to import. Continue anyway?')) {
+                            return;
+                        }
+                    }
                 }
             }
-
             this.currentStep = step;
-            if (step === 3) {
-                this.loadImportProducts();
+        },
+        async verifyAndLoadProducts() {
+            this.loadingProducts = true;
+            this.productSyncError = '';
+            
+            try {
+                if (this.previewMode) {
+                    this.dnsVerified = true;
+                    this.connectionVerified = true;
+                    await this.loadImportProducts();
+                    this.app.showNotification('Loaded mockup products list for preview mode.');
+                    return;
+                }
+                
+                // Otherwise, test Cloudflare DNS routing and eCommerce integration
+                this.app.showNotification('Verifying Cloudflare DNS subdomain records...');
+                await this.verifyDns();
+                if (!this.dnsVerified) {
+                    throw new Error(this.dnsVerifyError || 'DNS Verification failed. Please register the subdomain on Cloudflare first.');
+                }
+                
+                this.app.showNotification('Testing e-commerce API connection credentials...');
+                await this.verifyConnection();
+                if (!this.connectionVerified) {
+                    throw new Error(this.connectionVerifyError || 'Failed to connect to the store API endpoint. Please check your credentials.');
+                }
+                
+                // Fetch products from eCommerce
+                await this.loadImportProducts();
+                this.app.showNotification('Successfully connected and synchronized products list!');
+            } catch (err) {
+                this.productSyncError = err.message;
+            } finally {
+                this.loadingProducts = false;
             }
         },
         handlePreviewModeChange() {
@@ -2178,9 +2163,15 @@ export default {
                         woocommerce_consumer_secret: this.newBrand.woocommerce_consumer_secret
                     })
                 });
-                const res = await response.json();
+                let res = {};
+                const responseText = await response.text();
+                try {
+                    res = JSON.parse(responseText);
+                } catch (jsonErr) {
+                    throw new Error(responseText.substring(0, 200) || `Server returned error status ${response.status}`);
+                }
                 if (!response.ok) {
-                    throw new Error(res.error || 'Connection verification failed');
+                    throw new Error(res.error || `Connection verification failed: ${response.status}`);
                 }
                 if (res.success) {
                     this.connectionVerified = true;
@@ -2202,6 +2193,36 @@ export default {
                 this.easySetupError = 'Please enter a shop URL (e.g. https://pesado585.com).';
                 return;
             }
+
+            // Client-side local check: parse hostname and verify collision
+            let hostInput = this.easySetupUrl.trim();
+            if (!hostInput.startsWith('http://') && !hostInput.startsWith('https://')) {
+                hostInput = 'https://' + hostInput;
+            }
+            let host = '';
+            try {
+                const urlObj = new URL(hostInput);
+                host = urlObj.hostname.replace('www.', '').toLowerCase();
+            } catch (e) {
+                this.easySetupError = 'Invalid URL format. Please try again.';
+                return;
+            }
+            const derivedSlug = host.split('.')[0];
+
+            // Check if any existing brand matches derived ID or custom domain
+            const exists = this.app.brands && this.app.brands.some(b => {
+                const bId = b.id ? b.id.toLowerCase() : '';
+                const bSub = b.subdomain ? b.subdomain.toLowerCase() : '';
+                const bCust = b.custom_domain ? b.custom_domain.toLowerCase() : '';
+                return bId === derivedSlug || bSub.includes(derivedSlug) || bCust.includes(host);
+            });
+
+            if (exists) {
+                this.easySetupError = '⚠️ This Brand is already registered in the system. Please use a different brand URL.';
+                this.autofilledStoreTag = '';
+                return;
+            }
+
             this.easySetupLoading = true;
             this.easySetupError = '';
             try {
@@ -2246,20 +2267,11 @@ export default {
                         parsedDomain = urlObj.hostname.replace('www.', '');
                     } catch(e) {}
                     this.autofilledStoreTag = parsedDomain;
-
-                    // Register scraped products immediately
-                    this.importedProducts = d.products || [];
-                    this.importedProducts.forEach((p, idx) => {
-                        const id = p.id || `p-${idx}`;
-                        this.selectedProducts[id] = true;
-                        this.customPrices[id] = p.price || 55.00;
-                        this.customStock[id] = 100;
-                        this.customDescriptions[id] = p.description || '';
-                    });
-
-                    this.app.showNotification('Autofilled brand fields and products from crawled website!');
+                    this.platformAutoDetected = !!(d.platform === 'shopify' || d.platform === 'woocommerce');
+                    this.scrapedProducts = d.products || [];
+                    this.app.showNotification('Autofilled brand fields from crawled website!');
                 } else {
-                    throw new Error('Could not automatically resolve branding data from this URL. Please fill in the details manually.');
+                    throw new Error('Could not automatically resolve branding data from this URL.');
                 }
             } catch (err) {
                 this.easySetupError = err.message;
@@ -2269,7 +2281,9 @@ export default {
         },
         clearAutofillTag() {
             this.autofilledStoreTag = '';
+            this.platformAutoDetected = false;
             this.easySetupUrl = '';
+            this.scrapedProducts = [];
             this.app.newBrand.id = '';
             this.app.newBrand.name = '';
             this.app.newBrand.subdomain = '';
@@ -2282,6 +2296,11 @@ export default {
             this.customPrices = {};
             this.customStock = {};
             this.customDescriptions = {};
+        },
+        applyLiveWizardTheme() {
+            if (this.app && this.app.updateDashboardBranding && this.isCreatingBrand) {
+                this.app.updateDashboardBranding(this.newBrand);
+            }
         },
         async saveBrandDraft() {
             if (!this.newBrand.id || !this.newBrand.name || !this.newBrand.subdomain) {
@@ -2307,13 +2326,13 @@ export default {
                 }
             }
             
-            // Auto-run verification checks if offline preview mode is disabled and not yet verified
-            if (!this.previewMode) {
+            // Auto-run verification checks if preview mode is disabled and not yet verified
+            if (this.currentStep > 1 && !this.previewMode) {
                 if (!this.dnsVerified) {
                     this.app.showNotification('Auto-verifying DNS configuration...');
                     await this.verifyDns();
                     if (!this.dnsVerified) {
-                        alert(`DNS validation failed: ${this.dnsVerifyError || 'Subdomain DNS record does not exist on Cloudflare. Please check the setup or enable Offline Preview Mode.'}`);
+                        alert(`DNS validation failed: ${this.dnsVerifyError || 'Subdomain DNS record does not exist on Cloudflare. Please check the setup or enable Preview Mode.'}`);
                         return;
                     }
                 }
@@ -2322,7 +2341,7 @@ export default {
                     this.app.showNotification('Auto-testing e-commerce API integration keys...');
                     await this.verifyConnection();
                     if (!this.connectionVerified) {
-                        alert(`API integration test failed: ${this.connectionVerifyError || 'Unable to connect to the WooCommerce/Shopify endpoint. Please check the credentials or enable Offline Preview Mode.'}`);
+                        alert(`API integration test failed: ${this.connectionVerifyError || 'Unable to connect to the WooCommerce/Shopify endpoint. Please check the credentials or enable Preview Mode.'}`);
                         return;
                     }
                 }
@@ -2413,6 +2432,7 @@ export default {
             this.easySetupError = '';
             this.productSyncError = '';
             this.productSyncSuccess = false;
+            this.scrapedProducts = [];
             this.importedProducts = [];
             this.selectedProducts = {};
             this.customPrices = {};
@@ -2535,13 +2555,32 @@ export default {
             return null;
         },
         async loadImportProducts() {
-            if (this.importedProducts && this.importedProducts.length > 0) {
-                return; // Keep existing crawled/loaded products
-            }
             this.loadingProducts = true;
             this.productSyncError = '';
             this.importedProducts = [];
+            
             try {
+                if (this.previewMode) {
+                    if (this.scrapedProducts && this.scrapedProducts.length > 0) {
+                        this.importedProducts = [...this.scrapedProducts];
+                    } else {
+                        this.importedProducts = [
+                            { id: 'mock-1', title: 'Tamper 58.5mm Classic', price: 49.00, image: '', description: 'Precision espresso tamper with stainless steel base.' },
+                            { id: 'mock-2', title: 'IMS Precision Shower Screen', price: 29.90, image: '', description: 'Competition shower screen for standard group heads.' },
+                            { id: 'mock-3', title: 'Organic Dark Roast Beans (500g)', price: 18.50, image: '', description: 'Rich single-origin Arabica with chocolatey finish.' }
+                        ];
+                    }
+                    this.importedProducts.forEach((p, idx) => {
+                        const id = p.id || `p-${idx}`;
+                        this.selectedProducts[id] = true;
+                        this.customPrices[id] = p.price || 55.00;
+                        this.customStock[id] = 100;
+                        this.customDescriptions[id] = p.description || '';
+                    });
+                    this.loadingProducts = false;
+                    return;
+                }
+
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/shopify-import?brandId=${this.newBrand.id}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                 });
@@ -2641,6 +2680,7 @@ export default {
             return 'Deduct from Payout Ledger Balance';
         },
         getChannelLogoSvg(channel, size = 16, color = null) {
+            if (!channel) return '';
             const lower = channel.toLowerCase();
             if (lower === 'storefront') {
                 const strokeColor = color || 'var(--accent)';

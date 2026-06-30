@@ -48,9 +48,9 @@
         </div>
 
         <!-- FULLSCREEN BRAND ONBOARDING WIZARD -->
-        <div v-else-if="needsOnboarding" style="display: flex; flex-direction: column; width: 100vw; min-height: 100vh; background: var(--bg-color); padding: 40px; box-sizing: border-box; overflow-y: auto; z-index: 10;">
+        <div v-else-if="needsOnboarding" style="display: flex; flex-direction: column; width: 100vw; height: 100vh; background: var(--bg-color); padding: 40px; box-sizing: border-box; overflow: hidden; z-index: 10;">
              <!-- Header branding bar -->
-             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; max-width: 900px; width: 100%; margin-left: auto; margin-right: auto;">
+             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; max-width: 900px; width: 100%; margin-left: auto; margin-right: auto; flex-shrink: 0;">
                   <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.02em;">
                       <span>⚡ Onboard Your Brand Shop</span>
                   </div>
@@ -60,7 +60,7 @@
              </div>
              
              <!-- Onboarding wizard component container -->
-             <div style="max-width: 900px; width: 100%; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); box-sizing: border-box;">
+             <div style="max-width: 900px; width: 100%; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); box-sizing: border-box; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;">
                   <!-- We render the onboarding wizard right here! -->
                   <BrandsView ref="brandsViewOnboarding" :force-create-wizard="true" />
              </div>
@@ -72,16 +72,62 @@
             </div>
 
             <!-- SIDEBAR NAVIGATION MENU -->
-            <aside class="meta-sidebar-layout" :class="{ collapsed: !sidebarExpanded, open: mobileSidebarOpen }" v-if="isLoggedIn && !isCampaignCreatorFullscreen">
+            <aside class="meta-sidebar-layout" :class="{ collapsed: !sidebarExpanded, open: mobileSidebarOpen, 'compact-mode': activeTier1 === 'storefront' && brandsSelectedChannelId && !sidebarHovered }" v-if="isLoggedIn" @mouseenter="sidebarHovered = true" @mouseleave="sidebarHovered = false">
                 <!-- TIER 1: Narrow icon sidebar (70px wide) -->
                 <div class="sidebar-tier1">
-                    <!-- Top Logo/Icon -->
-                    <div class="tier1-logo-container" @click="handleTier1Click('dashboard', 'overview')">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                            <path d="M2 17l10 5 10-5"></path>
-                            <path d="M2 12l10 5 10-5"></path>
-                        </svg>
+                    <!-- Active Brand Switcher (Top of Tier 1) -->
+                    <div class="tier1-workspace-selector" style="margin-bottom: 24px; position: relative;">
+                        <button class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
+                            :style="{ cursor: userRole.toLowerCase() === 'superadmin' ? 'pointer' : 'default' }"
+                            style="background: none; border: none; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; position: relative;">
+                            <div class="workspace-selector-avatar" :style="{ background: activeWorkspaceFavicon ? '#ffffff' : '#1a1d1f', border: '1px solid var(--border)' }"
+                                 style="width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; overflow: hidden; position: relative;">
+                                <img v-if="activeWorkspaceFavicon" :src="activeWorkspaceFavicon" style="width: 100%; height: 100%; object-fit: contain;" />
+                                <span v-else style="color: var(--accent);">{{ activeWorkspaceLetter }}</span>
+                                
+                                <!-- Little dropdown arrow badge in the corner -->
+                                <div v-if="userRole.toLowerCase() === 'superadmin'" 
+                                     style="position: absolute; bottom: 0; right: 0; background: rgba(0, 0, 0, 0.65); color: var(--text-muted); font-size: 0.55rem; padding: 1px 2px; border-top-left-radius: 4px; line-height: 1;">
+                                    ▼
+                                </div>
+                            </div>
+                        </button>
+
+                        <!-- Brand Switcher dropdown menu overlay (Floats to the right of Tier 1) -->
+                        <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen" 
+                             style="position: absolute !important; left: 60px !important; top: 0 !important; z-index: 150 !important; width: 260px !important; box-shadow: 0 10px 35px rgba(0,0,0,0.5); background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 0;">
+                            <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')"
+                                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
+                                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🌐</div>
+                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                                    <strong style="font-size: 0.85rem; color: var(--text-main);">All Brands</strong>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Consolidated overview metrics</span>
+                                </div>
+                            </div>
+                            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+                            <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
+                                :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)"
+                                style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
+                                <div class="workspace-dropdown-avatar" :style="{ background: b.favicon ? '#ffffff' : '#111' }"
+                                     style="width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; border: 1px solid var(--border);">
+                                    <img v-if="b.favicon" :src="b.favicon" alt="favicon" style="width: 100%; height: 100%; object-fit: contain;" />
+                                    <span v-else style="color: var(--accent); font-size: 0.85rem;">{{ b.name.charAt(0) }}</span>
+                                </div>
+                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                                    <strong style="font-size: 0.85rem; color: var(--text-main);">{{ b.name }}</strong>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted);">{{ getBrandSubdomain(b) }}</span>
+                                </div>
+                            </div>
+                            <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+                            <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" 
+                                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s; color: var(--accent);">
+                                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">➕</div>
+                                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                                    <strong style="font-size: 0.85rem; color: var(--accent);">Register Brand Shop</strong>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Provision storefront & API keys</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Category Navigation Icons -->
@@ -104,7 +150,7 @@
                                 <line x1="8" y1="21" x2="16" y2="21"></line>
                                 <line x1="12" y1="17" x2="12" y2="21"></line>
                             </svg>
-                            <span class="tier1-btn-label">Shops</span>
+                            <span class="tier1-btn-label">Channel</span>
                         </button>
 
                         <button class="tier1-nav-btn" :class="{ active: activeTier1 === 'catalog' }" 
@@ -165,54 +211,7 @@
                 </div>
 
                 <!-- TIER 2: Wider nested categories navigation pane (230px wide) -->
-                <div class="sidebar-tier2">
-                    <!-- Brand Switcher Selector (Flush at Top of Tier 2) -->
-                    <div class="tier2-workspace-selector">
-                        <div class="profile-selector-btn" @click.stop="userRole.toLowerCase() === 'superadmin' ? (workspaceDropdownOpen = !workspaceDropdownOpen) : null"
-                            :style="{ cursor: userRole.toLowerCase() === 'superadmin' ? 'pointer' : 'default' }">
-                            <div class="workspace-selector-avatar" :style="{ background: activeWorkspaceFavicon ? '#ffffff' : '#111' }">
-                                <img v-if="activeWorkspaceFavicon" :src="activeWorkspaceFavicon" alt="favicon" />
-                                <span v-else>{{ activeWorkspaceLetter }}</span>
-                            </div>
-                            <div class="profile-selector-meta">
-                                <span class="workspace-role-tag">{{ activeWorkspaceRoleLabel }}</span>
-                                <div class="profile-selector-title">{{ activeWorkspaceName }}</div>
-                            </div>
-                            <span class="profile-selector-arrow" v-if="userRole.toLowerCase() === 'superadmin'">▼</span>
-                        </div>
-
-                        <!-- Brand Switcher dropdown menu overlay -->
-                        <div class="workspace-dropdown-menu" v-if="workspaceDropdownOpen">
-                            <div class="workspace-dropdown-item" :class="{ active: activeShopFilter === 'all' }" @click="selectWorkspace('all')">
-                                <div class="workspace-dropdown-icon">🌐</div>
-                                <div class="workspace-dropdown-text">
-                                    <strong>All Brands</strong>
-                                    <span>Consolidated overview metrics</span>
-                                </div>
-                            </div>
-                            <div class="workspace-dropdown-divider"></div>
-                            <div class="workspace-dropdown-item" v-for="b in activeBrands" :key="b.id"
-                                :class="{ active: activeShopFilter === b.id }" @click="selectWorkspace(b.id)">
-                                <div class="workspace-dropdown-avatar" :style="{ background: b.favicon ? '#ffffff' : '#111' }">
-                                    <img v-if="b.favicon" :src="b.favicon" alt="favicon" />
-                                    <span v-else>{{ b.name.charAt(0) }}</span>
-                                </div>
-                                <div class="workspace-dropdown-text">
-                                    <strong>{{ b.name }}</strong>
-                                    <span>{{ getBrandSubdomain(b) }}</span>
-                                </div>
-                            </div>
-                            <div class="workspace-dropdown-divider"></div>
-                            <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" style="color: var(--accent);">
-                                <div class="workspace-dropdown-icon">➕</div>
-                                <div class="workspace-dropdown-text">
-                                    <strong style="color: var(--accent);">Register Brand Shop</strong>
-                                    <span>Provision storefront & API keys</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+                <div class="sidebar-tier2" :class="{ 'compact-mode': activeTier1 === 'storefront' && brandsSelectedChannelId && !sidebarHovered }" style="padding-top: 12px;">
                     <!-- Category Content Links -->
                     <div class="tier2-nav-wrapper">
                         <!-- Dashboard Links -->
@@ -237,18 +236,24 @@
                             <div class="tier2-section-title">Channels & Storefront</div>
                             <ul class="tier2-links">
                                 <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && (!$refs.brandsView || ($refs.brandsView.activeSubView !== 'designer' && $refs.brandsView.activeSubView !== 'landing-designer')) }" @click="switchView('brands')">
-                                        🔌 Brand Connections
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && (brandsSubView === 'list' && !brandsSelectedChannelId) }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list'; if($refs.brandsView) { $refs.brandsView.activeSubView = 'list'; $refs.brandsView.selectedChannelId = null; }">
+                                        <span style="display: inline-flex; align-items: center; gap: 8px; width: 100%;">
+                                            <span class="channel-emoji-icon" style="font-size: 1.25rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;">🔌</span>
+                                            <span class="tier2-btn-text">Brand Connections</span>
+                                        </span>
                                     </button>
                                 </li>
-                                <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && $refs.brandsView && $refs.brandsView.activeSubView === 'designer' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="navigateToStorefrontDesigner">
-                                        🎨 Storefront Customizer
-                                    </button>
-                                </li>
-                                <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && $refs.brandsView && $refs.brandsView.activeSubView === 'landing-designer' }" :disabled="isSidebarLinkDisabled('brand-center')" @click="navigateToLandingDesigner">
-                                        📄 Campaign Landing Pages
+                                <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+                                <div class="tier2-section-title" style="margin-top: 8px; font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);">Channels</div>
+                                
+                                <li v-for="ch in sidebarChannels" :key="ch.id">
+                                    <button class="tier2-link-btn" :class="{ active: isChannelActiveInSidebar(ch.id) }" @click="selectChannel(ch.id)">
+                                        <span style="display: inline-flex; align-items: center; gap: 8px; width: 100%;">
+                                            <span v-html="getChannelIconSvg(ch.icon, 20)"></span>
+                                            <span class="tier2-btn-text" style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ch.name }}</span>
+                                            <span class="tier2-status-badge" v-if="isChannelConnected(ch.id)" style="font-size: 0.65rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 1px 4px; border-radius: 4px; font-weight: 700;">Active</span>
+                                            <span class="tier2-status-badge" v-else style="font-size: 0.65rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 1px 4px; border-radius: 4px; font-weight: 700;">Off</span>
+                                        </span>
                                     </button>
                                 </li>
                             </ul>
@@ -260,12 +265,12 @@
                             <ul class="tier2-links">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'products' }" :disabled="isSidebarLinkDisabled('products')" @click="switchView('products')">
-                                        🛍️ Products Inventory
+                                        🛍️ Products
                                     </button>
                                 </li>
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'media' }" :disabled="isSidebarLinkDisabled('media')" @click="switchView('media')">
-                                        🗂️ Media Library
+                                        🗂️ Media
                                     </button>
                                 </li>
                             </ul>
@@ -276,13 +281,13 @@
                             <div class="tier2-section-title">AI Campaigns</div>
                             <ul class="tier2-links">
                                 <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchView('campaigns')">
-                                        📣 Smart Ad Studio
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' && activeCampaignTab === 'board' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchCampaignTab('board')">
+                                        📋 Studio
                                     </button>
                                 </li>
                                 <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'coupons' }" :disabled="isSidebarLinkDisabled('coupons')" @click="switchView('coupons')">
-                                        🏷️ Coupons & Promos
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'campaigns' && activeCampaignTab === 'performance' }" :disabled="isSidebarLinkDisabled('campaigns')" @click="switchCampaignTab('performance')">
+                                        📊 Insights
                                     </button>
                                 </li>
                             </ul>
@@ -342,8 +347,18 @@
                             <div class="tier2-section-title">System Configuration</div>
                             <ul class="tier2-links">
                                 <li>
-                                    <button class="tier2-link-btn" :class="{ active: activeView === 'settings' }" @click="switchView('settings')">
-                                        🔌 Integrations & Keys
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'general' }" @click="switchSettingsTab('general')">
+                                        ⚙️ General
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'ecommerce' }" @click="switchSettingsTab('ecommerce')">
+                                        💳 E-commerce
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'settings' && activeSettingsTab === 'social' }" @click="switchSettingsTab('social')">
+                                        🔌 Social Accounts
                                     </button>
                                 </li>
                                 <li>
@@ -367,8 +382,8 @@
 
                     <!-- Bottom Toggle Expand/Collapse Button -->
                     <div class="tier2-collapse-footer">
-                        <button class="collapse-toggle-btn" @click="sidebarExpanded = !sidebarExpanded; localStorage.setItem('sc_sidebar_expanded', sidebarExpanded);">
-                            <span>◀ Collapse Menu</span>
+                        <button type="button" class="collapse-toggle-btn" @click="toggleSidebarPin">
+                            <span>{{ sidebarPinned ? '📌 Pinned' : '🔓 Hover-to-Expand' }}</span>
                         </button>
                     </div>
                 </div>
@@ -463,9 +478,12 @@
                                 <line x1="3" y1="18" x2="21" y2="18"></line>
                             </svg>
                         </button>
-                        <span>Dashboard</span>
-                        <span style="color: var(--text-muted); font-size: 0.75rem;">&gt;</span>
-                        <span style="color: var(--text-main); font-weight: 600;">{{ breadcrumbLabel }}</span>
+                        <template v-for="(crumb, idx) in breadcrumbs" :key="idx">
+                            <span v-if="idx > 0" style="color: var(--text-muted); font-size: 0.75rem;">&gt;</span>
+                            <span :style="{ color: idx === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: idx === breadcrumbs.length - 1 ? '600' : '500' }">
+                                {{ crumb }}
+                            </span>
+                        </template>
                     </div>
 
                     <!-- Right: Search, Notifications, Avatar -->
@@ -588,7 +606,7 @@
                         </button>
 
                         <!-- Spin Up New Brand Shop button for channels -->
-                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'brands' && userRole.toLowerCase() === 'superadmin' && !isCreatingBrand && brandsSubView === 'list' && (!$refs.brandsView || $refs.brandsView.activeSubView === 'list')" @click="$refs.brandsView && $refs.brandsView.startBrandCreation()">
+                        <button class="btn btn-accent" style="margin: 0; font-weight: 700; height: 40px;" v-if="activeView === 'brands' && userRole.toLowerCase() === 'superadmin' && !isCreatingBrand && brandsSubView === 'list'" @click="$refs.brandsView && $refs.brandsView.startBrandCreation()">
                             ➕ Spin Up New Brand Shop
                         </button>
 
@@ -1154,12 +1172,22 @@ export default {
                     profilePasswordConfirm: '',
                     appTheme: localStorage.getItem('sc_admin_theme') || 'system',
                     activeView: 'overview',
+                    activeCampaignTab: 'board',
+                    activeSettingsTab: 'general',
                     activeTier1: 'dashboard',
-                    sidebarExpanded: localStorage.getItem('sc_sidebar_expanded') !== 'false',
+                    sidebarPinned: localStorage.getItem('sc_sidebar_pinned') !== 'false',
+                    sidebarHovered: false,
                     isCampaignCreatorFullscreen: false,
                     requestedInitialView: 'overview',
                     currentEnv: 'local',
                     activeShopFilter: 'all',
+                    sidebarChannels: [
+                        { id: 'storefront', name: 'Storefront E-Shop', icon: 'storefront' },
+                        { id: 'landingpage', name: 'Campaign Landing Page', icon: 'landingpage' },
+                        { id: 'instagram', name: 'Instagram Shopping Feed', icon: 'instagram' },
+                        { id: 'facebook', name: 'Facebook Page Shop', icon: 'facebook' },
+                        { id: 'twitter', name: 'Twitter / X Profile Shop', icon: 'twitter' }
+                    ],
                     globalProtocolInterval: null,
                     originalSettingsBrand: null,
                     showUnsavedChangesModal: false,
@@ -1193,6 +1221,7 @@ export default {
                     // Datasets
                     brands: [],
                     brandsLoaded: false,
+                    brandStyledDashboardEnabled: true,
                     tierFeaturesList: [],
                     orders: [],
                     products: [],
@@ -1256,7 +1285,9 @@ export default {
                         compatibility: '',
                         sku: '',
                         external_id: '',
-                        translations: {}
+                        translations: {},
+                        inventory_quantity: null,
+                        sales_limit: null
                     },
                     settingsBrand: {
                         id: '',
@@ -1324,15 +1355,34 @@ export default {
                     // Mirrored state variables for child BrandsView layout state
                     brandsSubView: 'list',
                     isCreatingBrand: false,
+                    brandsSelectedChannelId: null,
                     helpManualHtml: 'Loading onboarding guidelines...'
                 };
             },
             computed: {
+                sidebarExpanded() {
+                    if (this.isCampaignCreatorFullscreen) return false;
+                    if (this.isDesignerOpen && !this.sidebarHovered) return false;
+                    if (!this.hasTier2Content) return false;
+                    return this.sidebarPinned || this.sidebarHovered;
+                },
+                isDesignerOpen() {
+                    return this.activeView === 'brands' && 
+                           (this.brandsSubView === 'designer' || this.brandsSubView === 'landing-designer');
+                },
+                hasTier2Content() {
+                    const validTiers = ['storefront', 'catalog', 'marketing', 'operations', 'ai', 'settings'];
+                    return validTiers.includes(this.activeTier1);
+                },
                 getMainStyle() {
-                    if (this.isCampaignCreatorFullscreen) {
-                        return { marginLeft: 0, width: '100%' };
+                    let width = '70px';
+                    if (this.sidebarExpanded) {
+                        const isCompact = this.activeTier1 === 'storefront' && this.brandsSelectedChannelId && !this.sidebarHovered;
+                        width = isCompact ? '140px' : '300px';
+                    } else {
+                        const isCompact = this.activeTier1 === 'storefront' && this.brandsSelectedChannelId;
+                        width = isCompact ? '140px' : '70px';
                     }
-                    const width = this.sidebarExpanded ? '300px' : '70px';
                     return {
                         marginLeft: width,
                         width: `calc(100% - ${width})`
@@ -1593,20 +1643,86 @@ export default {
                     const name = this.footerUsername;
                     return name.charAt(0).toUpperCase() + name.slice(1);
                 },
-                breadcrumbLabel() {
-                    if (this.activeView === 'overview') return 'Overview';
-                    if (this.activeView === 'warehouse-sim') return 'Warehouse Sim';
-                    if (this.activeView === 'customers') return 'Customer Directory';
-                    if (this.activeView === 'reports') return 'Reports & Analytics';
-                    if (this.activeView === 'messages') return 'Messages & Activity Logs';
-                    if (this.activeView === 'team-performance') return 'Team Performance';
-                    if (this.activeView === 'campaigns') return 'Smart Ad Studio';
-                    if (this.activeView === 'learning') return 'AI Learning Center';
-                    if (this.activeView === 'roles-permissions') return 'Roles & Permissions';
-                    if (this.activeView === 'billing-subscription') return 'Billing & Subscriptions';
-                    if (this.activeView === 'customer-support') return 'Customer Support';
-                    if (this.activeView === 'media') return 'Media Library';
-                    return this.activeView.charAt(0).toUpperCase() + this.activeView.slice(1);
+                breadcrumbs() {
+                    const list = [];
+                    if (this.activeTier1 === 'dashboard') {
+                        list.push('Dashboard');
+                        if (this.activeView === 'overview') {
+                            list.push('Overview');
+                        } else if (this.activeView === 'reports') {
+                            list.push('Reports & Analytics');
+                        }
+                    } else if (this.activeTier1 === 'storefront') {
+                        list.push('Channel');
+                        if (this.activeView === 'brands') {
+                            if (this.brandsSubView === 'designer') {
+                                list.push('Storefront Designer');
+                            } else if (this.brandsSubView === 'landing-designer') {
+                                list.push('Landing Page Designer');
+                            } else if (this.brandsSelectedChannelId) {
+                                const ch = this.sidebarChannels.find(c => c.id === this.brandsSelectedChannelId);
+                                list.push(ch ? ch.name : 'Channel');
+                            } else {
+                                list.push('Brand Connections');
+                            }
+                        } else {
+                            list.push('Channels');
+                        }
+                    } else if (this.activeTier1 === 'catalog') {
+                        list.push('Catalog');
+                        if (this.activeView === 'products') {
+                            list.push('Products');
+                        } else if (this.activeView === 'media') {
+                            list.push('Media');
+                        }
+                    } else if (this.activeTier1 === 'marketing') {
+                        list.push('Ads');
+                        if (this.activeCampaignTab === 'performance') {
+                            list.push('Insights');
+                        } else {
+                            list.push('Studio');
+                        }
+                    } else if (this.activeTier1 === 'operations') {
+                        list.push('Ops');
+                        if (this.activeView === 'orders') {
+                            list.push('Orders');
+                        } else if (this.activeView === 'messages') {
+                            list.push('Activity Logs');
+                        } else if (this.activeView === 'customer-support') {
+                            list.push('Customer Support');
+                        } else if (this.activeView === 'team-performance') {
+                            list.push('Team Performance');
+                        }
+                    } else if (this.activeTier1 === 'ai') {
+                        list.push('AI Studio');
+                        if (this.activeView === 'learning') {
+                            list.push('Learning');
+                        } else if (this.activeView === 'ai-analytics') {
+                            list.push('Analytics');
+                        } else if (this.activeView === 'brand-center') {
+                            list.push('Brand Center');
+                        }
+                    } else if (this.activeTier1 === 'settings') {
+                        list.push('Settings');
+                        if (this.activeView === 'settings') {
+                            if (this.activeSettingsTab === 'general') {
+                                list.push('General');
+                            } else if (this.activeSettingsTab === 'ecommerce') {
+                                list.push('E-Commerce');
+                            } else if (this.activeSettingsTab === 'social') {
+                                list.push('Social Accounts');
+                            } else {
+                                list.push('General');
+                            }
+                        } else if (this.activeView === 'roles-permissions') {
+                            list.push('Roles & Permissions');
+                        } else if (this.activeView === 'billing-subscription') {
+                            list.push('Billing & Subscriptions');
+                        } else if (this.activeView === 'help') {
+                            list.push('Support Documentation');
+                        }
+                    }
+                    return list;
                 },
                 activeWorkspaceRoleLabel() {
                     if (this.activeShopFilter === 'all') {
@@ -1807,8 +1923,11 @@ export default {
                         localStorage.setItem('sc_admin_brand_id', newVal);
                         this.previewActiveBrandId = newVal;
                         this.isCreatingBrand = false;
+                        const activeBrand = this.brands.find(b => b.id === newVal);
+                        this.updateDashboardBranding(activeBrand);
                     } else {
                         localStorage.removeItem('sc_admin_brand_id');
+                        this.resetDashboardBranding();
                     }
                 },
                 filteredOrders(newVal) {
@@ -1873,12 +1992,24 @@ export default {
                     this.fetchCurrentProfile();
                 }
 
+                // Apply theme setting
+                this.applyTheme(this.appTheme);
+
+                // Listen to system theme changes to dynamically re-evaluate branding contrast
+                if (window.matchMedia) {
+                    this.systemThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+                    this.systemThemeListener = (e) => {
+                        if (this.appTheme === 'system' && this.brands && this.activeShopFilter !== 'all') {
+                            const activeBrand = this.brands.find(b => b.id === this.activeShopFilter);
+                            if (activeBrand) this.updateDashboardBranding(activeBrand);
+                        }
+                    };
+                    this.systemThemeMedia.addEventListener('change', this.systemThemeListener);
+                }
+
                 // Set up popstate and beforeunload listeners
                 window.addEventListener('popstate', this.handlePopState);
                 window.addEventListener('beforeunload', this.handleBeforeUnload);
-
-                // Apply theme setting
-                this.applyTheme(this.appTheme);
 
                 // Parse Stripe Connect and Setup URL parameters
                 const urlParams = new URLSearchParams(window.location.search);
@@ -1923,16 +2054,19 @@ export default {
                 window.removeEventListener('popstate', this.handlePopState);
                 window.removeEventListener('beforeunload', this.handleBeforeUnload);
                 this.stopGlobalProtocolPolling();
+                if (this.systemThemeMedia && this.systemThemeListener) {
+                    this.systemThemeMedia.removeEventListener('change', this.systemThemeListener);
+                }
             },
             methods: {
                 handleTier1Click(tier1Id, defaultViewId) {
                     if (this.activeTier1 === tier1Id) {
-                        this.sidebarExpanded = !this.sidebarExpanded;
-                        localStorage.setItem('sc_sidebar_expanded', this.sidebarExpanded);
+                        this.sidebarPinned = !this.sidebarPinned;
+                        localStorage.setItem('sc_sidebar_pinned', this.sidebarPinned);
                     } else {
                         this.activeTier1 = tier1Id;
-                        this.sidebarExpanded = true;
-                        localStorage.setItem('sc_sidebar_expanded', true);
+                        this.sidebarPinned = true;
+                        localStorage.setItem('sc_sidebar_pinned', true);
                         this.switchView(defaultViewId);
                     }
                 },
@@ -1970,6 +2104,78 @@ export default {
                             this.updateURL();
                         }
                     });
+                },
+                isChannelConnected(channelId) {
+                    const brand = this.brands.find(b => b.id === this.activeShopFilter) || this.brands[0];
+                    if (!brand) return false;
+                    if (channelId === 'storefront') return brand.status !== 'draft';
+                    if (channelId === 'landingpage') return true;
+                    
+                    const platform = channelId === 'instagram' ? 'Instagram' :
+                                     channelId === 'facebook' ? 'Facebook' :
+                                     channelId === 'twitter' ? 'X / Twitter' : null;
+                    if (!platform) return false;
+                    if (!brand.theme_settings) return false;
+                    try {
+                        const theme = JSON.parse(brand.theme_settings);
+                        return !!(theme.connected_channels && theme.connected_channels[platform] && theme.connected_channels[platform].active);
+                    } catch(e) {
+                        return false;
+                    }
+                },
+                selectChannel(channelId) {
+                    this.brandsSelectedChannelId = channelId;
+                    this.switchView('brands');
+                    const connected = this.isChannelConnected(channelId);
+                    const targetSubView = connected 
+                        ? (channelId === 'landingpage' ? 'landing-designer' : 'designer') 
+                        : 'channel-connect';
+                    this.brandsSubView = targetSubView;
+                    if (connected) {
+                        this.sidebarPinned = false;
+                    }
+                    this.$nextTick(() => {
+                        if (this.$refs.brandsView) {
+                            this.$refs.brandsView.selectedChannelId = channelId;
+                            this.$refs.brandsView.activeSubView = targetSubView;
+                        }
+                        this.updateURL();
+                    });
+                },
+                isChannelActiveInSidebar(channelId) {
+                    if (this.activeView !== 'brands') return false;
+                    const subView = this.brandsSubView;
+                    const currentChannelId = this.brandsSelectedChannelId;
+                    
+                    if (subView === 'designer') {
+                        return currentChannelId === channelId || (channelId === 'storefront' && !currentChannelId);
+                    }
+                    if (subView === 'landing-designer') {
+                        return channelId === 'landingpage';
+                    }
+                    if (subView === 'channel-connect') {
+                        return currentChannelId === channelId;
+                    }
+                    return false;
+                },
+                getChannelIconSvg(iconName, size = 14) {
+                    const lower = iconName.toLowerCase();
+                    if (lower === 'storefront') {
+                        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
+                    }
+                    if (lower === 'landingpage') {
+                        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>`;
+                    }
+                    if (lower === 'instagram') {
+                        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`;
+                    }
+                    if (lower === 'facebook') {
+                        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" style="vertical-align: middle; display: inline-block;"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
+                    }
+                    if (lower === 'twitter' || lower === 'x') {
+                        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" style="vertical-align: middle; display: inline-block;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+                    }
+                    return '';
                 },
                 isSidebarLinkDisabled(viewName) {
                     if (!this.isLoggedIn) return true;
@@ -2379,6 +2585,10 @@ export default {
                     document.body.removeChild(link);
                     this.showNotification('CSV export download initialized.');
                 },
+                toggleSidebarPin() {
+                    this.sidebarPinned = !this.sidebarPinned;
+                    localStorage.setItem('sc_sidebar_pinned', this.sidebarPinned);
+                },
                 selectWorkspace(id) {
                     this.workspaceDropdownOpen = false;
                     if (id === 'create') {
@@ -2701,7 +2911,8 @@ export default {
                     this.showNotification(`Target environment updated to ${this.currentEnv.toUpperCase()}`);
                     this.bootDashboard();
                 },
-                bootDashboard() {
+                async bootDashboard() {
+                    await this.loadConfig();
                     this.loadBrands();
                     this.loadTierFeatures();
                     this.loadOrders();
@@ -2769,6 +2980,7 @@ export default {
                     }
                     this.activeView = viewId;
                     this.mobileSidebarOpen = false;
+                    this.syncTier1FromView(viewId);
                     if (viewId === 'brands' && this.$refs.brandsView) {
                         this.$refs.brandsView.activeSubView = 'list';
                     }
@@ -2812,6 +3024,24 @@ export default {
                         window.history.pushState({ viewId: this.activeView }, '', newPath);
                     }
                 },
+                switchCampaignTab(tabName) {
+                    this.activeCampaignTab = tabName;
+                    this.switchView('campaigns');
+                    this.$nextTick(() => {
+                        if (this.$refs.campaignsView) {
+                            this.$refs.campaignsView.activeTab = tabName;
+                        }
+                    });
+                },
+                switchSettingsTab(tabName) {
+                    this.activeSettingsTab = tabName;
+                    this.switchView('settings');
+                    this.$nextTick(() => {
+                        if (this.$refs.settingsView) {
+                            this.$refs.settingsView.activeTab = tabName;
+                        }
+                    });
+                },
                 resolveRouteFromURL() {
                     const pathSegments = window.location.pathname.split('/').filter(Boolean);
                     if (pathSegments.length === 0) {
@@ -2838,6 +3068,7 @@ export default {
                     
                     this.activeView = viewId;
                     this.mobileSidebarOpen = false;
+                    this.syncTier1FromView(viewId);
                     
                     if (viewId === 'brands') {
                         this.$nextTick(() => {
@@ -3008,6 +3239,178 @@ export default {
                     if (!features) return true;
                     return !!features[featureName];
                 },
+                // Fetch Global Configuration Flags
+                async loadConfig() {
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/config`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                        });
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.brandStyledDashboardEnabled = res.brand_styled_dashboard_enabled;
+                        }
+                    } catch (e) {
+                        console.error('Error loading global configs:', e);
+                    }
+                },
+                resetDashboardBranding() {
+                    const root = document.documentElement;
+                    root.style.removeProperty('--primary');
+                    root.style.removeProperty('--primary-hover');
+                    root.style.removeProperty('--accent');
+                    root.style.removeProperty('--bg-color');
+                    root.style.removeProperty('--workspace-bg');
+                },
+                updateDashboardBranding(brand) {
+                    if (!this.brandStyledDashboardEnabled || !brand || !brand.primary_color) {
+                        this.resetDashboardBranding();
+                        return;
+                    }
+
+                    const root = document.documentElement;
+                    const primaryHex = brand.primary_color || '#111111';
+                    const secondaryHex = brand.secondary_color || '#767676';
+                    const bgHex = brand.bg_color || '#ffffff';
+                    const textHex = brand.text_color || '#111111';
+
+                    const hexToRgb = (hex) => {
+                        hex = hex.replace(/^#/, '');
+                        if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+                        const num = parseInt(hex, 16);
+                        return isNaN(num) ? { r: 17, g: 17, b: 17 } : { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+                    };
+
+                    const rgbToHex = (r, g, b) => {
+                        const toHex = (c) => {
+                            const hex = Math.max(0, Math.min(255, Math.round(c))).toString(16);
+                            return hex.length === 1 ? '0' + hex : hex;
+                        };
+                        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+                    };
+
+                    const getLuminance = ({ r, g, b }) => {
+                        const a = [r, g, b].map(v => {
+                            v /= 255;
+                            return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+                        });
+                        return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+                    };
+
+                    const getContrastRatio = (lum1, lum2) => {
+                        return (Math.max(lum1, lum2) + 0.05) / (Math.min(lum1, lum2) + 0.05);
+                    };
+
+                    const blendColors = (color1, color2, weight) => {
+                        const rgb1 = hexToRgb(color1);
+                        const rgb2 = hexToRgb(color2);
+                        const r = rgb1.r * weight + rgb2.r * (1 - weight);
+                        const g = rgb1.g * weight + rgb2.g * (1 - weight);
+                        const b = rgb1.b * weight + rgb2.b * (1 - weight);
+                        return rgbToHex(r, g, b);
+                    };
+
+                    // Detect target theme setting (respecting dark settings)
+                    const isThemeDark = this.appTheme === 'dark' || 
+                                       (this.appTheme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+                    const lumRawBg = getLuminance(hexToRgb(bgHex));
+                    const isBrandBgDark = lumRawBg < 0.5;
+
+                    let workspaceBgHex = bgHex;
+                    let bodyBgHex = '';
+                    let cardBgHex = '';
+                    let borderHex = '';
+                    let textHexToUse = textHex;
+                    let textMutedHex = '';
+
+                    if (isThemeDark) {
+                        // For dark mode, ensure background is dark
+                        if (isBrandBgDark) {
+                            workspaceBgHex = bgHex;
+                        } else {
+                            // Generate a brand-tinted dark background by blending primary color with dark theme bases
+                            workspaceBgHex = blendColors(primaryHex, '#131517', 0.08);
+                        }
+                        const rgbWorkspace = hexToRgb(workspaceBgHex);
+                        bodyBgHex = rgbToHex(Math.max(rgbWorkspace.r - 5, 0), Math.max(rgbWorkspace.g - 5, 0), Math.max(rgbWorkspace.b - 5, 0));
+                        cardBgHex = blendColors(primaryHex, '#1a1d1f', 0.08);
+                        borderHex = blendColors(primaryHex, '#272b30', 0.12);
+
+                        // Ensure text color is light
+                        const textLum = getLuminance(hexToRgb(textHexToUse));
+                        if (textLum < 0.5) {
+                            textHexToUse = '#f3f4f3';
+                        }
+                    } else {
+                        // For light mode, ensure background is light
+                        if (!isBrandBgDark) {
+                            workspaceBgHex = bgHex;
+                        } else {
+                            // Generate a brand-tinted light background by blending primary color with light theme bases
+                            workspaceBgHex = blendColors(primaryHex, '#fafbfc', 0.04);
+                        }
+                        const rgbWorkspace = hexToRgb(workspaceBgHex);
+                        bodyBgHex = rgbToHex(Math.min(rgbWorkspace.r + 5, 255), Math.min(rgbWorkspace.g + 5, 255), Math.min(rgbWorkspace.b + 5, 255));
+                        cardBgHex = '#ffffff';
+                        borderHex = blendColors(primaryHex, '#efefef', 0.06);
+
+                        // Ensure text color is dark
+                        const textLum = getLuminance(hexToRgb(textHexToUse));
+                        if (textLum >= 0.5) {
+                            textHexToUse = '#1a1d1f';
+                        }
+                    }
+
+                    const lumBg = getLuminance(hexToRgb(workspaceBgHex));
+
+                    // WCAG Contrast safety adjustment for Text (needs >= 4.5)
+                    let safeText = textHexToUse;
+                    let loops = 0;
+                    if (isThemeDark) {
+                        while (getContrastRatio(getLuminance(hexToRgb(safeText)), lumBg) < 4.5 && loops < 10) {
+                            safeText = blendColors('#ffffff', safeText, 0.15);
+                            loops++;
+                        }
+                    } else {
+                        while (getContrastRatio(getLuminance(hexToRgb(safeText)), lumBg) < 4.5 && loops < 10) {
+                            safeText = blendColors('#000000', safeText, 0.15);
+                            loops++;
+                        }
+                    }
+
+                    // WCAG Contrast safety adjustment for Accent/Primary elements (needs >= 3.0)
+                    let safePrimary = primaryHex;
+                    loops = 0;
+                    if (isThemeDark) {
+                        while (getContrastRatio(getLuminance(hexToRgb(safePrimary)), lumBg) < 3.0 && loops < 10) {
+                            safePrimary = blendColors('#ffffff', safePrimary, 0.15);
+                            loops++;
+                        }
+                    } else {
+                        while (getContrastRatio(getLuminance(hexToRgb(safePrimary)), lumBg) < 3.0 && loops < 10) {
+                            safePrimary = blendColors('#000000', safePrimary, 0.15);
+                            loops++;
+                        }
+                    }
+
+                    textMutedHex = blendColors(safeText, workspaceBgHex, isThemeDark ? 0.6 : 0.5);
+
+                    const rgbSafePrimary = hexToRgb(safePrimary);
+                    const safePrimaryHover = isThemeDark
+                        ? `rgb(${Math.min(rgbSafePrimary.r + 20, 255)}, ${Math.min(rgbSafePrimary.g + 20, 255)}, ${Math.min(rgbSafePrimary.b + 20, 255)})`
+                        : `rgb(${Math.max(rgbSafePrimary.r - 20, 0)}, ${Math.max(rgbSafePrimary.g - 20, 0)}, ${Math.max(rgbSafePrimary.b - 20, 0)})`;
+
+                    // Apply computed layout variables to document root
+                    root.style.setProperty('--primary', safePrimary);
+                    root.style.setProperty('--accent', safePrimary);
+                    root.style.setProperty('--primary-hover', safePrimaryHover);
+                    root.style.setProperty('--text-main', safeText);
+                    root.style.setProperty('--workspace-bg', workspaceBgHex);
+                    root.style.setProperty('--bg-color', bodyBgHex);
+                    root.style.setProperty('--card-bg', cardBgHex);
+                    root.style.setProperty('--border', borderHex);
+                    root.style.setProperty('--text-muted', textMutedHex);
+                },
                 // Fetch Brands List
                 async loadBrands() {
                     try {
@@ -3043,6 +3446,14 @@ export default {
                             } else {
                                 this.previewActiveBrandId = this.brands[0].id;
                             }
+                        }
+
+                        // Apply current brand styled theme
+                        if (this.activeShopFilter !== 'all') {
+                            const activeBrand = this.brands.find(b => b.id === this.activeShopFilter);
+                            if (activeBrand) this.updateDashboardBranding(activeBrand);
+                        } else {
+                            this.resetDashboardBranding();
                         }
 
                         // Redirect if no brands exist
@@ -3279,7 +3690,7 @@ export default {
 
                         if (response.ok) {
                             this.showNotification('Product added to brand catalog successfully.');
-                            this.newProduct = { brand_id: this.brands[0]?.id || '', title: '', price: 132.00, tag: '', image: '', original_link: '', description: '', long_description: '', features: '', compatibility: '', sku: '', external_id: '', translations: {} };
+                            this.newProduct = { brand_id: this.brands[0]?.id || '', title: '', price: 132.00, tag: '', image: '', original_link: '', description: '', long_description: '', features: '', compatibility: '', sku: '', external_id: '', translations: {}, inventory_quantity: null, sales_limit: null };
                             this.loadProducts();
                         } else {
                             const err = await response.json();

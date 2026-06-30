@@ -172,10 +172,10 @@
             </div>
         </div>
 
-        <!-- Contextual settings for currently filtered shop -->
-        <div class="panel" id="shop-settings-panel" v-if="isValidBrandSelected">
+        <!-- Contextual settings for currently filtered shop (General Tab) -->
+        <div class="panel" id="shop-settings-panel" v-if="isValidBrandSelected && activeTab === 'general'">
             <div class="panel-header">
-                <h3 class="panel-title">Shop Settings for <span>{{ currentSelectedBrandName }}</span></h3>
+                <h3 class="panel-title">General Shop Settings for <span>{{ currentSelectedBrandName }}</span></h3>
             </div>
             <form @submit.prevent="updateBrandSettings" style="margin-top: 15px;">
                 <div class="form-grid">
@@ -204,6 +204,185 @@
                         </div>
                     </div>
 
+                    <!-- Unified storefront domain row with suffix dropdown -->
+                    <div class="form-group form-full">
+                        <label>Storefront Domain Routing Address</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input v-if="baseDomainOption === 'subdomain'"
+                                   type="text"
+                                   v-model="subdomainSlug"
+                                   :readonly="userRole.toLowerCase() === 'merchant'"
+                                   required
+                                   pattern="^[a-z0-9\-]+$"
+                                   placeholder="brand-slug"
+                                   style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
+                            <input v-else
+                                   type="text"
+                                   v-model="settingsBrand.custom_domain"
+                                   :readonly="userRole.toLowerCase() === 'merchant'"
+                                   required
+                                   pattern="^(?!:\/\/)([a-zA-Z0-9\-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9\-_]+\.[a-zA-Z]{2,11}$"
+                                   placeholder="coffee-brandsite.com"
+                                   style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
+
+                            <select v-model="baseDomainOption"
+                                    :disabled="userRole.toLowerCase() === 'merchant'"
+                                    style="cursor: pointer; width: 180px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                                <option value="subdomain">.{{ app.baseBrandDomain }}</option>
+                                <option value="custom">Custom Domain</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Language Selection -->
+                    <div class="form-group form-full">
+                        <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Storefront Supported Languages</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+                            <label v-for="lang in availableLanguages" :key="lang.code" 
+                                   :style="{
+                                       display: 'inline-flex',
+                                       alignItems: 'center',
+                                       gap: '6px',
+                                       padding: '6px 12px',
+                                       borderRadius: '20px',
+                                       border: '1px solid ' + (settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'var(--border)'),
+                                       background: settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'transparent',
+                                       color: settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--workspace-bg)' : 'var(--text-main)',
+                                       cursor: 'pointer',
+                                       fontSize: '0.82rem',
+                                       fontWeight: '600',
+                                       userSelect: 'none',
+                                       transition: 'all 0.2s ease'
+                                   }">
+                                <input type="checkbox" :value="lang.code" v-model="settingsBrand.languages" style="display: none;">
+                                <span>{{ lang.flag }} {{ lang.name }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Business Segment & Niche Learning Engine Configurations -->
+                    <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: rgba(139, 92, 246, 0.03); border: 1px solid rgba(139, 92, 246, 0.15); padding: 18px; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="grid-column: 1 / -1; margin: 0 0 4px 0; font-size: 0.95rem; color: #a78bfa; display: flex; align-items: center; gap: 6px; font-family: Outfit, sans-serif; font-weight: 700;">
+                            <span>🧠 AI Learning Engine Settings</span>
+                        </h4>
+                        <p style="grid-column: 1 / -1; margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+                            Configure your brand vertical and niche. This allows the copywriter studio and optimization agents to pull successful anonymized campaign copy frameworks from the platform vertical learning pool.
+                        </p>
+                        
+                        <div class="form-group" style="margin: 0;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Industry Vertical</label>
+                            <select v-model="settingsBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
+                                <option value="Food & Beverage">Food & Beverage</option>
+                                <option value="Apparel & Fashion">Apparel & Fashion</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Health & Beauty">Health & Beauty</option>
+                                <option value="Home & Living">Home & Living</option>
+                                <option value="Fitness & Sports">Fitness & Sports</option>
+                                <option value="Software & Tech">Software & Tech</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin: 0;">
+                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Specific Niche / Tags</label>
+                            <input type="text" v-model="settingsBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
+                        </div>
+
+                        <div class="form-group form-full" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                            <input type="checkbox" id="share_perf_cb" v-model="settingsBrand.share_performance_data" style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
+                            <label for="share_perf_cb" style="margin: 0; font-size: 0.82rem; color: var(--text-main); cursor: pointer; font-weight: 600; user-select: none;">
+                                Share anonymized campaign performance data to improve AI recommendations globally
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- DNS Status Check and register button -->
+                    <div class="form-group form-full" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;" v-if="userRole.toLowerCase() === 'superadmin'">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <strong style="font-size: 0.85rem; color: var(--text-main);">Cloudflare DNS Routing Check</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                    Verify active Cloudflare CNAME record for: <strong style="color: var(--accent);">{{ settingsBrand.subdomain || 'Not configured' }}</strong>
+                                </div>
+                                <div v-if="dnsVerifyError" style="color: #ef4444; font-size: 0.74rem; margin-top: 4px; font-weight: 600;">
+                                    ❌ {{ dnsVerifyError }}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <span v-if="dnsVerified" style="color: #10b981; font-weight: 700; font-size: 0.8rem; margin-right: 6px;">✅ Verified</span>
+                                <button type="button" class="btn" style="margin: 0; padding: 4px 10px; font-size: 0.78rem; height: 30px;" @click="verifyDns" :disabled="dnsVerifying">
+                                    {{ dnsVerifying ? 'Checking...' : (dnsVerified ? 'Re-Verify' : 'Verify DNS') }}
+                                </button>
+                                <button type="button" class="btn btn-accent" v-if="dnsMissing && !dnsVerified" style="margin: 0; padding: 4px 10px; font-size: 0.78rem; height: 30px; font-weight: 700;" @click="createDnsRecord" :disabled="dnsCreating">
+                                    {{ dnsCreating ? 'Registering...' : 'Register on Cloudflare' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-footer">
+                    <button type="submit" class="btn btn-accent" style="margin: 0;">Update General Settings</button>
+                </div>
+            </form>
+
+            <!-- Danger Zone / Store Management -->
+            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <h4 style="color: #ef4444; margin-bottom: 12px; font-weight: 700; font-family: var(--font-display);">⚠️ Danger Zone / Store Management</h4>
+                <div style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <strong style="color: var(--text-main); font-size: 0.9rem;">Pause Storefront</strong>
+                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                                Temporarily disable public browsing. The storefront will return a "Storefront Offline" status.
+                            </div>
+                        </div>
+                        <button type="button" class="btn" 
+                            :style="{ background: settingsBrand.status === 'paused' ? '#10b981' : '#f97316', borderColor: settingsBrand.status === 'paused' ? '#10b981' : '#f97316', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem' }"
+                            @click="toggleStorePause">
+                            {{ settingsBrand.status === 'paused' ? '▶️ Resume Store' : '⏸️ Pause Store' }}
+                        </button>
+                    </div>
+
+                    <div v-if="userRole.toLowerCase() === 'superadmin'" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                        <div>
+                            <strong style="color: var(--text-main); font-size: 0.9rem;">Archive Storefront</strong>
+                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                                Move the storefront into archived status. Public access is permanently disabled. <span v-if="userRole.toLowerCase() !== 'superadmin'" style="color: #ef4444; font-weight: 600;">(Superadmin only)</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn" 
+                            :disabled="settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin'"
+                            :style="{ background: '#6b7280', borderColor: '#6b7280', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem', opacity: (settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin') ? 0.5 : 1, cursor: (settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin') ? 'not-allowed' : 'pointer' }"
+                            @click="archiveStore">
+                            📦 {{ settingsBrand.status === 'archived' ? 'Archived' : 'Archive Store' }}
+                        </button>
+                    </div>
+
+                    <div v-if="userRole.toLowerCase() === 'superadmin'" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                        <div>
+                            <strong style="color: #ef4444; font-size: 0.9rem;">Delete Storefront</strong>
+                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                                Permanently delete this brand storefront, catalog configuration, and domain bindings. This action cannot be undone. <span v-if="userRole.toLowerCase() !== 'superadmin'" style="color: #ef4444; font-weight: 600;">(Superadmin only)</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn" 
+                            :disabled="userRole.toLowerCase() !== 'superadmin'"
+                            :style="{ background: '#ef4444', borderColor: '#ef4444', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem', opacity: userRole.toLowerCase() !== 'superadmin' ? 0.5 : 1, cursor: userRole.toLowerCase() !== 'superadmin' ? 'not-allowed' : 'pointer' }"
+                            @click="deleteStore">
+                            🗑️ Delete Store
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contextual settings for currently filtered shop (E-commerce Tab) -->
+        <div class="panel" id="shop-ecommerce-panel" v-if="isValidBrandSelected && activeTab === 'ecommerce'">
+            <div class="panel-header">
+                <h3 class="panel-title">E-commerce Settings for <span>{{ currentSelectedBrandName }}</span></h3>
+            </div>
+            <form @submit.prevent="updateBrandSettings" style="margin-top: 15px;">
+                <div class="form-grid">
                     <!-- Payout & Billing config (Superadmin Only settings) -->
                     <template v-if="userRole.toLowerCase() === 'superadmin'">
                         <div class="form-group">
@@ -225,8 +404,6 @@
                         </div>
                     </template>
 
-
-
                     <!-- Subscription Billing Method choice (Merchant & Admin adjustable) -->
                     <div class="form-group">
                         <label>Subscription Billing Method <span class="info-tooltip-trigger" data-tooltip="Define how monthly subscription fees are billed.">i</span></label>
@@ -239,7 +416,7 @@
                     </div>
 
                     <!-- Seamless Frictionless Stripe Connection Panel -->
-                    <div v-if="isValidBrandSelected" class="form-group form-full" style="margin-top: 15px;">
+                    <div class="form-group form-full" style="margin-top: 15px;">
                         <div style="background: rgba(99, 91, 255, 0.05); border: 1px solid rgba(99, 91, 255, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 12px;">
                             <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.88rem;">
                                 <span v-html="getStripeLogoSvg()"></span>
@@ -326,101 +503,6 @@
                         </div>
                     </div>
 
-                    <!-- Unified storefront domain row with suffix dropdown -->
-                    <div class="form-group form-full">
-                        <label>Storefront Domain Routing Address</label>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input v-if="baseDomainOption === 'subdomain'"
-                                   type="text"
-                                   v-model="subdomainSlug"
-                                   :readonly="userRole.toLowerCase() === 'merchant'"
-                                   required
-                                   pattern="^[a-z0-9\-]+$"
-                                   placeholder="brand-slug"
-                                   style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
-                            <input v-else
-                                   type="text"
-                                   v-model="settingsBrand.custom_domain"
-                                   :readonly="userRole.toLowerCase() === 'merchant'"
-                                   required
-                                   pattern="^(?!:\/\/)([a-zA-Z0-9\-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9\-_]+\.[a-zA-Z]{2,11}$"
-                                   placeholder="coffee-brandsite.com"
-                                   style="flex: 1; margin: 0; background: var(--workspace-bg); height: 38px;">
-
-                            <select v-model="baseDomainOption"
-                                    :disabled="userRole.toLowerCase() === 'merchant'"
-                                    style="cursor: pointer; width: 180px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
-                                <option value="subdomain">.{{ app.baseBrandDomain }}</option>
-                                <option value="custom">Custom Domain</option>
-                            </select>
-                        </div>
-                    </div>
-
-
-
-
-
-                    <!-- Language Selection -->
-                    <div class="form-group form-full">
-                        <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Storefront Supported Languages</label>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-                            <label v-for="lang in availableLanguages" :key="lang.code" 
-                                   :style="{
-                                       display: 'inline-flex',
-                                       alignItems: 'center',
-                                       gap: '6px',
-                                       padding: '6px 12px',
-                                       borderRadius: '20px',
-                                       border: '1px solid ' + (settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'var(--border)'),
-                                       background: settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--text-main)' : 'transparent',
-                                       color: settingsBrand.languages && settingsBrand.languages.includes(lang.code) ? 'var(--workspace-bg)' : 'var(--text-main)',
-                                       cursor: 'pointer',
-                                       fontSize: '0.82rem',
-                                       fontWeight: '600',
-                                       userSelect: 'none',
-                                       transition: 'all 0.2s ease'
-                                   }">
-                                <input type="checkbox" :value="lang.code" v-model="settingsBrand.languages" style="display: none;">
-                                <span>{{ lang.flag }} {{ lang.name }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Business Segment & Niche Learning Engine Configurations -->
-                    <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: rgba(139, 92, 246, 0.03); border: 1px solid rgba(139, 92, 246, 0.15); padding: 18px; border-radius: 8px; margin: 10px 0;">
-                        <h4 style="grid-column: 1 / -1; margin: 0 0 4px 0; font-size: 0.95rem; color: #a78bfa; display: flex; align-items: center; gap: 6px; font-family: Outfit, sans-serif; font-weight: 700;">
-                            <span>🧠 AI Learning Engine Settings</span>
-                        </h4>
-                        <p style="grid-column: 1 / -1; margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
-                            Configure your brand vertical and niche. This allows the copywriter studio and optimization agents to pull successful anonymized campaign copy frameworks from the platform vertical learning pool.
-                        </p>
-                        
-                        <div class="form-group" style="margin: 0;">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Industry Vertical</label>
-                            <select v-model="settingsBrand.business_segment" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 0 12px; margin: 0; cursor: pointer;">
-                                <option value="Food & Beverage">Food & Beverage</option>
-                                <option value="Apparel & Fashion">Apparel & Fashion</option>
-                                <option value="Electronics">Electronics</option>
-                                <option value="Health & Beauty">Health & Beauty</option>
-                                <option value="Home & Living">Home & Living</option>
-                                <option value="Fitness & Sports">Fitness & Sports</option>
-                                <option value="Software & Tech">Software & Tech</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group" style="margin: 0;">
-                            <label style="display: block; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Specific Niche / Tags</label>
-                            <input type="text" v-model="settingsBrand.business_niche" placeholder="e.g. Specialty Coffee, organic cosmetics" style="width: 100%; height: 38px; margin: 0; background: var(--workspace-bg);">
-                        </div>
-
-                        <div class="form-group form-full" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-                            <input type="checkbox" id="share_perf_cb" v-model="settingsBrand.share_performance_data" style="cursor: pointer; width: 16px; height: 16px; margin: 0;">
-                            <label for="share_perf_cb" style="margin: 0; font-size: 0.82rem; color: var(--text-main); cursor: pointer; font-weight: 600; user-select: none;">
-                                Share anonymized campaign performance data to improve AI recommendations globally
-                            </label>
-                        </div>
-                    </div>
-
                     <div class="form-group form-full">
                         <label style="display: flex; align-items: center; gap: 6px;"><span v-html="getPlatformLogoSvg('shopify')"></span>Shopify Store URL (for asset scraping & sync)</label>
                         <div style="display: flex; gap: 8px;">
@@ -441,94 +523,114 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- DNS Status Check and register button -->
-                    <div class="form-group form-full" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;" v-if="userRole.toLowerCase() === 'superadmin'">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                            <div>
-                                <strong style="font-size: 0.85rem; color: var(--text-main);">Cloudflare DNS Routing Check</strong>
-                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                                    Verify active Cloudflare CNAME record for: <strong style="color: var(--accent);">{{ settingsBrand.subdomain || 'Not configured' }}</strong>
-                                </div>
-                                <div v-if="dnsVerifyError" style="color: #ef4444; font-size: 0.74rem; margin-top: 4px; font-weight: 600;">
-                                    ❌ {{ dnsVerifyError }}
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span v-if="dnsVerified" style="color: #10b981; font-weight: 700; font-size: 0.8rem; margin-right: 6px;">✅ Verified</span>
-                                <button type="button" class="btn" style="margin: 0; padding: 4px 10px; font-size: 0.78rem; height: 30px;" @click="verifyDns" :disabled="dnsVerifying">
-                                    {{ dnsVerifying ? 'Checking...' : (dnsVerified ? 'Re-Verify' : 'Verify DNS') }}
-                                </button>
-                                <button type="button" class="btn btn-accent" v-if="dnsMissing && !dnsVerified" style="margin: 0; padding: 4px 10px; font-size: 0.78rem; height: 30px; font-weight: 700;" @click="createDnsRecord" :disabled="dnsCreating">
-                                    {{ dnsCreating ? 'Registering...' : 'Register on Cloudflare' }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
                 <div class="panel-footer">
-                    <button type="submit" class="btn btn-accent" style="margin: 0;">Update Shop Integrations</button>
+                    <button type="submit" class="btn btn-accent" style="margin: 0;">Update E-commerce Settings</button>
                 </div>
             </form>
+        </div>
 
+        <!-- Contextual settings for currently filtered shop (Social Accounts Tab) -->
+        <div class="panel" id="shop-social-panel" v-if="isValidBrandSelected && activeTab === 'social'">
+            <div class="panel-header">
+                <h3 class="panel-title">Social Accounts Connection for <span>{{ currentSelectedBrandName }}</span></h3>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 10px 0;">
+                    Manage integration mappings, API authentications, and sync settings for your brand's social commerce storefronts.
+                </p>
 
-
-            <!-- Danger Zone / Store Management -->
-            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-                <h4 style="color: #ef4444; margin-bottom: 12px; font-weight: 700; font-family: var(--font-display);">⚠️ Danger Zone / Store Management</h4>
-                <div style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <div>
-                            <strong style="color: var(--text-main); font-size: 0.9rem;">Pause Storefront</strong>
-                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                                Temporarily disable public browsing. The storefront will return a "Storefront Offline" status.
+                <!-- Grid of social accounts connection cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                    
+                    <!-- Meta / Facebook connection card -->
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 1.5rem; display: flex; align-items: center; color: #1877f2;" v-html="app.getChannelIconSvg('facebook', 22)"></span>
+                                <div style="display: flex; flex-direction: column; text-align: left;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main);">Meta Business Suite</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Facebook Page Shop & Feed</span>
+                                </div>
                             </div>
+                            <span v-if="app.isChannelConnected('facebook')" style="font-size: 0.7rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Connected</span>
+                            <span v-else style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
                         </div>
-                        <button type="button" class="btn" 
-                            :style="{ background: settingsBrand.status === 'paused' ? '#10b981' : '#f97316', borderColor: settingsBrand.status === 'paused' ? '#10b981' : '#f97316', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem' }"
-                            @click="toggleStorePause">
-                            {{ settingsBrand.status === 'paused' ? '▶️ Resume Store' : '⏸️ Pause Store' }}
-                        </button>
+                        <div style="margin-top: auto;">
+                            <button type="button" @click="app.selectChannel('facebook')" class="btn" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" :class="app.isChannelConnected('facebook') ? 'btn-secondary' : 'btn-accent'">
+                                {{ app.isChannelConnected('facebook') ? '⚙️ Manage Connection' : '🔌 Link Meta Account' }}
+                            </button>
+                        </div>
                     </div>
 
-                    <div v-if="userRole.toLowerCase() === 'superadmin'" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
-                        <div>
-                            <strong style="color: var(--text-main); font-size: 0.9rem;">Archive Storefront</strong>
-                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                                Move the storefront into archived status. Public access is permanently disabled. <span v-if="userRole.toLowerCase() !== 'superadmin'" style="color: #ef4444; font-weight: 600;">(Superadmin only)</span>
+                    <!-- Instagram connection card -->
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 1.5rem; display: flex; align-items: center; color: #e1306c;" v-html="app.getChannelIconSvg('instagram', 22)"></span>
+                                <div style="display: flex; flex-direction: column; text-align: left;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main);">Instagram Shopping</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Product Tagging & Feeds</span>
+                                </div>
                             </div>
+                            <span v-if="app.isChannelConnected('instagram')" style="font-size: 0.7rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Connected</span>
+                            <span v-else style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
                         </div>
-                        <button type="button" class="btn" 
-                            :disabled="settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin'"
-                            :style="{ background: '#6b7280', borderColor: '#6b7280', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem', opacity: (settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin') ? 0.5 : 1, cursor: (settingsBrand.status === 'archived' || userRole.toLowerCase() !== 'superadmin') ? 'not-allowed' : 'pointer' }"
-                            @click="archiveStore">
-                            📦 {{ settingsBrand.status === 'archived' ? 'Archived' : 'Archive Store' }}
-                        </button>
+                        <div style="margin-top: auto;">
+                            <button type="button" @click="app.selectChannel('instagram')" class="btn" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" :class="app.isChannelConnected('instagram') ? 'btn-secondary' : 'btn-accent'">
+                                {{ app.isChannelConnected('instagram') ? '⚙️ Manage Connection' : '🔌 Link Instagram Shop' }}
+                            </button>
+                        </div>
                     </div>
 
-                    <div v-if="userRole.toLowerCase() === 'superadmin'" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
-                        <div>
-                            <strong style="color: #ef4444; font-size: 0.9rem;">Delete Storefront</strong>
-                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                                Permanently delete this brand storefront, catalog configuration, and domain bindings. This action cannot be undone. <span v-if="userRole.toLowerCase() !== 'superadmin'" style="color: #ef4444; font-weight: 600;">(Superadmin only)</span>
+                    <!-- Twitter / X connection card -->
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 1.5rem; display: flex; align-items: center;" v-html="app.getChannelIconSvg('twitter', 20)"></span>
+                                <div style="display: flex; flex-direction: column; text-align: left;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main);">Twitter / X Shop</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Profile Spotlight Products</span>
+                                </div>
                             </div>
+                            <span v-if="app.isChannelConnected('twitter')" style="font-size: 0.7rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Connected</span>
+                            <span v-else style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
                         </div>
-                        <button type="button" class="btn" 
-                            :disabled="userRole.toLowerCase() !== 'superadmin'"
-                            :style="{ background: '#ef4444', borderColor: '#ef4444', color: '#fff', margin: 0, height: '32px', fontSize: '0.8rem', opacity: userRole.toLowerCase() !== 'superadmin' ? 0.5 : 1, cursor: userRole.toLowerCase() !== 'superadmin' ? 'not-allowed' : 'pointer' }"
-                            @click="deleteStore">
-                            🗑️ Delete Store
-                        </button>
+                        <div style="margin-top: auto;">
+                            <button type="button" @click="app.selectChannel('twitter')" class="btn" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" :class="app.isChannelConnected('twitter') ? 'btn-secondary' : 'btn-accent'">
+                                {{ app.isChannelConnected('twitter') ? '⚙️ Manage Connection' : '🔌 Link X / Twitter Shop' }}
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- TikTok Shop connection card -->
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 1.5rem; display: flex; align-items: center;">🎵</span>
+                                <div style="display: flex; flex-direction: column; text-align: left;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main);">TikTok Shop</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">In-app Checkout & Live Feeds</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
+                        </div>
+                        <div style="margin-top: auto;">
+                            <button type="button" @click="showNotification('TikTok Shop connection flow is available through customizer integration steps.')" class="btn btn-secondary" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                🔌 Link TikTok Shop
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
         <div class="panel" id="no-shop-selected-settings" v-if="!isValidBrandSelected"
             style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
-            <p>⚠️ Select a specific Shop Context in the top bar to configure individual integrations and
-                Shopify parameters.</p>
+            <p v-if="activeTab === 'general'">⚠️ Select a specific Shop Context in the top bar to configure individual integrations and Shopify parameters.</p>
+            <p v-else-if="activeTab === 'ecommerce'">⚠️ Select a specific Shop Context in the top bar to configure individual E-commerce parameters and Stripe integrations.</p>
+            <p v-else-if="activeTab === 'social'">⚠️ Select a specific Shop Context in the top bar to configure individual Social Account integrations.</p>
         </div>
 
         <!-- Upgrade/Downgrade Confirmation Modal -->
@@ -637,6 +739,7 @@ export default {
             liveEstimatedTokens: 0,
             liveEstimatedCost: 0,
             liveTickerInterval: null,
+            activeTab: 'general',
             isEditingProtocol: false,
             editedProtocolText: '',
             competitorInput: '',

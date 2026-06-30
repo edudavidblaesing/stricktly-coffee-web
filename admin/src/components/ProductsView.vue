@@ -97,6 +97,16 @@
                             <input type="text" v-model="newProduct.external_id" placeholder="shopify-variant-9812" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
 
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">E-Commerce Stock Quantity</label>
+                            <input type="number" v-model="newProduct.inventory_quantity" placeholder="e.g. 50 (blank for unlimited)" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Strictly Coffee Sales Limit Allocation</label>
+                            <input type="number" v-model="newProduct.sales_limit" placeholder="e.g. 100 (blank for unlimited)" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
                         <div class="form-group" style="grid-column: span 2;">
                             <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Image (URL or Drag & Drop / Click to Upload)</label>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -271,6 +281,16 @@
                         <div class="form-group">
                             <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">External Integration ID</label>
                             <input type="text" v-model="editingProduct.external_id" placeholder="shopify-variant-9812" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">E-Commerce Stock Quantity</label>
+                            <input type="number" v-model="editingProduct.inventory_quantity" placeholder="e.g. 50 (blank for unlimited)" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Strictly Coffee Sales Limit Allocation</label>
+                            <input type="number" v-model="editingProduct.sales_limit" placeholder="e.g. 100 (blank for unlimited)" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
 
                         <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
@@ -456,6 +476,10 @@
                                             <span v-if="prod.sku">SKU: <strong style="color: var(--text-main);">{{ prod.sku }}</strong></span>
                                             <span v-if="prod.external_id">Ext ID: <strong style="color: var(--text-main);">{{ prod.external_id }}</strong></span>
                                         </div>
+                                        <div style="display: flex; gap: 8px; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">
+                                            <span>Stock: <strong :style="prod.inventory_quantity === 0 ? 'color: #ef4444;' : 'color: var(--accent);'">{{ prod.inventory_quantity !== null && prod.inventory_quantity !== undefined ? prod.inventory_quantity : 'Unlimited' }}</strong></span>
+                                            <span>Limit: <strong style="color: var(--text-main);">{{ prod.sales_limit !== null && prod.sales_limit !== undefined ? (prod.total_sold || 0) + '/' + prod.sales_limit : 'None' }}</strong></span>
+                                        </div>
                                         <div
                                             style="font-size: 0.75rem; color: var(--text-muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                             {{ prod.description || 'No description provided.' }}
@@ -561,7 +585,9 @@ export default {
                 sku: '',
                 price_source: 'manual',
                 details_source: 'manual',
-                translations: {}
+                translations: {},
+                inventory_quantity: null,
+                sales_limit: null
             }
         };
     },

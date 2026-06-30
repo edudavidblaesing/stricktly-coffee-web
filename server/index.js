@@ -1914,6 +1914,16 @@ app.get('/api/global/users/me', verifyAdminToken, async (req, res) => {
   }
 });
 
+// GET global system configuration flags
+app.get('/api/global/config', verifyAdminToken, (req, res) => {
+  const brandStyledDashboardEnabled = process.env.BRAND_STYLED_DASHBOARD_ENABLED !== 'false';
+  res.json({
+    success: true,
+    brand_styled_dashboard_enabled: brandStyledDashboardEnabled
+  });
+});
+
+
 // Update operator user profile details (e.g. password)
 app.post('/api/global/users/update-profile', verifyAdminToken, async (req, res) => {
   const { password, firstName, lastName } = req.body;
@@ -2051,6 +2061,10 @@ app.use(async (req, res, next) => {
 
     if (!brand || (brand.status === 'archived' && !previewBrandId)) {
       return res.status(404).json({ error: 'Shop tenant brand not found or is currently archived.' });
+    }
+
+    if (brand.status === 'suspended' && !req.path.startsWith('/api/admin/')) {
+      return res.status(403).json({ error: 'This storefront is currently suspended due to outstanding balance.' });
     }
 
     req.brand = brand;
@@ -2193,6 +2207,23 @@ app.post('/api/checkout', async (req, res) => {
       if (!prod) {
         return res.status(400).json({ error: `Invalid product ID for this brand: ${cartItem.id}` });
       }
+
+      // Check e-commerce inventory stock levels
+      if (prod.inventory_quantity !== null && prod.inventory_quantity !== undefined) {
+        if (prod.inventory_quantity < cartItem.quantity) {
+          return res.status(400).json({ error: `Product "${prod.title}" is out of stock (Available: ${prod.inventory_quantity}).` });
+        }
+      }
+
+      // Check platform sales limit allocation
+      if (prod.sales_limit !== null && prod.sales_limit !== undefined) {
+        const totalSold = parseInt(prod.total_sold) || 0;
+        if (totalSold + cartItem.quantity > prod.sales_limit) {
+          const remainingAllocation = Math.max(0, prod.sales_limit - totalSold);
+          return res.status(400).json({ error: `Storefront allocation limit reached for "${prod.title}". Only ${remainingAllocation} remaining allocations allowed.` });
+        }
+      }
+
       subtotal += parseFloat(prod.price) * cartItem.quantity;
       validatedItems.push({
         id: prod.id,
@@ -2910,6 +2941,27 @@ app.get('/api/global/brands/scrape-branding', verifyAdminToken, async (req, res)
     return res.status(400).json({ error: 'URL query parameter is required.' });
   }
 
+  // Pre-check if brand domain is already registered
+  let cleanUrl = url.trim();
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    cleanUrl = 'https://' + cleanUrl;
+  }
+  try {
+    const urlObj = new URL(cleanUrl);
+    const parsedDomain = urlObj.hostname.replace(/^www\./i, '').toLowerCase();
+    const slug = parsedDomain.split('.')[0];
+
+    const existing = await getQuery(
+      'SELECT id FROM brands WHERE LOWER(id) = $1 OR LOWER(subdomain) LIKE $2 OR LOWER(custom_domain) LIKE $3',
+      [slug, `%${parsedDomain}%`, `%${parsedDomain}%`]
+    );
+    if (existing) {
+      return res.status(400).json({ error: 'This Brand is already registered in the system. Please use a different brand URL.' });
+    }
+  } catch (e) {
+    // Continue in case URL parse fails
+  }
+
   try {
     const scraped = await scrapeShopifyBranding(url);
     res.json({ success: true, data: scraped });
@@ -2917,6 +2969,7 @@ app.get('/api/global/brands/scrape-branding', verifyAdminToken, async (req, res)
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // GET verify subdomain DNS record exists on Cloudflare
 app.get('/api/global/brands/verify-dns', verifyAdminToken, async (req, res) => {
@@ -3001,8 +3054,107 @@ app.post('/api/global/brands/create-dns', verifyAdminToken, async (req, res) => 
   }
 });
 
+// POST verify eCommerce platform connection credentials & update brand draft
+app.post('/api/global/brands/verify-connection', verifyAdminToken, async (req, res) => {
+  const {
+    brand_id,
+    platform,
+    shopify_shop_name,
+    shopify_access_token,
+    woocommerce_shop_url,
+    woocommerce_consumer_key,
+    woocommerce_consumer_secret
+  } = req.body;
+
+  let isValid = false;
+  let connectionMessage = '';
+
+  if (platform === 'shopify') {
+    if (!shopify_shop_name || !shopify_access_token) {
+      return res.status(400).json({ error: 'Shopify shop name and access token are required.' });
+    }
+    try {
+      let shopDomain = shopify_shop_name.trim();
+      if (!shopDomain.includes('.')) {
+        shopDomain = `${shopDomain}.myshopify.com`;
+      }
+      const response = await fetch(`https://${shopDomain}/admin/api/2024-04/shop.json`, {
+        headers: {
+          'X-Shopify-Access-Token': shopify_access_token,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        let errMsg = `Shopify API returned status ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData.errors) errMsg = errData.errors;
+        } catch (e) {}
+        return res.status(400).json({ error: `Shopify Connection Failed: ${errMsg}` });
+      }
+      isValid = true;
+      connectionMessage = 'Shopify credentials verified successfully!';
+    } catch (err) {
+      return res.status(500).json({ error: `Failed to contact Shopify API: ${err.message}` });
+    }
+  } else if (platform === 'woocommerce') {
+    if (!woocommerce_shop_url || !woocommerce_consumer_key || !woocommerce_consumer_secret) {
+      return res.status(400).json({ error: 'WooCommerce store URL, Consumer Key, and Consumer Secret are required.' });
+    }
+    try {
+      let wcUrl = woocommerce_shop_url.trim();
+      if (!wcUrl.startsWith('http://') && !wcUrl.startsWith('https://')) {
+        wcUrl = 'https://' + wcUrl;
+      }
+      const verifyUrl = `${wcUrl}/wp-json/wc/v3/products?per_page=1&consumer_key=${woocommerce_consumer_key}&consumer_secret=${woocommerce_consumer_secret}`;
+      const response = await fetch(verifyUrl);
+      if (!response.ok) {
+        return res.status(400).json({ error: `WooCommerce Connection Failed: Server returned status ${response.status}` });
+      }
+      isValid = true;
+      connectionMessage = 'WooCommerce credentials verified successfully!';
+    } catch (err) {
+      return res.status(500).json({ error: `Failed to contact WooCommerce API: ${err.message}` });
+    }
+  } else {
+    // Custom / preview mode
+    isValid = true;
+    connectionMessage = 'Preview Mode connection settings verified.';
+  }
+
+  // If connection is verified and brand_id is provided, save credentials to brand draft
+  if (isValid && brand_id) {
+    try {
+      if (platform === 'shopify') {
+        let shopDomain = shopify_shop_name.trim();
+        if (!shopDomain.includes('.')) {
+          shopDomain = `${shopDomain}.myshopify.com`;
+        }
+        await runQuery(
+          `UPDATE brands SET shopify_shop_name = $1, shopify_access_token = $2, woocommerce_shop_url = NULL, woocommerce_consumer_key = NULL, woocommerce_consumer_secret = NULL WHERE id = $3`,
+          [shopDomain, shopify_access_token, brand_id]
+        );
+      } else if (platform === 'woocommerce') {
+        let wcUrl = woocommerce_shop_url.trim();
+        if (!wcUrl.startsWith('http://') && !wcUrl.startsWith('https://')) {
+          wcUrl = 'https://' + wcUrl;
+        }
+        await runQuery(
+          `UPDATE brands SET woocommerce_shop_url = $1, woocommerce_consumer_key = $2, woocommerce_consumer_secret = $3, shopify_shop_name = NULL, shopify_access_token = NULL WHERE id = $4`,
+          [wcUrl, woocommerce_consumer_key, woocommerce_consumer_secret, brand_id]
+        );
+      }
+    } catch (err) {
+      console.error('[Verify Connection DB Update error]', err);
+    }
+  }
+
+  return res.json({ success: true, message: connectionMessage });
+});
+
 // Onboard new brand
 app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
+
   const reqId = (req.body.id || '').trim().toLowerCase();
   if (!reqId) {
     return res.status(400).json({ error: 'Missing required field: id' });
@@ -5801,7 +5953,7 @@ app.get('/api/global/products', verifyAdminToken, async (req, res) => {
 
 // Add new product to specific brand
 app.post('/api/global/products', verifyAdminToken, async (req, res) => {
-  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price } = req.body;
+  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit } = req.body;
 
   if (!brand_id || !title || !price) {
     return res.status(400).json({ error: 'Missing required fields: brand_id, title, price' });
@@ -5827,10 +5979,12 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
     const compatibilityJson = Array.isArray(compatibility) ? JSON.stringify(compatibility) : compatibility || '[]';
     const translationsJson = translations ? (typeof translations === 'string' ? translations : JSON.stringify(translations)) : null;
     const metaDetailsJson = meta_details ? (typeof meta_details === 'string' ? meta_details : JSON.stringify(meta_details)) : null;
+    const initialStock = inventory_quantity !== undefined && inventory_quantity !== null ? parseInt(inventory_quantity) : null;
+    const initialLimit = sales_limit !== undefined && sales_limit !== null ? parseInt(sales_limit) : null;
 
     await runQuery(`
-      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     `, [
       brand_id,
       title,
@@ -5849,7 +6003,9 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
       metaDetailsJson,
       finalPriceSource,
       details_source || (external_id ? 'external' : 'manual'),
-      finalOriginalPrice
+      finalOriginalPrice,
+      initialStock,
+      initialLimit
     ]);
 
     addAuditLog("Catalog Product Create", "success", `Product "${title}" (SKU: ${sku || 'N/A'}) manually added to brand ${brand_id}.`);
@@ -6012,7 +6168,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
 // Update product in catalog
 app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
   const { id } = req.params;
-  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details, price_source, details_source, original_price } = req.body;
+  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit } = req.body;
 
   try {
     const product = await getQuery('SELECT brand_id, price, original_price, price_source FROM products WHERE id = $1', [parseInt(id, 10)]);
@@ -6040,6 +6196,8 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
     const compatibilityJson = Array.isArray(compatibility) ? JSON.stringify(compatibility) : compatibility || '[]';
     const translationsJson = translations ? (typeof translations === 'string' ? translations : JSON.stringify(translations)) : null;
     const metaDetailsJson = meta_details ? (typeof meta_details === 'string' ? meta_details : JSON.stringify(meta_details)) : null;
+    const updatedStock = inventory_quantity !== undefined && inventory_quantity !== null ? parseInt(inventory_quantity) : null;
+    const updatedLimit = sales_limit !== undefined && sales_limit !== null ? parseInt(sales_limit) : null;
 
     await runQuery(`
       UPDATE products 
@@ -6061,8 +6219,10 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
           price_source = $16,
           details_source = $17,
           original_price = $18,
+          inventory_quantity = $19,
+          sales_limit = $20,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $19
+      WHERE id = $21
     `, [
       title,
       parseFloat(finalPrice.toFixed(2)),
@@ -6082,6 +6242,8 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
       finalPriceSource,
       details_source || 'external',
       finalOriginalPrice,
+      updatedStock,
+      updatedLimit,
       parseInt(id, 10)
     ]);
 
@@ -6239,6 +6401,24 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
 
     const order = await getQuery('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!order) return;
+
+    // Deduct stock levels and increment platform sales totals
+    try {
+      const orderItems = JSON.parse(order.items || '[]');
+      for (const item of orderItems) {
+        await runQuery(`
+          UPDATE products 
+          SET 
+            inventory_quantity = CASE WHEN inventory_quantity IS NOT NULL THEN GREATEST(0, inventory_quantity - $1) ELSE inventory_quantity END,
+            total_sold = total_sold + $1,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [item.quantity, item.id]);
+      }
+      console.log(`[Inventory Engine] Deducted stock levels for order ${orderId} items.`);
+    } catch (invErr) {
+      console.error(`[Inventory Engine] Failed to deduct stock for order ${orderId}:`, invErr.message);
+    }
 
     // Split-Payment Split Engine for external merchants
     if (brand.billing_type === 'external_split' || brand.billing_type === 'free') {
@@ -6576,7 +6756,8 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
               features: parsedDetails.features,
               compatibility: parsedDetails.compatibility,
               sku: firstVariant ? firstVariant.sku : '',
-              external_id: firstVariant ? String(firstVariant.id) : String(p.id)
+              external_id: firstVariant ? String(firstVariant.id) : String(p.id),
+              inventory_quantity: firstVariant && firstVariant.inventory_quantity !== undefined ? firstVariant.inventory_quantity : null
             };
           });
           return res.json({ success: true, products: formatted, source: 'shopify_api' });
@@ -6619,7 +6800,8 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
               features: parsedDetails.features,
               compatibility: parsedDetails.compatibility,
               sku: p.sku || '',
-              external_id: String(p.id)
+              external_id: String(p.id),
+              inventory_quantity: p.manage_stock && p.stock_quantity !== undefined ? p.stock_quantity : null
             };
           });
           return res.json({ success: true, products: formatted, source: 'woocommerce_api' });
@@ -6889,7 +7071,7 @@ app.post('/api/global/woocommerce/callback', async (req, res) => {
 
 // Import product from Shopify into brand catalog
 app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
-  const { brandId, title, price, image, description, sku, external_id, translations, original_link, price_source, details_source, original_price } = req.body;
+  const { brandId, title, price, image, description, sku, external_id, translations, original_link, price_source, details_source, original_price, inventory_quantity } = req.body;
 
   if (!brandId || !title || !price) {
     return res.status(400).json({ error: 'Brand ID, Title, and Price are required.' });
@@ -6907,11 +7089,12 @@ app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
     const basePrice = parseFloat(original_price !== undefined ? original_price : price);
     const finalPriceSource = price_source || 'external';
     const finalPrice = markup > 0 && finalPriceSource === 'external' ? basePrice * (1 + markup / 100) : basePrice;
+    const initialStock = inventory_quantity !== undefined && inventory_quantity !== null ? parseInt(inventory_quantity) : null;
 
     // Insert imported item into DB
     await runQuery(`
-      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, price_source, details_source, original_price)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, price_source, details_source, original_price, inventory_quantity)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     `, [
       brandId,
       title,
@@ -6929,7 +7112,8 @@ app.post('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
       translationsJson,
       finalPriceSource,
       details_source || 'external',
-      basePrice
+      basePrice,
+      initialStock
     ]);
 
     res.json({ success: true });
@@ -6995,8 +7179,9 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
               original_price = $10,
               features = $11,
               compatibility = $12,
+              inventory_quantity = COALESCE($13, inventory_quantity),
               updated_at = CURRENT_TIMESTAMP
-          WHERE id = $13
+          WHERE id = $14
         `, [
           parseFloat(finalPrice.toFixed(2)),
           p.image || '',
@@ -7010,12 +7195,13 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
           basePrice,
           featuresJson,
           compatibilityJson,
+          p.inventory_quantity !== undefined && p.inventory_quantity !== null ? parseInt(p.inventory_quantity) : null,
           existingProduct.id
         ]);
       } else {
         await runQuery(`
-          INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         `, [
           brandId,
           p.title,
@@ -7034,7 +7220,8 @@ app.post('/api/global/shopify-import/batch', verifyAdminToken, async (req, res) 
           metaDetailsJson,
           finalPriceSource,
           p.details_source || 'external',
-          basePrice
+          basePrice,
+          p.inventory_quantity !== undefined && p.inventory_quantity !== null ? parseInt(p.inventory_quantity) : null
         ]);
       }
     }
@@ -7173,6 +7360,118 @@ app.post('/api/global/referral-rules', verifyAdminToken, async (req, res) => {
   }
 });
 
+// Public Facebook/Meta OAuth Callback
+app.get('/api/global/brands/oauth/facebook/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const brandId = state; // We pass the brand ID as the 'state' parameter in OAuth to identify the brand
+
+  if (!code || !brandId) {
+    return res.status(400).send('<h3>Error: Missing authorization code or brand context.</h3>');
+  }
+
+  try {
+    const clientId = process.env.META_CLIENT_ID;
+    const clientSecret = process.env.META_CLIENT_SECRET;
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/global/brands/oauth/facebook/callback`;
+
+    if (!clientId || !clientSecret) {
+      // Fallback/Simulation if API credentials not set
+      console.log(`[Meta OAuth API] Simulation Mode: Authorized Facebook context successfully for brand: ${brandId}`);
+      
+      const brand = await getQuery('SELECT theme_settings FROM brands WHERE id = $1', [brandId]);
+      if (brand) {
+        let theme = {};
+        if (brand.theme_settings) {
+          try { theme = JSON.parse(brand.theme_settings); } catch(e) {}
+        }
+        if (!theme.connected_channels) theme.connected_channels = {};
+        theme.connected_channels['Facebook'] = {
+          active: true,
+          connectedAt: new Date().toISOString(),
+          autoSync: true,
+          autoLink: true,
+          accountName: 'Simulated Meta Ad Account'
+        };
+        theme.connected_channels['Instagram'] = { ...theme.connected_channels['Facebook'] };
+
+        await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [JSON.stringify(theme), brandId]);
+      }
+
+      return res.send(`
+        <html>
+          <body>
+            <h2>🎉 Meta Connection Successful! (Simulation)</h2>
+            <p>You can close this window and refresh your dashboard.</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage('oauth_success_campaigns_meta', '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    // Exchange authorization code for User Access Token
+    const tokenUrl = `https://graph.facebook.com/v16.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`;
+    const tokenResponse = await fetch(tokenUrl);
+    if (!tokenResponse.ok) {
+      throw new Error(await tokenResponse.text());
+    }
+    const tokenData = await tokenResponse.json();
+    const shortLivedToken = tokenData.access_token;
+
+    // Exchange short-lived token for long-lived (Page/Ad account) access token
+    const exchangeUrl = `https://graph.facebook.com/v16.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${shortLivedToken}`;
+    const exchangeResponse = await fetch(exchangeUrl);
+    if (!exchangeResponse.ok) {
+      throw new Error(await exchangeResponse.text());
+    }
+    const exchangeData = await exchangeResponse.json();
+    const longLivedToken = exchangeData.access_token;
+
+    // Save token to brand theme settings in DB
+    const brand = await getQuery('SELECT theme_settings FROM brands WHERE id = $1', [brandId]);
+    if (brand) {
+      let theme = {};
+      if (brand.theme_settings) {
+        try { theme = JSON.parse(brand.theme_settings); } catch(e) {}
+      }
+      if (!theme.connected_channels) theme.connected_channels = {};
+      theme.connected_channels['Facebook'] = {
+        active: true,
+        connectedAt: new Date().toISOString(),
+        autoSync: true,
+        autoLink: true,
+        accessToken: longLivedToken,
+        accountName: 'Meta Connected Account'
+      };
+      theme.connected_channels['Instagram'] = { ...theme.connected_channels['Facebook'] };
+
+      await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [JSON.stringify(theme), brandId]);
+    }
+
+    res.send(`
+      <html>
+        <body>
+          <h2>🎉 Meta Account Connected Successfully!</h2>
+          <p>This window will close automatically.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage('oauth_success_campaigns_meta', '*');
+            }
+            setTimeout(() => window.close(), 1500);
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error('[Meta OAuth Error]:', err.message);
+    res.status(500).send(`<h3>Failed to complete Meta authentication: ${err.message}</h3>`);
+  }
+});
+
 // Public Promo landing page signup (No authentication required)
 app.post('/api/global/brands/promo-signup', async (req, res) => {
   const { brandId, email } = req.body;
@@ -7262,6 +7561,28 @@ async function sendMailHelper(to, subject, bodyHtml, bodyText) {
     Body Preview: "${(bodyText || bodyHtml).substring(0, 100)}..."`);
     return { success: true, simulated: true };
   }
+}
+
+async function sendPaymentReminderEmail(brand, balance) {
+  const subject = `⚠️ ACTION REQUIRED: Outstanding Balance Reminder for ${brand.name}`;
+  const amountDue = Math.abs(balance).toFixed(2);
+  const emailHtml = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+      <h2 style="color: #d32f2f; margin-top: 0;">Outstanding Balance Notice</h2>
+      <p>Hello team at <strong>${brand.name}</strong>,</p>
+      <p>This is an automated notification from the Strictly Coffee platform. Your subscription renewal card payment has failed, and your account ledger balance has fallen into negative: <strong>-€${amountDue}</strong>.</p>
+      <div style="background: #fff5f5; border-left: 4px solid #ef5350; padding: 12px; margin: 16px 0; border-radius: 4px;">
+        <strong>Current Balance:</strong> -€${amountDue}<br/>
+        <strong>Status:</strong> ${brand.status === 'suspended' ? '<span style="color: #d32f2f; font-weight: 700;">SUSPENDED</span>' : 'Pending Suspension'}
+      </div>
+      <p>To avoid service disruption or restore your storefront, please log in to your dashboard console, navigate to <strong>Settings & Billing</strong>, and link a valid credit card to resolve this balance.</p>
+      <div style="margin: 24px 0; text-align: center;">
+        <a href="https://dash.stricktlycoffee.be" style="background: #0052cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Update Billing & Resolve</a>
+      </div>
+      <p style="color: #777; font-size: 0.85rem;">If you have any questions or require assistance, please contact support@stricktlycoffee.be.</p>
+    </div>
+  `;
+  await sendMailHelper(brand.contact_email || 'support@stricktlycoffee.be', subject, emailHtml);
 }
 
 // Force send all pending emails now (Simulation Trigger)
@@ -7377,6 +7698,43 @@ async function processDueSubscriptions() {
         chargeDescription
       ]);
 
+      // Dunning and Auto-Suspension Engine
+      const balanceResult = await getQuery('SELECT SUM(net_amount) as balance FROM merchant_payout_ledger WHERE brand_id = $1', [sub.brand_id]);
+      const updatedBalance = parseFloat(balanceResult?.balance) || 0.00;
+
+      if (updatedBalance < 0) {
+        const brandObj = await getQuery('SELECT * FROM brands WHERE id = $1', [sub.brand_id]);
+        
+        // Traverse ledger history to see how long they have had a negative balance
+        const ledgers = await allQuery('SELECT net_amount, created_at FROM merchant_payout_ledger WHERE brand_id = $1 ORDER BY created_at ASC', [sub.brand_id]);
+        let runBalance = 0;
+        let negativeSince = null;
+        for (const l of ledgers) {
+          runBalance += parseFloat(l.net_amount) || 0;
+          if (runBalance < 0) {
+            if (!negativeSince) {
+              negativeSince = new Date(l.created_at);
+            }
+          } else {
+            negativeSince = null;
+          }
+        }
+
+        const daysNegative = negativeSince ? (Date.now() - negativeSince.getTime()) / (1000 * 60 * 60 * 24) : 0;
+
+        if (updatedBalance <= -50.00 || daysNegative >= 7) {
+          console.log(`[Subscription Engine] Suspending brand ${sub.brand_id} due to outstanding balance: €${updatedBalance.toFixed(2)} (${daysNegative.toFixed(1)} days negative)`);
+          await runQuery("UPDATE brands SET status = 'suspended', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [sub.brand_id]);
+          addAuditLog("Account Suspended", "warning", `Brand ${sub.brand_id} automatically suspended due to negative balance: €${updatedBalance.toFixed(2)} (${daysNegative.toFixed(1)} days negative)`);
+          
+          const suspendedBrand = { ...brandObj, status: 'suspended' };
+          await sendPaymentReminderEmail(suspendedBrand, updatedBalance);
+        } else {
+          console.log(`[Subscription Engine] Sending payment reminder for brand ${sub.brand_id}. Balance: €${updatedBalance.toFixed(2)}`);
+          await sendPaymentReminderEmail(brandObj, updatedBalance);
+        }
+      }
+
       // Rollover pending tier/interval if any
       let finalName = sub.name;
       let finalAmount = amount;
@@ -7425,8 +7783,78 @@ async function processDueSubscriptions() {
   }
 }
 
-// Background scheduler checking every 60 seconds
+async function checkDeliveryStatusPolling() {
+  try {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const transitSeconds = isProduction ? 3 * 24 * 3600 : 60; // 3 days in prod, 60 seconds in dev/testing
+    const packagingSeconds = isProduction ? 24 * 3600 : 30; // 1 day in prod, 30 seconds in dev/testing
+
+    // 1. Process orders stuck in 'sent_to_warehouse' and transition them to 'shipped' (to simulate fulfillment)
+    const pendingFulfillments = await allQuery(`
+      SELECT * FROM orders 
+      WHERE status = 'sent_to_warehouse' AND updated_at <= NOW() - INTERVAL '${packagingSeconds} seconds'
+    `);
+
+    for (const o of pendingFulfillments) {
+      const trackingNumber = `TRACK${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const trackingCarrier = 'DHL';
+      const trackingUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
+      
+      await runQuery(`
+        UPDATE orders 
+        SET status = 'shipped', tracking_number = $1, tracking_carrier = $2, tracking_url = $3, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4
+      `, [trackingNumber, trackingCarrier, trackingUrl, o.id]);
+
+      // Trigger email notification
+      await triggerOrderReferralEmail(o.id, o.brand_id);
+      console.log(`[Delivery Service] Auto-fulfilled order ${o.id} to shipped. Tracking: ${trackingNumber}`);
+    }
+
+    // 2. Process shipped orders and transition them to 'delivered' (to simulate parcel arrival)
+    const shippedOrders = await allQuery(`
+      SELECT o.*, b.contact_email, b.name as brand_name 
+      FROM orders o
+      JOIN brands b ON o.brand_id = b.id
+      WHERE o.status = 'shipped' AND o.updated_at <= NOW() - INTERVAL '${transitSeconds} seconds'
+    `);
+
+    for (const o of shippedOrders) {
+      await runQuery(`
+        UPDATE orders 
+        SET status = 'delivered', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [o.id]);
+
+      // Log in memory audit log
+      addAuditLog("Order Delivered", "success", `Order ${o.id} successfully delivered to ${o.customer_name}.`);
+      console.log(`[Delivery Service] Order ${o.id} marked as delivered.`);
+
+      // Send delivery confirmation email
+      const subject = `🎉 Order Delivered: ${o.id}`;
+      const bodyHtml = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+          <h2 style="color: #4caf50; margin-top: 0;">Your package has arrived!</h2>
+          <p>Hi <strong>${o.customer_name}</strong>,</p>
+          <p>Good news! Your order <strong>${o.id}</strong> from <strong>${o.brand_name}</strong> has been successfully delivered.</p>
+          <div style="background: #f1f8e9; border-left: 4px solid #8bc34a; padding: 12px; margin: 16px 0; border-radius: 4px;">
+            <strong>Order ID:</strong> ${o.id}<br/>
+            <strong>Carrier:</strong> ${o.tracking_carrier}<br/>
+            <strong>Tracking Number:</strong> ${o.tracking_number}
+          </div>
+          <p>We hope you enjoy your specialty coffee gear! If you have any questions, please contact ${o.contact_email || 'support@stricktlycoffee.be'}.</p>
+        </div>
+      `;
+      await sendMailHelper(o.customer_email, subject, bodyHtml);
+    }
+  } catch (err) {
+    console.error('[Delivery Service] Poller error:', err);
+  }
+}
+
+// Background schedulers
 setInterval(processDueSubscriptions, 60000);
+setInterval(checkDeliveryStatusPolling, 15000); // Check every 15 seconds in dev/local
 
 // GET Payout Ledger and calculated balance for a brand
 app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res) => {
@@ -9378,4 +9806,8 @@ app.post('/api/global/translate', verifyAdminToken, async (req, res) => {
 app.listen(port, async () => {
   console.log(`Server listening on port ${port}`);
   await loadPricingCache();
+  // Initiate immediate delivery checks after a short delay to let DB migrations finish
+  setTimeout(() => {
+    checkDeliveryStatusPolling().catch(err => console.error('[Startup Delivery Check Failed]', err));
+  }, 3000);
 });
