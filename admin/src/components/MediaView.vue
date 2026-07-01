@@ -104,7 +104,7 @@
                         @dragover.prevent
                         @drop="dropAsset($event, item, idx)"
                         @click="openAssetDetails(item)"
-                        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s; cursor: grab; position: relative; padding: 0 !important; margin-bottom: 0 !important; height: 220px;"
+                        style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s; cursor: grab; position: relative; padding: 0 !important; margin-bottom: 0 !important; height: 235px;"
                         :style="draggedAsset && draggedAsset.id === item.id ? 'opacity: 0.45; border: 1.5px dashed var(--accent);' : ''"
                         @mouseenter="hoveredItem = item.id" @mouseleave="hoveredItem = null">
                         
@@ -117,7 +117,7 @@
                         <!-- Preview compartment -->
                         <div style="height: 120px; background: var(--bg-color); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border-bottom: 1px solid var(--border); pointer-events: none;">
                             <video v-if="isVideo(item.url)" :src="item.url" style="width: 100%; height: 100%; object-fit: cover;" muted playsinline></video>
-                            <img v-else :src="item.url" style="width: 100%; height: 100%; object-fit: contain; background: rgba(0,0,0,0.15);">
+                            <img v-else :src="optimizeImageUrl(item.url, 300)" style="width: 100%; height: 100%; object-fit: contain; background: rgba(0,0,0,0.15);">
                             
                             <!-- Overlay badge -->
                             <span style="position: absolute; top: 8px; left: 8px; font-size: 0.62rem; font-weight: 700; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; border-radius: 4px;">
@@ -138,6 +138,25 @@
                             <div style="font-size: 0.65rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
                                 <span>{{ item.source_type.toUpperCase() }}</span>
                                 <span>{{ formatDate(item.created_at) }}</span>
+                            </div>
+                            <!-- AI Linked Badges -->
+                            <div v-if="item.metadata && item.metadata.ai_studio" 
+                                 style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;">
+                                <span v-if="item.metadata.ai_studio.product_id" 
+                                      style="font-size: 0.58rem; font-weight: 700; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.25); color: #4ade80; padding: 1px 4px; border-radius: 3px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                      :title="`Product: ${item.metadata.ai_studio.product_id}`">
+                                    📦 {{ item.metadata.ai_studio.product_id }}
+                                </span>
+                                <span v-if="item.metadata.ai_studio.persona_name" 
+                                      style="font-size: 0.58rem; font-weight: 700; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.25); color: #c084fc; padding: 1px 4px; border-radius: 3px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                      :title="`Persona: ${item.metadata.ai_studio.persona_name}`">
+                                    👥 {{ item.metadata.ai_studio.persona_name }}
+                                </span>
+                                <span v-if="item.metadata.ai_studio.scenery_name" 
+                                      style="font-size: 0.58rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.25); color: #60a5fa; padding: 1px 4px; border-radius: 3px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                      :title="`Scenery: ${item.metadata.ai_studio.scenery_name}`">
+                                    🌄 {{ item.metadata.ai_studio.scenery_name }}
+                                </span>
                             </div>
                         </div>
 
@@ -226,7 +245,7 @@
                     <div style="display: flex; gap: 16px; align-items: flex-start; background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px; padding: 12px;">
                         <div style="width: 120px; height: 120px; border-radius: 6px; overflow: hidden; background: var(--bg-color); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
                             <video v-if="isVideo(selectedAsset.url)" :src="selectedAsset.url" style="width: 100%; height: 100%; object-fit: cover;" controls muted></video>
-                            <img v-else :src="selectedAsset.url" style="width: 100%; height: 100%; object-fit: contain; background: rgba(0,0,0,0.15);">
+                            <img v-else :src="optimizeImageUrl(selectedAsset.url, 300)" style="width: 100%; height: 100%; object-fit: contain; background: rgba(0,0,0,0.15);">
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; overflow: hidden;">
                             <span style="font-weight: 700; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ selectedAsset.title }}</span>
@@ -236,43 +255,62 @@
                         </div>
                     </div>
 
-                    <!-- IF IT IS A PRODUCT SOURCE: Edit product title, descriptions, features, compatibility -->
-                    <div v-if="isProductSource && editProduct" style="display: flex; flex-direction: column; gap: 12px;">
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Product Title</label>
-                            <input type="text" v-model="editProduct.title" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
+                    <!-- IF IT IS A PRODUCT SOURCE: Show Product summary & redirect button -->
+                    <div v-if="isProductSource && editProduct" style="display: flex; flex-direction: column; gap: 14px; background: rgba(197, 160, 89, 0.03); border: 1px solid rgba(197, 160, 89, 0.15); border-radius: 8px; padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">{{ editProduct.title }}</h4>
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">SKU: <strong>{{ editProduct.sku || 'N/A' }}</strong></span>
+                            </div>
+                            <span style="font-size: 1rem; font-weight: bold; color: var(--accent);">€{{ parseFloat(editProduct.price || 0).toFixed(2) }}</span>
+                        </div>
+                        
+                        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; border-top: 1px dashed var(--border); padding-top: 10px;">
+                            <strong>Description:</strong> {{ editProduct.description || 'No description available.' }}
                         </div>
 
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Short Description (AI SEO Pitch)</label>
-                            <textarea v-model="editProduct.description" rows="3" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.82rem; font-family: inherit; resize: vertical;"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Detailed Description</label>
-                            <textarea v-model="editProduct.long_description" rows="4" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.82rem; font-family: inherit; resize: vertical;"></textarea>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Key Features (One per line)</label>
-                                <textarea v-model="editProductFeaturesText" rows="4" placeholder="Feature 1&#10;Feature 2" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; font-family: inherit; resize: vertical;"></textarea>
+                        <!-- Features & Compatibility tags -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.75rem; border-top: 1px dashed var(--border); padding-top: 10px;">
+                            <div>
+                                <span style="font-weight: 600; color: var(--text-main); display: block; margin-bottom: 4px;">🏷️ Key Features</span>
+                                <div style="display: flex; flex-direction: column; gap: 2px; color: var(--text-muted);">
+                                    <span v-for="f in (editProductFeaturesText || '').split('\n').filter(Boolean)" :key="f">• {{ f }}</span>
+                                    <span v-if="!(editProductFeaturesText || '').trim()">None</span>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Machine Compatibility (One per line)</label>
-                                <textarea v-model="editProductCompatibilityText" rows="4" placeholder="Breville 54mm&#10;E61 Group Heads" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.8rem; font-family: inherit; resize: vertical;"></textarea>
+                            <div>
+                                <span style="font-weight: 600; color: var(--text-main); display: block; margin-bottom: 4px;">🔌 Compatibility</span>
+                                <div style="display: flex; flex-direction: column; gap: 2px; color: var(--text-muted);">
+                                    <span v-for="c in (editProductCompatibilityText || '').split('\n').filter(Boolean)" :key="c">• {{ c }}</span>
+                                    <span v-if="!(editProductCompatibilityText || '').trim()">None</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                            <div class="form-group">
-                                <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">Price (EUR)</label>
-                                <input type="number" step="0.01" v-model="editProduct.price" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
+                        <!-- AI Visual DNA & Tagging (Gemini Vision Analysis) -->
+                        <div v-if="editMetadata" style="font-size: 0.75rem; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                            <span style="font-weight: 700; color: #8b5cf6; display: flex; align-items: center; gap: 4px;">
+                                <span>✨</span> AI Visual DNA & Tagging
+                            </span>
+                            <div style="color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
+                                <div v-if="editMetadata.subject"><strong>Isolated Subject:</strong> {{ editMetadata.subject }}</div>
+                                <div v-if="editMetadata.setting"><strong>Setting / Backdrop:</strong> {{ editMetadata.setting }}</div>
+                                <div v-if="editMetadataTags.length > 0" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                                    <span v-for="tag in editMetadataTags" :key="tag" 
+                                          style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #c084fc; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                                        #{{ tag }}
+                                    </span>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); display: block; margin-bottom: 4px;">SKU</label>
-                                <input type="text" v-model="editProduct.sku" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
-                            </div>
+                        </div>
+
+                        <div style="margin-top: 8px; border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                            <button type="button" @click="editProductInCatalog(editProduct.id)" class="btn btn-primary" style="width: 100%; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                ✏️ Open Full Catalog Editor
+                            </button>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); text-align: center;">
+                                Opens the complete catalog editor with sync, active status, tag managers, and translation contexts.
+                            </span>
                         </div>
                     </div>
 
@@ -302,13 +340,43 @@
                             </div>
 
                             <div class="form-group">
-                                <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Tags (Comma separated)</label>
-                                <input type="text" v-model="editMetadataTagsText" placeholder="No tags available." style="width: 100%; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Tags (Press Enter to add)</label>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 4px; padding: 4px 8px; min-height: 32px; box-sizing: border-box; align-items: center; width: 100%;">
+                                    <div v-for="(tag, idx) in editMetadataTags" :key="idx" 
+                                         style="display: inline-flex; align-items: center; gap: 4px; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa; padding: 1px 6px; border-radius: 3px; font-size: 0.72rem; font-weight: 700;">
+                                        <span>{{ tag }}</span>
+                                        <span @click="removeMediaTag(idx)" style="cursor: pointer; opacity: 0.7; font-weight: normal; margin-left: 2px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</span>
+                                    </div>
+                                    <input type="text" v-model="newMediaTagInput" 
+                                           @keydown.enter.prevent="addMediaTag" 
+                                           @keydown.comma.prevent="addMediaTag"
+                                           @keydown.backspace="handleMediaTagBackspace"
+                                           placeholder="Type tag & press Enter" 
+                                           style="flex: 1; min-width: 100px; background: transparent; border: none; outline: none; color: var(--text-main); font-size: 0.76rem; padding: 2px 0; margin: 0; height: auto;">
+                                </div>
                             </div>
 
                             <div class="form-group">
                                 <label style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Text Overlay (OCR)</label>
                                 <input type="text" v-model="editMetadata.ocr" placeholder="No text overlays detected." style="width: 100%; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem;">
+                            </div>
+                            
+                            <!-- Visual Studio Session Parameters Loader -->
+                            <div v-if="editMetadata && editMetadata.ai_studio" 
+                                 style="background: rgba(139, 92, 246, 0.08); border: 1px dashed rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 12px; margin-top: 15px;">
+                                <div style="font-size: 0.72rem; color: #a78bfa; font-weight: 700; margin-bottom: 6px; text-transform: uppercase;">
+                                    🎨 Visual Studio Parameters
+                                </div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
+                                    <div style="word-break: break-all;"><strong>Prompt Template:</strong> {{ editMetadata.ai_studio.prompt_template }}</div>
+                                    <div><strong>Model Seed:</strong> <code style="color: var(--accent);">{{ editMetadata.ai_studio.seed }}</code></div>
+                                    <div><strong>AI Engine:</strong> <span style="text-transform: uppercase;">{{ editMetadata.ai_studio.backend }}</span></div>
+                                </div>
+                                <button type="button" @click="loadAssetInStudio" 
+                                        class="btn" 
+                                        style="width: 100%; height: 30px; font-size: 0.74rem; font-weight: 700; margin-top: 10px; background: #8b5cf6; color: white; border: none; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
+                                    <span>🎨 Resume in Prompt Composer</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -316,8 +384,10 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
-                    <button type="button" @click="closeDetailsModal" class="btn btn-secondary" style="flex: 1; margin: 0; height: 38px;">Cancel</button>
-                    <button type="button" @click="saveDetailsEdits" class="btn btn-primary" style="flex: 1; margin: 0; height: 38px; font-weight: 700;" :disabled="savingEdits">
+                    <button type="button" @click="closeDetailsModal" class="btn btn-secondary" style="flex: 1; margin: 0; height: 38px;">
+                        {{ isProductSource ? 'Close' : 'Cancel' }}
+                    </button>
+                    <button v-if="!isProductSource" type="button" @click="saveDetailsEdits" class="btn btn-primary" style="flex: 1; margin: 0; height: 38px; font-weight: 700;" :disabled="savingEdits">
                         {{ savingEdits ? 'Saving...' : 'Save & Close' }}
                     </button>
                 </div>
@@ -365,7 +435,8 @@ export default {
             editProductCompatibilityText: '',
             editUpload: null,
             editMetadata: null,
-            editMetadataTagsText: '',
+            editMetadataTags: [],
+            newMediaTagInput: '',
             savingEdits: false
         };
     },
@@ -386,10 +457,26 @@ export default {
             }
             if (this.searchQuery.trim()) {
                 const query = this.searchQuery.toLowerCase();
-                items = items.filter(i => 
-                    (i.title || '').toLowerCase().includes(query) || 
-                    (i.folder || '').toLowerCase().includes(query)
-                );
+                items = items.filter(i => {
+                    const titleMatch = (i.title || '').toLowerCase().includes(query);
+                    const folderMatch = (i.folder || '').toLowerCase().includes(query);
+                    let metadataMatch = false;
+                    if (i.metadata) {
+                        const studio = i.metadata.ai_studio || {};
+                        const pName = (studio.persona_name || '').toLowerCase();
+                        const sName = (studio.scenery_name || '').toLowerCase();
+                        const pId = (studio.product_id || '').toLowerCase();
+                        if (pName.includes(query) || sName.includes(query) || pId.includes(query)) {
+                            metadataMatch = true;
+                        }
+                        const tagsStr = (i.metadata.tags || []).join(' ').toLowerCase();
+                        const ocrStr = (i.metadata.ocr || '').toLowerCase();
+                        if (tagsStr.includes(query) || ocrStr.includes(query)) {
+                            metadataMatch = true;
+                        }
+                    }
+                    return titleMatch || folderMatch || metadataMatch;
+                });
             }
             return items;
         },
@@ -414,6 +501,17 @@ export default {
         }
     },
     methods: {
+        optimizeImageUrl(url, w, h) {
+            if (!url) return '';
+            if (url.includes('/uploads/')) {
+                const separator = url.includes('?') ? '&' : '?';
+                const params = [];
+                if (w) params.push(`w=${w}`);
+                if (h) params.push(`h=${h}`);
+                return `${url}${separator}${params.join('&')}`;
+            }
+            return url;
+        },
         toggleSelectAllMedia() {
             if (this.isAllMediaSelected) {
                 this.selectedItems = [];
@@ -813,11 +911,11 @@ export default {
         },
         openAssetDetails(item) {
             this.selectedAsset = item;
-            const isProd = String(item.id).startsWith('prod-img-') || item.source_type === 'product';
+            const isProd = String(item.id).startsWith('prod_') || String(item.id).startsWith('prod-img-') || item.source_type === 'product';
             this.isProductSource = isProd;
 
             if (isProd) {
-                const prodId = Number(String(item.id).replace('prod-img-', ''));
+                const prodId = Number(String(item.id).replace(/[^0-9]/g, ''));
                 const foundProd = this.app.products.find(p => p.id === prodId);
                 if (foundProd) {
                     this.editProduct = { ...foundProd };
@@ -853,6 +951,9 @@ export default {
                     this.editProductFeaturesText = '';
                     this.editProductCompatibilityText = '';
                 }
+                this.editMetadata = item.metadata ? { ...item.metadata } : null;
+                const tagsArr = this.editMetadata ? (this.editMetadata.keywords || this.editMetadata.tags || []) : [];
+                this.editMetadataTags = Array.isArray(tagsArr) ? [...tagsArr] : [];
             } else {
                 this.editUpload = {
                     id: item.id,
@@ -861,7 +962,8 @@ export default {
                 };
                 this.editMetadata = item.metadata ? { ...item.metadata } : { description: '', tags: [], ocr: '' };
                 const tagsArr = this.editMetadata.tags || [];
-                this.editMetadataTagsText = Array.isArray(tagsArr) ? tagsArr.join(', ') : '';
+                this.editMetadataTags = Array.isArray(tagsArr) ? [...tagsArr] : [];
+                this.newMediaTagInput = '';
             }
             this.detailsModalOpen = true;
         },
@@ -875,50 +977,82 @@ export default {
         async saveDetailsEdits() {
             this.savingEdits = true;
             try {
-                if (this.isProductSource) {
-                    const features = this.editProductFeaturesText.split('\n').map(line => line.trim()).filter(Boolean);
-                    const compatibility = this.editProductCompatibilityText.split('\n').map(line => line.trim()).filter(Boolean);
-                    
-                    this.editProduct.features = JSON.stringify(features);
-                    this.editProduct.compatibility = JSON.stringify(compatibility);
-
-                    const success = await this.app.updateProduct(this.editProduct);
-                    if (success) {
-                        this.app.showNotification('Product details updated successfully.');
-                        this.closeDetailsModal();
-                        await this.loadMedia();
+                if (this.newMediaTagInput.trim()) {
+                    const newTag = this.newMediaTagInput.trim();
+                    if (!this.editMetadataTags.includes(newTag)) {
+                        this.editMetadataTags.push(newTag);
                     }
+                    this.newMediaTagInput = '';
+                }
+                this.editMetadata.tags = [...this.editMetadataTags];
+
+                const response = await fetch(`/api/global/media/${this.editUpload.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        ...this.authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: this.editUpload.title,
+                        folder: this.editUpload.folder,
+                        metadata: this.editMetadata
+                    })
+                });
+
+                if (response.ok) {
+                    this.app.showNotification('Media asset updated successfully.');
+                    this.closeDetailsModal();
+                    await this.loadMedia();
                 } else {
-                    const tags = this.editMetadataTagsText.split(',').map(t => t.trim()).filter(Boolean);
-                    this.editMetadata.tags = tags;
-
-                    const response = await fetch(`/api/global/media/${this.editUpload.id}`, {
-                        method: 'PUT',
-                        headers: {
-                            ...this.authHeaders,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            title: this.editUpload.title,
-                            folder: this.editUpload.folder,
-                            metadata: this.editMetadata
-                        })
-                    });
-
-                    if (response.ok) {
-                        this.app.showNotification('Media asset updated successfully.');
-                        this.closeDetailsModal();
-                        await this.loadMedia();
-                    } else {
-                        const err = await response.json();
-                        alert(`Error saving edits: ${err.error || 'Unknown error'}`);
-                    }
+                    const err = await response.json();
+                    alert(`Error saving edits: ${err.error || 'Unknown error'}`);
                 }
             } catch(e) {
                 alert(`Error saving edits: ${e.message}`);
             } finally {
                 this.savingEdits = false;
             }
+        },
+        editProductInCatalog(id) {
+            this.closeDetailsModal();
+            this.app.editProductById(id);
+        },
+        addMediaTag() {
+            const clean = this.newMediaTagInput.trim();
+            if (clean && !this.editMetadataTags.includes(clean)) {
+                this.editMetadataTags.push(clean);
+            }
+            this.newMediaTagInput = '';
+        },
+        removeMediaTag(idx) {
+            this.editMetadataTags.splice(idx, 1);
+        },
+        handleMediaTagBackspace() {
+            if (!this.newMediaTagInput && this.editMetadataTags.length > 0) {
+                this.editMetadataTags.pop();
+            }
+        },
+        loadAssetInStudio() {
+            if (!this.editMetadata || !this.editMetadata.ai_studio) return;
+            const studio = this.editMetadata.ai_studio;
+            if (this.selectedAsset && this.selectedAsset.brand_id) {
+                this.app.activeShopFilter = this.selectedAsset.brand_id;
+            }
+            this.app.loadedStudioParams = {
+                promptTemplate: studio.prompt_template,
+                seed: studio.seed,
+                lockSeed: true,
+                cameraLens: studio.camera_lens || '',
+                lightingStyle: studio.lighting_style || '',
+                composition: studio.composition || '',
+                backend: studio.backend || 'imagen',
+                format: studio.format || 'image',
+                productId: studio.product_id || '',
+                personaName: studio.persona_name || '',
+                sceneryName: studio.scenery_name || ''
+            };
+            this.closeDetailsModal();
+            this.app.switchView('brand-center');
         }
     }
 }

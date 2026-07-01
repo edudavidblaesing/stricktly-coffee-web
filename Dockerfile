@@ -2,7 +2,6 @@
 FROM nginx:alpine
 
 # Copy website files to nginx html directory
-COPY web/ /usr/share/nginx/html/web/
 COPY store/ /usr/share/nginx/html/store/
 
 # Copy nginx configuration template (use nginx-web.conf for HTTP, nginx-web-ssl.conf for HTTPS)

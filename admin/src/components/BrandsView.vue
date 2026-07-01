@@ -10,9 +10,10 @@
             <LandingPageDesignerView @back="activeSubView = 'list'" />
         </div>
 
-        <!-- Sub-View: Channel Connection / Setup -->
+        <!-- Sub-View: Channel Connection / Setup / Sync Dashboard -->
         <div v-else-if="activeSubView === 'channel-connect'" style="width: 100%;">
-            <div class="panel" style="max-width: 600px; margin: 40px auto; padding: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-bg); text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.35);">
+            <!-- NOT CONNECTED STATE -->
+            <div v-if="!app.isChannelConnected(selectedChannelId)" class="panel" style="max-width: 600px; margin: 40px auto; padding: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-bg); text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.35);">
                 <div style="font-size: 3.5rem; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; height: 80px;">
                     <span v-html="getChannelLogoSvg(selectedChannelId || '', 54)"></span>
                 </div>
@@ -29,6 +30,121 @@
                     </button>
                     <button type="button" class="btn" style="height: 38px; padding: 0 20px; font-size: 0.82rem; font-weight: 600; border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text-main);" @click="activeSubView = 'list'; selectedChannelId = null;">
                         ← Back to Channels List
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONNECTED STATE: Channel Management & Sync Feed Dashboard -->
+            <div v-else class="panel" style="max-width: 800px; margin: 40px auto; padding: 32px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-bg); box-shadow: 0 8px 32px rgba(0,0,0,0.35);">
+                <!-- Header with logo and status -->
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;">
+                            <span v-html="getChannelLogoSvg(selectedChannelId || '', 32)"></span>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; color: var(--text-main); font-weight: 700; font-size: 1.35rem; display: flex; align-items: center; gap: 8px;">
+                                {{ getChannelName(selectedChannelId) }}
+                                <span style="font-size: 0.72rem; padding: 4px 10px; border-radius: 20px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e; display: inline-block; box-shadow: 0 0 8px #22c55e;"></span>
+                                    Active & Synced
+                                </span>
+                            </h3>
+                            <p style="margin: 4px 0 0 0; font-size: 0.78rem; color: var(--text-muted);">
+                                Manage product feed configuration, synchronization intervals, and active connections.
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn" style="height: 34px; padding: 0 14px; font-size: 0.76rem; font-weight: 600; border-radius: 6px; background: transparent; border: 1px solid var(--border); color: var(--text-main); margin: 0;" @click="activeSubView = 'list'; selectedChannelId = null;">
+                        ← Back to List
+                    </button>
+                </div>
+
+                <!-- Sync Stats Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 6px;">Total Synced</span>
+                        <span style="font-size: 1.6rem; color: var(--text-main); font-weight: 800; font-family: var(--font-display);">{{ app.products.filter(p => p.brand_id === app.activeShopFilter).length }} Items</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 6px;">Last Sync Run</span>
+                        <span style="font-size: 1.1rem; color: var(--text-main); font-weight: 700; display: block; margin-top: 6px;">{{ syncLastRunTime || 'Just now' }}</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 6px;">Connection Health</span>
+                        <span style="font-size: 1.1rem; color: #22c55e; font-weight: 700; display: block; margin-top: 6px;">100% Healthy</span>
+                    </div>
+                </div>
+
+                <!-- RSS Feed URL Panel -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                    <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block; color: var(--text-main);">
+                        📡 Catalog Integration RSS/XML Feed URL
+                    </label>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0 0 12px 0; line-height: 1.4;">
+                        Provide this XML feed link to your channel dashboard to enable automatic daily catalogue sync.
+                    </p>
+                    <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 6px; padding: 4px 4px 4px 12px; align-items: center;">
+                        <span style="font-family: monospace; font-size: 0.74rem; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                            {{ getChannelFeedUrl() }}
+                        </span>
+                        <button type="button" @click="copyChannelFeedUrl" class="btn btn-secondary" style="height: 30px; font-size: 0.72rem; padding: 0 12px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 4px; border-radius: 4px;">
+                            <span>{{ feedUrlCopied ? '✅ Copied' : '📋 Copy Link' }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sync Toggles and Settings -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 32px; display: flex; flex-direction: column; gap: 16px;">
+                    <h4 style="margin: 0; color: var(--text-main); font-weight: 700; font-size: 0.9rem; font-family: var(--font-display);">Sync Settings & Parameters</h4>
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;">
+                        <div>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: block;">Automatic Catalog Feed Sync</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Sync inventory changes to channel automatically</span>
+                        </div>
+                        <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 22px;">
+                            <input type="checkbox" v-model="syncSettings.autoSync" style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 22px;" :style="syncSettings.autoSync ? 'background-color: var(--accent);' : ''">
+                                <span style="position: absolute; content: ''; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;" :style="syncSettings.autoSync ? 'transform: translateX(22px);' : ''"></span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;">
+                        <div>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: block;">Exclude Out-of-Stock Items</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Do not display out-of-stock items in channel catalog</span>
+                        </div>
+                        <label class="switch-toggle" style="position: relative; display: inline-block; width: 44px; height: 22px;">
+                            <input type="checkbox" v-model="syncSettings.excludeOutOfStock" style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 22px;" :style="syncSettings.excludeOutOfStock ? 'background-color: var(--accent);' : ''">
+                                <span style="position: absolute; content: ''; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;" :style="syncSettings.excludeOutOfStock ? 'transform: translateX(22px);' : ''"></span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: block;">Sync Frequency</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">How often the feed XML file is updated</span>
+                        </div>
+                        <select v-model="syncSettings.frequency" style="height: 32px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.78rem; padding: 0 10px; cursor: pointer;">
+                            <option value="hourly">Hourly</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <button type="button" @click="runManualSync" :disabled="syncRunning" class="btn btn-accent" style="height: 38px; padding: 0 20px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px;">
+                        <span>{{ syncRunning ? '🔄 Syncing Feed...' : '⚡ Force Manual Sync' }}</span>
+                    </button>
+
+                    <button type="button" @click="disconnectActiveChannel" class="btn" style="height: 38px; padding: 0 16px; font-size: 0.8rem; font-weight: 700; border-radius: 6px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; margin: 0;">
+                        🔌 Disconnect Channel
                     </button>
                 </div>
             </div>
@@ -85,6 +201,13 @@
                                 Provide your main brand URL. We will crawl it to analyze layout styles, logo, brand assets, and colors.
                             </p>
                         </div>
+                        
+                        <div v-if="newBrand.agency_id" style="display: flex; align-items: center; gap: 10px; background: rgba(197, 160, 89, 0.08); border: 1px solid var(--accent); padding: 12px 16px; border-radius: 8px; margin-bottom: 5px;">
+                            <div style="font-size: 1.4rem; line-height: 1;">🏢</div>
+                            <div style="font-size: 0.8rem; color: var(--text-main); font-weight: 500;">
+                                Onboarding under Partner Agency: <strong style="color: var(--accent);">{{ getAgencyName(newBrand.agency_id) }}</strong>
+                            </div>
+                        </div>
 
                         <!-- Brand URL check button row -->
                         <div class="form-group" style="margin: 0;">
@@ -139,9 +262,14 @@
                                      <input type="email" v-model="newBrand.contact_email" required placeholder="support@pesado585.com" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
                                  </div>
                                  <div class="form-group" style="grid-column: span 2; display: flex; flex-direction: column; gap: 4px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 15px;">
-                                     <strong style="font-size: 0.85rem; color: var(--accent); font-weight: bold; margin-bottom: 2px;">🏢 Registered Billing Details</strong>
-                                     <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 6px 0;">Official corporate details for automated invoice statement PDFs.</p>
-                                 </div>
+                                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                          <strong style="font-size: 0.85rem; color: var(--accent); font-weight: bold;">🏢 Registered Billing Details</strong>
+                                          <button type="button" @click="scrapeBillingDetails" style="font-size: 0.7rem; padding: 4px 8px; border: 1px solid var(--accent); background: rgba(197, 160, 89, 0.1); color: var(--accent); cursor: pointer; border-radius: 4px; font-weight: bold; font-family: inherit;">
+                                              ⚡ AI Autofill from Web Address
+                                          </button>
+                                      </div>
+                                      <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 6px 0;">Official corporate details for automated invoice statement PDFs.</p>
+                                  </div>
                                  <div class="form-group">
                                      <label>Registered Company Name</label>
                                      <input type="text" v-model="newBrand.billing_name" placeholder="Roasted Coffee Bean LLC" style="width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px;">
@@ -158,10 +286,28 @@
                                     <label>Brand Logo URL</label>
                                     <div style="display: flex; gap: 10px; align-items: center;">
                                         <div style="width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                                            <img v-if="newBrand.logo" :src="newBrand.logo" style="width: 100%; height: 100%; object-fit: contain;" />
+                                            <img v-if="newBrand.logo" :src="app.getCleanImageUrl(newBrand.logo)" style="width: 100%; height: 100%; object-fit: contain;" />
                                             <span v-else style="font-size: 0.75rem;">🖼️</span>
                                         </div>
                                         <input type="text" v-model="newBrand.logo" placeholder="Logo image link" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0;">
+                                        <input type="file" ref="logoFileInput" @change="onLogoFileSelect" style="display: none;" accept="image/*">
+                                        <button type="button" @click="stripeCardLinked ? triggerBrandLogoContentStudio() : $refs.logoFileInput.click()" class="btn btn-primary" style="height: 40px; margin: 0; padding: 0 14px; font-weight: bold; display: flex; align-items: center; justify-content: center;">
+                                            {{ stripeCardLinked ? '🎨 Content Studio' : '📤 Upload Image' }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Brand Favicon URL</label>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <div style="width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                            <img v-if="newBrand.favicon" :src="app.getCleanImageUrl(newBrand.favicon)" style="width: 100%; height: 100%; object-fit: contain;" />
+                                            <span v-else style="font-size: 0.75rem;">🌐</span>
+                                        </div>
+                                        <input type="text" v-model="newBrand.favicon" placeholder="Favicon image link" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 12px; margin: 0;">
+                                        <input type="file" ref="faviconFileInput" @change="onFaviconFileSelect" style="display: none;" accept="image/*">
+                                        <button type="button" @click="stripeCardLinked ? triggerBrandFaviconContentStudio() : $refs.faviconFileInput.click()" class="btn btn-primary" style="height: 40px; margin: 0; padding: 0 14px; font-weight: bold; display: flex; align-items: center; justify-content: center;">
+                                            {{ stripeCardLinked ? '🎨 Content Studio' : '📤 Upload Favicon' }}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -580,6 +726,19 @@
                                          Sandbox preview model. AI operations are locked or simulation-only.
                                      </div>
                                 </div>
+                                <!-- Standard Plan -->
+                                <div @click="newBrand.ai_tier = 'standard'" 
+                                     :style="{
+                                         border: newBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                     }" 
+                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Standard Plan</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€49.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                                         Standard copywriting, SEO metadata extraction, and basic translation tools.
+                                     </div>
+                                </div>
                                 <!-- Professional Plan -->
                                 <div @click="newBrand.ai_tier = 'professional'" 
                                      :style="{
@@ -588,7 +747,7 @@
                                      }" 
                                      style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Professional Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€99.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€149.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
                                      <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
                                          All Standard features, plus the AI Storefront Designer & custom page builder wizard.
                                      </div>
@@ -601,7 +760,7 @@
                                      }" 
                                      style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Enterprise Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€199.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€499.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
                                      <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
                                          All features plus tournament-based dynamic ad campaigns and autopilot rules.
                                      </div>
@@ -623,8 +782,12 @@
                                              {{ stripeCardLinked ? '✅ Linked' : '❌ Not Linked' }}
                                          </strong>
                                      </span>
-                                     <button type="button" @click="startStripeCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                         💳 Link Credit Card via Stripe
+                                     <button type="button" @click="startStripeCardSetup" class="btn" :style="{
+                                         background: stripeCardLinked ? '#10b981 !important' : '#635bff !important',
+                                         borderColor: stripeCardLinked ? '#10b981 !important' : '#635bff !important',
+                                         color: '#ffffff !important'
+                                     }" style="font-size: 0.78rem; padding: 6px 14px; margin: 0; font-weight: 700; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                                         {{ stripeCardLinked ? '✅ Update Linked Card' : '💳 Link Credit Card via Stripe' }}
                                      </button>
                                  </div>
                                  <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
@@ -995,12 +1158,12 @@
                                 <span v-if="b.ai_free_tier" style="font-size: 0.65rem; color: #10b981; font-weight: 800; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; border: 1px solid rgba(16, 185, 129, 0.3);">FREE</span>
                                 <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: normal; margin-left: 4px;">(ID: {{ b.id }})</span>
                             </h4>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 12px; margin-top: 4px; flex-wrap: wrap;">
                                 <span style="display: inline-flex; align-items: center; gap: 6px;">
                                     Platform: 
                                     <strong style="color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
                                         <span v-html="getPlatformLogoSvg(b.platform)"></span>
-                                        <span>{{ b.platform === 'woocommerce' ? 'WooCommerce' : 'Shopify' }}</span>
+                                        <span>{{ b.platform === 'woocommerce' ? 'WooCommerce' : (b.platform === 'custom' ? 'Custom' : 'Shopify') }}</span>
                                     </strong>
                                 </span>
                                 <span>•</span>
@@ -1008,7 +1171,15 @@
                                     Payments: 
                                     <strong style="color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
                                         <span v-html="getStripeLogoSvg()"></span>
-                                        <span :style="{ color: b.stripe_secret_key ? '#10b981' : 'var(--text-muted)' }">{{ b.stripe_secret_key ? 'Live' : 'Sandbox' }}</span>
+                                        <span v-if="b.stripe_connect_account_id" style="color: #10b981;">Stripe Connect (Live)</span>
+                                        <span v-else :style="{ color: b.has_stripe ? '#10b981' : 'var(--text-muted)' }">{{ b.has_stripe ? 'Live' : 'Sandbox' }}</span>
+                                    </strong>
+                                </span>
+                                <span>•</span>
+                                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                    Billing Method: 
+                                    <strong style="color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
+                                        <span>{{ b.subscription_billing_method === 'stripe_card' ? 'Credit Card' : (b.subscription_billing_method === 'stripe_connect' ? 'Stripe Connect' : 'Payout Ledger') }}</span>
                                     </strong>
                                 </span>
                             </div>
@@ -1217,6 +1388,72 @@
                                         </div>
                                     </td>
                                 </tr>
+
+                                <!-- TikTok Shop Channel -->
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                    <td style="padding: 12px; font-weight: 600; color: var(--text-main);">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span v-html="getChannelLogoSvg('tiktok', 18)"></span>
+                                            <span>TikTok Shop</span>
+                                        </div>
+                                    </td>
+                                    <td style="padding: 12px; color: var(--text-muted);">
+                                        TikTok In-app Storefront Checkout Feed
+                                    </td>
+                                    <td style="padding: 12px;">
+                                        <span v-if="isChannelConnected(b, 'TikTok Shop')" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; display: inline-block;">
+                                            {{ getChannelStatusText(b, 'TikTok Shop') }}
+                                        </span>
+                                        <span v-else style="background: rgba(239,68,68,0.15); color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; display: inline-block;">Disconnected</span>
+                                    </td>
+                                    <td style="padding: 12px; text-align: right;">
+                                        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                                            <button v-if="isChannelConnected(b, 'TikTok Shop')" class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: var(--border); border-color: var(--border); color: var(--text-main); margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px;" @click="connectMockSocial('TikTok Shop', b)">
+                                                ⚙️ Config
+                                            </button>
+                                            <button v-if="isChannelConnected(b, 'TikTok Shop')" class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #ef4444; border-color: #ef4444; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px;" @click="disconnectSocial('TikTok Shop', b)">
+                                                Disconnect
+                                            </button>
+                                            <button v-else class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #3b82f6; border-color: #3b82f6; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" @click="connectMockSocial('TikTok Shop', b)">
+                                                <span v-html="getChannelLogoSvg('tiktok', 12, '#ffffff')"></span>
+                                                <span>Connect</span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Google Business & Merchant Channel -->
+                                <tr>
+                                    <td style="padding: 12px; font-weight: 600; color: var(--text-main);">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span v-html="getChannelLogoSvg('google', 18)"></span>
+                                            <span>Google Business & Merchant</span>
+                                        </div>
+                                    </td>
+                                    <td style="padding: 12px; color: var(--text-muted);">
+                                        Google Search & Merchant Feed Sync
+                                    </td>
+                                    <td style="padding: 12px;">
+                                        <span v-if="isChannelConnected(b, 'Google Shop')" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; display: inline-block;">
+                                            {{ getChannelStatusText(b, 'Google Shop') }}
+                                        </span>
+                                        <span v-else style="background: rgba(239,68,68,0.15); color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; display: inline-block;">Disconnected</span>
+                                    </td>
+                                    <td style="padding: 12px; text-align: right;">
+                                        <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                                            <button v-if="isChannelConnected(b, 'Google Shop')" class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: var(--border); border-color: var(--border); color: var(--text-main); margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px;" @click="connectMockSocial('Google Shop', b)">
+                                                ⚙️ Config
+                                            </button>
+                                            <button v-if="isChannelConnected(b, 'Google Shop')" class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #ef4444; border-color: #ef4444; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px;" @click="disconnectSocial('Google Shop', b)">
+                                                Disconnect
+                                            </button>
+                                            <button v-else class="btn" style="padding: 4px 10px; font-size: 0.72rem; background-color: #3b82f6; border-color: #3b82f6; color: #fff; margin: 0; height: 28px; line-height: 1; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;" @click="connectMockSocial('Google Shop', b)">
+                                                <span v-html="getChannelLogoSvg('google', 12, '#ffffff')"></span>
+                                                <span>Connect</span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -1293,6 +1530,24 @@
                                     </div>
                                 </label>
 
+                                <!-- TikTok Shop OAuth Option (Only for TikTok Shop) -->
+                                <label v-if="socialModalPlatform.includes('TikTok')" style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer;" @click="socialConnectionType = 'oauth'">
+                                    <input type="radio" value="oauth" v-model="socialConnectionType" style="margin-top: 3px;" @click.stop>
+                                    <div>
+                                        <strong style="font-size: 0.88rem; color: var(--text-main); display: block;">TikTok Shop Partner Account Sync</strong>
+                                        <span style="font-size: 0.76rem; color: var(--text-muted);">Sync catalog, inventory levels, and process checkout carts directly on-platform through TikTok API.</span>
+                                    </div>
+                                </label>
+
+                                <!-- Google OAuth Option (Only for Google Shop) -->
+                                <label v-if="socialModalPlatform.includes('Google')" style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer;" @click="socialConnectionType = 'oauth'">
+                                    <input type="radio" value="oauth" v-model="socialConnectionType" style="margin-top: 3px;" @click.stop>
+                                    <div>
+                                        <strong style="font-size: 0.88rem; color: var(--text-main); display: block;">Google Business API OAuth (Recommended)</strong>
+                                        <span style="font-size: 0.76rem; color: var(--text-muted);">Connect to manage your Google Business Profile page details (address, description, catalog links).</span>
+                                    </div>
+                                </label>
+
                                 <!-- Manual Sync option (Always available) -->
                                 <label style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer;" @click="socialConnectionType = 'manual'">
                                     <input type="radio" value="manual" v-model="socialConnectionType" style="margin-top: 3px;" @click.stop>
@@ -1321,6 +1576,21 @@
                             <div>
                                 <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Ad Account / Page Name (Optional)</label>
                                 <input type="text" v-model="socialAccountName" placeholder="My Business Ad Account" style="width: 100%; height: 34px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 10px; box-sizing: border-box; margin: 0;">
+                            </div>
+                        </div>
+
+                        <!-- Google Merchant XML Feed Info Card -->
+                        <div v-if="socialModalPlatform.includes('Google')" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: left;">
+                            <strong style="font-size: 0.88rem; color: var(--text-main); display: block; margin-bottom: 6px;">Google Shopping Product Feed URL</strong>
+                            <span style="font-size: 0.76rem; color: var(--text-muted); display: block; margin-bottom: 12px; line-height: 1.45;">
+                                Submit this XML endpoint URL to Google Merchant Center to enable automatic catalog synchronization for ads and free search listings.
+                            </span>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" readonly :value="getGoogleFeedUrl(socialModalBrand)" 
+                                       style="flex: 1; height: 36px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; box-sizing: border-box; font-family: monospace; outline: none;">
+                                <button type="button" class="btn btn-secondary" style="margin: 0; padding: 0 14px; font-weight: 700; font-size: 0.78rem; height: 36px; display: inline-flex; align-items: center; justify-content: center;" @click="copyGoogleFeedUrl">
+                                    Copy URL
+                                </button>
                             </div>
                         </div>
 
@@ -1398,12 +1668,31 @@ export default {
         if (params.get('stripe_setup') && params.get('brandId')) {
             const brandId = params.get('brandId');
             const stripeSetup = params.get('stripe_setup');
-            this.app.loadBrands().then(() => {
+            const sessionId = params.get('session_id');
+            this.app.loadBrands().then(async () => {
                 this.restoreBrandWizardState(brandId, 'stripe_card');
                 this.currentStep = 4;
                 if (stripeSetup === 'success') {
-                    this.stripeCardLinked = true;
-                    this.app.showNotification('Successfully linked your credit card for billing!');
+                    if (sessionId) {
+                        try {
+                            const token = localStorage.getItem('sc_admin_token');
+                            const res = await fetch(`${this.app.apiBaseUrl}/api/global/billing/setup-complete?brandId=${brandId}&sessionId=${sessionId}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (res.ok) {
+                                this.stripeCardLinked = true;
+                                this.app.showNotification('Successfully linked your credit card for billing!');
+                            } else {
+                                const err = await res.json();
+                                this.app.showNotification('Failed to verify card link: ' + (err.error || 'unknown error'), 'error');
+                            }
+                        } catch (e) {
+                            console.error('Error verifying card setup:', e);
+                        }
+                    } else {
+                        this.stripeCardLinked = true;
+                        this.app.showNotification('Successfully linked your credit card for billing!');
+                    }
                 }
             });
         }
@@ -1479,6 +1768,14 @@ export default {
             localDomainType: 'subdomain',
             catalogSearchQuery: '',
             activeSubView: 'list',
+            syncLastRunTime: 'Just now',
+            feedUrlCopied: false,
+            syncRunning: false,
+            syncSettings: {
+                autoSync: true,
+                excludeOutOfStock: false,
+                frequency: 'daily'
+            },
             selectedChannelId: null,
             isFullscreen: false,
             iframeCurrentUrl: '',
@@ -1686,8 +1983,12 @@ export default {
             return this.stripeCardLinked;
         },
         brands() {
-            const list = this.app.brands;
+            const list = this.app.brands || [];
             if (this.app.activeShopFilter && this.app.activeShopFilter !== 'all') {
+                if (String(this.app.activeShopFilter).startsWith('agency:')) {
+                    const agencyId = String(this.app.activeShopFilter).substring(7);
+                    return list.filter(b => b.agency_id === agencyId);
+                }
                 return list.filter(b => b.id === this.app.activeShopFilter);
             }
             return list;
@@ -1768,6 +2069,42 @@ export default {
         settingsBrand() { return this.app.settingsBrand; }
     },
     methods: {
+        async scrapeBillingDetails() {
+            let defaultUrl = '';
+            if (this.localDomainType === 'external') {
+                defaultUrl = this.domainInputValue ? 'https://' + this.domainInputValue : '';
+            } else {
+                defaultUrl = this.domainInputValue ? 'https://' + this.domainInputValue + '.' + this.app.baseBrandDomain : '';
+            }
+            const targetUrl = prompt('Enter the website URL to scrape billing and legal details from (e.g. your active storefront):', defaultUrl || 'https://');
+            if (!targetUrl) return;
+
+            this.app.showNotification('Scraping billing details via AI from: ' + targetUrl + '...');
+            try {
+                const token = localStorage.getItem('sc_admin_token') || '';
+                const res = await fetch(`${this.app.apiBaseUrl}/api/admin/scrape-billing-details`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ url: targetUrl })
+                });
+                if (!res.ok) throw new Error('Scraper failed: ' + res.statusText);
+                const data = await res.json();
+                if (data.success && data.details) {
+                    const details = data.details;
+                    if (details.companyName) this.newBrand.billing_name = details.companyName;
+                    if (details.vatId) this.newBrand.billing_vat = details.vatId;
+                    if (details.address) this.newBrand.billing_address = details.address;
+                    this.app.showNotification('⚡ Billing details extracted and autofilled successfully!');
+                } else {
+                    this.app.showNotification('⚠️ AI could not locate billing details on the page.');
+                }
+            } catch (err) {
+                this.app.showNotification('❌ Error: ' + err.message);
+            }
+        },
         addNewBrandNicheTag() {
             const val = this.newBrandNicheInput ? this.newBrandNicheInput.trim() : '';
             if (val) {
@@ -1938,6 +2275,8 @@ export default {
             if (channelId === 'instagram') return 'Instagram';
             if (channelId === 'facebook') return 'Facebook';
             if (channelId === 'twitter') return 'X / Twitter';
+            if (channelId === 'tiktok') return 'TikTok Shop';
+            if (channelId === 'google') return 'Google Shop';
             return channelId;
         },
         getChannelName(channelId) {
@@ -1946,7 +2285,118 @@ export default {
             if (channelId === 'instagram') return 'Instagram Shopping Feed';
             if (channelId === 'facebook') return 'Facebook Page Shop';
             if (channelId === 'twitter') return 'Twitter / X Profile Shop';
+            if (channelId === 'tiktok') return 'TikTok Shop Integration';
+            if (channelId === 'google') return 'Google Business & Merchant';
             return channelId || '';
+        },
+        getGoogleFeedUrl(brand) {
+            if (!brand) return '';
+            const protocol = window.location.protocol;
+            if (brand.custom_domain) {
+                return `${protocol}//${brand.custom_domain}/api/google-feed.xml`;
+            }
+            const subdomain = brand.subdomain || 'brand';
+            const baseDomain = this.app.baseBrandDomain || 'stricktlycoffee.be';
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return `http://localhost:8082/api/google-feed.xml`;
+            }
+            return `${protocol}//${subdomain}.${baseDomain}/api/google-feed.xml`;
+        },
+        copyGoogleFeedUrl() {
+            const url = this.getGoogleFeedUrl(this.socialModalBrand);
+            if (url) {
+                navigator.clipboard.writeText(url).then(() => {
+                    this.app.showNotification('📋 Google feed URL copied to clipboard!');
+                }).catch(() => {
+                    alert('Failed to copy feed URL.');
+                });
+            }
+        },
+        getChannelFeedUrl() {
+            const brandId = this.app.activeShopFilter;
+            const channel = this.selectedChannelId || 'google';
+            return `${this.app.apiBaseUrl}/api/global/brands/${brandId}/feeds/${channel}.xml`;
+        },
+        copyChannelFeedUrl() {
+            const url = this.getChannelFeedUrl();
+            navigator.clipboard.writeText(url).then(() => {
+                this.feedUrlCopied = true;
+                this.app.showNotification('📋 Channel RSS feed URL copied to clipboard!');
+                setTimeout(() => {
+                    this.feedUrlCopied = false;
+                }, 2000);
+            }).catch(() => {
+                alert('Failed to copy feed URL.');
+            });
+        },
+        runManualSync() {
+            this.syncRunning = true;
+            setTimeout(() => {
+                this.syncRunning = false;
+                this.syncLastRunTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                this.app.showNotification('🔄 Sync request sent to channel successfully!');
+            }, 1500);
+        },
+        async disconnectActiveChannel() {
+            const channelId = this.selectedChannelId;
+            if (!channelId) return;
+            const platformName = this.getChannelPlatformName(channelId);
+            if (!confirm(`Are you sure you want to disconnect ${this.getChannelName(channelId)}?`)) {
+                return;
+            }
+            
+            const brand = this.brands.find(b => b.id === this.app.activeShopFilter) || this.brands[0];
+            if (!brand) return;
+            
+            try {
+                let theme = {};
+                if (brand.theme_settings) {
+                    theme = JSON.parse(brand.theme_settings);
+                }
+                if (!theme.connected_channels) {
+                    theme.connected_channels = {};
+                }
+                // Check either Google Shop or Google Business
+                if (platformName === 'Google Shop') {
+                    if (theme.connected_channels['Google Shop']) {
+                        theme.connected_channels['Google Shop'].active = false;
+                    }
+                    if (theme.connected_channels['Google Business']) {
+                        theme.connected_channels['Google Business'].active = false;
+                    }
+                } else {
+                    if (theme.connected_channels[platformName]) {
+                        theme.connected_channels[platformName].active = false;
+                    }
+                }
+                
+                brand.theme_settings = JSON.stringify(theme);
+                
+                // Save brand changes to server
+                const token = localStorage.getItem('sc_admin_token');
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${brand.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        theme_settings: brand.theme_settings
+                    })
+                });
+                
+                if (response.ok) {
+                    this.app.showNotification(`🔌 Disconnected ${this.getChannelName(channelId)} successfully.`);
+                    this.activeSubView = 'list';
+                    this.selectedChannelId = null;
+                } else {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Server failed to update brand.');
+                }
+            } catch(e) {
+                console.error(e);
+                alert('Disconnect failed: ' + e.message);
+            }
         },
         connectChannel(channelId) {
             const activeBrand = this.brands[0] || this.app.brands[0];
@@ -2321,6 +2771,11 @@ export default {
             if (step === 3) return 'Sales Channels';
             if (step === 4) return 'Plan & Billing';
             return 'Strategy Analysis';
+        },
+        getAgencyName(agencyId) {
+            if (!agencyId) return '';
+            const agency = (this.app.agencies || []).find(a => String(a.id) === String(agencyId));
+            return agency ? agency.name : `Agency #${agencyId}`;
         },
         async goToStep(step) {
             if (step > this.currentStep) {
@@ -3023,7 +3478,16 @@ export default {
                 stripe_connect_account_id: '',
                 subscription_billing_method: '',
                 stripe_customer_id: null,
-                meta_pixel_id: ''
+                meta_pixel_id: '',
+                agency_id: (() => {
+                    if (this.app.userRole && this.app.userRole.toLowerCase() === 'agency') {
+                        return this.app.userAgencyId;
+                    }
+                    if (this.app.activeShopFilter && String(this.app.activeShopFilter).startsWith('agency:')) {
+                        return String(this.app.activeShopFilter).substring(7);
+                    }
+                    return '';
+                })()
             };
             this.selectedChannels = {
                 storefront: true,
@@ -3238,6 +3702,9 @@ export default {
             if (platform === 'woocommerce') {
                 return `<svg viewBox="0 0 256 153" width="${size}" height="${size}" style="vertical-align: middle; display: inline-block;"><path d="m23.759 0h208.38c13.187 0 23.863 10.675 23.863 23.863v79.542c0 13.187-10.675 23.863-23.863 23.863h-74.727l10.257 25.118-45.109-25.118h-98.695c-13.187 0-23.863-10.675-23.863-23.863v-79.542c-0.10466-13.083 10.571-23.863 23.758-23.863z" fill="#7F54B3"/><path d="m14.578 21.75c1.4569-1.9772 3.6423-3.0179 6.5561-3.226 5.3073-0.41626 8.3252 2.0813 9.0537 7.4927 3.226 21.75 6.7642 40.169 10.511 55.259l22.79-43.395c2.0813-3.9545 4.6829-6.0358 7.8049-6.2439 4.5789-0.3122 7.3886 2.6016 8.5333 8.7415 2.6016 13.841 5.9317 25.6 9.8862 35.59 2.7057-26.433 7.2846-45.476 13.737-57.236 1.561-2.9138 3.8504-4.3707 6.8683-4.5789 2.3935-0.20813 4.5789 0.52033 6.5561 2.0813 1.9772 1.561 3.0179 3.5382 3.226 5.9317 0.10406 1.8732-0.20813 3.4341-1.0407 4.9951-4.0585 7.4927-7.3886 20.085-10.094 37.567-2.6016 16.963-3.5382 30.179-2.9138 39.649 0.20813 2.6016-0.20813 4.8911-1.2488 6.8683-1.2488 2.2894-3.122 3.5382-5.5154 3.7463-2.7057 0.20813-5.5154-1.0406-8.2211-3.8504-9.678-9.8862-17.379-24.663-22.998-44.332-6.7642 13.32-11.759 23.311-14.985 29.971-6.1398 11.759-11.343 17.795-15.714 18.107-2.8098 0.20813-5.2033-2.1854-7.2846-7.1805-5.3073-13.633-11.031-39.961-17.171-78.985-0.41626-2.7057 0.20813-5.0992 1.665-6.9724zm223.64 16.338c-3.7463-6.5561-9.2618-10.511-16.65-12.072-1.9772-0.41626-3.8504-0.62439-5.6195-0.62439-9.9902 0-18.107 5.2033-24.455 15.61-5.4114 8.8455-8.1171 18.628-8.1171 29.346 0 8.013 1.665 14.881 4.9951 20.605 3.7463 6.5561 9.2618 10.511 16.65 12.072 1.9772 0.41626 3.8504 0.62439 5.6195 0.62439 10.094 0 18.211-5.2033 24.455-15.61 5.4114-8.9496 8.1171-18.732 8.1171-29.45 0.10406-8.1171-1.665-14.881-4.9951-20.501zm-13.112 28.826c-1.4569 6.8683-4.0585 11.967-7.9089 15.402-3.0179 2.7057-5.8276 3.8504-8.4293 3.3301-2.4976-0.52033-4.5789-2.7057-6.1398-6.7642-1.2488-3.226-1.8732-6.452-1.8732-9.4699 0-2.6016 0.20813-5.2033 0.72846-7.5967 0.93659-4.2667 2.7057-8.4293 5.5154-12.384 3.4341-5.0992 7.0764-7.1805 10.823-6.452 2.4976 0.52033 4.5789 2.7057 6.1398 6.7642 1.2488 3.226 1.8732 6.452 1.8732 9.4699 0 2.7057-0.20813 5.3073-0.72846 7.7008zm-52.033-28.826c-3.7463-6.5561-9.3659-10.511-16.65-12.072-1.9772-0.41626-3.8504-0.62439-5.6195-0.62439-9.9902 0-18.107 5.2033-24.455 15.61-5.4114 8.8455-8.1171 18.628-8.1171 29.346 0 8.013 1.665 14.881 4.9951 20.605 3.7463 6.5561 9.2618 10.511 16.65 12.072 1.9772 0.41626 3.8504 0.62439 5.6195 0.62439 10.094 0 18.211-5.2033 24.455-15.61 5.4114-8.9496 8.1171-18.732 8.1171-29.45 0-8.1171-1.665-14.881-4.9951-20.501zm-13.216 28.826c-1.4569 6.8683-4.0585 11.967-7.9089 15.402-3.0179 2.7057-5.8276 3.8504-8.4293 3.3301-2.4976-0.52033-4.5789-2.7057-6.1398-6.7642-1.2488-3.226-1.8732-6.452-1.8732-9.4699 0-2.6016 0.20813-5.2033 0.72846-7.5967 0.93658-4.2667 2.7057-8.4293 5.5154-12.384 3.4341-5.0992 7.0764-7.1805 10.823-6.452 2.4976 0.52033 4.5789 2.7057 6.1398 6.7642 1.2488 3.226 1.8732 6.452 1.8732 9.4699 0.10406 2.7057-0.20813 5.3073-0.72846 7.7008z" fill="#FFFFFF"/></svg>`;
             }
+            if (platform === 'custom') {
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block;"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`;
+            }
             return '';
         },
         getStripeLogoSvg(size = 15, color = '#635BFF') {
@@ -3275,11 +3742,44 @@ export default {
                 const fillColor = color || 'currentColor';
                 return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fillColor}" style="vertical-align: middle; display: inline-block;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
             }
+            if (lower === 'tiktok') {
+                const fillColor = color || 'currentColor';
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${fillColor}" style="vertical-align: middle; display: inline-block;"><path d="M12.525.02c1.31-.03 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.99 1.1 2.37 1.81 3.84 2.06v3.9c-1.39-.02-2.77-.38-3.99-1.07-.38-.22-.73-.48-1.05-.78v7.58c0 1.95-.53 3.88-1.57 5.5-1.74 2.68-4.8 4.26-8.02 4.14-3.21-.07-6.19-1.87-7.66-4.73C-.84 16.59-1.01 12.3 1.25 9.2c1.47-1.95 3.77-3.15 6.22-3.22v3.96c-1.28.09-2.48.74-3.19 1.8-.82 1.15-1 2.67-.47 3.97.52 1.34 1.77 2.29 3.2 2.44 1.54.12 3.04-.63 3.66-2.03.27-.61.37-1.29.35-1.97V.02z"/></svg>`;
+            }
+            if (lower === 'google') {
+                return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" style="vertical-align: middle; display: inline-block;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22c-.87-2.6-3.3-4.53-6.16-4.53z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`;
+            }
             return '';
         },
         async startStripeCardSetup() {
             const saved = await this.ensureBrandDraftSaved();
             if (!saved) return;
+            // Check if running locally for dev mode simulation prompt
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname.endsWith('.local') || window.location.hostname === '127.0.0.1';
+            if (isLocal) {
+                if (confirm("You are running in a local/development environment. Would you like to simulate a successful Stripe credit card connection for this brand draft?")) {
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/simulate-card-link`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        if (response.ok) {
+                            alert("Stripe card linking simulated successfully!");
+                            await this.checkBillingSetupStatus();
+                        } else {
+                            const err = await response.json();
+                            alert("Failed to simulate link: " + (err.error || 'unknown error'));
+                        }
+                    } catch (e) {
+                        alert("Simulation error: " + e.message);
+                    }
+                    return;
+                }
+            }
             try {
                 const token = localStorage.getItem('sc_admin_token');
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.newBrandSavedId}/stripe-setup-session`, {
@@ -3292,6 +3792,7 @@ export default {
                 if (response.ok) {
                     const res = await response.json();
                     if (res.url) {
+                        window.bypassBeforeUnload = true;
                         window.location.href = res.url;
                     }
                 } else {
@@ -3317,6 +3818,7 @@ export default {
                 if (response.ok) {
                     const res = await response.json();
                     if (res.url) {
+                        window.bypassBeforeUnload = true;
                         window.location.href = res.url;
                     }
                 } else {
@@ -3451,8 +3953,8 @@ export default {
                     }
                     this.app.showNotification(`Onboarding complete! Brand is now ${this.newBrand.status}.`);
                     
-                    // Trigger onboarding auto-translations prompt if non-English languages are configured
-                    if (this.newBrand.languages && this.newBrand.languages.length > 1) {
+                    // Trigger onboarding auto-translations prompt if non-English languages are configured and we are not in sandbox trial
+                    if (this.newBrand.ai_tier !== 'none' && this.newBrand.languages && this.newBrand.languages.length > 1) {
                         const confirmTranslate = confirm('✨ You selected multiple storefront languages during onboarding. Would you like the AI to automatically translate all storefront copywriting parameters (headline, subheadlines, tracking pages, 404, etc.) to all chosen languages now?');
                         if (confirmTranslate) {
                             this.app.showNotification('✨ AI is auto-translating all storefront copy in the background...');
@@ -3642,6 +4144,20 @@ export default {
                     this.faviconUploading = false;
                 }
             }
+        },
+        triggerBrandLogoContentStudio() {
+            this.app.openContentStudio((url, item) => {
+                this.newBrand.logo = url;
+            }, {
+                promptPreset: `Brand logo for ${this.newBrand.name || 'my coffee brand'}`
+            });
+        },
+        triggerBrandFaviconContentStudio() {
+            this.app.openContentStudio((url, item) => {
+                this.newBrand.favicon = url;
+            }, {
+                promptPreset: `Brand favicon icon for ${this.newBrand.name || 'my coffee brand'}`
+            });
         }
     }
 }

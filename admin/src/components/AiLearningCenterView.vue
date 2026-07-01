@@ -19,8 +19,8 @@
         </div>
 
         <div class="canvas-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
-            <!-- Brand Performance Profile -->
-            <div class="panel" style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+            <!-- Brand Performance Profile (Selected Brand View) -->
+            <div class="panel" v-if="app.activeShopFilter !== 'all'" style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
                 <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 1rem; font-weight: 700; color: #a78bfa; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                     🎯 Your Vertical Context
                 </h3>
@@ -49,6 +49,31 @@
 
                 <div style="margin-top: 20px; padding: 12px; background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 8px; font-size: 0.78rem; line-height: 1.5; color: var(--text-muted);">
                     💡 <strong>Smart Tip:</strong> Campaigns categorized as <strong>{{ brandContext.business_niche || 'Specialty Coffee' }}</strong> observe a <strong>+24% conversions increase</strong> when applying copy structures using <strong>Utility & Quality</strong> copywriting angles rather than simple discounts.
+                </div>
+            </div>
+
+            <!-- Global Platform Profile (All Brands / Global View) -->
+            <div class="panel" v-else style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 1rem; font-weight: 700; color: #a78bfa; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                    🌍 Global Platform Context
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">Total Active Stores:</span>
+                        <strong style="color: var(--text-main);">{{ app.brands.length }} registered shops</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">Data Pool Contribution Rate:</span>
+                        <strong style="color: #10b981;">{{ dataPoolOptInPercentage }}% contributions</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 8px; margin-top: 4px;">
+                        <span style="color: var(--text-muted);">Fine-Tuning System Status:</span>
+                        <strong style="color: var(--accent);">Operational (Online)</strong>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 12px; background: rgba(197, 160, 89, 0.04); border: 1px solid rgba(197, 160, 89, 0.15); border-radius: 8px; font-size: 0.78rem; line-height: 1.5; color: var(--text-muted);">
+                    ⚙️ <strong>Operator Tip:</strong> Select a specific coffee brand storefront from the header shop filter to view and customize its dedicated vertical AI settings, or manage pipeline adapter jobs below.
                 </div>
             </div>
 
@@ -221,6 +246,18 @@ export default {
                 .replace(/[^a-z0-9\-]/g, '-')
                 .replace(/-+/g, '-');
             return cleanSuffix ? `${this.newTuningJob.baseModel}-${cleanSuffix}` : this.newTuningJob.baseModel;
+        },
+        dataPoolOptInPercentage() {
+            if (!this.app.brands || this.app.brands.length === 0) return 0;
+            const optedIn = this.app.brands.filter(b => b.share_performance_data !== false).length;
+            return Math.round((optedIn / this.app.brands.length) * 100);
+        }
+    },
+    watch: {
+        'app.activeShopFilter': {
+            handler() {
+                this.loadLearningData();
+            }
         }
     },
     mounted() {

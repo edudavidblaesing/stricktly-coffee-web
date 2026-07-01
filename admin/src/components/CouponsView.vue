@@ -450,6 +450,17 @@ export default {
                     this.loadCampaignData();
                 }
             }
+        },
+        activeTab(newVal) {
+            if (this.app) {
+                this.app.activeCouponsTab = newVal;
+                this.app.updateURL();
+            }
+        },
+        'app.activeCouponsTab'(newVal) {
+            if (newVal && newVal !== this.activeTab) {
+                this.activeTab = newVal;
+            }
         }
     },
     mounted() {

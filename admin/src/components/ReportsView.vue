@@ -136,7 +136,11 @@
                         <tbody>
                             <tr v-for="item in topSellers" :key="item.title">
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-main);">{{ item.title }}</div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="font-weight: 700; color: var(--text-main);">{{ item.title }}</div>
+                                        <span v-if="item.type === 'service'" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Service</span>
+                                        <span v-else style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Product</span>
+                                    </div>
                                 </td>
                                 <td>
                                     <span class="status-pill" style="background: var(--bg-color); color: var(--text-main); font-weight: 600;">
@@ -361,7 +365,8 @@ export default {
                                 title: title,
                                 quantity: 0,
                                 revenue: 0,
-                                brand_id: o.brand_id
+                                brand_id: o.brand_id,
+                                type: item.type || 'product'
                             };
                         }
                         productMap[title].quantity += (item.quantity || 0);

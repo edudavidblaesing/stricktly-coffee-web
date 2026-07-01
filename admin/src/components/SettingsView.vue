@@ -452,15 +452,16 @@
                     <!-- Payout & Billing config (Superadmin Only settings) -->
                     <template v-if="userRole.toLowerCase() === 'superadmin'">
                         <div class="form-group">
-                            <label>Merchant Billing Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, or free ledger model.">i</span></label>
+                            <label>Merchant Billing Model <span class="info-tooltip-trigger" data-tooltip="Determines checkout routing: standard direct gateway, connect split billing, free ledger model, or direct brand checkout redirection.">i</span></label>
                             <select v-model="settingsBrand.billing_type" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                                 <option value="" disabled>Please select a billing model...</option>
                                 <option value="standard">🔌 Self-Managed (Direct Stripe keys - Client pays Stripe fees)</option>
                                 <option value="external_split">🏢 Managed Split (Central Checkout - Platform take-rate applied)</option>
                                 <option value="free">🧾 B2B Ledger Settlement (0% take rate - Deductions settled via invoice payouts)</option>
+                                <option value="direct_checkout">🛍️ Direct Checkout Redirection (Checkout on brand's Shopify/WooCommerce site)</option>
                             </select>
                         </div>
-                        <div class="form-group" v-if="settingsBrand.billing_type === 'external_split'">
+                        <div class="form-group" v-if="settingsBrand.billing_type === 'external_split' || settingsBrand.billing_type === 'direct_checkout'">
                             <label>Platform Take Rate (%) <span class="info-tooltip-trigger" data-tooltip="Platform commission percentage retained on checkouts.">i</span></label>
                             <input type="number" min="0" max="100" step="0.1" :value="settingsBrand.platform_take_rate * 100" @input="settingsBrand.platform_take_rate = parseFloat($event.target.value) / 100" style="margin: 0;" placeholder="15">
                         </div>
@@ -480,12 +481,14 @@
                                 <span v-if="settingsBrand.billing_type === 'standard'">🔌 Self-Managed (Direct Stripe Gateway)</span>
                                 <span v-else-if="settingsBrand.billing_type === 'external_split'">🏢 Managed Split (Platform Gateway)</span>
                                 <span v-else-if="settingsBrand.billing_type === 'free'">🧾 B2B Invoice Ledger Settlement</span>
+                                <span v-else-if="settingsBrand.billing_type === 'direct_checkout'">🛍️ Direct Checkout Redirection (Shopify / WooCommerce)</span>
                                 <span v-else>🔌 Self-Managed (Direct Stripe Gateway)</span>
                             </div>
                             <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; margin: 0;">
                                 <span v-if="settingsBrand.billing_type === 'standard'">All customer checkouts are processed directly through your own linked merchant keys. Card network processing costs are billed to your account directly by Stripe.</span>
                                 <span v-else-if="settingsBrand.billing_type === 'external_split'">Customer transactions are processed centrally through the platform. Payouts are routed directly to your connected bank account minus the platform take-rate.</span>
                                 <span v-else-if="settingsBrand.billing_type === 'free'">Your storefront transactions are tracked on the platform ledger balance sheet. Wholesale fulfillment costs and platform subscription fees are consolidated and settled monthly via invoice statement transfers.</span>
+                                <span v-else-if="settingsBrand.billing_type === 'direct_checkout'">Customer checkouts are redirected directly to your original Shopify/WooCommerce shopping cart. All payments are processed directly by your native checkout. Platform take-rates are logged as ledger commissions and invoiced monthly.</span>
                                 <span v-else>Direct client checkout integration.</span>
                             </p>
                         </div>
@@ -827,17 +830,38 @@
                     <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
                         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                             <div style="display: flex; gap: 10px; align-items: center;">
-                                <span style="font-size: 1.5rem; display: flex; align-items: center;">🎵</span>
+                                <span style="font-size: 1.5rem; display: flex; align-items: center;" v-html="app.getChannelIconSvg('tiktok', 22)"></span>
                                 <div style="display: flex; flex-direction: column; text-align: left;">
                                     <strong style="font-size: 0.88rem; color: var(--text-main);">TikTok Shop</strong>
                                     <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">In-app Checkout & Live Feeds</span>
                                 </div>
                             </div>
-                            <span style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
+                            <span v-if="app.isChannelConnected('tiktok')" style="font-size: 0.7rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Connected</span>
+                            <span v-else style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
                         </div>
                         <div style="margin-top: auto;">
-                            <button type="button" @click="showNotification('TikTok Shop connection flow is available through customizer integration steps.')" class="btn btn-secondary" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                🔌 Link TikTok Shop
+                            <button type="button" @click="app.selectChannel('tiktok')" class="btn" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" :class="app.isChannelConnected('tiktok') ? 'btn-secondary' : 'btn-accent'">
+                                {{ app.isChannelConnected('tiktok') ? '⚙️ Manage Connection' : '🔌 Link TikTok Shop' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Google Business & Merchant connection card -->
+                    <div style="background: rgba(255, 255, 255, 0.015); border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; min-height: 150px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="font-size: 1.5rem; display: flex; align-items: center;" v-html="app.getChannelIconSvg('google', 22)"></span>
+                                <div style="display: flex; flex-direction: column; text-align: left;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-main);">Google Business & Merchant</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Search Page Info & Merchant Feed</span>
+                                </div>
+                            </div>
+                            <span v-if="app.isChannelConnected('google')" style="font-size: 0.7rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Connected</span>
+                            <span v-else style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Off</span>
+                        </div>
+                        <div style="margin-top: auto;">
+                            <button type="button" @click="app.selectChannel('google')" class="btn" style="width: 100%; height: 34px; font-size: 0.78rem; font-weight: 600; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px;" :class="app.isChannelConnected('google') ? 'btn-secondary' : 'btn-accent'">
+                                {{ app.isChannelConnected('google') ? '⚙️ Manage Connection' : '🔌 Link Google Account' }}
                             </button>
                         </div>
                     </div>
@@ -1052,6 +1076,17 @@ export default {
         },
         realtimeLimitsBrandFilter() {
             this.loadRealtimeLimits();
+        },
+        activeTab(newVal) {
+            if (this.app) {
+                this.app.activeSettingsTab = newVal;
+                this.app.updateURL();
+            }
+        },
+        'app.activeSettingsTab'(newVal) {
+            if (newVal && newVal !== this.activeTab) {
+                this.activeTab = newVal;
+            }
         }
     },
     computed: {

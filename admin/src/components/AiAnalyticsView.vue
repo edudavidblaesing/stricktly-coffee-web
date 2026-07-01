@@ -176,7 +176,7 @@
                             💳 AI Billing & Invoicing Summary
                         </h5>
                         <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.45; margin: 0;">
-                            AI costs are calculated as a combination of your subscription tier and actual platform token consumption. This total is consolidated and deducted from your monthly payouts or added to your end-of-month invoice.
+                            Your flat subscription price includes a monthly AI usage allowance (Entry: $10, Growth: $50, Enterprise: $200 USD). Additional usage expenses only apply to consumption exceeding this allowance.
                         </div>
                     </div>
                     <div style="background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 18px; text-align: right; min-width: 200px; box-sizing: border-box;">
@@ -192,11 +192,11 @@
                             </div>
                             <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; gap: 15px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
                                 <span>Usage Expense:</span>
-                                <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(aiUsageSummary.total_cost_usd * 0.92) }}</strong>
+                                <strong style="color: var(--text-main); font-family: monospace;">€{{ formatBillingCost(getUsageExpense) }}</strong>
                             </div>
                             <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: flex; justify-content: space-between; gap: 15px;">
                                 <span>Est. Invoice:</span>
-                                <strong style="color: var(--accent); font-family: monospace; font-size: 0.95rem;">€{{ formatBillingCost(getTierSubscriptionCost() + (aiUsageSummary.total_cost_usd * 0.92)) }}</strong>
+                                <strong style="color: var(--accent); font-family: monospace; font-size: 0.95rem;">€{{ formatBillingCost(getTierSubscriptionCost() + getUsageExpense) }}</strong>
                             </div>
                         </div>
                     </div>
@@ -282,7 +282,7 @@
                 </div>
 
                 <!-- Breakdown & Details -->
-                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 15px; text-align: left;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 15px; text-align: left;">
                     <!-- Breakdown by Operation -->
                     <div v-if="aiUsageBreakdown.length > 0">
                         <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Cost & Calls by Feature</h5>
@@ -300,38 +300,63 @@
                         </div>
                     </div>
 
-                    <!-- Recent Activity Logs -->
-                    <div>
-                        <h5 style="margin: 20px 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
-                        <div v-if="aiUsageLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
-                                <thead>
-                                    <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
-                                        <th style="padding: 10px 12px; color: var(--text-muted);">Timestamp</th>
-                                        <th style="padding: 10px 12px; color: var(--text-muted);">Operation</th>
-                                        <th style="padding: 10px 12px; color: var(--text-muted);">Model</th>
-                                        <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Tokens (In/Out)</th>
-                                        <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Est. Cost</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="log in aiUsageLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                                        <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">{{ formatDate(log.created_at) }}</td>
-                                        <td style="padding: 10px 12px; font-weight: 600; color: var(--text-main);">{{ log.operation }}</td>
-                                        <td style="padding: 10px 12px; font-family: monospace; color: var(--text-muted);">{{ log.model }}</td>
-                                        <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
-                                        <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(log.estimated_cost_usd) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <!-- Spend by Modality -->
+                    <div v-if="aiUsageModalityBreakdown.length > 0">
+                        <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">AI Modality Spend</h5>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div v-for="item in aiUsageModalityBreakdown" :key="item.modality" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 10px 12px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                                    <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                        <span>{{ formatModality(item.modality) }}</span>
+                                    </span>
+                                    <span style="font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(item.cost_usd) }} ({{ item.calls_count }} calls)</span>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; width: 100%;">
+                                    <div :style="{ width: getSpendPercentage(item.cost_usd) + '%', background: getModalityColor(item.modality) }" style="height: 100%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">{{ formatTokens(item.total_tokens) }} tokens processed</div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Logs -->
+                <div style="margin-top: 25px; text-align: left;">
+                    <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
+                    <div v-if="aiUsageLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Timestamp</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Operation</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Modality</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Model</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Tokens (In/Out)</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Est. Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="log in aiUsageLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                    <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">{{ formatDate(log.created_at) }}</td>
+                                    <td style="padding: 10px 12px; font-weight: 600; color: var(--text-main);">{{ log.operation }}</td>
+                                    <td style="padding: 10px 12px; white-space: nowrap;">
+                                        <span :style="getModalityBadgeStyle(log.modality)" style="padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">
+                                            {{ formatModality(log.modality) }}
+                                        </span>
+                                    </td>
+                                    <td style="padding: 10px 12px; font-family: monospace; color: var(--text-muted);">{{ log.model }}</td>
+                                    <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
+                                    <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(log.estimated_cost_usd) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                         <div v-else style="background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
                             No recent AI operations recorded for this brand.
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
         <!-- FALLBACK NO STORE SELECTED & NOT SUPERADMIN -->
         <div v-else class="panel" style="text-align: center; padding: 40px; color: var(--text-muted);">
@@ -352,6 +377,7 @@ export default {
         return {
             aiUsageSummary: { total_calls: 0, total_prompt_tokens: 0, total_completion_tokens: 0, total_tokens: 0, total_cost_usd: 0.0 },
             aiUsageBreakdown: [],
+            aiUsageModalityBreakdown: [],
             aiUsageLogs: [],
             superadminAiUsageSummary: [],
             realtimeLimits: [],
@@ -388,6 +414,12 @@ export default {
             if (percent >= 100) return '#ef4444';
             if (percent >= 80) return '#f59e0b';
             return '#10b981';
+        },
+        getUsageExpense() {
+            const usage = parseFloat(this.aiUsageSummary.total_cost_usd || 0);
+            const limit = this.getActiveTierSpendLimit;
+            const overage = Math.max(0, usage - limit);
+            return overage * 0.92;
         }
     },
     watch: {
@@ -430,6 +462,7 @@ export default {
                     if (data.success) {
                         this.aiUsageSummary = data.summary;
                         this.aiUsageBreakdown = data.breakdown;
+                        this.aiUsageModalityBreakdown = data.modality_breakdown || [];
                         this.aiUsageLogs = data.recent_logs;
                     }
                 }
@@ -523,14 +556,42 @@ export default {
             return (cost / this.aiUsageSummary.total_cost_usd) * 100;
         },
         getTierSubscriptionCost() {
-            if (!this.settingsBrand) return 45;
+            if (!this.settingsBrand) return 149;
             const tier = this.settingsBrand.ai_tier || 'professional';
-            if (tier === 'standard') return 15;
-            if (tier === 'enterprise') return 150;
-            return 45;
+            if (tier === 'standard') return 49;
+            if (tier === 'enterprise') return 499;
+            if (tier === 'none') return 0;
+            return 149;
         },
         updateBrandSettings() {
             return this.app.updateBrandSettings();
+        },
+        formatModality(val) {
+            const m = String(val || 'text').toLowerCase();
+            if (m === 'image') return '🖼️ Image';
+            if (m === 'video') return '🎥 Video';
+            if (m === 'system' || m === 'other') return '⚙️ System';
+            return '📝 Text';
+        },
+        getModalityBadgeStyle(val) {
+            const m = String(val || 'text').toLowerCase();
+            if (m === 'image') {
+                return { background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', border: '1px solid rgba(168, 85, 247, 0.2)' };
+            }
+            if (m === 'video') {
+                return { background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899', border: '1px solid rgba(236, 72, 153, 0.2)' };
+            }
+            if (m === 'system' || m === 'other') {
+                return { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' };
+            }
+            return { background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)' };
+        },
+        getModalityColor(val) {
+            const m = String(val || 'text').toLowerCase();
+            if (m === 'image') return '#a855f7';
+            if (m === 'video') return '#ec4899';
+            if (m === 'system' || m === 'other') return '#f59e0b';
+            return '#3b82f6';
         }
     }
 };

@@ -5,14 +5,14 @@
         <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 20px;">
             <div>
                 <h1 style="font-family: var(--font-display); font-weight: 800; font-size: 1.8rem; color: var(--text-main); margin: 0 0 5px 0;">
-                    🏢 Agency Management Center
+                    🏢 {{ renderAgencyView ? `Agency Workspace: ${currentAgencyName}` : 'Agency Management Center' }}
                 </h1>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">
-                    Manage partner agencies, adjust checkout revenue splits, log manual payments, and audit commission ledgers.
+                    {{ renderAgencyView ? 'Manage coffee brands storefronts linked to your agency, adjust splits, copy registration invite link.' : 'Manage partner agencies, adjust checkout revenue splits, log manual payments, and audit commission ledgers.' }}
                 </p>
             </div>
             
-            <div style="display: flex; gap: 10px;" v-if="isSuperadmin">
+            <div style="display: flex; gap: 10px;" v-if="!renderAgencyView && isSuperadmin">
                 <button class="btn btn-secondary" @click="triggerMonthlyReports" :disabled="loadingReports">
                     📧 {{ loadingReports ? 'Sending...' : 'Trigger Monthly Reports' }}
                 </button>
@@ -23,7 +23,7 @@
         </div>
 
         <!-- Superadmin Main View -->
-        <template v-if="isSuperadmin">
+        <template v-if="!renderAgencyView">
             <!-- Tabs -->
             <div style="display: flex; gap: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 10px;">
                 <button 
@@ -151,12 +151,12 @@
                                         €{{ formatPrice(entry.gross_amount) }}
                                     </td>
                                     <td style="padding: 12px; text-align: right; color: var(--text-main);">
-                                        €{{ formatPrice(entry.platform_margin) }}
+                                        €{{ formatPrice(entry.margin_amount) }}
                                     </td>
                                     <td style="padding: 12px; text-align: right; color: var(--success); font-weight: 800;">
                                         €{{ formatPrice(entry.agency_share) }}
                                     </td>
-                                    <td style="padding: 12px; text-align: right; color: var(--text-main);">
+                                    <td style="padding: 12px; text-align: right; color: var(--accent);">
                                         €{{ formatPrice(entry.platform_share) }}
                                     </td>
                                     <td style="padding: 12px; text-align: center;">
@@ -183,7 +183,7 @@
             </div>
         </template>
 
-        <!-- Agency Dashboard View (For Agency users) -->
+        <!-- Agency Dashboard View (For Agency users or when switching workspace to agency) -->
         <template v-else>
             <!-- KPI Blocks (Minimalist outlines + bottom dark panel) -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
@@ -228,6 +228,39 @@
                     </div>
                     <div style="padding: 10px 20px; background: rgba(0,0,0,0.15); border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--text-muted);">
                         Your percentage cut of storefront margins
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invite Link & Actions -->
+            <div class="panel" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 280px;">
+                        <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0 0 5px 0; display: flex; align-items: center; gap: 8px;">
+                            🔗 Onboard a Brand via Invite Link
+                        </h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 15px 0;">
+                            Share this onboarding link with a new merchant. When they register their storefront, it will be automatically associated with your agency.
+                        </p>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input 
+                                type="text" 
+                                readonly 
+                                :value="inviteUrl" 
+                                style="flex: 1; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 12px; height: 38px; font-family: monospace; box-sizing: border-box;"
+                            >
+                            <button class="btn btn-accent" @click="copyInviteUrl" style="height: 38px; padding: 0 15px; display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.82rem;">
+                                📋 Copy Link
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="border-left: 1px solid var(--border); padding-left: 20px; display: flex; flex-direction: column; justify-content: center; min-height: 100px;">
+                        <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin: 0 0 5px 0;">Register directly:</h4>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0 0 12px 0;">Provision a new client brand pre-configured with your agency terms.</p>
+                        <button class="btn btn-accent" @click="registerAgencyBrand" style="height: 36px; padding: 0 15px; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; width: fit-content;">
+                            ➕ Register Brand (Agency Terms)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -278,7 +311,7 @@
                                 </tr>
                                 <tr v-if="agencyBrands.length === 0">
                                     <td colspan="3" style="padding: 40px; text-align: center; color: var(--text-muted);">
-                                        No brands assigned to your agency yet. Please onboarding a brand or ask a platform superadmin to link your agency.
+                                        No brands assigned to your agency yet. Please onboard a brand using your invite link, or ask a platform superadmin to link your agency.
                                     </td>
                                 </tr>
                             </tbody>
@@ -342,37 +375,40 @@
 
         <!-- Agency Form Modal (Superadmin Only) -->
         <div v-if="modalOpen" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;">
-            <div class="panel" style="width: 100%; max-width: 480px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px;">
+            <div class="panel" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 25px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px;">
                 <h3 style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: var(--text-main); margin: 0;">
                     {{ isEditing ? '✏️ Edit Partner Agency' : '✨ Create Partner Agency' }}
                 </h3>
                 
                 <form @submit.prevent="saveAgency" style="display: flex; flex-direction: column; gap: 15px;">
                     <div class="form-group">
-                        <label>Agency ID (Slug, e.g. 'roasted-growth')</label>
-                        <input type="text" v-model="form.id" :disabled="isEditing" required placeholder="roasted-growth" style="margin: 0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Agency Name</label>
+                        <label>Agency Name <span class="info-tooltip-trigger" data-tooltip="The user-facing title or organization name of the partner agency.">i</span></label>
                         <input type="text" v-model="form.name" required placeholder="Roasted Growth Media" style="margin: 0;">
                     </div>
                     <div class="form-group">
-                        <label>Contact Email</label>
+                        <label>Agency ID (Slug) <span class="info-tooltip-trigger" data-tooltip="A unique URL-safe identifier for routing and API calls. Must be lowercase alphanumeric and hyphens.">i</span></label>
+                        <input type="text" v-model="form.id" :disabled="isEditing" required placeholder="roasted-growth" style="margin: 0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Email <span class="info-tooltip-trigger" data-tooltip="Primary administrative email address for commission payouts, support queries, and invoicing.">i</span></label>
                         <input type="email" v-model="form.contact_email" required placeholder="billing@roastedgrowth.com" style="margin: 0;">
                     </div>
                     <div class="form-group">
-                        <label>Margin Share Ratio (0.0 to 1.0; e.g. 0.60 = 60%)</label>
+                        <label>Agency Margin Share (Percentage Agency Receives, 0.0 to 1.0) <span class="info-tooltip-trigger" data-tooltip="The share ratio (e.g. 0.60 = 60%) of platform commission routed to the agency. The remaining 40% goes to the platform.">i</span></label>
                         <input type="number" step="0.01" min="0" max="1" v-model="form.margin_share_ratio" required placeholder="0.60" style="margin: 0;">
+                        <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 0 0;">
+                            Specifies the percentage of the platform take-rate commission routed to the Agency. The remaining percentage goes to the platform.
+                        </p>
                     </div>
                     <div class="form-group">
-                        <label>Stripe Connected Account ID (Optional)</label>
+                        <label>Stripe Connected Account ID (Optional) <span class="info-tooltip-trigger" data-tooltip="Stripe Connect Account reference to automate real-time split payouts of transaction commissions.">i</span></label>
                         <input type="text" v-model="form.stripe_connect_account_id" placeholder="acct_1x2y3z..." style="margin: 0;">
                     </div>
                     
                     <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--accent);">
-                            <input type="checkbox" v-model="form.is_platform_biller" style="width: auto; margin: 0;">
-                            ⚙️ Act as Platform Biller for Brands
+                            <input type="checkbox" v-model="form.is_platform_biller" style="margin: 0;">
+                            ⚙️ Act as Platform Biller for Brands <span class="info-tooltip-trigger" data-tooltip="Delegates all brand billing responsibilities to this agency, allowing them to collect platform transaction/subscription fees directly.">i</span>
                         </label>
                         <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 12px 0;">
                             Enable to collect platform transaction/subscription fees directly into this agency's Stripe key.
@@ -381,31 +417,31 @@
 
                     <template v-if="form.is_platform_biller">
                         <div class="form-group">
-                            <label>White-Label Brand Display Name</label>
+                            <label>White-Label Brand Display Name <span class="info-tooltip-trigger" data-tooltip="The custom invoice builder brand name displayed to merchants on checkout invoices and billing panels.">i</span></label>
                             <input type="text" v-model="form.billing_display_name" placeholder="Roasted Growth Invoicing" style="margin: 0;">
                         </div>
                         <div class="form-group">
-                            <label>White-Label Billing Support Email</label>
+                            <label>White-Label Billing Support Email <span class="info-tooltip-trigger" data-tooltip="Email address shown to merchants for any billing questions, chargebacks, or support queries.">i</span></label>
                             <input type="email" v-model="form.billing_support_email" placeholder="support@roastedgrowth.com" style="margin: 0;">
                         </div>
                         <div class="form-group">
-                            <label>Official Registered Billing Name</label>
+                            <label>Official Registered Billing Name <span class="info-tooltip-trigger" data-tooltip="Legally registered corporate entity name that will be displayed on official PDF invoice receipts.">i</span></label>
                             <input type="text" v-model="form.billing_name" placeholder="Roasted Growth Media LTD" style="margin: 0;">
                         </div>
                         <div class="form-group">
-                            <label>Registered Billing Address</label>
+                            <label>Registered Billing Address <span class="info-tooltip-trigger" data-tooltip="Corporate mailing address printed on billing statements and tax records.">i</span></label>
                             <textarea v-model="form.billing_address" placeholder="123 Growth Way, Suite 400, London, UK" style="margin: 0; min-height: 60px; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
                         </div>
                         <div class="form-group">
-                            <label>Registered VAT Number / Tax ID</label>
+                            <label>Registered VAT Number / Tax ID <span class="info-tooltip-trigger" data-tooltip="Tax registration number (e.g. VAT, EIN) printed on merchant invoicing statements.">i</span></label>
                             <input type="text" v-model="form.billing_vat" placeholder="GB123456789" style="margin: 0;">
                         </div>
                         <div class="form-group">
-                            <label>Agency Stripe Secret Key</label>
+                            <label>Agency Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="The agency's own Stripe secret key (sk_live_...) used to directly capture custom subscription and transactions revenue.">i</span></label>
                             <input type="password" v-model="form.stripe_secret_key" placeholder="sk_live_..." style="margin: 0;">
                         </div>
                         <div class="form-group">
-                            <label>Agency Stripe Webhook Secret</label>
+                            <label>Agency Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signature signing secret to safely verify transaction webhook notifications from Stripe to the platform.">i</span></label>
                             <input type="password" v-model="form.stripe_webhook_secret" placeholder="whsec_..." style="margin: 0;">
                         </div>
                     </template>
@@ -468,9 +504,71 @@ export default {
             }
         };
     },
+    watch: {
+        'form.name'(newVal) {
+            if (this.isEditing) return;
+            if (!newVal) {
+                this.form.id = '';
+                return;
+            }
+            let slug = newVal
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            
+            let finalSlug = slug;
+            let counter = 1;
+            while (this.agencies.some(a => a.id === finalSlug)) {
+                finalSlug = `${slug}-${counter}`;
+                counter++;
+            }
+            this.form.id = finalSlug;
+        },
+        'app.activeShopFilter': {
+            handler() {
+                this.loadData();
+            },
+            immediate: true
+        },
+        activeTab(newVal) {
+            if (this.app) {
+                this.app.activeAgencyTab = newVal;
+                this.app.updateURL();
+            }
+        },
+        'app.activeAgencyTab'(newVal) {
+            if (newVal && newVal !== this.activeTab) {
+                this.activeTab = newVal;
+            }
+        }
+    },
     computed: {
         isSuperadmin() {
-            return this.app.userRole.toLowerCase() === 'superadmin';
+            return this.app.userRole && this.app.userRole.toLowerCase() === 'superadmin';
+        },
+        currentAgencyId() {
+            if (this.app.userRole && this.app.userRole.toLowerCase() === 'agency') {
+                return this.app.userAgencyId;
+            }
+            if (String(this.app.activeShopFilter).startsWith('agency:')) {
+                return this.app.activeShopFilter.split(':')[1];
+            }
+            return null;
+        },
+        renderAgencyView() {
+            return this.currentAgencyId !== null;
+        },
+        currentAgencyName() {
+            const agencyId = this.currentAgencyId;
+            if (!agencyId) return '';
+            const agency = this.agencies.find(a => String(a.id) === String(agencyId));
+            if (agency) return agency.name;
+            return 'Partner Agency';
+        },
+        inviteUrl() {
+            const agencyId = this.currentAgencyId;
+            if (!agencyId) return '';
+            return `${window.location.origin}/?invite_agency=${agencyId}`;
         },
         filteredLedger() {
             if (!this.ledgerSearch) return this.consolidatedLedger;
@@ -481,18 +579,18 @@ export default {
             );
         }
     },
-    async mounted() {
-        await this.loadData();
+    mounted() {
+        // Handled by immediate watch
     },
     methods: {
         async loadData() {
-            if (this.isSuperadmin) {
+            if (this.renderAgencyView) {
+                this.activeTab = 'brands';
+                await this.loadAgencyLedger(this.currentAgencyId);
+            } else {
                 this.activeTab = 'agencies';
                 await this.loadAgencies();
                 await this.loadConsolidatedLedger();
-            } else {
-                this.activeTab = 'brands';
-                await this.loadAgencyLedger(this.app.userAgencyId);
             }
         },
         async loadAgencies() {
@@ -703,6 +801,14 @@ export default {
         },
         closeModal() {
             this.modalOpen = false;
+        },
+        copyInviteUrl() {
+            if (!this.inviteUrl) return;
+            navigator.clipboard.writeText(this.inviteUrl);
+            this.app.showNotification('✨ Agency registration invite link copied to clipboard!');
+        },
+        registerAgencyBrand() {
+            this.app.selectWorkspace('create-brand-agency');
         },
         formatPrice(val) {
             const num = parseFloat(val);

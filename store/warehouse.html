@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopify Warehouse Simulation Dashboard</title>
+    <title>WMS | Warehouse & Fulfillment Dashboard</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
         :root {
             --bg-color: #0d0f0e;
             --card-bg: #131716;
-            --primary: #ef4444; /* Warehouse specific warning color */
+            --primary: #ef4444;
             --primary-hover: #dc2626;
             --success: #10b981;
             --text-main: #f3f4f3;
@@ -33,7 +33,7 @@
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1300px;
             margin: 0 auto;
         }
 
@@ -46,41 +46,29 @@
             margin-bottom: 40px;
         }
 
-        h1 {
+        h1, h2, h3, h4 {
             font-family: var(--font-display);
-            font-size: 2rem;
             margin: 0;
         }
 
-        .badge-simulation {
-            background-color: var(--primary);
-            color: #fff;
-            font-family: var(--font-display);
-            font-size: 0.8rem;
-            font-weight: 700;
-            padding: 6px 14px;
-            border-radius: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        .layout-container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
         }
 
-        .description {
-            color: var(--text-muted);
-            margin-bottom: 32px;
-            font-size: 1rem;
+        @media(max-width: 1024px) {
+            .layout-container {
+                grid-template-columns: 1fr;
+            }
         }
 
-        .orders-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .order-card {
+        .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 6px;
             padding: 30px;
+            margin-bottom: 24px;
         }
 
         .order-header {
@@ -96,7 +84,6 @@
             font-family: monospace;
             font-size: 1.1rem;
             font-weight: 700;
-            color: var(--text-main);
         }
 
         .shopify-ref {
@@ -131,16 +118,6 @@
             }
         }
 
-        .order-items h4, .order-shipping h4, .fulfillment-form h4 {
-            margin-top: 0;
-            margin-bottom: 12px;
-            font-family: var(--font-display);
-            text-transform: uppercase;
-            font-size: 0.9rem;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-        }
-
         .items-list {
             list-style: none;
             padding: 0;
@@ -164,7 +141,6 @@
         .address-box {
             font-size: 0.95rem;
             line-height: 1.5;
-            color: var(--text-main);
         }
 
         .fulfillment-form {
@@ -236,50 +212,104 @@
             color: var(--text-muted);
         }
 
-        .back-link {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.95rem;
-            transition: var(--transition);
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 16px;
         }
 
-        .back-link:hover {
-            color: var(--text-main);
+        .stock-table th, .stock-table td {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stock-table th {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
         }
     </style>
 </head>
 <body>
-
     <div class="container">
         <header>
             <div>
-                <h1>Shopify Warehouse Integration</h1>
-                <div style="margin-top: 4px;">
-                    <a href="/" class="back-link">← Return to Storefront</a>
+                <h1>Warehouse Management System (WMS)</h1>
+                <div style="margin-top: 4px; font-size: 0.9rem; color: var(--text-muted);">
+                    Direct Physical Stock Control & Picker Ingestion Queue
                 </div>
             </div>
-            <span class="badge-simulation">Simulation Panel</span>
+            <span class="status-badge status-shipped">WMS Mode Active</span>
         </header>
 
-        <p class="description">
-            This dashboard simulates the backend dropshipping system of a Shopify-partnered fulfillment center. 
-            Once a customer pays, their order is transmitted here. Click <strong>Dispatch Order</strong> 
-            to simulate the warehouse reporting back with a shipping status and tracking code callback.
-        </p>
+        <div class="layout-container">
+            <!-- Order Picking Queue -->
+            <div>
+                <h3 style="margin-bottom: 20px;">Picking & Dispatch Queue</h3>
+                <div class="orders-grid" id="orders-container">
+                    <div class="no-orders">Loading pick queue...</div>
+                </div>
+            </div>
 
-        <div class="orders-grid" id="orders-container">
-            <div class="no-orders">Loading orders...</div>
+            <!-- Inventory Sidebar -->
+            <div>
+                <div class="card">
+                    <h3>Physical Inventory Levels</h3>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Location</th>
+                                <th>On Hand</th>
+                                <th>Allocated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-body">
+                            <tr>
+                                <td colspan="4" style="color: var(--text-muted); text-align: center;">Loading stock...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3>Adjust Inventory Count</h3>
+                    <form onsubmit="adjustStock(event)" style="display: flex; flex-direction: column; gap: 14px;">
+                        <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                            <label>Product SKU</label>
+                            <select id="adj-sku" required>
+                                <option value="PSD-HD-SCREEN">PSD-HD-SCREEN</option>
+                                <option value="PSD-MAG-RING">PSD-MAG-RING</option>
+                                <option value="PSD-SPRING-TAMPER">PSD-SPRING-TAMPER</option>
+                                <option value="PSD-HD-BREVILLE">PSD-HD-BREVILLE</option>
+                            </select>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-field">
+                                <label>Bin Location</label>
+                                <input type="text" id="adj-bin" placeholder="e.g. A-12" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Quantity On Hand</label>
+                                <input type="number" id="adj-qty" min="0" value="100" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success" style="margin-top: 10px;">Update Stock Level</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const container = document.getElementById('orders-container');
+        const inventoryBody = document.getElementById('inventory-body');
         
-        // Extract & store admin access token
         const getApiBaseUrl = () => {
             const hostname = window.location.hostname;
-            if (hostname.includes('dev.stricktlycoffee.be') || hostname.includes('-dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
-            if (hostname.includes('stricktlycoffee.be')) return 'https://api.stricktlycoffee.be';
+            if (hostname.includes('8081')) return 'http://localhost:3000';
             return '';
         };
         const apiBaseUrl = getApiBaseUrl();
@@ -313,28 +343,86 @@
             }
         }
 
+        async function fetchWmsInventory() {
+            if (!token) return;
+            try {
+                const res = await fetch(`${apiBaseUrl}/api/admin/wms/inventory`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const stock = await res.json();
+                    renderInventory(stock);
+                }
+            } catch (err) {
+                console.error('Failed to fetch WMS stock:', err);
+            }
+        }
+
+        function renderInventory(stock) {
+            if (stock.length === 0) {
+                inventoryBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No stock recorded.</td></tr>';
+                return;
+            }
+            inventoryBody.innerHTML = '';
+            stock.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight: 600;">${item.sku}</td>
+                    <td><span style="font-family: monospace; background: var(--accent); padding: 4px 8px; border-radius: 4px;">${item.bin_location}</span></td>
+                    <td style="color: var(--success); font-weight: 700;">${item.quantity_on_hand}</td>
+                    <td style="color: var(--primary); font-weight: 700;">${item.quantity_reserved}</td>
+                `;
+                inventoryBody.appendChild(row);
+            });
+        }
+
+        async function adjustStock(e) {
+            e.preventDefault();
+            const sku = document.getElementById('adj-sku').value;
+            const binLocation = document.getElementById('adj-bin').value;
+            const quantityOnHand = parseInt(document.getElementById('adj-qty').value);
+
+            try {
+                const res = await fetch(`${apiBaseUrl}/api/admin/wms/inventory/update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ sku, binLocation, quantityOnHand })
+                });
+                if (res.ok) {
+                    alert('Stock level adjusted successfully!');
+                    fetchWmsInventory();
+                } else {
+                    alert('Failed to update stock');
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
         function renderAccessDenied() {
             container.innerHTML = `
                 <div class="no-orders" style="border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding: 40px; border-radius: 8px;">
                     <div style="font-size: 2rem; margin-bottom: 12px;">🚫</div>
                     <strong style="color: #ef4444; font-size: 1.1rem; display: block; margin-bottom: 8px;">Access Denied: Unauthorized Session</strong>
-                    This simulated fulfillment interface is restricted. Please authenticate via the Stricktly Coffee Admin Hub to access warehouse simulator panels.
+                    This warehouse interface is restricted. Please authenticate via the Stricktly Coffee Admin Hub to access.
                 </div>
             `;
         }
 
         function renderOrders(orders) {
             if (orders.length === 0) {
-                container.innerHTML = '<div class="no-orders">No orders recorded in the system yet. Place an order on the storefront first.</div>';
+                container.innerHTML = '<div class="no-orders">No orders recorded in the system. Place an order on the storefront first.</div>';
                 return;
             }
 
             container.innerHTML = '';
             orders.forEach(order => {
                 const card = document.createElement('div');
-                card.className = 'order-card';
+                card.className = 'card';
                 
-                // Format items HTML
                 const itemsHtml = order.items.map(item => `
                     <li class="item-row">
                         <span><span class="item-qty">${item.quantity}x</span>${item.title}</span>
@@ -342,11 +430,9 @@
                     </li>
                 `).join('');
 
-                // Format address HTML
                 let addressHtml = 'No shipping address provided.';
                 if (order.shipping_address) {
                     const addr = order.shipping_address;
-                    // address schema can vary depending on stripe session details
                     const line1 = addr.address?.line1 || addr.line1 || '';
                     const line2 = addr.address?.line2 || addr.line2 || '';
                     const city = addr.address?.city || addr.city || '';
@@ -361,7 +447,6 @@
                     `;
                 }
 
-                // Resolve status badge class
                 let statusClass = 'status-pending';
                 let statusLabel = order.status;
                 if (order.status === 'paid') {
@@ -378,27 +463,26 @@
                     statusLabel = 'Unpaid';
                 }
 
-                // Determine form visual state
                 const isShipped = order.status === 'shipped';
 
                 card.innerHTML = `
                     <div class="order-header">
                         <div>
                             <span class="order-id">Order ID: ${order.id}</span>
-                            <div class="shopify-ref">Shopify Order ID: ${order.shopify_order_id || 'Not sent'}</div>
+                            <div class="shopify-ref">Intake Reference: ${order.shopify_order_id || 'System Local'}</div>
                         </div>
                         <span class="status-badge ${statusClass}">${statusLabel}</span>
                     </div>
                     <div class="order-body">
                         <div>
                             <div class="order-items" style="margin-bottom: 24px;">
-                                <h4>Ordered Products</h4>
+                                <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Items to Pick</h4>
                                 <ul class="items-list">
                                     ${itemsHtml}
                                 </ul>
                             </div>
                             <div class="order-shipping">
-                                <h4>Shipping Destination</h4>
+                                <h4 style="margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Shipment Destination</h4>
                                 <div class="address-box">
                                     ${addressHtml}
                                 </div>
@@ -406,16 +490,16 @@
                         </div>
                         <div>
                             <div class="fulfillment-form">
-                                <h4>Fulfillment Dispatch</h4>
+                                <h4 style="margin: 0; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Picker Dispatch Integration</h4>
                                 ${isShipped ? `
                                     <div style="color: var(--success); font-weight: 600; font-size: 0.95rem; display: flex; flex-direction: column; gap: 8px;">
-                                        <span>✓ Order has been dispatched</span>
+                                        <span>✓ Dispatch Complete</span>
                                         <span style="font-size: 0.85rem; color: var(--text-muted);">Carrier: ${order.tracking_carrier}</span>
                                         <span style="font-size: 0.85rem; color: var(--text-muted);">Code: ${order.tracking_number}</span>
                                     </div>
                                 ` : `
-                                    <form onsubmit="fulfillOrder(event, '${order.id}')">
-                                        <div class="input-row" style="margin-bottom: 16px;">
+                                    <form onsubmit="fulfillOrder(event, '${order.id}')" style="display: flex; flex-direction: column; gap: 14px;">
+                                        <div class="input-row">
                                             <div class="input-field">
                                                 <label>Carrier</label>
                                                 <select id="carrier-${order.id}">
@@ -429,7 +513,7 @@
                                                 <input type="text" id="tracking-${order.id}" required placeholder="e.g. AWB87192">
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-success" style="width: 100%;" ${order.status === 'pending_payment' ? 'disabled title="Cannot fulfill unpaid orders"' : ''}>Dispatch Order</button>
+                                        <button type="submit" class="btn btn-success" style="width: 100%;" ${order.status === 'pending_payment' ? 'disabled title="Cannot dispatch unpaid orders"' : ''}>Fulfill and Deduct Inventory</button>
                                     </form>
                                 `}
                             </div>
@@ -462,6 +546,7 @@
 
                 if (res.ok) {
                     fetchOrders();
+                    fetchWmsInventory();
                 } else {
                     const err = await res.json();
                     alert(`Fulfillment simulation failed: ${err.error}`);
@@ -473,6 +558,7 @@
 
         // Load initially
         fetchOrders();
+        fetchWmsInventory();
     </script>
 </body>
 </html>

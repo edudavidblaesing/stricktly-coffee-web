@@ -20,9 +20,6 @@
                 <button type="button" class="tab-btn" :class="{ active: activeTab === 'styles' }" @click="activeTab = 'styles'">
                     🎨 Design Guidelines
                 </button>
-                <button type="button" class="tab-btn" :class="{ active: activeTab === 'visual_studio' }" @click="activeTab = 'visual_studio'">
-                    📸 Visual Studio & Composer
-                </button>
             </div>
         </div>
 
@@ -548,12 +545,26 @@
 
                         <div class="form-group">
                             <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Favicon Asset URL</label>
-                            <input type="url" v-model="settingsBrand.favicon" placeholder="https://brand.com/favicon.ico" style="margin: 0; height: 38px;">
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <div style="width: 38px; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                    <img v-if="settingsBrand.favicon" :src="app.getCleanImageUrl(settingsBrand.favicon)" style="width: 100%; height: 100%; object-fit: contain;" />
+                                    <span v-else style="font-size: 0.75rem;">🌐</span>
+                                </div>
+                                <input type="text" v-model="settingsBrand.favicon" placeholder="https://brand.com/favicon.ico" style="flex: 1; margin: 0; height: 38px;">
+                                <button type="button" @click="triggerFaviconContentStudio" class="btn btn-primary" style="height: 38px; margin: 0; padding: 0 10px; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; justify-content: center;">🎨 Content Studio</button>
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Main Brand Logo URL</label>
-                            <input type="url" v-model="settingsBrand.logo" placeholder="https://brand.com/logo.png" style="margin: 0; height: 38px;">
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <div style="width: 38px; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                    <img v-if="settingsBrand.logo" :src="app.getCleanImageUrl(settingsBrand.logo)" style="width: 100%; height: 100%; object-fit: contain;" />
+                                    <span v-else style="font-size: 0.75rem;">🖼️</span>
+                                </div>
+                                <input type="text" v-model="settingsBrand.logo" placeholder="https://brand.com/logo.png" style="flex: 1; margin: 0; height: 38px;">
+                                <button type="button" @click="triggerLogoContentStudio" class="btn btn-primary" style="height: 38px; margin: 0; padding: 0 10px; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; justify-content: center;">🎨 Content Studio</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -566,361 +577,6 @@
             </div>
         </div>
 
-        <!-- Tab 4: Visual Studio & Asset Composer -->
-        <div v-if="activeTab === 'visual_studio'" style="display: flex; flex-direction: column; gap: 24px;">
-            <!-- Workspace Row -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; min-height: 500px;">
-                <!-- Composer Left Panel -->
-                <div class="panel" style="display: flex; flex-direction: column; gap: 20px;">
-                    <h3 style="color: var(--accent); margin: 0 0 5px 0; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; display: flex; align-items: center; gap: 6px;">
-                        🎨 Creative Asset Composer
-                    </h3>
-                    <p style="color: var(--text-muted); font-size: 0.78rem; margin: 0;">
-                        Mix and match your visual DNA elements to design a premium e-commerce lifestyle graphic or animation.
-                    </p>
-
-                    <!-- Prompt Template Editor -->
-                    <div class="form-group">
-                        <label style="font-weight: 700; font-size: 0.82rem; margin-bottom: 6px; display: block;">
-                            ✍️ Creative Prompt Composer
-                        </label>
-                        <textarea id="composerPromptTemplate" v-model="composerParams.promptTemplate"
-                                  placeholder="Describe your scene here. Type # to reference products, @ for personas, or [ ] for sceneries."
-                                  style="width: 100%; height: 110px; font-size: 0.85rem; line-height: 1.4; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 10px; resize: vertical; outline: none; margin-bottom: 12px;"></textarea>
-
-                        <!-- Interactive Token Chips Panel -->
-                        <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 8px; padding: 12px;">
-                            <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; font-size: 0.76rem;">
-                                <span style="font-weight: 700; color: var(--accent); align-self: center; margin-right: auto;">➕ Quick-Insert Brand Assets:</span>
-                                <button type="button" class="btn" @click="composerTab = 'products'" :style="composerTab === 'products' ? 'color: var(--accent); font-weight: 700;' : 'color: var(--text-muted);'" style="margin:0; padding:2px 8px; height:24px; font-size:0.72rem; background:none; border:none; cursor:pointer;">📸 Products</button>
-                                <button type="button" class="btn" @click="composerTab = 'personas'" :style="composerTab === 'personas' ? 'color: var(--accent); font-weight: 700;' : 'color: var(--text-muted);'" style="margin:0; padding:2px 8px; height:24px; font-size:0.72rem; background:none; border:none; cursor:pointer;">👥 Personas</button>
-                                <button type="button" class="btn" @click="composerTab = 'sceneries'" :style="composerTab === 'sceneries' ? 'color: var(--accent); font-weight: 700;' : 'color: var(--text-muted);'" style="margin:0; padding:2px 8px; height:24px; font-size:0.72rem; background:none; border:none; cursor:pointer;">🌄 Sceneries</button>
-                            </div>
-
-                            <!-- Products Tab content -->
-                            <div v-show="composerTab === 'products'" style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- Search bar for products -->
-                                <input type="text" v-model="searchProductQuery" placeholder="Search catalog products..." style="height: 30px; font-size: 0.76rem; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 8px; outline: none; margin: 0;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding-right: 4px;">
-                                    <div v-for="p in filteredProducts" :key="p.id" @click="insertToken('#' + p.title)" 
-                                         style="display: flex; align-items: center; gap: 8px; background: var(--card-bg); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;"
-                                         onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';">
-                                        <img :src="getProductImageUrl(p)" style="width: 28px; height: 28px; object-fit: cover; border-radius: 3px; border: 1px solid var(--border);">
-                                        <div style="flex: 1; min-width: 0; text-align: left;">
-                                            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.title }}</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.sku || 'No SKU' }}</div>
-                                        </div>
-                                        <span style="font-size: 0.7rem; color: var(--accent); font-weight: 700;">+ Insert</span>
-                                    </div>
-                                    <div v-if="filteredProducts.length === 0" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px;">No matching products.</div>
-                                </div>
-                            </div>
-
-                            <!-- Personas Tab content -->
-                            <div v-show="composerTab === 'personas'" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding-right: 4px;">
-                                    <div v-for="persona in canvas.personas" :key="persona.name" @click="insertToken('@' + persona.name)" 
-                                         style="display: flex; align-items: center; gap: 8px; background: var(--card-bg); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;"
-                                         onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';">
-                                        <span style="font-size: 1.1rem;">👥</span>
-                                        <div style="flex: 1; text-align: left;">
-                                            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-main);">{{ persona.name }}</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-muted);">{{ persona.role }} ({{ persona.age }})</div>
-                                        </div>
-                                        <span style="font-size: 0.7rem; color: var(--accent); font-weight: 700;">+ Insert</span>
-                                    </div>
-                                    <div v-if="!canvas.personas || !canvas.personas.length" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px;">No personas configured.</div>
-                                </div>
-                            </div>
-
-                            <!-- Sceneries Tab content -->
-                            <div v-show="composerTab === 'sceneries'" style="display: flex; flex-direction: column; gap: 8px;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding-right: 4px;">
-                                    <div v-for="scenery in canvas.sceneries" :key="scenery.name" @click="insertToken('[' + scenery.name + ']')" 
-                                         style="display: flex; align-items: center; gap: 8px; background: var(--card-bg); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;"
-                                         onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';">
-                                        <span style="font-size: 1.1rem;">🌄</span>
-                                        <div style="flex: 1; text-align: left;">
-                                            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-main);">{{ scenery.name }}</div>
-                                            <div style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ scenery.description }}</div>
-                                        </div>
-                                        <span style="font-size: 0.7rem; color: var(--accent); font-weight: 700;">+ Insert</span>
-                                    </div>
-                                    <div v-if="!canvas.sceneries || !canvas.sceneries.length" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px;">No sceneries configured.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Photographic Parameters (Camera, Lighting, Composition) -->
-                    <details style="border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: rgba(255,255,255,0.01); margin-bottom: 5px;">
-                        <summary style="font-weight: 700; font-size: 0.8rem; color: var(--accent); cursor: pointer; user-select: none;">
-                            ⚙️ Advanced Photographic Settings
-                        </summary>
-                        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);">
-                            <!-- Camera Lens Selection -->
-                            <div class="form-group" style="margin: 0;">
-                                <label style="font-weight: 600; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; display: block;">Camera Lens & Optics</label>
-                                <select v-model="composerParams.cameraLens" style="width: 100%; height: 34px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; cursor: pointer;">
-                                    <option value="">Inherit from Scenery (Default)</option>
-                                    <option value="35mm lens, f/1.8 aperture (Cinematic Medium)">35mm lens, f/1.8 (Cinematic Medium)</option>
-                                    <option value="50mm lens, f/1.2 aperture (Sharp Details Portrait)">50mm lens, f/1.2 (Portrait & Details)</option>
-                                    <option value="85mm lens, f/1.4 aperture (Shallow Depth Portrait)">85mm lens, f/1.4 (Shallow Depth)</option>
-                                    <option value="Macro lens, f/2.8 (Extreme Close-up Detail)">Macro lens, f/2.8 (Macro Close-up)</option>
-                                    <option value="Wide-angle prime lens (Spacious Scene Perspective)">Wide-angle lens (Spacious Scene)</option>
-                                </select>
-                            </div>
-
-                            <!-- Lighting Selection -->
-                            <div class="form-group" style="margin: 0;">
-                                <label style="font-weight: 600; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; display: block;">Lighting Style & Atmosphere</label>
-                                <select v-model="composerParams.lightingStyle" style="width: 100%; height: 34px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; cursor: pointer;">
-                                    <option value="">Inherit from Scenery (Default)</option>
-                                    <option value="natural soft window side-light">Natural soft window side-light</option>
-                                    <option value="cinematic golden hour warm sunset glow">Golden hour warm sunset glow</option>
-                                    <option value="dramatic chiaroscuro lighting with deep shadows">Chiaroscuro studio contrast</option>
-                                    <option value="cinematic rim lighting with soft halo contours">Cinematic rim contours highlight</option>
-                                    <option value="bright diffused commercial studio softbox light">Diffused commercial softbox light</option>
-                                </select>
-                            </div>
-
-                            <!-- Composition & Framing Selection -->
-                            <div class="form-group" style="margin: 0;">
-                                <label style="font-weight: 600; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; display: block;">Composition & Framing Angle</label>
-                                <select v-model="composerParams.composition" style="width: 100%; height: 34px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; padding: 0 10px; cursor: pointer;">
-                                    <option value="">Inherit from Scenery (Default)</option>
-                                    <option value="eye-level straight-on medium shot">Eye-level straight-on medium shot</option>
-                                    <option value="extreme close-up macro detail shot">Extreme close-up macro detail shot</option>
-                                    <option value="top-down flat lay studio layout">Top-down flat lay layout</option>
-                                    <option value="low-angle heroic look looking up at product">Low-angle heroic perspective</option>
-                                    <option value="three-quarter product portrait composition">Three-quarter product portrait</option>
-                                </select>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- AI Model engine & Seed Management -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <!-- AI Model engine selector -->
-                        <div class="form-group" style="margin: 0;">
-                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block;">5. AI Generation Engine</label>
-                            <select v-model="composerParams.backend" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 10px; cursor: pointer; text-transform: uppercase;">
-                                <option value="imagen">Imagen 3</option>
-                                <option value="flux">FLUX.1 [dev]</option>
-                                <option value="dalle">DALL-E 3</option>
-                            </select>
-                        </div>
-
-                        <!-- Seed Configuration -->
-                        <div class="form-group" style="margin: 0;">
-                            <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block;">
-                                🔢 Seed Context
-                            </label>
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <input type="number" v-model="composerParams.seed" placeholder="Random Seed" style="height: 36px; font-size: 0.82rem; flex: 1; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 0 10px; outline: none; margin: 0;" :disabled="composerParams.lockSeed">
-                                <button type="button" @click="composerParams.lockSeed = !composerParams.lockSeed" class="btn" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; border: 1px solid var(--border);" :style="composerParams.lockSeed ? 'background: rgba(139, 92, 246, 0.15); border-color: #8b5cf6; color: #8b5cf6;' : 'background: var(--card-bg); color: var(--text-muted);'">
-                                    <span>{{ composerParams.lockSeed ? '🔒' : '🔓' }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Asset Format Toggle -->
-                    <div class="form-group">
-                        <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block;">6. Output Creative Format</label>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" @click="composerParams.format = 'image'" class="btn" style="flex: 1; height: 34px; font-size: 0.75rem; font-weight: 600; margin: 0; border-radius: 6px;"
-                                    :style="composerParams.format === 'image' ? 'background: #22c55e; color: #0d0e12;' : 'background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);'">
-                                📸 High-Res Photo (Static)
-                            </button>
-                            <button type="button" @click="composerParams.format = 'video'" class="btn" style="flex: 1; height: 34px; font-size: 0.75rem; font-weight: 600; margin: 0; border-radius: 6px;"
-                                    :style="composerParams.format === 'video' ? 'background: #a855f7; color: white;' : 'background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);'">
-                                🎬 4s Cinemagraph Loop (Video)
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Composer Right Panel (Preview & Prompt) -->
-                <div class="panel" style="display: flex; flex-direction: column; gap: 20px; background: rgba(0,0,0,0.15);">
-                    <h3 style="color: var(--accent); margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; display: flex; align-items: center; gap: 6px;">
-                        🔮 Real-time Generation Monitor
-                    </h3>
-
-                    <!-- Live Prompt Box -->
-                    <div style="background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
-                        <label style="font-size: 0.7rem; color: var(--accent); text-transform: uppercase; font-weight: 800; display: block; margin-bottom: 6px;">
-                            Assembled Brand visual Blueprint Prompt
-                        </label>
-                        <div style="font-size: 0.8rem; color: var(--text-main); line-height: 1.45; font-family: monospace; white-space: pre-wrap; word-break: break-word; min-height: 60px;">
-                            {{ liveAssembledPrompt }}
-                        </div>
-                    </div>
-
-                    <!-- Render Frame -->
-                    <div style="flex: 1; background: var(--workspace-bg); border: 1px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; min-height: 250px;">
-                        
-                        <!-- Idle State -->
-                        <div v-if="!composerGenerating && !composerResultUrl" style="text-align: center; color: var(--text-muted); padding: 24px;">
-                            <span style="font-size: 2.5rem; display: block; margin-bottom: 12px;">🎭</span>
-                            <span style="font-size: 0.82rem; font-weight: 600; display: block; color: var(--text-main);">Ready to Generate</span>
-                            <span style="font-size: 0.72rem; display: block; margin-top: 4px;">Click the run button below to generate high-fidelity assets.</span>
-                        </div>
-
-                        <!-- Generating Loader -->
-                        <div v-else-if="composerGenerating" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px;">
-                            <div style="width: 42px; height: 42px; border: 3px solid rgba(197, 160, 89, 0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <div>
-                                <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--accent);">Synthesizing Asset...</h4>
-                                <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">
-                                    Compiling visual parameters and generating canvas...
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Result Display -->
-                        <template v-else-if="composerResultUrl">
-                            <video v-if="composerParams.format === 'video'" :src="composerResultUrl" autoplay loop muted style="width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;"></video>
-                            <img v-else :src="composerResultUrl" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;">
-                            
-                            <!-- Floating Format Badge -->
-                            <span style="position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 4px; z-index: 10;">
-                                {{ composerParams.format === 'video' ? '🎬 Cinemagraph Video' : '📸 High-Res Photo' }}
-                            </span>
-                        </template>
-                    </div>
-
-                    <!-- Active Seed Info & History -->
-                    <div v-if="composerResultItem" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.76rem; margin-top: -10px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span style="color: var(--text-muted);">Active Seed:</span>
-                            <strong style="color: var(--accent); font-family: monospace;">{{ composerResultItem.seed }}</strong>
-                            <button type="button" @click="copySeed(composerResultItem.seed)" class="btn" style="height: 20px; font-size: 0.65rem; padding: 0 6px; margin: 0; border: none; background: none; color: var(--accent); text-decoration: underline; cursor: pointer;">
-                                Copy
-                            </button>
-                        </div>
-                        <button type="button" @click="saveSeedToGuidelines(composerResultItem.seed)" class="btn" style="height: 24px; font-size: 0.7rem; padding: 0 10px; margin: 0; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); color: #a78bfa; border-radius: 4px;">
-                            💾 Save Seed to Guidelines
-                        </button>
-                    </div>
-
-                    <!-- Session Drafts History Carousel -->
-                    <div v-if="draftsHistory.length > 0" style="display: flex; flex-direction: column; gap: 6px; margin-top: -5px;">
-                        <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block;">
-                            🕒 Recent Draft Variants (This Session)
-                        </span>
-                        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; border-bottom: 1px solid var(--border);">
-                            <div v-for="draft in draftsHistory" :key="draft.url" 
-                                 @click="composerResultUrl = draft.url; composerResultItem = draft.item; composerParams.seed = draft.seed;"
-                                 style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 6px; border: 2px solid var(--border); overflow: hidden; cursor: pointer; transition: 0.2s; position: relative;"
-                                 :style="composerResultUrl === draft.url ? 'border-color: var(--accent); transform: scale(1.05); box-shadow: 0 0 8px rgba(197, 160, 89, 0.3);' : ''">
-                                <video v-if="draft.item.folder === 'video' || draft.url.endsWith('mp4')" :src="draft.url" muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-                                <img v-else :src="draft.url" style="width: 100%; height: 100%; object-fit: cover;">
-                                <span style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.65); color: white; font-size: 0.55rem; padding: 1px 4px; border-radius: 3px; font-family: monospace;">
-                                    #{{ draft.seed }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Generation Controls -->
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" @click="generateComposerAsset" :disabled="composerGenerating" class="btn btn-accent" 
-                                style="flex: 1; height: 40px; margin: 0; font-weight: bold; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%);">
-                            <span>🚀 Run Creative Engine</span>
-                        </button>
-                        
-                        <button type="button" v-if="composerResultUrl" @click="saveComposerAssetToLibrary" :disabled="savingComposerAsset || (composerResultItem && composerResultItem.id)" class="btn"
-                                style="height: 40px; margin: 0; font-weight: bold; font-size: 0.85rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #22c55e; min-width: 160px;"
-                                :style="(composerResultItem && composerResultItem.id) ? 'background: rgba(34, 197, 94, 0.05); color: #87e8a4; border-color: rgba(34, 197, 94, 0.1);' : ''">
-                            <span v-if="savingComposerAsset">⏳ Saving...</span>
-                            <span v-else-if="composerResultItem && composerResultItem.id">✅ Added to Media Library</span>
-                            <span v-else>📥 Add to Media Library</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Brand Directory Panels -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                
-                <!-- Main Brand People Directory -->
-                <div class="panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="color: var(--text-main); margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
-                            👥 Main Brand People (Personas)
-                        </h3>
-                        <button type="button" @click="openAddPersonaForm" class="btn btn-secondary" style="height: 26px; padding: 0 10px; font-size: 0.72rem; margin: 0; font-weight: 700; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                            ➕ Add Persona
-                        </button>
-                    </div>
-
-                    <!-- Persona Cards List -->
-                    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
-                        <div v-for="(p, idx) in canvas.personas" :key="p.name" 
-                             style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; gap: 12px; position: relative;">
-                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <strong style="color: var(--accent); font-size: 0.85rem;">{{ p.name }}</strong>
-                                    <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--workspace-bg); padding: 1px 6px; border-radius: 4px;">Age: {{ p.age }}</span>
-                                </div>
-                                <span style="font-size: 0.76rem; color: var(--text-main); font-weight: 600;">{{ p.role }}</span>
-                                <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">{{ p.description }}</p>
-                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                                    <span style="font-size: 0.68rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;">👗 {{ p.apparel }}</span>
-                                    <span style="font-size: 0.68rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;">😊 {{ p.expression }}</span>
-                                </div>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px; align-self: flex-start;">
-                                <button type="button" @click="openEditPersonaForm(idx)" style="background: none; border: none; cursor: pointer; color: var(--accent); font-size: 0.9rem; padding: 4px;" title="Edit Persona">
-                                    ✏️
-                                </button>
-                                <button type="button" @click="deletePersona(idx)" style="background: none; border: none; cursor: pointer; color: #f87171; font-size: 0.9rem; padding: 4px;" title="Delete Persona">
-                                    🗑️
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Standard Sceneries Directory -->
-                <div class="panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="color: var(--text-main); margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
-                            🌄 Standard Sceneries & Backdrops
-                        </h3>
-                        <button type="button" @click="openAddSceneryForm" class="btn btn-secondary" style="height: 26px; padding: 0 10px; font-size: 0.72rem; margin: 0; font-weight: 700; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                            ➕ Add Scenery
-                        </button>
-                    </div>
-
-                    <!-- Scenery Cards List -->
-                    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
-                        <div v-for="(s, idx) in canvas.sceneries" :key="s.name" 
-                             style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; gap: 12px; position: relative;">
-                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <strong style="color: var(--accent); font-size: 0.85rem;">{{ s.name }}</strong>
-                                </div>
-                                <p style="font-size: 0.74rem; color: var(--text-main); margin: 0; line-height: 1.4;">{{ s.description }}</p>
-                                <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-left: 2px solid var(--accent); padding-left: 8px;">
-                                    <span style="font-size: 0.68rem; color: var(--text-muted);"><strong style="color:var(--text-main)">Lighting:</strong> {{ s.lighting }}</span>
-                                    <span style="font-size: 0.68rem; color: var(--text-muted);"><strong style="color:var(--text-main)">Lens Style:</strong> {{ s.photography_style }}</span>
-                                </div>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px; align-self: flex-start;">
-                                <button type="button" @click="openEditSceneryForm(idx)" style="background: none; border: none; cursor: pointer; color: var(--accent); font-size: 0.9rem; padding: 4px;" title="Edit Scenery">
-                                    ✏️
-                                </button>
-                                <button type="button" @click="deleteScenery(idx)" style="background: none; border: none; cursor: pointer; color: #f87171; font-size: 0.9rem; padding: 4px;" title="Delete Scenery">
-                                    🗑️
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Inline Canvas Card Editor Modal Overlay -->
         <div v-if="editingSection" class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000;">
@@ -1163,24 +819,6 @@ export default {
             editedProtocolText: '',
             manuscriptLiveEstCost: '',
 
-            // Visual Studio Composer properties
-            composerParams: {
-                promptTemplate: 'Commercial advertising photography showcasing #product in focus. Used by a @persona. Set in a [scenery].',
-                backend: 'imagen',
-                format: 'image',
-                seed: '',
-                lockSeed: false,
-                cameraLens: '',
-                lightingStyle: '',
-                composition: ''
-            },
-            composerTab: 'products',
-            searchProductQuery: '',
-            composerGenerating: false,
-            composerResultUrl: '',
-            composerResultItem: null,
-            savingComposerAsset: false,
-            draftsHistory: [],
             editingPersonaIndex: null,
             editingSceneryIndex: null,
             newPersona: {
@@ -1230,6 +868,17 @@ export default {
                     }
                     this.autoFindCompetitors = newVal.auto_find_competitors !== false;
                 }
+            }
+        },
+        activeTab(newVal) {
+            if (this.app) {
+                this.app.activeBrandCenterTab = newVal;
+                this.app.updateURL();
+            }
+        },
+        'app.activeBrandCenterTab'(newVal) {
+            if (newVal && newVal !== this.activeTab) {
+                this.activeTab = newVal;
             }
         }
     },
@@ -1354,17 +1003,22 @@ export default {
             const enginePrefix = backend ? `[Engine: ${backend.toUpperCase()}] ` : '';
             return `${enginePrefix}${compiled}`;
         },
-        filteredProducts() {
-            if (!this.app.products) return [];
-            const query = (this.searchProductQuery || '').toLowerCase().trim();
-            if (!query) return this.app.products;
-            return this.app.products.filter(p => 
-                (p.title && p.title.toLowerCase().includes(query)) ||
-                (p.sku && p.sku.toLowerCase().includes(query))
-            );
-        }
     },
     methods: {
+        triggerLogoContentStudio() {
+            this.app.openContentStudio((url, item) => {
+                this.settingsBrand.logo = url;
+            }, {
+                promptPreset: `Brand logo for ${this.settingsBrand.name || 'my coffee brand'}`
+            });
+        },
+        triggerFaviconContentStudio() {
+            this.app.openContentStudio((url, item) => {
+                this.settingsBrand.favicon = url;
+            }, {
+                promptPreset: `Brand favicon icon for ${this.settingsBrand.name || 'my coffee brand'}`
+            });
+        },
         openAddPersonaForm() {
             this.newPersona = {
                 name: '',
@@ -1402,31 +1056,6 @@ export default {
         getProductImageUrl(p) {
             return p.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120';
         },
-        insertToken(token) {
-            const textarea = document.getElementById('composerPromptTemplate');
-            if (!textarea) {
-                this.composerParams.promptTemplate = (this.composerParams.promptTemplate || '') + ' ' + token;
-                return;
-            }
-            const startPos = textarea.selectionStart;
-            const endPos = textarea.selectionEnd;
-            const text = this.composerParams.promptTemplate || '';
-            
-            if (token.startsWith('#') && text.includes('#product')) {
-                this.composerParams.promptTemplate = text.replace('#product', token);
-            } else if (token.startsWith('@') && text.includes('@persona')) {
-                this.composerParams.promptTemplate = text.replace('@persona', token);
-            } else if (token.startsWith('[') && text.includes('[scenery]')) {
-                this.composerParams.promptTemplate = text.replace('[scenery]', token);
-            } else {
-                this.composerParams.promptTemplate = text.substring(0, startPos) + token + text.substring(endPos, text.length);
-            }
-            
-            setTimeout(() => {
-                textarea.focus();
-                textarea.setSelectionRange(startPos + token.length, startPos + token.length);
-            }, 50);
-        },
         async deletePersona(idx) {
             if (confirm(`Are you sure you want to delete ${this.canvas.personas[idx].name}?`)) {
                 this.canvas.personas.splice(idx, 1);
@@ -1437,128 +1066,6 @@ export default {
             if (confirm(`Are you sure you want to delete ${this.canvas.sceneries[idx].name}?`)) {
                 this.canvas.sceneries.splice(idx, 1);
                 await this.saveBrandCanvas();
-            }
-        },
-        async generateComposerAsset() {
-            this.composerGenerating = true;
-            this.composerResultUrl = '';
-            this.composerResultItem = null;
-
-            // Handle seed logic: if lockSeed is false, generate a new random seed
-            if (!this.composerParams.lockSeed || !this.composerParams.seed) {
-                this.composerParams.seed = Math.floor(Math.random() * 1000000);
-            }
-
-            try {
-                const token = localStorage.getItem('sc_admin_token');
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media/ai-studio`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        'X-Brand-Id': this.settingsBrand.id || ''
-                    },
-                    body: JSON.stringify({
-                        action: this.composerParams.format === 'video' ? 'video' : 'generate',
-                        prompt: this.liveAssembledPrompt,
-                        productId: this.composerParams.productId,
-                        personaName: this.composerParams.personaName,
-                        sceneryName: this.composerParams.sceneryName,
-                        actionDescription: this.composerParams.actionDescription,
-                        backend: this.composerParams.backend,
-                        seed: this.composerParams.seed,
-                        cameraLens: this.composerParams.cameraLens,
-                        lightingStyle: this.composerParams.lightingStyle,
-                        composition: this.composerParams.composition,
-                        draft: true // generate as draft
-                    })
-                });
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || `Server error: ${response.status}`);
-                }
-                const result = await response.json();
-                if (result.success && result.item) {
-                    this.composerResultUrl = result.item.url;
-                    this.composerResultItem = result.item;
-
-                    // Append to session draftsHistory if not already present
-                    if (!this.draftsHistory.some(d => d.url === result.item.url)) {
-                        this.draftsHistory.unshift({
-                            url: result.item.url,
-                            seed: result.item.seed,
-                            prompt: result.item.prompt,
-                            item: result.item
-                        });
-                    }
-                    this.app.showNotification('✨ Creative asset draft generated successfully!');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Generation failed: ' + err.message);
-            } finally {
-                this.composerGenerating = false;
-            }
-        },
-        async saveComposerAssetToLibrary() {
-            if (!this.composerResultItem) return;
-            this.savingComposerAsset = true;
-            try {
-                const token = localStorage.getItem('sc_admin_token');
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media/ai-studio/save`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        'X-Brand-Id': this.settingsBrand.id || ''
-                    },
-                    body: JSON.stringify({
-                        title: this.composerResultItem.title,
-                        url: this.composerResultItem.url,
-                        folder: this.composerResultItem.folder || 'AI Studio',
-                        metadata: this.composerResultItem.metadata
-                    })
-                });
-                if (response.ok) {
-                    const result = await response.json();
-                    // Set saved ID so frontend knows it's saved
-                    if (result.item && result.item.id) {
-                        this.composerResultItem.id = result.item.id;
-                    }
-                    this.app.showNotification('📥 Creative asset persistently saved to your Media Library.');
-                } else {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Server error saving asset');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Failed to save to library: ' + err.message);
-            } finally {
-                this.savingComposerAsset = false;
-            }
-        },
-        copySeed(seed) {
-            navigator.clipboard.writeText(seed.toString());
-            this.app.showNotification('📋 Seed copied to clipboard!');
-        },
-        async saveSeedToGuidelines(seedVal) {
-            if (!this.canvas.savedSeeds) {
-                this.canvas.savedSeeds = [];
-            }
-            if (!seedVal) return;
-            if (this.canvas.savedSeeds.includes(seedVal)) {
-                this.app.showNotification('ℹ️ Seed is already saved in guidelines.');
-                return;
-            }
-            this.canvas.savedSeeds.push(seedVal);
-            await this.saveBrandCanvas();
-            this.app.showNotification('💾 Seed saved to Brand Guidelines!');
-        },
-        async removeSavedSeed(seedVal) {
-            if (this.canvas.savedSeeds) {
-                this.canvas.savedSeeds = this.canvas.savedSeeds.filter(s => s !== seedVal);
-                await this.saveBrandCanvas();
-                this.app.showNotification('🗑️ Seed removed from Brand Guidelines.');
             }
         },
         async loadBrandCanvas() {

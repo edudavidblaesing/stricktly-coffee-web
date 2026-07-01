@@ -98,170 +98,223 @@
             </div>
 
             <!-- SUBVIEW 2: Active Editor / Builder Layout -->
-            <div v-else class="designer-workspace-layout" style="display: flex; gap: 24px; flex-wrap: wrap;">
-                <!-- Left Side: Customizer Controls -->
-                <div class="panel" style="flex: 1; min-width: 340px; display: flex; flex-direction: column; gap: 16px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                        <h4 style="margin: 0; color: var(--accent); font-weight: 700;">
+            <div v-else class="designer-workspace-layout" style="display: grid; grid-template-columns: 320px 1fr; gap: 0px; align-items: stretch; min-height: calc(100vh - 120px); width: 100%;">
+                <!-- Left Side: Customizer Controls (Consistent Sidebar Layout Tree) -->
+                <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--card-bg); border-right: 1px solid var(--border); box-sizing: border-box; overflow-y: auto;">
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px; gap: 8px;">
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.9rem; text-transform: uppercase;">
                             {{ isNewPage ? '➕ New Campaign' : '✏️ Edit Campaign' }}
                         </h4>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="checkbox" id="lp-auto-update-toggle" v-model="autoUpdatePreview" style="cursor: pointer; margin: 0; width: 14px; height: 14px;">
-                                <label for="lp-auto-update-toggle" style="font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none; margin: 0;">Auto-Update</label>
+                        <button type="button" class="btn" style="padding: 4px 8px; font-size: 0.78rem; height: 28px; background: var(--workspace-bg); border: 1px solid var(--border); color: var(--text-muted); margin: 0;" @click="cancelEditing">
+                            Cancel
+                        </button>
+                    </div>
+
+                    <!-- Subview A: If a section is selected: Render its Settings Inspector -->
+                    <div v-if="selectedSectionId" style="display: flex; flex-direction: column; gap: 14px;">
+                        <div style="display: flex; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 8px;">
+                            <button type="button" class="btn" style="padding: 2px 6px; margin: 0; font-size: 0.9rem; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);" @click="selectedSectionId = ''" title="Back">
+                                ←
+                            </button>
+                            <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                                {{ getSelectedSectionTitle() }} Settings
+                            </h4>
+                        </div>
+
+                        <!-- INSPECTOR: CAMPAIGN SETTINGS -->
+                        <div v-if="selectedSectionId === 'campaign'" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>URL Slug / Path Address</label>
+                                <input type="text" v-model="edit_slug" :disabled="!isNewPage" placeholder="promo-offer" style="width: 100%; font-family: monospace;">
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">Matches <code>/store/:brandId/{{ edit_slug || '[slug]' }}</code>. Alphanumeric and hyphens only. Unique.</span>
                             </div>
-                            <button v-if="!autoUpdatePreview" type="button" class="btn btn-accent" style="margin: 0; padding: 2px 8px; font-size: 0.7rem; height: 22px; line-height: 1; border-radius: 4px;" @click="updatePreviewLandingPage">Sync Preview</button>
-                            <button type="button" class="btn" style="padding: 4px 8px; font-size: 0.78rem; height: 28px; background: var(--workspace-bg); border: 1px solid var(--border); color: var(--text-muted); margin: 0;" @click="cancelEditing">
-                                Cancel
-                            </button>
+
+                            <div class="form-group">
+                                <label>Campaign Action / Goal</label>
+                                <select v-model="edit_type" style="width: 100%;">
+                                    <option value="coupon">Lead Capture (Award Discount Coupon on Signup)</option>
+                                    <option value="product">Direct Product Showcase (One-Click Buy with discount applied)</option>
+                                </select>
+                            </div>
+
+                            <div v-if="edit_type === 'product'" class="form-group" style="border-left: 2px solid var(--accent); padding-left: 12px;">
+                                <label>Featured Showcase Product</label>
+                                <select v-model="edit_product_id" style="width: 100%;">
+                                    <option v-for="prod in brandProducts" :key="prod.id" :value="prod.id">
+                                        {{ prod.title }} - €{{ Number(prod.price).toFixed(2) }}
+                                    </option>
+                                </select>
+                                <span v-if="brandProducts.length === 0" style="font-size: 0.72rem; color: #ef4444; display: block; margin-top: 4px;">⚠️ No products found for this store.</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Promo Code to Award/Apply</label>
+                                <input type="text" v-model="edit_coupon_code" placeholder="COFFEE20" style="width: 100%; text-transform: uppercase;">
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Page Identity / Route Slug -->
-                    <div class="form-group">
-                        <label>URL Slug / Path Address</label>
-                        <input type="text" v-model="edit_slug" :disabled="!isNewPage" placeholder="promo-offer" style="width: 100%; font-family: monospace;">
-                        <span style="font-size: 0.7rem; color: var(--text-muted);">Matches <code>/store/:brandId/{{ edit_slug || '[slug]' }}</code>. Alphanumeric and hyphens only. Unique per store.</span>
-                    </div>
+                        <!-- INSPECTOR: HERO CONTENT -->
+                        <div v-if="selectedSectionId === 'hero'" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Language tabs for Copy -->
+                            <div v-if="availableLocales && availableLocales.length > 1" style="margin-bottom: 4px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                                <span style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-muted); font-size: 0.75rem;">Language Variant:</span>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button v-for="lang in availableLocales" :key="lang" type="button" @click="landingPageContentLang = lang"
+                                            class="btn btn-secondary" style="font-size: 0.68rem; padding: 2px 6px; height: auto; font-weight: 700;"
+                                            :style="landingPageContentLang === lang ? 'background: var(--text-main); color: var(--workspace-bg); border-color: var(--text-main);' : ''">
+                                        {{ lang.toUpperCase() }}
+                                    </button>
+                                </div>
+                            </div>
 
-                    <!-- Campaign Type Toggle -->
-                    <div class="form-group">
-                        <label>Campaign Action / Goal</label>
-                        <select v-model="edit_type" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px; font-family: var(--font-body); font-size: 0.85rem; outline: none;">
-                            <option value="coupon">Lead Capture (Award Discount Coupon on Signup)</option>
-                            <option value="product">Direct Product Showcase (One-Click Buy with discount applied)</option>
-                        </select>
-                    </div>
-
-                    <!-- Featured Product Selector (for Product Offer Type) -->
-                    <div v-if="edit_type === 'product'" class="form-group" style="border-left: 2px solid var(--accent); padding-left: 12px; margin-top: 2px;">
-                        <label>Featured Showcase Product</label>
-                        <select v-model="edit_product_id" style="width: 100%; height: 38px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 0 10px; font-family: var(--font-body); font-size: 0.85rem; outline: none;">
-                            <option v-for="prod in brandProducts" :key="prod.id" :value="prod.id">
-                                {{ prod.title }} - €{{ Number(prod.price).toFixed(2) }}
-                            </option>
-                        </select>
-                        <span v-if="brandProducts.length === 0" style="font-size: 0.72rem; color: #ef4444; display: block; margin-top: 4px;">⚠️ No products found for this store. Please add products first.</span>
-                    </div>
-
-                    <!-- Language tabs for Landing Page copy -->
-                    <div v-if="availableLocales && availableLocales.length > 1" style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-                        <label style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Edit Copy for Language Variant:</label>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <button v-for="lang in availableLocales" :key="lang" type="button" @click="landingPageContentLang = lang"
-                                    class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 10px; height: auto; font-weight: 700; border-radius: 6px; transition: 0.2s;"
-                                    :style="landingPageContentLang === lang ? 'background: var(--text-main); color: var(--workspace-bg); border-color: var(--text-main);' : ''">
-                                {{ lang.toUpperCase() }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: rgba(255,255,255,0.01);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">📝 Landing Page Copy ({{ landingPageContentLang.toUpperCase() }} variant)</span>
-                            <!-- Translate button if not default 'en' -->
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.7rem; padding: 4px 8px; height: 26px; display: flex; align-items: center; gap: 4px; margin: 0; border-radius: 6px;" @click="toggleTranslateLandingPage(landingPageContentLang)">
-                                    <template v-if="translatingLandingPage">
-                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">⏳ [€{{ (app.aiTicker.cost * 0.92).toFixed(4) }} | 🛑 Stop]</span>
-                                        <span v-else>⏳ Translating... | 🛑 Stop</span>
-                                    </template>
-                                    <template v-else-if="lastTranslatingLandingPageCost">
-                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [Last: €{{ lastTranslatingLandingPageCost.toFixed(4) }}]</span>
-                                        <span v-else>✨ AI Translate from EN</span>
-                                    </template>
-                                    <template v-else>
-                                        <span v-if="app.userRole && app.userRole.toLowerCase() === 'superadmin'">✨ AI Translate from EN [Gemini 2.5 Flash] [~$0.0003]</span>
-                                        <span v-else>✨ AI Translate from EN</span>
-                                    </template>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">Copy Editor</span>
+                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.65rem; padding: 2px 6px; height: 22px;" @click="toggleTranslateLandingPage(landingPageContentLang)">
+                                    <span v-if="translatingLandingPage">⏳ Translating...</span>
+                                    <span v-else>✨ AI Translate from EN</span>
                                 </button>
-                                <span v-if="translateAiStats && translateAiStats.calls_count > 0 && app.userRole && app.userRole.toLowerCase() === 'superadmin'" style="font-size: 0.65rem; color: var(--text-muted);">
-                                    Accumulated: <strong>{{ translateAiStats.calls_count }}</strong> translations ({{ formatTokens(translateAiStats.total_tokens) }} tokens | €{{ (translateAiStats.cost_usd * 0.92).toFixed(4) }})
-                                </span>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Hero Headline</label>
+                                <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_headline" placeholder="Exclusive Promo Offer" style="width: 100%;">
+                                <input v-else type="text" v-model="edit_translations[landingPageContentLang].headline" placeholder="[AI Translation Pending]" style="width: 100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Subheadline / Description</label>
+                                <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_subheadline" placeholder="Claim this exclusive deal..." style="width: 100%;">
+                                <input v-else type="text" v-model="edit_translations[landingPageContentLang].subheadline" placeholder="[AI Translation Pending]" style="width: 100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label>CTA Button Text</label>
+                                <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_cta" placeholder="Unlock Offer" style="width: 100%;">
+                                <input v-else type="text" v-model="edit_translations[landingPageContentLang].cta" placeholder="[AI Translation Pending]" style="width: 100%;">
+                            </div>
+
+                            <!-- Hero Image Dropzone -->
+                            <div class="form-group">
+                                <label>Hero Campaign Image</label>
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                                    <input type="text" v-model="edit_hero_img" placeholder="https://..." style="flex: 1; margin: 0;">
+                                </div>
+                                <div class="dropzone" 
+                                     style="border: 2px dashed var(--border); border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; background: rgba(255,255,255,0.005);"
+                                     @dragover.prevent="onDragOver" 
+                                     @dragleave.prevent="onDragLeave" 
+                                     @drop.prevent="onHeroDrop"
+                                     @click="$refs.heroFile.click()"
+                                >
+                                    <span v-if="heroUploading" class="spinner"></span>
+                                    <div v-else style="font-size: 0.72rem; color: var(--text-muted);">
+                                        🖼️ Drag image or click to browse
+                                    </div>
+                                    <input type="file" ref="heroFile" accept="image/*" style="display: none;" @change="onHeroFileSelect">
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Copy Controls for the active tab -->
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Landing Page Headline</label>
-                            <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_headline" placeholder="Exclusive Promo: Get 20% off all Precision Coffee Gear!" style="width: 100%;">
-                            <input v-else type="text" v-model="edit_translations[landingPageContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Exklusives Angebot: 20 % Rabatt auf alles!'" style="width: 100%;">
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>Subheadline / Description</label>
-                            <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_subheadline" placeholder="Elevate your home barista journey with our award-winning tools." style="width: 100%;">
-                            <input v-else type="text" v-model="edit_translations[landingPageContentLang].subheadline" :placeholder="'[AI Translation Pending] e.g. Heben Sie Ihre Kaffeezubereitung auf ein neues Level.'" style="width: 100%;">
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label>CTA Button Text</label>
-                            <input v-if="landingPageContentLang === 'en'" type="text" v-model="edit_cta" placeholder="Unlock 20% Off Now" style="width: 100%;">
-                            <input v-else type="text" v-model="edit_translations[landingPageContentLang].cta" :placeholder="'[AI Translation Pending] e.g. Jetzt 20 % Rabatt sichern'" style="width: 100%;">
-                        </div>
-
-                        <!-- Feature list points -->
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Feature Highlights (one per line)</label>
-                            <textarea v-if="landingPageContentLang === 'en'" v-model="edit_features" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: var(--workspace-bg); color: var(--text-main); font-family: var(--font-body); font-size: 0.85rem; line-height: 1.4; resize: vertical;" placeholder="⚡ Free Worldwide Shipping&#10;🔒 100% Precision Guaranteed&#10;☕ Loved by 10,000+ Baristas"></textarea>
-                            <textarea v-else v-model="edit_translations[landingPageContentLang].features" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: var(--workspace-bg); color: var(--text-main); font-family: var(--font-body); font-size: 0.85rem; line-height: 1.4; resize: vertical;" :placeholder="'[AI Translation Pending] e.g. ⚡ Kostenloser weltweiter Versand\n🔒 100 % Garantie\n☕ Beliebt bei Baristas'"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Promo Code to Award/Apply</label>
-                        <input type="text" v-model="edit_coupon_code" placeholder="COFFEE20" style="width: 100%; text-transform: uppercase;">
-                    </div>
-
-                    <!-- Hero Image Dropzone / Input -->
-                    <div class="form-group">
-                        <label>Hero Campaign Image</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <input type="text" v-model="edit_hero_img" placeholder="https://pesado585.com/banner.png" style="flex: 1; margin: 0;">
-                        </div>
-                        <div class="dropzone" 
-                             style="margin-top: 8px; border: 2px dashed var(--border); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; background: rgba(255,255,255,0.005);"
-                             @dragover.prevent="onDragOver" 
-                             @dragleave.prevent="onDragLeave" 
-                             @drop.prevent="onHeroDrop"
-                             @click="$refs.heroFile.click()"
-                             onmouseover="this.style.borderColor='var(--accent)';"
-                             onmouseout="this.style.borderColor='var(--border)';"
-                        >
-                            <span v-if="heroUploading" class="spinner"></span>
-                            <div v-else>
-                                <span style="font-size: 1.5rem; display: block; margin-bottom: 4px;">🖼️</span>
-                                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Drag & drop image or click to browse</span>
+                        <!-- INSPECTOR: FEATURES highlights -->
+                        <div v-if="selectedSectionId === 'features'" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Language Variant -->
+                            <div v-if="availableLocales && availableLocales.length > 1" style="margin-bottom: 4px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                                <span style="display: block; margin-bottom: 6px; font-weight: 700; color: var(--text-muted); font-size: 0.75rem;">Language Variant:</span>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button v-for="lang in availableLocales" :key="lang" type="button" @click="landingPageContentLang = lang"
+                                            class="btn btn-secondary" style="font-size: 0.68rem; padding: 2px 6px; height: auto; font-weight: 700;"
+                                            :style="landingPageContentLang === lang ? 'background: var(--text-main); color: var(--workspace-bg); border-color: var(--text-main);' : ''">
+                                        {{ lang.toUpperCase() }}
+                                    </button>
+                                </div>
                             </div>
-                            <input type="file" ref="heroFile" accept="image/*" style="display: none;" @change="onHeroFileSelect">
+
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">USPs List</span>
+                                <button v-if="landingPageContentLang !== 'en'" type="button" class="sc-ai-button" style="font-size: 0.65rem; padding: 2px 6px; height: 22px;" @click="toggleTranslateLandingPage(landingPageContentLang)">
+                                    <span v-if="translatingLandingPage">⏳ Translating...</span>
+                                    <span v-else>✨ AI Translate from EN</span>
+                                </button>
+                            </div>
+
+                            <div class="form-group">
+                                <label>USPs Highlights (one per line)</label>
+                                <textarea v-if="landingPageContentLang === 'en'" v-model="edit_features" rows="4" style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; resize: vertical;" placeholder="⚡ Free Shipping&#10;☕ Precision Extraction&#10;🔒 Lifetime Guarantee"></textarea>
+                                <textarea v-else v-model="edit_translations[landingPageContentLang].features" rows="4" style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; resize: vertical;" placeholder="[AI Translation Pending]"></textarea>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Inherit Styles Toggle -->
-                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px; cursor: pointer; user-select: none; background: var(--workspace-bg); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);">
-                        <input type="checkbox" id="landing-inherit-toggle" v-model="edit_inherit" style="width: 18px; height: 18px; cursor: pointer; margin: 0; flex-shrink: 0;">
-                        <label for="landing-inherit-toggle" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem; cursor: pointer; margin: 0;">
-                            Match Storefront Layout Styles
-                        </label>
-                    </div>
+                        <!-- INSPECTOR: STYLE OVERRIDES -->
+                        <div v-if="selectedSectionId === 'style'" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; background: var(--workspace-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+                                <input type="checkbox" id="landing-inherit-toggle" v-model="edit_inherit" style="width: 16px; height: 16px; cursor: pointer; margin: 0;">
+                                <label for="landing-inherit-toggle" style="font-weight: 700; color: var(--text-main); font-size: 0.78rem; cursor: pointer; margin: 0;">
+                                    Match Storefront Theme Layout
+                                </label>
+                            </div>
 
-                    <div v-if="!edit_inherit" style="display: flex; flex-direction: column; gap: 12px; border-left: 2px solid var(--accent); padding-left: 12px; margin-top: 4px;">
-                        <div class="form-group">
-                            <label>Accent Promo Color</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="color" v-model="edit_primary_color" style="width: 42px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; margin: 0;">
-                                <input type="text" v-model="edit_primary_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
+                            <div v-if="!edit_inherit" class="form-group" style="border-left: 2px solid var(--accent); padding-left: 12px; margin-top: 2px;">
+                                <label>Custom Accent Color</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="color" v-model="edit_primary_color" style="width: 38px; height: 32px; padding: 2px; border-radius: 4px; border: 1px solid var(--border); background: none; cursor: pointer; margin: 0;">
+                                    <input type="text" v-model="edit_primary_color" required pattern="^#[0-9A-Fa-f]{6}$" placeholder="#111111" style="flex: 1; margin: 0;">
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-accent" style="margin-top: 10px; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 44px; border-radius: 8px; background: var(--accent); color: var(--workspace-bg);" @click="savePage" :disabled="saving">
-                        <span v-if="saving" class="spinner"></span>
-                        <span>{{ saving ? 'Publishing Live...' : '🚀 Publish Live to Storefront' }}</span>
-                    </button>
-                    <p style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin: 6px 0 0 0;">
-                        💡 Publishing writes changes directly to the database to go live on your storefront immediately.
-                    </p>
+                    <!-- Subview B: Otherwise: Render General Layout Sections List (Mirroring Storefront Designer) -->
+                    <div v-else style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+                        <h5 style="margin: 0; color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Campaign Page Blocks</h5>
+
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'campaign' }" @click="selectedSectionId = 'campaign'"
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border-left: 3px solid var(--accent);">
+                            <span>🏷️</span>
+                            <div style="flex: 1;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block;">Campaign Settings</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">Slug, Goal, Showcase Product</span>
+                            </div>
+                        </div>
+
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'hero' }" @click="selectedSectionId = 'hero'"
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border-left: 3px solid var(--accent);">
+                            <span>🌄</span>
+                            <div style="flex: 1;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block;">Hero Content Block</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">Headline, Subheadline, Button, Image</span>
+                            </div>
+                        </div>
+
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'features' }" @click="selectedSectionId = 'features'"
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border-left: 3px solid var(--accent);">
+                            <span>⚡</span>
+                            <div style="flex: 1;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block;">USPs highlights Block</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">Feature points, benefit hooks</span>
+                            </div>
+                        </div>
+
+                        <div class="section-tree-item" :class="{ active: selectedSectionId === 'style' }" @click="selectedSectionId = 'style'"
+                             style="background: var(--workspace-bg); border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border-left: 3px solid var(--accent);">
+                            <span>🎨</span>
+                            <div style="flex: 1;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block;">Visual Styles Override</span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted);">Match storefront toggle, Custom accent</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Actions (Publish / Reset Rebuild) -->
+                    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px;">
+                        <button type="button" class="btn btn-secondary" style="margin: 0; font-weight: 700; height: 36px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--accent); color: var(--accent); background: transparent;" @click="openRebuildModal">
+                            <span>✨ Rebuild Page</span>
+                        </button>
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; height: 40px; border-radius: 8px;" @click="savePage" :disabled="saving">
+                            <span v-if="saving" class="spinner"></span>
+                            <span>{{ saving ? 'Publishing Live...' : '🚀 Publish Live to Storefront' }}</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Right Side: Live Sandbox Preview -->
@@ -369,6 +422,72 @@
                 </div>
             </div>
         </div>
+        <!-- REBUILD WORKSPACE MODAL -->
+        <div v-if="showRebuildModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div class="panel" style="width: 100%; max-width: 550px; border-radius: 12px; overflow: hidden; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin: 20px;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>✨</span> Rebuild Page Workspace
+                    </h3>
+                    <button type="button" @click="showRebuildModal = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+                </div>
+                
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 18px;">
+                    <!-- Option 1: Static reset -->
+                    <div style="padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.01);">
+                        <h4 style="margin: 0 0 6px 0; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">Option A: Apply Static Brand-Consistent Design</h4>
+                        <p style="margin: 0 0 12px 0; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                            Resets the layout structure, typography, and sections to a clean default design tailored directly to your brand settings, primary color, and products. Completely static, no AI limits or prompt required.
+                        </p>
+                        <button type="button" class="btn btn-secondary" style="margin: 0; font-size: 0.8rem; font-weight: 700; height: 36px; padding: 0 16px; border-color: var(--accent); color: var(--accent);" @click="triggerStaticRebuild">
+                            🔄 Apply Static Brand Design
+                        </button>
+                    </div>
+
+                    <!-- Option 2: AI Customise -->
+                    <div style="padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 10px; position: relative;">
+                        <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">Option B: AI-Guided Customization & Rebuild</h4>
+                        <p style="margin: 0; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                            Prompt your AI Designer. Use <strong>@ tags</strong> to direct copywriting to target personas, prioritize categories, or showcase specific products.
+                        </p>
+                        
+                        <div style="position: relative;">
+                            <textarea ref="rebuildPromptInput" v-model="rebuildPrompt" @input="handleRebuildPromptInput" placeholder="Describe the look/feel or content... e.g. A dark slate slate targeting @barista showcasing @tamper products" style="width: 100%; height: 90px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-size: 0.8rem; font-family: var(--font-body); resize: vertical; margin: 0; outline: none;"></textarea>
+                            
+                            <!-- Autocomplete list -->
+                            <div v-if="showAutocomplete" style="position: absolute; bottom: 100%; left: 0; width: 100%; max-height: 180px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 -4px 16px rgba(0,0,0,0.5); z-index: 100020; margin-bottom: 4px; display: flex; flex-direction: column;">
+                                <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; padding: 6px 10px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">Select suggestion tag</div>
+                                <button v-for="tag in filteredAutocompleteTags" :key="tag.value" type="button" @click="insertAutocompleteTag(tag)" style="padding: 8px 12px; text-align: left; background: none; border: none; color: var(--text-main); font-size: 0.75rem; cursor: pointer; display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.01);" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                                    <span style="font-weight: 700; color: var(--accent);">{{ tag.label }}</span>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">{{ tag.description }}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tag Pills Helper -->
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 600;">Type <strong>@</strong> (personas/products), <strong>%</strong> (coupons), <strong>&amp;</strong> (audiences), <strong>#</strong> (channels), or <strong>/</strong> (commands) for suggestions, or click to insert:</span>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'@barista'})">👤 @barista</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'%SAVE20'})">🏷️ %SAVE20</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'&amp;past-purchasers'})">👥 &amp;past-purchasers</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'#meta'})">📢 #meta</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'/rebuild'})">⚡ /rebuild</span>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-accent" style="margin: 6px 0 0 0; font-size: 0.8rem; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px;" @click="triggerAIRebuild" :disabled="isRebuildingAI">
+                            <span v-if="isRebuildingAI" class="spinner"></span>
+                            <span>{{ isRebuildingAI ? 'Generating Creative Layout...' : '✨ Generate Layout with AI' }}</span>
+                        </button>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                        <button type="button" class="btn" style="margin: 0; background: transparent; border: 1px solid var(--border); color: var(--text-main);" @click="showRebuildModal = false">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -410,6 +529,16 @@ export default {
             showAIModal: false,
             aiModalPrompt: '',
             aiModalProductId: '',
+            
+            // Rebuild & Section Tree states
+            selectedSectionId: '',
+            showRebuildModal: false,
+            rebuildPrompt: '',
+            showAutocomplete: false,
+            autocompleteSearch: '',
+            activeTriggerSymbol: '',
+            audiences: [],
+            isRebuildingAI: false,
             generatingAIPage: false,
             lastGeneratingAIPageCost: null,
             autoUpdatePreview: true,
@@ -417,6 +546,89 @@ export default {
         };
     },
     computed: {
+        autocompleteTags() {
+            const list = [];
+            const symbol = this.activeTriggerSymbol || '@';
+            
+            if (symbol === '@') {
+                list.push(
+                    { label: '@barista', value: '@barista', description: 'Technical Barista target audience' },
+                    { label: '@curator', value: '@curator', description: 'Design Purist / Aesthetic Curator target' },
+                    { label: '@home-brewer', value: '@home-brewer', description: 'Home Brewer target audience' },
+                    { label: '@tamper', value: '@tamper', description: 'Filter by Tampers collection' },
+                    { label: '@basket', value: '@basket', description: 'Filter by Precision Baskets collection' },
+                    { label: '@milk', value: '@milk', description: 'Filter by Milk Jugs collection' },
+                    { label: '@accessory', value: '@accessory', description: 'Filter by Accessories collection' },
+                    { label: '@service-training', value: '@service-training', description: 'Technical Barista Training Session' },
+                    { label: '@service-consultancy', value: '@service-consultancy', description: 'Café Layout & Flow Consulting' }
+                );
+                
+                // Add products
+                const prods = this.app.products ? this.app.products.filter(p => p.brand_id === this.app.activeShopFilter) : [];
+                prods.forEach(p => {
+                    list.push({
+                        label: `@inventory-${p.id}`,
+                        value: `@inventory-${p.id}`,
+                        description: p.title
+                    });
+                });
+            } else if (symbol === '%') {
+                if (this.app.coupons && this.app.coupons.length > 0) {
+                    this.app.coupons.forEach(c => {
+                        list.push({
+                            label: `%${c.code.toUpperCase()}`,
+                            value: `%${c.code.toUpperCase()}`,
+                            description: `Discount Coupon: ${c.code}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '%SAVE20', value: '%SAVE20', description: 'Fallback: 20% discount coupon' },
+                        { label: '%WELCOME10', value: '%WELCOME10', description: 'Fallback: 10% welcome coupon' }
+                    );
+                }
+            } else if (symbol === '&') {
+                if (this.audiences && this.audiences.length > 0) {
+                    this.audiences.forEach(aud => {
+                        list.push({
+                            label: `&${aud.id}`,
+                            value: `&${aud.id}`,
+                            description: `Audience Segment: ${aud.name}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '&past-purchasers', value: '&past-purchasers', description: 'Fallback: Customers who purchased previously' },
+                        { label: '&lookalike-vips', value: '&lookalike-vips', description: 'Fallback: Lookalike 1% of high value spenders' }
+                    );
+                }
+            } else if (symbol === '#') {
+                list.push(
+                    { label: '#meta', value: '#meta', description: 'Meta Facebook / Instagram Ad Traffic' },
+                    { label: '#google', value: '#google', description: 'Google search and display traffic' },
+                    { label: '#tiktok', value: '#tiktok', description: 'TikTok feed and post traffic' },
+                    { label: '#email', value: '#email', description: 'Newsletter or automated email traffic' },
+                    { label: '#instagram', value: '#instagram', description: 'Instagram bio or story traffic' }
+                );
+            } else if (symbol === '/') {
+                list.push(
+                    { label: '/rebuild', value: '/rebuild', description: 'Command: Rebuild sections layout strategy' },
+                    { label: '/translate-de', value: '/translate-de', description: 'Command: Translate entire copywriting to German' },
+                    { label: '/translate-fr', value: '/translate-fr', description: 'Command: Translate entire copywriting to French' },
+                    { label: '/dark-mode', value: '/dark-mode', description: 'Command: Force deep carbon/slate dark themes' },
+                    { label: '/light-mode', value: '/light-mode', description: 'Command: Force warm cream/beige minimal themes' }
+                );
+            }
+            return list;
+        },
+        filteredAutocompleteTags() {
+            if (!this.autocompleteSearch) return this.autocompleteTags;
+            const searchVal = this.autocompleteSearch.toLowerCase();
+            return this.autocompleteTags.filter(t => {
+                const cleanTagVal = t.value.substring(1).toLowerCase();
+                return cleanTagVal.includes(searchVal) || t.value.toLowerCase().includes(searchVal);
+            });
+        },
         currentPageState() {
             return JSON.stringify({
                 edit_slug: this.edit_slug,
@@ -532,6 +744,128 @@ export default {
         }
     },
     methods: {
+        getSelectedSectionTitle() {
+            if (this.selectedSectionId === 'campaign') return 'Campaign Settings';
+            if (this.selectedSectionId === 'hero') return 'Hero Content';
+            if (this.selectedSectionId === 'features') return 'Feature Highlights';
+            if (this.selectedSectionId === 'style') return 'Style Overrides';
+            return 'Block';
+        },
+        openRebuildModal() {
+            this.rebuildPrompt = '';
+            this.showAutocomplete = false;
+            this.autocompleteSearch = '';
+            this.showRebuildModal = true;
+        },
+        handleRebuildPromptInput(e) {
+            const text = this.rebuildPrompt;
+            const cursor = e.target.selectionStart;
+            const beforeCursor = text.substring(0, cursor);
+            const match = beforeCursor.match(/([@%&#\/])(\w*)$/);
+            if (match) {
+                this.activeTriggerSymbol = match[1];
+                this.showAutocomplete = true;
+                this.autocompleteSearch = match[2].toLowerCase();
+            } else {
+                this.showAutocomplete = false;
+                this.activeTriggerSymbol = '';
+            }
+        },
+        insertAutocompleteTag(tag) {
+            const text = this.rebuildPrompt;
+            const textarea = this.$refs.rebuildPromptInput;
+            const cursor = textarea ? textarea.selectionStart : text.length;
+            const beforeCursor = text.substring(0, cursor);
+            const afterCursor = text.substring(cursor);
+            const beforeTag = beforeCursor.replace(/([@%&#\/])(\w*)$/, '');
+            this.rebuildPrompt = beforeTag + tag.value + ' ' + afterCursor;
+            this.showAutocomplete = false;
+            this.activeTriggerSymbol = '';
+            this.$nextTick(() => {
+                if (textarea) {
+                    textarea.focus();
+                    const newPos = beforeTag.length + tag.value.length + 1;
+                    textarea.setSelectionRange(newPos, newPos);
+                }
+            });
+        },
+        triggerStaticRebuild() {
+            const firstProduct = this.app.products ? this.app.products.find(p => p.brand_id === this.app.activeShopFilter) : null;
+            this.edit_headline = `Exclusive ${this.activeBrandName} Promotion`;
+            this.edit_subheadline = 'Experience state-of-the-art precision tools designed for absolute extraction consistency.';
+            this.edit_cta = 'Get 20% Off Now';
+            this.edit_coupon_code = `${this.activeBrandName.substring(0, 4).toUpperCase()}20`;
+            this.edit_features = `⚡ Precision Engineering\n☕ Zero Channeling Guarantee\n📦 Worldwide Express Shipping`;
+            this.edit_type = firstProduct ? 'product' : 'coupon';
+            this.edit_product_id = firstProduct ? firstProduct.id : null;
+            this.edit_inherit = true;
+            this.updatePreviewLandingPage();
+            this.app.showNotification('✨ Rebuilt page copy to static brand template!');
+            this.showRebuildModal = false;
+        },
+        async triggerAIRebuild() {
+            if (!this.rebuildPrompt.trim()) {
+                alert('Please enter a description or prompt for the AI builder.');
+                return;
+            }
+            this.isRebuildingAI = true;
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
+            
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-page`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt: this.rebuildPrompt, productId: this.edit_product_id })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.page) {
+                        this.edit_headline = data.page.headline || this.edit_headline;
+                        this.edit_subheadline = data.page.subheadline || this.edit_subheadline;
+                        this.edit_cta = data.page.cta || this.edit_cta;
+                        this.edit_coupon_code = data.page.coupon_code || this.edit_coupon_code;
+                        this.edit_features = data.page.features || this.edit_features;
+                        this.edit_type = data.page.type || this.edit_type;
+                        this.edit_product_id = data.page.product_id || this.edit_product_id;
+                        
+                        this.updatePreviewLandingPage();
+                        this.app.showNotification('✨ AI Landing Page content rebuilt successfully!');
+                        this.showRebuildModal = false;
+                        
+                        // Clean up duplicate page created in database
+                        await this.app.loadBrands();
+                        const currentBrand = this.app.brands.find(b => b.id === this.designerBrand.id);
+                        if (currentBrand && currentBrand.theme_settings) {
+                            try {
+                                const theme = JSON.parse(currentBrand.theme_settings);
+                                if (theme.landing_pages) {
+                                    const cleanedPages = theme.landing_pages.filter(p => p.id !== data.page.id);
+                                    await this.persistLandingPages(cleanedPages);
+                                }
+                            } catch(e) {
+                                console.error('Error parsing brand theme settings during cleanup:', e);
+                            }
+                        }
+                    }
+                } else {
+                    const err = await response.json();
+                    alert('AI Landing Page Rebuild error: ' + (err.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('AI Rebuild network error: ' + e.message);
+            } finally {
+                this.isRebuildingAI = false;
+                this.app.stopAiTicker();
+            }
+        },
         async loadAiUsage() {
             if (!this.designerBrand || !this.designerBrand.id || this.designerBrand.id === 'all') {
                 return;
@@ -565,7 +899,25 @@ export default {
                 this.$emit('back');
             }
         },
+        async fetchBrandAudiences() {
+            if (!this.designerBrand || !this.designerBrand.id || this.designerBrand.id === 'all') {
+                this.audiences = [];
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/audiences`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.audiences = data.audiences || [];
+                }
+            } catch (err) {
+                console.error('[LandingPageDesignerView] Error loading audiences:', err);
+            }
+        },
         loadBrandContext() {
+            this.fetchBrandAudiences();
             if (this.app.activeShopFilter !== 'all') {
                 const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);
                 if (b) {

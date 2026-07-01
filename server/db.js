@@ -66,6 +66,7 @@ async function initializeDatabase() {
     await client.query(`
       ALTER TABLE brands ADD COLUMN IF NOT EXISTS cloudflare_dns_record_id VARCHAR(255)
     `);
+    await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS custom_subscription_price NUMERIC(10, 2) DEFAULT NULL`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS logo TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS favicon TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS theme_settings TEXT`);
@@ -260,6 +261,7 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0.00`);
     await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10, 2)`);
     await client.query(`UPDATE orders SET total_amount = total WHERE total_amount IS NULL`);
+    await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(100) DEFAULT NULL`);
 
     // Add first_name and last_name columns to users table
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)`);
@@ -650,7 +652,7 @@ async function seedDefaultData() {
     console.error('[Database Migration] Error setting default pesado segments:', err.message);
   }
 
-  const shouldSeedMock = false;
+  const shouldSeedMock = process.env.NODE_ENV !== 'production';
 
   // Seed Superadmin user (always required)
   const adminCheckUser = await getQuery('SELECT id FROM users WHERE email = $1', ['sc@davidblaesing.com']);

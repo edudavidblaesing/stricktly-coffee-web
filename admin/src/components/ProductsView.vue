@@ -5,7 +5,7 @@
         <div class="upcoming-modal" v-if="showAddProductModal" @click.self="closeAddProductModal">
             <div class="upcoming-card" @click.stop style="max-width: 600px; width: 100%; text-align: left; padding: 24px; max-height: 90vh; overflow-y: auto; border-radius: 12px;">
                 <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-                    <span>Add Product to Catalog</span>
+                    <span>Add Inventory Item to Catalog</span>
                     <span @click="closeAddProductModal" style="cursor: pointer; font-size: 1.1rem; color: var(--text-muted);">&times;</span>
                 </h3>
                 
@@ -38,7 +38,7 @@
                                         style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.2s;"
                                         :style="String(selectedApiProductId) === String(p.id) ? 'background: rgba(197, 160, 89, 0.1); border-left: 3px solid var(--accent); padding-left: 9px;' : 'hover: background: rgba(255,255,255,0.02);'">
                                         <div style="width: 32px; height: 32px; border-radius: 4px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border);">
-                                            <img :src="p.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=60'" style="width: 100%; height: 100%; object-fit: contain;">
+                                            <img :src="optimizeImageUrl(p.image, 80, 80) || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=60'" style="width: 100%; height: 100%; object-fit: contain;">
                                         </div>
                                         <div style="flex-grow: 1; min-width: 0;">
                                             <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.title }}</div>
@@ -69,12 +69,20 @@
                         </div>
 
                         <div class="form-group" style="grid-column: span 2;" v-if="activeLangTab === 'en'">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Name / Title</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Title</label>
                             <input type="text" v-model="newProduct.title" required placeholder="Self-Leveling Spring Tamper" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
                         <div class="form-group" style="grid-column: span 2;" v-else>
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Name / Title ({{ activeLangTab.toUpperCase() }})</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Title ({{ activeLangTab.toUpperCase() }})</label>
                             <input type="text" v-model="getTranslationRef('new', activeLangTab).title" placeholder="Translated title..." style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Type</label>
+                            <select v-model="newProduct.type" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; cursor: pointer;">
+                                <option value="product">Physical Good</option>
+                                <option value="service">Service / Course</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -82,13 +90,44 @@
                             <input type="number" step="0.01" min="0.01" v-model="newProduct.price" required placeholder="132.00" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; line-height: 38px;">
                         </div>
 
-                        <div class="form-group">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Catalog Tag Badge (Optional)</label>
-                            <input type="text" v-model="newProduct.tag" placeholder="Best Seller" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        <div class="form-group" style="position: relative;">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Tag Badges</label>
+                            <div class="competitor-tags-input" style="display: flex; flex-wrap: wrap; gap: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; padding: 6px 12px; min-height: 38px; box-sizing: border-box; align-items: center; width: 100%;">
+                                <div v-for="(tag, idx) in newProductTags" :key="idx" 
+                                     style="display: inline-flex; align-items: center; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; gap: 6px; margin: 2px 0;">
+                                    <span>{{ tag }}</span>
+                                    <button type="button" @click="removeAddProductTag(idx)" 
+                                            style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 0.85rem; font-weight: bold; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; opacity: 0.7; transition: opacity 0.2s;"
+                                            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+                                </div>
+                                <input type="text" 
+                                       v-model="newAddProductTagInput" 
+                                       @focus="showAddTagAutocomplete = true"
+                                       @blur="setTimeout(() => { showAddTagAutocomplete = false }, 200)"
+                                       @keydown.enter.prevent="addAddProductTag"
+                                       @keydown.comma.prevent="addAddProductTag"
+                                       @keydown.down.prevent="navigateAddTagAutocomplete('down')"
+                                       @keydown.up.prevent="navigateAddTagAutocomplete('up')"
+                                       @keydown.delete="handleAddProductTagBackspace"
+                                       placeholder="Type tag & press Enter or comma" 
+                                       style="border: none; background: transparent; color: var(--text-main); font-size: 0.85rem; outline: none; margin: 0; padding: 0; flex: 1; min-width: 120px; height: 26px;">
+                            </div>
+
+                            <!-- Add Tag Autocomplete Dropdown -->
+                            <div v-if="showAddTagAutocomplete && filteredAddTagSuggestions.length > 0" 
+                                 style="position: absolute; top: 100%; left: 0; right: 0; background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-top: 4px;">
+                                <div v-for="(tag, idx) in filteredAddTagSuggestions" :key="tag" 
+                                     @mousedown.prevent="selectAddTagSuggestion(tag)"
+                                     @mouseenter="addTagActiveIndex = idx"
+                                     style="padding: 8px 12px; font-size: 0.8rem; color: var(--text-main); cursor: pointer;"
+                                     :style="addTagActiveIndex === idx ? 'background: rgba(197, 160, 89, 0.15); color: var(--accent);' : ''">
+                                    {{ tag }}
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product SKU (Stock Code)</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">SKU (Stock Code)</label>
                             <input type="text" v-model="newProduct.sku" placeholder="ESP-BASKET-18" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
 
@@ -108,38 +147,30 @@
                         </div>
 
                         <div class="form-group" style="grid-column: span 2;">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Image (URL or Drag & Drop / Click to Upload)</label>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <input type="url" v-model="newProduct.image" placeholder="https://pesado585.com/.../img.png" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; margin: 0;">
-                                <div 
-                                    class="uploader-box"
-                                    style="border: 2px dashed var(--border); border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; background: rgba(255,255,255,0.01);"
-                                    @click="$refs.addProductImageInput.click()"
-                                    @dragover.prevent="onDragOver"
-                                    @dragleave.prevent="onDragLeave"
-                                    @drop.prevent="onAddProductDrop"
-                                >
-                                    <input type="file" ref="addProductImageInput" accept="image/*" style="display: none;" @change="onAddProductFileSelect">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Image Preview & Actions</label>
+                            <div style="display: flex; gap: 16px; align-items: start; margin-top: 6px;">
+                                <!-- Premium visual thumbnail preview -->
+                                <div style="width: 86px; height: 86px; border-radius: 8px; border: 1px solid var(--border); overflow: hidden; background: var(--workspace-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                    <img :src="app.getCleanImageUrl(newProduct.image) || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=150'" 
+                                         style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px;">
+                                </div>
+                                <!-- Action input and buttons -->
+                                <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+                                    <input type="url" v-model="newProduct.image" placeholder="https://pesado585.com/.../img.png" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; margin: 0;">
                                     
-                                    <div v-if="productUploading" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                                        <span class="spinner" style="width: 24px; height: 24px; border-width: 3px;"></span>
-                                        <span style="font-size: 0.85rem; color: var(--text-muted);">Uploading image...</span>
-                                    </div>
-                                    <div v-else-if="newProduct.image" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                                        <img :src="newProduct.image" style="max-height: 100px; max-width: 100%; object-fit: contain; border-radius: 6px;">
-                                        <span style="font-size: 0.78rem; color: var(--text-muted);">Drop new image or click to replace</span>
-                                    </div>
-                                    <div v-else style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0;">
-                                        <span style="font-size: 1.5rem;">🖼️</span>
-                                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Drop product image here</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-muted);">or click to select file</span>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                        <button type="button" @click="triggerContentStudio('new')" 
+                                                class="sc-ai-button" 
+                                                style="padding: 6px 12px; font-size: 0.76rem; border-radius: 6px; margin: 0; display: inline-flex; align-items: center; gap: 4px; height: 30px; cursor: pointer; transition: all 0.2s; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none; font-weight: bold;">
+                                            🎨 Content Studio
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="form-group" style="grid-column: span 2;">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Original Product Manufacturer Link</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Original Manufacturer Link</label>
                             <input type="url" v-model="newProduct.original_link" placeholder="https://pesado585.com/products/self-leveling-tamper" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
 
@@ -195,7 +226,7 @@
                         </div>
 
                         <div class="form-group form-full" style="grid-column: span 2; margin-top: 16px;">
-                            <button type="submit" class="btn" style="width: 100%; height: 42px; font-weight: 700;">Add Product to Catalog</button>
+                            <button type="submit" class="btn" style="width: 100%; height: 42px; font-weight: 700;">Add Inventory Item to Catalog</button>
                         </div>
                     </div>
                 </form>
@@ -206,7 +237,7 @@
         <div class="upcoming-modal" v-if="showEditProductModal" @click.self="closeEditProductModal">
             <div class="upcoming-card" @click.stop style="max-width: 600px; width: 100%; text-align: left; padding: 24px; max-height: 90vh; overflow-y: auto; border-radius: 12px;">
                 <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-                    <span>Edit Product Details</span>
+                    <span>Edit Inventory Item Details</span>
                     <span @click="closeEditProductModal" style="cursor: pointer; font-size: 1.1rem; color: var(--text-muted);">&times;</span>
                 </h3>
                 
@@ -215,7 +246,7 @@
                     <div v-if="editingProduct.external_id" style="background: rgba(59, 130, 246, 0.05); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                         <h4 style="margin: 0 0 12px 0; font-size: 0.9rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                             <span>🔌 Integration Sync Settings</span>
-                            <span style="font-size: 0.72rem; background: var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 600;">External Shop Product</span>
+                            <span style="font-size: 0.72rem; background: var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 600;">External Shop Item</span>
                         </h4>
                         
                         <!-- Price sync toggle -->
@@ -235,7 +266,7 @@
 
                         <!-- Details sync toggle -->
                         <div>
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Content Sync (Title, Description, Image, features, compatibility)</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Content Sync (Title, Description, Image, features, compatibility)</label>
                             <div style="display: flex; gap: 16px;">
                                 <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: var(--text-main);">
                                     <input type="radio" v-model="editingProduct.details_source" value="external">
@@ -264,12 +295,20 @@
                         </div>
 
                         <div class="form-group" style="grid-column: span 2;" v-if="activeLangTab === 'en'">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Name / Title</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Title</label>
                             <input type="text" v-model="editingProduct.title" required :disabled="editingProduct.details_source === 'external'" placeholder="Self-Leveling Spring Tamper" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
                         </div>
                         <div class="form-group" style="grid-column: span 2;" v-else>
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Name / Title ({{ activeLangTab.toUpperCase() }})</label>
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Title ({{ activeLangTab.toUpperCase() }})</label>
                             <input type="text" v-model="getTranslationRef('edit', activeLangTab).title" :disabled="editingProduct.details_source === 'external'" placeholder="Translated title..." style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                        </div>
+
+                        <div class="form-group">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Item Type</label>
+                            <select v-model="editingProduct.type" required style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; cursor: pointer;">
+                                <option value="product">Physical Good</option>
+                                <option value="service">Service / Course</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -277,15 +316,48 @@
                             <input type="number" step="0.01" min="0.01" v-model="editingProduct.price" required :disabled="editingProduct.price_source === 'external'" placeholder="132.00" style="width: 100%; height: 38px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; line-height: 38px;">
                         </div>
 
-                        <div class="form-group">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Catalog Tag Badge (Optional)</label>
-                            <input type="text" v-model="editingProduct.tag" placeholder="Best Seller" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
-                        </div>
+                                     <div class="form-group" style="position: relative;">
+                                <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Tag Badges</label>
+                                <div class="competitor-tags-input" style="display: flex; flex-wrap: wrap; gap: 6px; border: 1px solid var(--border); background: var(--workspace-bg); border-radius: 6px; padding: 6px 12px; min-height: 38px; box-sizing: border-box; align-items: center; width: 100%;">
+                                    <div v-for="(tag, idx) in editingProductTags" :key="idx" 
+                                         style="display: inline-flex; align-items: center; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); color: var(--accent); font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; gap: 6px; margin: 2px 0;">
+                                        <span>{{ tag }}</span>
+                                        <!-- Lock icon for locked tags from system -->
+                                        <span v-if="tag === 'Imported' && editingProduct.external_id" style="font-size: 0.72rem; opacity: 0.7;" title="Locked system tag">🔒</span>
+                                        <button v-else type="button" @click="removeEditProductTag(idx)" 
+                                                style="background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 0.85rem; font-weight: bold; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; opacity: 0.7; transition: opacity 0.2s;"
+                                                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">×</button>
+                                    </div>
+                                    <input type="text" 
+                                           v-model="newProductTagInput" 
+                                           @focus="showEditTagAutocomplete = true"
+                                           @blur="setTimeout(() => { showEditTagAutocomplete = false }, 200)"
+                                           @keydown.enter.prevent="addEditProductTag"
+                                           @keydown.comma.prevent="addEditProductTag"
+                                           @keydown.down.prevent="navigateEditTagAutocomplete('down')"
+                                           @keydown.up.prevent="navigateEditTagAutocomplete('up')"
+                                           @keydown.delete="handleEditProductTagBackspace"
+                                           placeholder="Type tag & press Enter or comma" 
+                                           style="border: none; background: transparent; color: var(--text-main); font-size: 0.85rem; outline: none; margin: 0; padding: 0; flex: 1; min-width: 120px; height: 26px;">
+                                </div>
 
-                        <div class="form-group">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product SKU (Stock Code)</label>
-                            <input type="text" v-model="editingProduct.sku" placeholder="ESP-BASKET-18" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
-                        </div>
+                                <!-- Edit Tag Autocomplete Dropdown -->
+                                <div v-if="showEditTagAutocomplete && filteredEditTagSuggestions.length > 0" 
+                                     style="position: absolute; top: 100%; left: 0; right: 0; background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 6px; z-index: 100; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-top: 4px;">
+                                    <div v-for="(tag, idx) in filteredEditTagSuggestions" :key="tag" 
+                                         @mousedown.prevent="selectEditTagSuggestion(tag)"
+                                         @mouseenter="editTagActiveIndex = idx"
+                                         style="padding: 8px 12px; font-size: 0.8rem; color: var(--text-main); cursor: pointer;"
+                                         :style="editTagActiveIndex === idx ? 'background: rgba(197, 160, 89, 0.15); color: var(--accent);' : ''">
+                                        {{ tag }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">SKU (Stock Code)</label>
+                                <input type="text" v-model="editingProduct.sku" placeholder="ESP-BASKET-18" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem;">
+                            </div>
 
                         <div class="form-group">
                             <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">External Integration ID</label>
@@ -308,33 +380,30 @@
                         </div>
 
                         <div class="form-group" style="grid-column: span 2;">
-                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Product Image (URL or Drag & Drop / Click to Upload)</label>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <input type="url" v-model="editingProduct.image" :disabled="editingProduct.details_source === 'external'" placeholder="https://pesado585.com/.../img.png" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; margin: 0;">
-                                <div 
-                                    v-if="editingProduct.details_source !== 'external'"
-                                    class="uploader-box"
-                                    style="border: 2px dashed var(--border); border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; background: rgba(255,255,255,0.01);"
-                                    @click="$refs.editProductImageInput.click()"
-                                    @dragover.prevent="onDragOver"
-                                    @dragleave.prevent="onDragLeave"
-                                    @drop.prevent="onEditProductDrop"
-                                >
-                                    <input type="file" ref="editProductImageInput" accept="image/*" style="display: none;" @change="onEditProductFileSelect">
+                            <label style="font-weight: 600; font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Inventory Image Preview & Actions</label>
+                            <div style="display: flex; gap: 16px; align-items: start; margin-top: 6px;">
+                                <!-- Premium visual thumbnail preview -->
+                                <div style="width: 86px; height: 86px; border-radius: 8px; border: 1px solid var(--border); overflow: hidden; background: var(--workspace-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                    <img :src="app.getCleanImageUrl(editingProduct.image) || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=150'" 
+                                         style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px;">
+                                </div>
+                                <!-- Action input and buttons -->
+                                <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+                                    <input type="url" v-model="editingProduct.image" :disabled="editingProduct.details_source === 'external'" placeholder="https://pesado585.com/.../img.png" style="width: 100%; height: 38px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; margin: 0;">
                                     
-                                    <div v-if="productUploading" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                                        <span class="spinner" style="width: 24px; height: 24px; border-width: 3px;"></span>
-                                        <span style="font-size: 0.85rem; color: var(--text-muted);">Uploading image...</span>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                        <!-- Show Upload options only when manual override is selected -->
+                                        <template v-if="editingProduct.details_source !== 'external'">
+                                            <button type="button" @click="triggerContentStudio('edit')" 
+                                                    class="sc-ai-button" 
+                                                    style="padding: 6px 12px; font-size: 0.76rem; border-radius: 6px; margin: 0; display: inline-flex; align-items: center; gap: 4px; height: 30px; cursor: pointer; transition: all 0.2s; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none; font-weight: bold;">
+                                                🎨 Content Studio
+                                            </button>
+                                        </template>
                                     </div>
-                                    <div v-else-if="editingProduct.image" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                                        <img :src="editingProduct.image" style="max-height: 100px; max-width: 100%; object-fit: contain; border-radius: 6px;">
-                                        <span style="font-size: 0.78rem; color: var(--text-muted);">Drop new image or click to replace</span>
-                                    </div>
-                                    <div v-else style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0;">
-                                        <span style="font-size: 1.5rem;">🖼️</span>
-                                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Drop product image here</span>
-                                        <span style="font-size: 0.75rem; color: var(--text-muted);">or click to select file</span>
-                                    </div>
+                                    <span v-if="editingProduct.details_source === 'external'" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">
+                                        🔒 Synced from External Shop. Switch "Product Content Sync" to override manually.
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -403,17 +472,22 @@
             </div>
         </div>
 
-        <!-- Current Product Catalog Management Table -->
-        <div class="panel" style="margin-top: 24px;">
+        <!-- Current Products & Services Catalog Table -->
+        <div class="panel" style="margin-top: 0;">
             <div class="panel-header">
                 <h3 class="panel-title">
-                    Current Product Catalog
+                    Current Catalog Items
                     <span
                         style="font-size: 0.72rem; background: var(--bg-color); color: var(--text-main); padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 6px;">
                         {{ filteredProducts.length }} items
                     </span>
                 </h3>
                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.02); padding: 2px; border-radius: 6px; border: 1px solid var(--border);">
+                        <button type="button" @click="catalogTypeFilter = 'all'" :style="{ background: catalogTypeFilter === 'all' ? 'var(--panel-bg)' : 'transparent', color: catalogTypeFilter === 'all' ? 'var(--text-main)' : 'var(--text-muted)' }" style="border: none; font-size: 0.72rem; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; outline: none; transition: all 0.2s;">All Items</button>
+                        <button type="button" @click="catalogTypeFilter = 'product'" :style="{ background: catalogTypeFilter === 'product' ? 'var(--panel-bg)' : 'transparent', color: catalogTypeFilter === 'product' ? 'var(--text-main)' : 'var(--text-muted)' }" style="border: none; font-size: 0.72rem; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; outline: none; transition: all 0.2s;">Physical Goods</button>
+                        <button type="button" @click="catalogTypeFilter = 'service'" :style="{ background: catalogTypeFilter === 'service' ? 'var(--panel-bg)' : 'transparent', color: catalogTypeFilter === 'service' ? 'var(--text-main)' : 'var(--text-muted)' }" style="border: none; font-size: 0.72rem; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; outline: none; transition: all 0.2s;">Services / Courses</button>
+                    </div>
                     <div class="header-search-container" style="width: 220px;">
                         <svg class="header-search-icon" width="12" height="12" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2.5">
@@ -429,9 +503,9 @@
             <div v-if="filteredProducts.length === 0" style="padding: 50px 30px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-top: 1px dashed var(--border); margin-top: 12px; background: rgba(255,255,255,0.005); border-radius: 8px;">
                 <div style="font-size: 3rem; animation: pulse 2s infinite;">📦</div>
                 <div style="max-width: 500px;">
-                    <h4 style="color: var(--text-main); font-size: 1rem; font-weight: 700; margin: 0 0 8px 0;">Your Product Catalog is Empty</h4>
+                    <h4 style="color: var(--text-main); font-size: 1rem; font-weight: 700; margin: 0 0 8px 0;">Your Inventory is Empty</h4>
                     <p style="color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; margin: 0;">
-                        To launch high-converting omnichannel marketing campaigns, you need products in your catalog. Connect your Shopify or WooCommerce store to automatically sync products in one click, or add products manually.
+                        To launch high-converting omnichannel marketing campaigns, you need inventory items in your catalog. Connect your Shopify or WooCommerce store to automatically sync inventory in one click, or add them manually.
                     </p>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 10px;">
@@ -446,7 +520,7 @@
                     </button>
                     <button type="button" class="btn btn-secondary" style="margin: 0; height: 38px; padding: 0 20px; font-weight: 700; font-size: 0.8rem;" 
                             @click="openAddProductModal">
-                        ➕ Add Manual Product
+                        ➕ Add Manual Inventory Item
                     </button>
                 </div>
             </div>
@@ -457,24 +531,38 @@
                             <th class="checkbox-cell" style="width: 40px;">
                                 <div class="checkbox-custom" :class="{ checked: isAllProductsSelected }" @click="toggleSelectAllProducts"></div>
                             </th>
-                            <th>Product Info</th>
-                            <th>Brand Shop</th>
-                            <th>Retail Price</th>
-                            <th>Impressions</th>
-                            <th>Sales (Qty)</th>
-                            <th>Revenue</th>
-                            <th>Conv. Rate</th>
+                            <th @click="toggleSort('title')" style="cursor: pointer; user-select: none;">
+                                Inventory Item Info <span v-if="sortKey === 'title'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('brand')" style="cursor: pointer; user-select: none;">
+                                Brand Shop <span v-if="sortKey === 'brand'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('price')" style="cursor: pointer; user-select: none;">
+                                Retail Price <span v-if="sortKey === 'price'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('impressions')" style="cursor: pointer; user-select: none;">
+                                Impressions <span v-if="sortKey === 'impressions'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('sales')" style="cursor: pointer; user-select: none;">
+                                Sales (Qty) <span v-if="sortKey === 'sales'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('revenue')" style="cursor: pointer; user-select: none;">
+                                Revenue <span v-if="sortKey === 'revenue'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
+                            <th @click="toggleSort('conversion')" style="cursor: pointer; user-select: none;">
+                                Conv. Rate <span v-if="sortKey === 'conversion'">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                            </th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="prod in searchedProducts" :key="prod.id" :class="{ selected: selectedProductIds.includes(prod.id) }">
+                        <tr v-for="prod in sortedProducts" :key="prod.id" :class="{ selected: selectedProductIds.includes(prod.id) }">
                             <td class="checkbox-cell" @click.stop>
                                 <div class="checkbox-custom" :class="{ checked: selectedProductIds.includes(prod.id) }" @click="toggleSelectProduct(prod.id)"></div>
                             </td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 12px;">
-                                    <img :src="prod.image || 'https://placehold.co/100'"
+                                    <img :src="optimizeImageUrl(prod.image, 150) || 'https://placehold.co/100'"
                                         style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border);"
                                         alt="Product Image">
                                     <div>
@@ -489,6 +577,8 @@
                                             </a>
                                             <span v-if="prod.active === 0" style="background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Inactive</span>
                                             <span v-else style="background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Active</span>
+                                            <span v-if="prod.type === 'service'" style="background: #f59e0b; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Service</span>
+                                            <span v-else style="background: #3b82f6; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1;">Product</span>
                                         </div>
                                         <div style="display: flex; gap: 8px; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;" v-if="prod.sku || prod.external_id">
                                             <span v-if="prod.sku">SKU: <strong style="color: var(--text-main);">{{ prod.sku }}</strong></span>
@@ -544,7 +634,7 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="searchedProducts.length === 0">
+                        <tr v-if="sortedProducts.length === 0">
                             <td colspan="9"
                                 style="text-align: center; color: var(--text-muted); padding: 30px;">
                                 No products match the selected filters or search parameters.
@@ -571,9 +661,18 @@
 export default {
     name: 'ProductsView',
     inject: ['app'],
+    mounted() {
+        this.app.productsViewInstance = this;
+    },
+    unmounted() {
+        if (this.app.productsViewInstance === this) {
+            this.app.productsViewInstance = null;
+        }
+    },
     data() {
         return {
             selectedProductIds: [],
+            catalogTypeFilter: 'all',
             showAddProductModal: false,
             selectedApiProductId: '',
             apiProducts: [],
@@ -585,6 +684,14 @@ export default {
             lastSeoCost: null,
             activeLangTab: 'en',
             importingStoreWide: false,
+            editingProductTags: [],
+            newProductTagInput: '',
+            newProductTags: [],
+            newAddProductTagInput: '',
+            showAddTagAutocomplete: false,
+            showEditTagAutocomplete: false,
+            addTagActiveIndex: 0,
+            editTagActiveIndex: 0,
             seoEstCost: '€0.00020',
             seoEditEstCost: '€0.00020',
             editingProduct: {
@@ -603,13 +710,47 @@ export default {
                 sku: '',
                 price_source: 'manual',
                 details_source: 'manual',
-                translations: {},
                 inventory_quantity: null,
                 sales_limit: null
-            }
+            },
+            sortKey: 'title',
+            sortOrder: 'asc'
         };
     },
     computed: {
+        allExistingTags() {
+            const set = new Set();
+            (this.app.products || []).forEach(p => {
+                let tagsArr = [];
+                if (p.tag) {
+                    tagsArr = p.tag.split(',').map(s => s.trim()).filter(Boolean);
+                } else if (p.tags) {
+                    tagsArr = typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags;
+                }
+                if (Array.isArray(tagsArr)) {
+                    tagsArr.forEach(t => {
+                        if (typeof t === 'string' && t.trim()) {
+                            set.add(t.trim());
+                        }
+                    });
+                }
+            });
+            return Array.from(set);
+        },
+        filteredAddTagSuggestions() {
+            const input = (this.newAddProductTagInput || '').toLowerCase().trim();
+            const existing = this.allExistingTags;
+            const filtered = existing.filter(t => !this.newProductTags.includes(t));
+            if (!input) return filtered;
+            return filtered.filter(t => t.toLowerCase().includes(input));
+        },
+        filteredEditTagSuggestions() {
+            const input = (this.newProductTagInput || '').toLowerCase().trim();
+            const existing = this.allExistingTags;
+            const filtered = existing.filter(t => !this.editingProductTags.includes(t));
+            if (!input) return filtered;
+            return filtered.filter(t => t.toLowerCase().includes(input));
+        },
         authHeaders() {
             return {
                 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
@@ -617,7 +758,7 @@ export default {
             };
         },
         isAllProductsSelected() {
-            return this.searchedProducts.length > 0 && this.searchedProducts.every(p => this.selectedProductIds.includes(p.id));
+            return this.sortedProducts.length > 0 && this.sortedProducts.every(p => this.selectedProductIds.includes(p.id));
         },
         brands() { return this.app.brands; },
         activeBrand() {
@@ -632,6 +773,45 @@ export default {
         shopifyScanStatus() { return this.app.shopifyScanStatus; },
         filteredProducts() { return this.app.filteredProducts; },
         searchedProducts() { return this.app.searchedProducts; },
+        sortedProducts() {
+            let products = [...this.searchedProducts];
+            if (this.catalogTypeFilter === 'product') {
+                products = products.filter(p => !p.type || p.type === 'product');
+            } else if (this.catalogTypeFilter === 'service') {
+                products = products.filter(p => p.type === 'service');
+            }
+            if (!this.sortKey) return products;
+            
+            return products.sort((a, b) => {
+                let valA, valB;
+                if (this.sortKey === 'title') {
+                    valA = (a.title || '').toLowerCase();
+                    valB = (b.title || '').toLowerCase();
+                } else if (this.sortKey === 'brand') {
+                    valA = (this.getBrandName(a.brand_id) || '').toLowerCase();
+                    valB = (this.getBrandName(b.brand_id) || '').toLowerCase();
+                } else if (this.sortKey === 'price') {
+                    valA = parseFloat(a.price) || 0;
+                    valB = parseFloat(b.price) || 0;
+                } else if (this.sortKey === 'impressions') {
+                    valA = this.getProductStats(a.id).impressions;
+                    valB = this.getProductStats(b.id).impressions;
+                } else if (this.sortKey === 'sales') {
+                    valA = this.getProductStats(a.id).salesCount;
+                    valB = this.getProductStats(b.id).salesCount;
+                } else if (this.sortKey === 'revenue') {
+                    valA = parseFloat(this.getProductStats(a.id).revenue) || 0;
+                    valB = parseFloat(this.getProductStats(b.id).revenue) || 0;
+                } else if (this.sortKey === 'conversion') {
+                    valA = parseFloat(this.getProductStats(a.id).conversionRate) || 0;
+                    valB = parseFloat(this.getProductStats(b.id).conversionRate) || 0;
+                }
+                
+                if (valA < valB) return this.sortOrder === 'asc' ? -1 : 1;
+                if (valA > valB) return this.sortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+        },
         shopifyImportBrandId: {
             get() { return this.app.shopifyImportBrandId; },
             set(val) { this.app.shopifyImportBrandId = val; }
@@ -678,6 +858,26 @@ export default {
         }
     },
     methods: {
+        optimizeImageUrl(url, w, h) {
+            if (!url) return '';
+            const cleanUrl = this.app.getCleanImageUrl(url);
+            if (cleanUrl.includes('/uploads/')) {
+                const separator = cleanUrl.includes('?') ? '&' : '?';
+                const params = [];
+                if (w) params.push(`w=${w}`);
+                if (h) params.push(`h=${h}`);
+                return `${cleanUrl}${separator}${params.join('&')}`;
+            }
+            return cleanUrl;
+        },
+        toggleSort(key) {
+            if (this.sortKey === key) {
+                this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortKey = key;
+                this.sortOrder = 'asc';
+            }
+        },
         async updateNewSeoEstimate(text) {
             const data = await this.app.fetchAiEstimate('Product SEO Content Generation', text || '');
             if (data && data.costUsd) {
@@ -702,7 +902,7 @@ export default {
             if (this.isAllProductsSelected) {
                 this.selectedProductIds = [];
             } else {
-                this.selectedProductIds = this.searchedProducts.map(p => p.id);
+                this.selectedProductIds = this.sortedProducts.map(p => p.id);
             }
         },
         async performBulkUpdateProductsActive(active) {
@@ -822,6 +1022,12 @@ export default {
                 this.newProduct.external_id = matched.external_id || '';
                 this.newProduct.meta_details = matched.meta_details || {};
                 this.newProduct.translations = matched.translations || {};
+                
+                const tagsStr = matched.tag || matched.tags || '';
+                this.newProductTags = (typeof tagsStr === 'string' ? tagsStr : '').split(',').map(s => s.trim()).filter(Boolean);
+                if (matched.external_id && !this.newProductTags.includes('Imported')) {
+                    this.newProductTags.push('Imported');
+                }
             }
         },
         selectImportProduct(p) {
@@ -836,11 +1042,129 @@ export default {
             this.newProduct.external_id = p.external_id || '';
             this.newProduct.meta_details = p.meta_details || {};
             this.newProduct.translations = p.translations || {};
+            
+            const tagsStr = p.tag || p.tags || '';
+            this.newProductTags = (typeof tagsStr === 'string' ? tagsStr : '').split(',').map(s => s.trim()).filter(Boolean);
+            if (p.external_id && !this.newProductTags.includes('Imported')) {
+                this.newProductTags.push('Imported');
+            }
             this.app.showNotification(`Linked details to "${p.title}"`);
         },
         async submitNewProduct() {
+            this.app.newProduct.tag = this.newProductTags.join(', ');
             await this.app.addProduct();
             this.closeAddProductModal();
+        },
+        // Edit Product Tags Helpers
+        addEditProductTag() {
+            if (this.showEditTagAutocomplete && this.filteredEditTagSuggestions.length > 0) {
+                const activeTag = this.filteredEditTagSuggestions[this.editTagActiveIndex];
+                if (activeTag) {
+                    this.selectEditTagSuggestion(activeTag);
+                    return;
+                }
+            }
+            const cleanTag = this.newProductTagInput.trim();
+            if (cleanTag && !this.editingProductTags.includes(cleanTag)) {
+                this.editingProductTags.push(cleanTag);
+            }
+            this.newProductTagInput = '';
+            this.showEditTagAutocomplete = false;
+        },
+        removeEditProductTag(idx) {
+            const tagVal = this.editingProductTags[idx];
+            if (tagVal === 'Imported' && this.editingProduct.external_id) {
+                alert("This system-generated tag is locked and cannot be removed.");
+                return;
+            }
+            this.editingProductTags.splice(idx, 1);
+        },
+        handleEditProductTagBackspace() {
+            if (!this.newProductTagInput && this.editingProductTags.length > 0) {
+                const lastTag = this.editingProductTags[this.editingProductTags.length - 1];
+                if (lastTag === 'Imported' && this.editingProduct.external_id) {
+                    return; // locked
+                }
+                this.editingProductTags.pop();
+            }
+        },
+        // Add Product Tags Helpers
+        addAddProductTag() {
+            if (this.showAddTagAutocomplete && this.filteredAddTagSuggestions.length > 0) {
+                const activeTag = this.filteredAddTagSuggestions[this.addTagActiveIndex];
+                if (activeTag) {
+                    this.selectAddTagSuggestion(activeTag);
+                    return;
+                }
+            }
+            const cleanTag = this.newAddProductTagInput.trim();
+            if (cleanTag && !this.newProductTags.includes(cleanTag)) {
+                this.newProductTags.push(cleanTag);
+            }
+            this.newAddProductTagInput = '';
+            this.showAddTagAutocomplete = false;
+        },
+        removeAddProductTag(idx) {
+            this.newProductTags.splice(idx, 1);
+        },
+        handleAddProductTagBackspace() {
+            if (!this.newAddProductTagInput && this.newProductTags.length > 0) {
+                this.newProductTags.pop();
+            }
+        },
+        navigateAddTagAutocomplete(dir) {
+            const list = this.filteredAddTagSuggestions;
+            if (list.length === 0) return;
+            if (dir === 'down') {
+                this.addTagActiveIndex = (this.addTagActiveIndex + 1) % list.length;
+            } else {
+                this.addTagActiveIndex = (this.addTagActiveIndex - 1 + list.length) % list.length;
+            }
+        },
+        navigateEditTagAutocomplete(dir) {
+            const list = this.filteredEditTagSuggestions;
+            if (list.length === 0) return;
+            if (dir === 'down') {
+                this.editTagActiveIndex = (this.editTagActiveIndex + 1) % list.length;
+            } else {
+                this.editTagActiveIndex = (this.editTagActiveIndex - 1 + list.length) % list.length;
+            }
+        },
+        selectAddTagSuggestion(tag) {
+            if (tag && !this.newProductTags.includes(tag)) {
+                this.newProductTags.push(tag);
+            }
+            this.newAddProductTagInput = '';
+            this.showAddTagAutocomplete = false;
+        },
+        selectEditTagSuggestion(tag) {
+            if (tag && !this.editingProductTags.includes(tag)) {
+                this.editingProductTags.push(tag);
+            }
+            this.newProductTagInput = '';
+            this.showEditTagAutocomplete = false;
+        },
+        // Open Product in AI Studio (Brand Center redirection)
+        openInAiStudio(product) {
+            this.app.loadedStudioParams = {
+                productId: product.id,
+                promptTemplate: `$${product.title}`, // Pre-tag the product
+                seed: -1,
+                lockSeed: false,
+                cameraLens: '',
+                lightingStyle: '',
+                composition: '',
+                backend: 'flux',
+                format: 'image',
+                personaName: '',
+                sceneryName: ''
+            };
+            this.closeEditProductModal();
+            this.app.activeView = 'brand-center';
+            if (this.app.brandCenterInstance) {
+                this.app.brandCenterInstance.activeTab = 'visual_studio';
+                this.app.brandCenterInstance.loadSharedStudioParams();
+            }
         },
         addProduct(e) { return this.app.addProduct(e); },
         handleFileSelect(e) { return this.app.handleFileSelect(e); },
@@ -945,6 +1269,14 @@ export default {
                 }
             }
 
+            const initialTagStr = prod.tag || '';
+            const initialTags = initialTagStr.split(',').map(s => s.trim()).filter(Boolean);
+            if (prod.external_id && !initialTags.includes('Imported')) {
+                initialTags.push('Imported');
+            }
+            this.editingProductTags = initialTags;
+            this.newProductTagInput = '';
+
             this.editingProduct = {
                 id: prod.id,
                 brand_id: prod.brand_id,
@@ -964,7 +1296,8 @@ export default {
                 active: prod.active !== undefined ? prod.active : 1,
                 translations: prod.translations ? (typeof prod.translations === 'string' ? JSON.parse(prod.translations) : prod.translations) : {},
                 meta_details: prod.meta_details || {},
-                original_price: prod.original_price || prod.price
+                original_price: prod.original_price || prod.price,
+                type: prod.type || 'product'
             };
             this.activeLangTab = this.activeLanguages[0] || 'en';
             this.showEditProductModal = true;
@@ -975,6 +1308,8 @@ export default {
         async submitUpdatedProduct() {
             const features = (this.editingProduct.features || '').split('\n').filter(l => l.trim() !== '');
             const compatibility = (this.editingProduct.compatibility || '').split('\n').filter(l => l.trim() !== '');
+
+            this.editingProduct.tag = this.editingProductTags.join(', ');
 
             const payload = {
                 ...this.editingProduct,
@@ -1121,6 +1456,19 @@ export default {
                 ko: '🇰🇷 KO'
             };
             return flags[lang.toLowerCase()] || `🌐 ${lang.toUpperCase()}`;
+        },
+        triggerContentStudio(type) {
+            const prod = type === 'new' ? this.newProduct : this.editingProduct;
+            this.app.openContentStudio((url, item) => {
+                if (type === 'new') {
+                    this.newProduct.image = url;
+                } else {
+                    this.editingProduct.image = url;
+                }
+            }, {
+                productId: prod ? prod.id : null,
+                promptPreset: prod ? `$${prod.title}` : ''
+            });
         }
     }
 }

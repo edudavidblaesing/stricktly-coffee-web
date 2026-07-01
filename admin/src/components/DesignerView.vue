@@ -27,8 +27,11 @@
                 </button>
             </div>
 
-            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 16px;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 12px;">
                 <div>Active Brand: <strong style="color: var(--accent);">{{ activeBrandName }}</strong></div>
+                <button type="button" class="btn btn-secondary" style="margin: 0; font-weight: 700; height: 34px; padding: 0 12px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; border: 1px solid var(--accent); color: var(--accent); background: transparent;" @click="openRebuildModal">
+                    <span>✨ Rebuild Page</span>
+                </button>
                 <button type="button" class="btn btn-accent" style="margin: 0; font-weight: 700; height: 34px; padding: 0 16px; font-size: 0.82rem; display: flex; align-items: center; gap: 6px;" @click="saveDesignSettings" :disabled="saving">
                     <span v-if="saving" class="spinner"></span>
                     <span>{{ saving ? 'Publishing...' : '🚀 Publish Live' }}</span>
@@ -52,13 +55,13 @@
                 
                 <!-- Subview A: If a section is selected: Render its Settings Inspector -->
                 <div v-if="selectedSectionId" style="display: flex; flex-direction: column; gap: 14px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
+                    <div style="display: flex; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; gap: 8px;">
+                        <button type="button" class="btn" style="padding: 2px 6px; margin: 0; font-size: 0.9rem; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main);" @click="selectedSectionId = ''" title="Back">
+                            ←
+                        </button>
+                        <h4 style="margin: 0; color: var(--accent); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
                             {{ getSelectedSectionTitle() }} Settings
                         </h4>
-                        <button type="button" class="btn" style="padding: 2px 8px; margin: 0; font-size: 0.7rem; height: 22px;" @click="selectedSectionId = ''">
-                            ← Back
-                        </button>
                     </div>
 
                     <!-- General Block Reordering Actions -->
@@ -102,7 +105,7 @@
                             <div style="display: flex; flex-direction: column; gap: 8px;">
                                 <div style="display: flex; gap: 6px;">
                                     <input type="text" v-model="designerBrand.logo" placeholder="https://..." style="flex: 1; margin: 0;">
-                                    <button type="button" class="btn" style="margin: 0; padding: 0 10px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center;" @click="triggerFileUpload('header_logo')">📁</button>
+                                    <button type="button" class="btn btn-primary" style="margin: 0; padding: 0 10px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; font-weight: bold;" @click="triggerDesignerContentStudio('header_logo')">🎨 Content Studio</button>
                                 </div>
                                 <input type="file" ref="header_logo_file" style="display: none;" @change="handleSectionFileUpload($event, 'header', 'logo')">
                                 <!-- Drag & Drop Dropzone Box -->
@@ -119,6 +122,246 @@
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 <input type="color" v-model="designerBrand.header_bg_color" style="width: 38px; height: 32px; padding: 2px; border-radius: 4px; border: 1px solid var(--border); background: none; cursor: pointer; margin: 0;" />
                                 <input type="text" v-model="designerBrand.header_bg_color" style="flex: 1; margin: 0;" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- INSPECTOR FIELDS: FOOTER -->
+                    <div v-if="selectedSectionId === 'footer'" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="form-group">
+                            <label>Copyright Notice Text</label>
+                            <input type="text" v-model="designerBrand.footer_copyright" placeholder="© 2026 Strictly Coffee. All rights reserved." style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Description Copy</label>
+                            <textarea v-model="designerBrand.footer_description" placeholder="Designed for coffee purists..." style="width: 100%; height: 60px;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Instagram Link</label>
+                            <input type="text" v-model="designerBrand.instagram_link" placeholder="https://instagram.com/..." style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Facebook Link</label>
+                            <input type="text" v-model="designerBrand.facebook_link" placeholder="https://facebook.com/..." style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>Twitter Link</label>
+                            <input type="text" v-model="designerBrand.twitter_link" placeholder="https://twitter.com/..." style="width: 100%;">
+                        </div>
+                    </div>
+
+                    <!-- INSPECTOR FIELDS: DYNAMIC SECTIONS -->
+                    <div v-if="isDynamicSection(selectedSectionId)" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="form-group">
+                            <label>Section Title (Admin Internal)</label>
+                            <input type="text" v-model="getSelectedSection().title" style="width: 100%;">
+                        </div>
+
+                        <!-- HERO BANNER FIELDS -->
+                        <div v-if="isSectionType(selectedSectionId, 'hero')" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Headline</label>
+                                <input type="text" v-model="getSelectedSection().settings.headline" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Subheadline</label>
+                                <textarea v-model="getSelectedSection().settings.subheadline" style="width: 100%; height: 60px;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Hero Image/Video URL</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" v-model="getSelectedSection().settings.hero_img" placeholder="https://..." style="flex: 1; margin: 0;">
+                                    <button type="button" class="btn btn-primary" style="margin: 0; padding: 0 10px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; font-weight: bold;" @click="triggerDesignerContentStudio('hero_img', getSelectedSection())">🎨 Content Studio</button>
+                                </div>
+                                <input type="file" ref="hero_img_file" style="display: none;" @change="handleSectionFileUpload($event, getSelectedSection(), 'hero_img')">
+                            </div>
+                            <div class="form-group">
+                                <label>CTA Button Label</label>
+                                <input type="text" v-model="getSelectedSection().settings.cta" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>CTA Button Link</label>
+                                <input type="text" v-model="getSelectedSection().settings.cta_link" style="width: 100%;">
+                            </div>
+                        </div>
+
+                        <!-- FEATURED COLLECTION FIELDS -->
+                        <div v-if="isSectionType(selectedSectionId, 'featured_collection')" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Collection Title</label>
+                                <input type="text" v-model="getSelectedSection().settings.title" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Collection Subtitle</label>
+                                <input type="text" v-model="getSelectedSection().settings.subtitle" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Source Collection</label>
+                                <select v-model="getSelectedSection().settings.collection_id" style="width: 100%;">
+                                    <option value="all">All Products & Services</option>
+                                    <option value="services">Services Only</option>
+                                    <option value="tamper">Tampers</option>
+                                    <option value="basket">Baskets</option>
+                                    <option value="milk">Milk Jugs</option>
+                                    <option value="accessory">Accessories</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Max Items Display Limit</label>
+                                <input type="number" v-model.number="getSelectedSection().settings.limit" style="width: 100%;" min="1" max="24">
+                            </div>
+                            
+                            <!-- Refinement Filters -->
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);">
+                                <h5 style="margin: 0 0 8px 0; font-size: 0.76rem; color: var(--accent); text-transform: uppercase;">Refinements / Filters</h5>
+                                <div class="form-group" style="margin-bottom: 8px;">
+                                    <label>Filter by Tag</label>
+                                    <div class="tags-input-container" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--workspace-bg); min-height: 36px; align-items: center; box-sizing: border-box;">
+                                        <span v-for="(tag, tIdx) in getTagsList(getSelectedSection().settings.tag_filter)" :key="tIdx"
+                                              style="background: var(--primary); color: var(--btn-text-color, #ffffff); font-size: 0.72rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                            {{ tag }}
+                                            <span style="cursor: pointer; opacity: 0.8; font-weight: bold;" @click="removeTag(getSelectedSection().settings, 'tag_filter', tIdx)">×</span>
+                                        </span>
+                                        <input type="text" placeholder="Add tag..." 
+                                               @keydown.enter.prevent="addTag($event, getSelectedSection().settings, 'tag_filter')"
+                                               @keydown.comma.prevent="addTag($event, getSelectedSection().settings, 'tag_filter')"
+                                               style="border: none; background: transparent; color: var(--text-main); font-size: 0.76rem; outline: none; flex: 1; min-width: 60px; margin: 0; padding: 2px;">
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <div class="form-group" style="flex: 1;">
+                                        <label>Min Price (€)</label>
+                                        <input type="number" v-model.number="getSelectedSection().settings.min_price" placeholder="0" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="flex: 1;">
+                                        <label>Max Price (€)</label>
+                                        <input type="number" v-model.number="getSelectedSection().settings.max_price" placeholder="500" style="width: 100%;">
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-top: 8px;">
+                                    <label>Target Persona</label>
+                                    <select v-model="getSelectedSection().settings.target_persona" style="width: 100%;">
+                                        <option value="">No targeted persona (Show All)</option>
+                                        <option value="barista">Technical Barista / Extraction Scientist</option>
+                                        <option value="curator">Design Purist / Aesthetic Curator</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-top: 8px; position: relative;">
+                                    <label>Custom Product IDs (Manual items)</label>
+                                    
+                                    <!-- Render Selected Products as list rows with image -->
+                                    <div v-if="getCustomProductIdsList(getSelectedSection().settings.product_ids).length > 0" 
+                                         style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                                        <div v-for="(pId, pIdx) in getCustomProductIdsList(getSelectedSection().settings.product_ids)" :key="pId"
+                                             style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px;">
+                                            <img :src="getProductImageById(pId) || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=50'" 
+                                                 style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px; background: white;" />
+                                            <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                                                <span style="font-weight: 700; font-size: 0.74rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ getProductNameById(pId) }}</span>
+                                                <span style="font-size: 0.65rem; color: var(--text-muted);">€{{ getProductPriceById(pId) }} | ID: {{ pId }}</span>
+                                            </div>
+                                            <button type="button" @click.stop="removeProductId(getSelectedSection().settings, 'product_ids', pIdx)" 
+                                                    style="border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; padding: 2px 6px; font-weight: 700;">×</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Search Input -->
+                                    <div class="tags-input-container" style="display: flex; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--workspace-bg); min-height: 36px; align-items: center; box-sizing: border-box; cursor: text;" @click="focusProductSearch">
+                                        <input type="text" ref="productSearchInput" placeholder="Search product to add..." 
+                                               v-model="productSearchQuery"
+                                               @focus="showProductDropdown = true"
+                                               style="border: none; background: transparent; color: var(--text-main); font-size: 0.76rem; outline: none; flex: 1; min-width: 80px; margin: 0; padding: 2px;">
+                                    </div>
+                                    
+                                    <!-- Autocomplete Products List Dropdown (Opens upwards to prevent scrolling issues) -->
+                                    <div v-if="showProductDropdown && filteredProducts.length > 0" 
+                                         style="position: absolute; bottom: 100%; left: 0; width: 100%; max-height: 180px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 -4px 12px rgba(0,0,0,0.5); z-index: 101; margin-bottom: 4px; display: flex; flex-direction: column;">
+                                        <button v-for="prod in filteredProducts" :key="prod.id" type="button" 
+                                                class="btn-option" 
+                                                style="padding: 8px 12px; font-size: 0.74rem; text-align: left; background: none; border: none; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.02);"
+                                                @click="addProductId(getSelectedSection().settings, 'product_ids', prod.id)">
+                                            <img :src="prod.image || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=50'" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px; background: white;" />
+                                            <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                                                <span style="font-weight: 700; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ prod.title }}</span>
+                                                <span style="font-size: 0.65rem; color: var(--text-muted);">€{{ prod.price }} | ID: {{ prod.id }}</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RICH TEXT FIELDS -->
+                        <div v-if="isSectionType(selectedSectionId, 'rich_text')" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Headline</label>
+                                <input type="text" v-model="getSelectedSection().settings.title" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Content Body</label>
+                                <textarea v-model="getSelectedSection().settings.content" style="width: 100%; height: 120px;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- VIDEO BANNER FIELDS -->
+                        <div v-if="isSectionType(selectedSectionId, 'video')" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>Section Title</label>
+                                <input type="text" v-model="getSelectedSection().settings.title" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>Video File URL</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" v-model="getSelectedSection().settings.video_url" placeholder="https://..." style="flex: 1; margin: 0;">
+                                    <button type="button" class="btn btn-primary" style="margin: 0; padding: 0 10px; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; font-weight: bold;" @click="triggerDesignerContentStudio('video_url', getSelectedSection())">🎨 Content Studio</button>
+                                </div>
+                                <input type="file" ref="video_url_file" style="display: none;" @change="handleSectionFileUpload($event, getSelectedSection(), 'video_url')">
+                            </div>
+                            <div style="display: flex; gap: 12px;">
+                                <div class="form-group" style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                    <input type="checkbox" id="video-autoplay" v-model="getSelectedSection().settings.autoplay" style="margin: 0; cursor: pointer;">
+                                    <label for="video-autoplay" style="margin: 0; cursor: pointer;">Autoplay</label>
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                                    <input type="checkbox" id="video-loop" v-model="getSelectedSection().settings.loop" style="margin: 0; cursor: pointer;">
+                                    <label for="video-loop" style="margin: 0; cursor: pointer;">Loop</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- COLLECTION LIST FIELDS -->
+                        <div v-if="isSectionType(selectedSectionId, 'collection_list')" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group">
+                                <label>List Title</label>
+                                <input type="text" v-model="getSelectedSection().settings.title" style="width: 100%;">
+                            </div>
+                            
+                            <!-- Blocks editor -->
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h5 style="margin: 0; font-size: 0.76rem; color: var(--accent); text-transform: uppercase;">Collection Cards (Blocks)</h5>
+                                    <button type="button" class="btn" style="padding: 2px 6px; font-size: 0.68rem; margin: 0; height: 20px;" @click="addCollectionListBlock">➕ Add Card</button>
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div v-for="(block, bIdx) in getSelectedSection().blocks" :key="block.id || bIdx" 
+                                         style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 8px; border-radius: 6px; display: flex; flex-direction: column; gap: 6px; position: relative;">
+                                        <button type="button" style="position: absolute; top: 4px; right: 4px; border: none; background: none; color: #ef4444; cursor: pointer; font-size: 0.75rem;" @click="removeCollectionListBlock(bIdx)" title="Remove card">❌</button>
+                                        
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.7rem;">Card Title</label>
+                                            <input type="text" v-model="block.settings.title" style="width: 100%; font-size: 0.75rem; padding: 4px 6px;">
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.7rem;">Image URL</label>
+                                            <input type="text" v-model="block.settings.image" style="width: 100%; font-size: 0.75rem; padding: 4px 6px;">
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label style="font-size: 0.7rem;">Link Tag/Collection</label>
+                                            <input type="text" v-model="block.settings.link" style="width: 100%; font-size: 0.75rem; padding: 4px 6px;">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -316,6 +559,72 @@
                 </form>
             </div>
         </div>
+        <!-- REBUILD WORKSPACE MODAL -->
+        <div v-if="showRebuildModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 100000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div class="panel" style="width: 100%; max-width: 550px; border-radius: 12px; overflow: hidden; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin: 20px;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>✨</span> Rebuild Page Workspace
+                    </h3>
+                    <button type="button" @click="showRebuildModal = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+                </div>
+                
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 18px;">
+                    <!-- Option 1: Static reset -->
+                    <div style="padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.01);">
+                        <h4 style="margin: 0 0 6px 0; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">Option A: Apply Static Brand-Consistent Design</h4>
+                        <p style="margin: 0 0 12px 0; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                            Resets the layout structure, typography, and sections to a clean default design tailored directly to your brand settings, primary color, and products. Completely static, no AI limits or prompt required.
+                        </p>
+                        <button type="button" class="btn btn-secondary" style="margin: 0; font-size: 0.8rem; font-weight: 700; height: 36px; padding: 0 16px; border-color: var(--accent); color: var(--accent);" @click="triggerStaticRebuild">
+                            🔄 Apply Static Brand Design
+                        </button>
+                    </div>
+
+                    <!-- Option 2: AI Customise -->
+                    <div style="padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 10px; position: relative;">
+                        <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">Option B: AI-Guided Customization & Rebuild</h4>
+                        <p style="margin: 0; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+                            Prompt your AI Designer. Use <strong>@ tags</strong> to direct copywriting to target personas, prioritize categories, or showcase specific products.
+                        </p>
+                        
+                        <div style="position: relative;">
+                            <textarea ref="rebuildPromptInput" v-model="rebuildPrompt" @input="handleRebuildPromptInput" placeholder="Describe the look/feel or content... e.g. A dark slate slate targeting @barista showcasing @tamper products" style="width: 100%; height: 90px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); padding: 10px; font-size: 0.8rem; font-family: var(--font-body); resize: vertical; margin: 0; outline: none;"></textarea>
+                            
+                            <!-- Autocomplete list -->
+                            <div v-if="showAutocomplete" style="position: absolute; bottom: 100%; left: 0; width: 100%; max-height: 180px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 -4px 16px rgba(0,0,0,0.5); z-index: 100020; margin-bottom: 4px; display: flex; flex-direction: column;">
+                                <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; padding: 6px 10px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">Select suggestion tag</div>
+                                <button v-for="tag in filteredAutocompleteTags" :key="tag.value" type="button" @click="insertAutocompleteTag(tag)" style="padding: 8px 12px; text-align: left; background: none; border: none; color: var(--text-main); font-size: 0.75rem; cursor: pointer; display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.01);" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                                    <span style="font-weight: 700; color: var(--accent);">{{ tag.label }}</span>
+                                    <span style="font-size: 0.65rem; color: var(--text-muted);">{{ tag.description }}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tag Pills Helper -->
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 600;">Type <strong>@</strong> (personas/products), <strong>%</strong> (coupons), <strong>&amp;</strong> (audiences), <strong>#</strong> (channels), or <strong>/</strong> (commands) for suggestions, or click to insert:</span>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'@barista'})">👤 @barista</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'%SAVE20'})">🏷️ %SAVE20</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'&amp;past-purchasers'})">👥 &amp;past-purchasers</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'#meta'})">📢 #meta</span>
+                                <span class="tag-pill" style="cursor: pointer; background: var(--workspace-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);" @click="insertAutocompleteTag({value:'/rebuild'})">⚡ /rebuild</span>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-accent" style="margin: 6px 0 0 0; font-size: 0.8rem; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 8px;" @click="triggerAIRebuild" :disabled="isRebuildingAI">
+                            <span v-if="isRebuildingAI" class="spinner"></span>
+                            <span>{{ isRebuildingAI ? 'Generating Creative Layout...' : '✨ Generate Layout with AI' }}</span>
+                        </button>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                        <button type="button" class="btn" style="margin: 0; background: transparent; border: 1px solid var(--border); color: var(--text-main);" @click="showRebuildModal = false">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -380,6 +689,13 @@ export default {
             iframeBuster: Date.now(),
             activeContentPage: 'home',
             showAddPageModal: false,
+            showRebuildModal: false,
+            rebuildPrompt: '',
+            showAutocomplete: false,
+            autocompleteSearch: '',
+            activeTriggerSymbol: '',
+            audiences: [],
+            isRebuildingAI: false,
             newPage: { id: '', headline: '', subheadline: '', cta: '', hero_img: '', features: '', coupon_code: '' },
             designerPrompt: '',
             isBulkTranslating: false,
@@ -395,6 +711,8 @@ export default {
             draggedIdx: null,
             showAddSectionMenu: false,
             uploadingField: '',
+            productSearchQuery: '',
+            showProductDropdown: false,
             defaultSections: [
                 {
                   id: 'hero_1',
@@ -530,9 +848,15 @@ export default {
                 }
             } else if (event.data && event.data.type === 'SECTION_SETTING_EDIT') {
                 const { sectionId, field, value } = event.data;
-                const sec = this.designerBrand.sections.find(s => s.id === sectionId);
-                if (sec) {
-                    sec.settings[field] = value;
+                if (sectionId === 'footer') {
+                    this.designerBrand[field] = value;
+                } else if (sectionId === 'header') {
+                    this.designerBrand[field] = value;
+                } else {
+                    const sec = this.designerBrand.sections.find(s => s.id === sectionId);
+                    if (sec) {
+                        sec.settings[field] = value;
+                    }
                 }
             }
         };
@@ -554,6 +878,13 @@ export default {
             }
         };
         window.addEventListener('keydown', this.keyboardListener);
+
+        this.documentClickListener = (e) => {
+            if (!e.target.closest('.tags-input-container') && !e.target.closest('.btn-option')) {
+                this.showProductDropdown = false;
+            }
+        };
+        document.addEventListener('mousedown', this.documentClickListener);
     },
     beforeUnmount() {
         if (this.messageListener) {
@@ -562,8 +893,95 @@ export default {
         if (this.keyboardListener) {
             window.removeEventListener('keydown', this.keyboardListener);
         }
+        if (this.documentClickListener) {
+            document.removeEventListener('mousedown', this.documentClickListener);
+        }
     },
     computed: {
+        autocompleteTags() {
+            const list = [];
+            const symbol = this.activeTriggerSymbol || '@';
+            
+            if (symbol === '@') {
+                list.push(
+                    { label: '@barista', value: '@barista', description: 'Technical Barista target audience' },
+                    { label: '@curator', value: '@curator', description: 'Design Purist / Aesthetic Curator target' },
+                    { label: '@home-brewer', value: '@home-brewer', description: 'Home Brewer target audience' },
+                    { label: '@tamper', value: '@tamper', description: 'Filter by Tampers collection' },
+                    { label: '@basket', value: '@basket', description: 'Filter by Precision Baskets collection' },
+                    { label: '@milk', value: '@milk', description: 'Filter by Milk Jugs collection' },
+                    { label: '@accessory', value: '@accessory', description: 'Filter by Accessories collection' },
+                    { label: '@service-training', value: '@service-training', description: 'Technical Barista Training Session' },
+                    { label: '@service-consultancy', value: '@service-consultancy', description: 'Café Layout & Flow Consulting' }
+                );
+                
+                // Add products
+                const prods = this.app.products ? this.app.products.filter(p => p.brand_id === this.app.activeShopFilter) : [];
+                prods.forEach(p => {
+                    list.push({
+                        label: `@inventory-${p.id}`,
+                        value: `@inventory-${p.id}`,
+                        description: p.title
+                    });
+                });
+            } else if (symbol === '%') {
+                if (this.app.coupons && this.app.coupons.length > 0) {
+                    this.app.coupons.forEach(c => {
+                        list.push({
+                            label: `%${c.code.toUpperCase()}`,
+                            value: `%${c.code.toUpperCase()}`,
+                            description: `Discount Coupon: ${c.code}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '%SAVE20', value: '%SAVE20', description: 'Fallback: 20% discount coupon' },
+                        { label: '%WELCOME10', value: '%WELCOME10', description: 'Fallback: 10% welcome coupon' }
+                    );
+                }
+            } else if (symbol === '&') {
+                if (this.audiences && this.audiences.length > 0) {
+                    this.audiences.forEach(aud => {
+                        list.push({
+                            label: `&${aud.id}`,
+                            value: `&${aud.id}`,
+                            description: `Audience Segment: ${aud.name}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '&past-purchasers', value: '&past-purchasers', description: 'Fallback: Customers who purchased previously' },
+                        { label: '&lookalike-vips', value: '&lookalike-vips', description: 'Fallback: Lookalike 1% of high value spenders' }
+                    );
+                }
+            } else if (symbol === '#') {
+                list.push(
+                    { label: '#meta', value: '#meta', description: 'Meta Facebook / Instagram Ad Traffic' },
+                    { label: '#google', value: '#google', description: 'Google search and display traffic' },
+                    { label: '#tiktok', value: '#tiktok', description: 'TikTok feed and post traffic' },
+                    { label: '#email', value: '#email', description: 'Newsletter or automated email traffic' },
+                    { label: '#instagram', value: '#instagram', description: 'Instagram bio or story traffic' }
+                );
+            } else if (symbol === '/') {
+                list.push(
+                    { label: '/rebuild', value: '/rebuild', description: 'Command: Rebuild sections layout strategy' },
+                    { label: '/translate-de', value: '/translate-de', description: 'Command: Translate entire copywriting to German' },
+                    { label: '/translate-fr', value: '/translate-fr', description: 'Command: Translate entire copywriting to French' },
+                    { label: '/dark-mode', value: '/dark-mode', description: 'Command: Force deep carbon/slate dark themes' },
+                    { label: '/light-mode', value: '/light-mode', description: 'Command: Force warm cream/beige minimal themes' }
+                );
+            }
+            return list;
+        },
+        filteredAutocompleteTags() {
+            if (!this.autocompleteSearch) return this.autocompleteTags;
+            // Filter by removing the prefix character first to match correctly
+            const searchVal = this.autocompleteSearch.toLowerCase();
+            return this.autocompleteTags.filter(t => {
+                const cleanTagVal = t.value.substring(1).toLowerCase();
+                return cleanTagVal.includes(searchVal) || t.value.toLowerCase().includes(searchVal);
+            });
+        },
         hasUnsavedChanges() {
             if (!this.originalBrandSettings || !this.designerBrand) return false;
             const currentObj = {
@@ -717,6 +1135,22 @@ export default {
                 width: '100%',
                 height: '100%'
             };
+        },
+        filteredProducts() {
+            const query = this.productSearchQuery.toLowerCase();
+            const brandId = this.designerBrand.id;
+            const allBrandProds = (this.app.products || []).filter(p => p.brand_id === brandId);
+            
+            const currentSec = this.getSelectedSection();
+            const selectedIds = currentSec && currentSec.settings.product_ids
+                ? currentSec.settings.product_ids.split(',').map(id => id.trim())
+                : [];
+
+            return allBrandProds.filter(p => {
+                if (selectedIds.includes(String(p.id))) return false;
+                const matchText = `${p.title} ${p.tag || ''}`.toLowerCase();
+                return matchText.includes(query);
+            });
         }
     },
     watch: {
@@ -747,6 +1181,11 @@ export default {
             immediate: true,
             handler() {
                 this.iframeBuster = Date.now();
+                this.loadBrandContext();
+            }
+        },
+        'app.brands': {
+            handler() {
                 this.loadBrandContext();
             }
         },
@@ -824,6 +1263,17 @@ export default {
         }
     },
     methods: {
+        triggerDesignerContentStudio(fieldName, targetObject) {
+            this.app.openContentStudio((url, item) => {
+                if (fieldName === 'header_logo') {
+                    this.designerBrand.logo = url;
+                } else if (targetObject) {
+                    targetObject.settings[fieldName] = url;
+                }
+            }, {
+                promptPreset: `Storefront imagery for ${this.designerBrand.name || 'my coffee brand'}`
+            });
+        },
         getLanguageLabel(code) {
             const labels = {
                 en: '🇺🇸 EN',
@@ -1097,8 +1547,26 @@ export default {
             if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
             return num;
         },
+        async fetchBrandAudiences() {
+            if (!this.designerBrand || !this.designerBrand.id || this.designerBrand.id === 'all') {
+                this.audiences = [];
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/audiences`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.audiences = data.audiences || [];
+                }
+            } catch (err) {
+                console.error('[DesignerView] Error loading audiences:', err);
+            }
+        },
         loadBrandContext() {
             this.loadAiUsage();
+            this.fetchBrandAudiences();
             if (this.app.activeShopFilter !== 'all') {
                 const b = this.app.brands.find(x => x.id === this.app.activeShopFilter);
                 if (b) {
@@ -1139,6 +1607,8 @@ export default {
                             instagram_link: theme.instagram_link || '',
                             facebook_link: theme.facebook_link || '',
                             twitter_link: theme.twitter_link || '',
+                            footer_copyright: theme.footer_copyright || overrides.footer_copyright || '',
+                            footer_description: theme.footer_description || overrides.footer_description || '',
                             text_hero_headline: theme.text_hero_headline || overrides.text_hero_headline || '',
                             text_hero_subheadline: theme.text_hero_subheadline || overrides.text_hero_subheadline || '',
                             text_hero_cta: theme.text_hero_cta || overrides.text_hero_cta || 'SHOP COLLECTION',
@@ -1175,6 +1645,8 @@ export default {
                             instagram_link: overrides.instagram_link || theme.instagram_link || '',
                             facebook_link: overrides.facebook_link || theme.facebook_link || '',
                             twitter_link: overrides.twitter_link || theme.twitter_link || '',
+                            footer_copyright: overrides.footer_copyright || theme.footer_copyright || '',
+                            footer_description: overrides.footer_description || theme.footer_description || '',
                             text_hero_headline: overrides.text_hero_headline || theme.text_hero_headline || '',
                             text_hero_subheadline: overrides.text_hero_subheadline || theme.text_hero_subheadline || '',
                             text_hero_cta: overrides.text_hero_cta || theme.text_hero_cta || 'SHOP COLLECTION',
@@ -1233,6 +1705,8 @@ export default {
                 instagram_link: this.designerBrand.instagram_link,
                 facebook_link: this.designerBrand.facebook_link,
                 twitter_link: this.designerBrand.twitter_link,
+                footer_copyright: this.designerBrand.footer_copyright,
+                footer_description: this.designerBrand.footer_description,
                 text_hero_headline: this.designerBrand.text_hero_headline,
                 text_hero_subheadline: this.designerBrand.text_hero_subheadline,
                 text_hero_cta: this.designerBrand.text_hero_cta,
@@ -1253,6 +1727,8 @@ export default {
                 text_404_subheadline: this.designerBrand.text_404_subheadline,
                 text_404_cta: this.designerBrand.text_404_cta,
                 content_translations: this.designerBrand.content_translations,
+                footer_copyright: this.designerBrand.footer_copyright,
+                footer_description: this.designerBrand.footer_description,
                 sections: this.designerBrand.sections,
                 storefront: storefrontOverrides
             });
@@ -1277,6 +1753,199 @@ export default {
                 alert(`Error: ${err.message}`);
             } finally {
                 this.saving = false;
+            }
+        },
+        openRebuildModal() {
+            this.rebuildPrompt = '';
+            this.showAutocomplete = false;
+            this.autocompleteSearch = '';
+            this.showRebuildModal = true;
+        },
+        handleRebuildPromptInput(e) {
+            const text = this.rebuildPrompt;
+            const cursor = e.target.selectionStart;
+            const beforeCursor = text.substring(0, cursor);
+            const match = beforeCursor.match(/([@%&#\/])(\w*)$/);
+            if (match) {
+                this.activeTriggerSymbol = match[1];
+                this.showAutocomplete = true;
+                this.autocompleteSearch = match[2].toLowerCase();
+            } else {
+                this.showAutocomplete = false;
+                this.activeTriggerSymbol = '';
+            }
+        },
+        insertAutocompleteTag(tag) {
+            const text = this.rebuildPrompt;
+            const textarea = this.$refs.rebuildPromptInput;
+            const cursor = textarea ? textarea.selectionStart : text.length;
+            const beforeCursor = text.substring(0, cursor);
+            const afterCursor = text.substring(cursor);
+            const beforeTag = beforeCursor.replace(/([@%&#\/])(\w*)$/, '');
+            this.rebuildPrompt = beforeTag + tag.value + ' ' + afterCursor;
+            this.showAutocomplete = false;
+            this.activeTriggerSymbol = '';
+            this.$nextTick(() => {
+                if (textarea) {
+                    textarea.focus();
+                    const newPos = beforeTag.length + tag.value.length + 1;
+                    textarea.setSelectionRange(newPos, newPos);
+                }
+            });
+        },
+        triggerStaticRebuild() {
+            if (['home', 'track', '404'].includes(this.activeContentPage)) {
+                this.applyStaticBrandTemplate();
+            } else {
+                // Custom landing page static rebuild
+                const page = this.getCustomPageRef(this.activeContentPage);
+                if (page) {
+                    const firstProduct = this.app.products ? this.app.products.find(p => p.brand_id === this.app.activeShopFilter) : null;
+                    page.headline = `Exclusive ${this.designerBrand.name} Promotion`;
+                    page.subheadline = 'Experience state-of-the-art precision tools designed for absolute extraction consistency.';
+                    page.cta = 'Get 20% Off Now';
+                    page.coupon_code = `${this.designerBrand.name.substring(0, 4).toUpperCase()}20`;
+                    page.features = `⚡ Precision Engineering\n☕ Zero Channeling Guarantee\n📦 Worldwide Express Shipping`;
+                    page.type = firstProduct ? 'product' : 'coupon';
+                    page.product_id = firstProduct ? firstProduct.id : null;
+                    page.inherit = true;
+                    this.updatePreviewStyles();
+                    this.app.showNotification('✨ Custom page reset to static brand template!');
+                }
+            }
+            this.showRebuildModal = false;
+        },
+        applyStaticBrandTemplate() {
+            this.inheritStyles = true;
+            this.designerBrand.secondary_color = '#767676';
+            this.designerBrand.bg_color = '#ffffff';
+            this.designerBrand.text_color = '#111111';
+            this.designerBrand.button_radius = '4px';
+            this.designerBrand.button_text_color = '#ffffff';
+            this.designerBrand.header_bg_color = '#ffffff';
+            this.designerBrand.font_family = 'Outfit';
+            
+            this.designerBrand.announcement_active = true;
+            this.designerBrand.announcement_text = `⚡ Welcome to ${this.designerBrand.name}! Free shipping on orders over €75!`;
+            this.designerBrand.announcement_bg = this.designerBrand.primary_color || '#c5a059';
+            this.designerBrand.announcement_text_color = '#ffffff';
+            
+            this.designerBrand.text_hero_headline = `Crafting the perfect extraction with ${this.designerBrand.name}`;
+            this.designerBrand.text_hero_subheadline = `Engineered for absolute consistency. Elevate your morning espresso ritual.`;
+            this.designerBrand.text_hero_cta = 'Shop Collection';
+            
+            this.designerBrand.text_404_headline = 'Page Not Found';
+            this.designerBrand.text_404_subheadline = 'The page you are looking for doesn\'t exist or has been moved.';
+            this.designerBrand.text_404_cta = 'Back to Shop';
+            
+            this.designerBrand.sections = JSON.parse(JSON.stringify(this.defaultSections));
+            this.updatePreviewStyles();
+            this.app.showNotification('✨ Brand-Consistent Static Design applied!');
+        },
+        async triggerAIRebuild() {
+            if (!this.rebuildPrompt.trim()) {
+                alert('Please enter a description or prompt for the AI builder.');
+                return;
+            }
+            this.isRebuildingAI = true;
+            const tier = this.designerBrand ? this.designerBrand.ai_tier : 'professional';
+            let modelName = 'gemini-3.1-pro';
+            if (tier === 'standard') modelName = 'gemini-2.5-flash';
+            else if (tier === 'enterprise') modelName = 'deep-research-pro-preview';
+            this.app.startAiTicker(modelName);
+            
+            try {
+                if (['home', 'track', '404'].includes(this.activeContentPage)) {
+                    // Rebuild storefront layout
+                    const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-layout`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ prompt: this.rebuildPrompt })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.layout) {
+                            const layout = data.layout;
+                            this.inheritStyles = false;
+                            this.designerBrand.primary_color = layout.primary_color || this.designerBrand.primary_color;
+                            this.designerBrand.secondary_color = layout.secondary_color || this.designerBrand.secondary_color;
+                            this.designerBrand.bg_color = layout.bg_color || this.designerBrand.bg_color;
+                            this.designerBrand.text_color = layout.text_color || this.designerBrand.text_color;
+                            this.designerBrand.header_bg_color = layout.header_bg_color || this.designerBrand.header_bg_color;
+                            this.designerBrand.button_text_color = layout.button_text_color || this.designerBrand.button_text_color;
+                            this.designerBrand.button_radius = layout.button_radius || this.designerBrand.button_radius;
+                            this.designerBrand.font_family = layout.font_family || this.designerBrand.font_family;
+                            
+                            this.designerBrand.text_hero_headline = layout.text_hero_headline || this.designerBrand.text_hero_headline;
+                            this.designerBrand.text_hero_subheadline = layout.text_hero_subheadline || this.designerBrand.text_hero_subheadline;
+                            this.designerBrand.text_hero_cta = layout.text_hero_cta || this.designerBrand.text_hero_cta;
+                            
+                            // Reorder or adjust active sections based on prompt keywords
+                            if (this.rebuildPrompt.toLowerCase().includes('video')) {
+                                // make video active
+                                const videoSec = this.designerBrand.sections.find(s => s.type === 'video');
+                                if (videoSec) {
+                                    videoSec.active = true;
+                                }
+                            }
+                            
+                            this.updatePreviewStyles();
+                            this.app.showNotification('✨ AI Storefront Layout rebuilt successfully!');
+                            this.showRebuildModal = false;
+                        }
+                    } else {
+                        const err = await response.json();
+                        alert('AI Layout Rebuild error: ' + (err.error || 'Unknown error'));
+                    }
+                } else {
+                    // Rebuild custom landing page
+                    const page = this.getCustomPageRef(this.activeContentPage);
+                    if (!page) {
+                        alert('Custom page not found.');
+                        return;
+                    }
+                    const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.designerBrand.id}/generate-ai-page`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ prompt: this.rebuildPrompt, productId: page.product_id })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.page) {
+                            // Copy over properties to current page
+                            page.headline = data.page.headline || page.headline;
+                            page.subheadline = data.page.subheadline || page.subheadline;
+                            page.cta = data.page.cta || page.cta;
+                            page.coupon_code = data.page.coupon_code || page.coupon_code;
+                            page.features = data.page.features || page.features;
+                            page.type = data.page.type || page.type;
+                            page.product_id = data.page.product_id || page.product_id;
+                            
+                            // Clean up newly added duplicate page from DB array
+                            if (this.designerBrand.landing_pages) {
+                                this.designerBrand.landing_pages = this.designerBrand.landing_pages.filter(p => p.id !== data.page.id);
+                            }
+                            
+                            this.updatePreviewStyles();
+                            this.app.showNotification('✨ AI Landing Page rebuilt successfully!');
+                            this.showRebuildModal = false;
+                        }
+                    } else {
+                        const err = await response.json();
+                        alert('AI Landing Page Rebuild error: ' + (err.error || 'Unknown error'));
+                    }
+                }
+            } catch (e) {
+                alert('AI Rebuild network error: ' + e.message);
+            } finally {
+                this.isRebuildingAI = false;
+                this.app.stopAiTicker();
             }
         },
         async runAIRewrite(field) {
@@ -2033,6 +2702,27 @@ export default {
             this.selectedSectionId = secId;
             this.updatePreviewStyles();
         },
+        addCollectionListBlock() {
+            const sec = this.getSelectedSection();
+            if (!sec) return;
+            if (!sec.blocks) sec.blocks = [];
+            sec.blocks.push({
+                id: `blk_${Date.now()}`,
+                type: 'collection',
+                settings: {
+                    title: 'New Collection',
+                    image: '',
+                    link: '#products'
+                }
+            });
+            this.updatePreviewStyles();
+        },
+        removeCollectionListBlock(index) {
+            const sec = this.getSelectedSection();
+            if (!sec || !sec.blocks) return;
+            sec.blocks.splice(index, 1);
+            this.updatePreviewStyles();
+        },
         moveSection(idx, direction) {
             const targetIdx = idx + direction;
             if (targetIdx < 0 || targetIdx >= this.designerBrand.sections.length) return;
@@ -2204,6 +2894,64 @@ export default {
             } catch (e) {
                 console.error(e);
             }
+        },
+        getTagsList(tagString) {
+            if (!tagString) return [];
+            return tagString.split(',').map(t => t.trim()).filter(Boolean);
+        },
+        addTag(event, settingsObj, key) {
+            const inputVal = event.target.value.trim();
+            if (!inputVal) return;
+            const currentTags = this.getTagsList(settingsObj[key]);
+            if (!currentTags.includes(inputVal)) {
+                currentTags.push(inputVal);
+                settingsObj[key] = currentTags.join(', ');
+                this.updatePreviewStyles();
+            }
+            event.target.value = '';
+        },
+        removeTag(settingsObj, key, index) {
+            const currentTags = this.getTagsList(settingsObj[key]);
+            currentTags.splice(index, 1);
+            settingsObj[key] = currentTags.join(', ');
+            this.updatePreviewStyles();
+        },
+        getCustomProductIdsList(prodIdsString) {
+            if (!prodIdsString) return [];
+            return prodIdsString.split(',').map(id => id.trim()).filter(Boolean);
+        },
+        getProductNameById(id) {
+            const p = (this.app.products || []).find(x => String(x.id) === String(id));
+            return p ? p.title : `Product #${id}`;
+        },
+        focusProductSearch() {
+            if (this.$refs.productSearchInput) {
+                this.$refs.productSearchInput.focus();
+            }
+        },
+        addProductId(settingsObj, key, id) {
+            const currentIds = this.getCustomProductIdsList(settingsObj[key]);
+            if (!currentIds.includes(String(id))) {
+                currentIds.push(String(id));
+                settingsObj[key] = currentIds.join(', ');
+                this.updatePreviewStyles();
+            }
+            this.productSearchQuery = '';
+            this.showProductDropdown = false;
+        },
+        removeProductId(settingsObj, key, index) {
+            const currentIds = this.getCustomProductIdsList(settingsObj[key]);
+            currentIds.splice(index, 1);
+            settingsObj[key] = currentIds.join(', ');
+            this.updatePreviewStyles();
+        },
+        getProductImageById(id) {
+            const p = (this.app.products || []).find(x => String(x.id) === String(id));
+            return p ? p.image : '';
+        },
+        getProductPriceById(id) {
+            const p = (this.app.products || []).find(x => String(x.id) === String(id));
+            return p ? p.price : '0.00';
         }
     }
 };

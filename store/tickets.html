@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Ticket Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0d0c;
+            --card-bg: #121514;
+            --primary: #c5a059;
+            --primary-hover: #b08d47;
+            --text-main: #f3f4f3;
+            --text-muted: #8e9290;
+            --border: #232826;
+            --success: #10b981;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Outfit', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            margin: 0;
+            padding: 40px 24px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            margin-top: 0;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        input[type="text"], input[type="email"], textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: #191c1b;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            box-sizing: border-box;
+            transition: var(--transition);
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: var(--bg-color);
+            padding: 14px 28px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .chat-box {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            border: 1px solid var(--border);
+            background: #161918;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .message.customer {
+            align-self: flex-end;
+            background-color: var(--primary);
+            color: var(--bg-color);
+        }
+
+        .message.agent {
+            align-self: flex-start;
+            background-color: var(--border);
+            color: var(--text-main);
+        }
+
+        .ticket-meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Ticket Creation Form -->
+        <div id="create-view" class="card">
+            <h2>Submit a Support Request</h2>
+            <form id="ticket-form" onsubmit="createTicket(event)">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" required placeholder="name@domain.com">
+                </div>
+                <div class="form-group">
+                    <label>Subject</label>
+                    <input type="text" id="subject" required placeholder="What do you need help with?">
+                </div>
+                <div class="form-group">
+                    <label>Message</label>
+                    <textarea id="message" rows="5" required placeholder="Describe your request in detail..."></textarea>
+                </div>
+                <button type="submit" class="btn">Submit Ticket</button>
+            </form>
+        </div>
+
+        <!-- Real-time Chat/Ticket Tracking View -->
+        <div id="chat-view" class="card" style="display: none;">
+            <div class="ticket-meta">
+                <span>Ticket: <strong id="ticket-id-header"></strong></span>
+                <span id="ticket-status" style="color: var(--success);">Open</span>
+            </div>
+            <h3 id="ticket-subject-header"></h3>
+            
+            <div class="chat-box" id="chat-box"></div>
+
+            <form id="chat-form" onsubmit="sendReply(event)">
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <input type="text" id="reply-message" required placeholder="Type your message here..." style="flex-grow: 1;">
+                    <button type="submit" class="btn" style="padding: 12px 24px;">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let ticketId = new URLSearchParams(window.location.search).get('id');
+        let ws;
+
+        const getApiUrl = () => {
+            const hostname = window.location.hostname;
+            if (hostname.includes('8081')) return 'http://localhost:3000';
+            return '';
+        };
+        const getWsUrl = () => {
+            const hostname = window.location.hostname;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Connect to local backend port 3000 if running locally, otherwise use Nginx proxy
+            if (hostname === 'localhost' || hostname.includes('local')) {
+                return `${protocol}//${hostname}:3000`;
+            }
+            return `${protocol}//${window.location.host}/api/ws`;
+        };
+
+        const apiBase = getApiUrl();
+        const wsBase = getWsUrl();
+
+        if (ticketId) {
+            showChatView(ticketId);
+        }
+
+        async function createTicket(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const subject = document.getElementById('subject').value;
+            const message = document.getElementById('message').value;
+
+            try {
+                const res = await fetch(`${apiBase}/api/support/tickets/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brandId: 'pesado', email, subject, message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.search = `?id=${data.ticketId}`;
+                } else {
+                    alert('Failed to submit ticket');
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function showChatView(id) {
+            document.getElementById('create-view').style.display = 'none';
+            document.getElementById('chat-view').style.display = 'block';
+            document.getElementById('ticket-id-header').textContent = `#${id.substring(0,8)}`;
+
+            try {
+                const res = await fetch(`${apiBase}/api/support/tickets/${id}/messages`);
+                const data = await res.json();
+                document.getElementById('ticket-subject-header').textContent = data.ticket.subject;
+                document.getElementById('ticket-status').textContent = data.ticket.status.toUpperCase();
+                
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML = '';
+                data.messages.forEach(msg => {
+                    appendMessage(msg.sender, msg.message_body);
+                });
+
+                // Connect to real-time WebSockets
+                connectWebSocket(id);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function appendMessage(sender, body) {
+            const chatBox = document.getElementById('chat-box');
+            const msgEl = document.createElement('div');
+            msgEl.className = `message ${sender}`;
+            msgEl.textContent = body;
+            chatBox.appendChild(msgEl);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function connectWebSocket(id) {
+            ws = new WebSocket(`${wsBase}?ticketId=${id}`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.sender !== 'customer') {
+                    appendMessage(data.sender, data.messageBody);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket connection closed. Retrying...');
+                setTimeout(() => connectWebSocket(id), 3000);
+            };
+        }
+
+        async function sendReply(e) {
+            e.preventDefault();
+            const input = document.getElementById('reply-message');
+            const body = input.value;
+            if (!body) return;
+
+            appendMessage('customer', body);
+            input.value = '';
+
+            try {
+                await fetch(`${apiBase}/api/support/tickets/${ticketId}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender: 'customer', messageBody: body })
+                });
+            } catch (err) {
+                console.error('Failed to send reply:', err);
+            }
+        }
+    </script>
+</body>
+</html>

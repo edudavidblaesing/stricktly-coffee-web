@@ -206,8 +206,39 @@
 
                         <!-- Storefront / Channels Links -->
                         <div v-if="activeTier1 === 'storefront'">
-                            <div class="tier2-section-title">{{ (userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all') ? 'Brands Manager' : 'Channels & Storefront' }}</div>
-                            <ul class="tier2-links" v-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all'">
+                            <div class="tier2-section-title">
+                                {{ (String(activeShopFilter).startsWith('agency:') || userRole.toLowerCase() === 'agency') ? 'Agency Brands' : (userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all') ? 'Brands Manager' : 'Channels & Storefront' }}
+                            </div>
+                            
+                            <!-- Agency Workspace Context -->
+                            <ul class="tier2-links" v-if="String(activeShopFilter).startsWith('agency:') || userRole.toLowerCase() === 'agency'">
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'agency-center' }" @click="switchView('agency-center')">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🏢</span>
+                                            <span class="tier2-btn-text">Agency Hub</span>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && brandsSubView === 'list' }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list';">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">☕</span>
+                                            <span class="tier2-btn-text">Assigned Brands</span>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'brands' && brandsSubView === 'create' }" @click="selectWorkspace('create-brand-agency')">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">➕</span>
+                                            <span class="tier2-btn-text">Register Brand</span>
+                                        </span>
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <ul class="tier2-links" v-else-if="userRole.toLowerCase() === 'superadmin' && activeShopFilter === 'all'">
                                 <li>
                                     <button class="tier2-link-btn" :class="{ active: activeView === 'brands' }" @click="switchView('brands'); brandsSelectedChannelId = null; brandsSubView = 'list';">
                                         <span class="tier2-btn-inner">
@@ -360,6 +391,14 @@
                                         <span class="tier2-btn-inner">
                                             <span class="tier2-btn-icon-wrap">🎯</span>
                                             <span class="tier2-btn-text">Brand Strategy Guide</span>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="tier2-link-btn" :class="{ active: activeView === 'content-studio' }" :disabled="isSidebarLinkDisabled('content-studio')" @click="switchView('content-studio')">
+                                        <span class="tier2-btn-inner">
+                                            <span class="tier2-btn-icon-wrap">🎨</span>
+                                            <span class="tier2-btn-text">Content Studio</span>
                                         </span>
                                     </button>
                                 </li>
@@ -729,6 +768,7 @@
             <CouponsView ref="couponsView" />
             <MediaView ref="mediaView" />
             <AgencyCenterView ref="agencyCenterView" :app="this" />
+            <ContentStudioView ref="contentStudioView" />
 
             <!-- NOT-FOUND VIEW -->
             <div class="admin-view" :class="{ active: activeView === 'not-found' }" style="justify-content: center; align-items: center; min-height: 60vh; text-align: center;">
@@ -1127,6 +1167,22 @@
                     <span style="font-size: 0.7rem; color: var(--text-muted);">{{ getBrandSubdomain(b) }}</span>
                 </div>
             </div>
+            
+            <!-- Partner Agencies section in workspace switcher -->
+            <template v-if="userRole && (userRole.toLowerCase() === 'superadmin' || userRole.toLowerCase() === 'agency') && agencies && agencies.length > 0">
+                <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
+                <div style="padding: 6px 14px 2px 14px; font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Partner Agencies</div>
+                <div class="workspace-dropdown-item" v-for="a in agencies" :key="a.id"
+                     :class="{ active: activeShopFilter === 'agency:' + a.id }" @click="selectWorkspace('agency:' + a.id)"
+                     style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s;">
+                    <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🏢</div>
+                    <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                        <strong style="font-size: 0.85rem; color: var(--text-main);">{{ a.name }}</strong>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Margin Share: {{ (a.margin_share * 100).toFixed(0) }}%</span>
+                    </div>
+                </div>
+            </template>
+
             <div class="workspace-dropdown-divider" style="height: 1px; background: var(--border); margin: 6px 0;"></div>
             <div class="workspace-dropdown-item action-item" @click="selectWorkspace('create')" 
                  style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s; color: var(--accent);">
@@ -1134,6 +1190,15 @@
                 <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
                     <strong style="font-size: 0.85rem; color: var(--accent);">Register Brand Shop</strong>
                     <span style="font-size: 0.7rem; color: var(--text-muted);">Provision storefront & API keys</span>
+                </div>
+            </div>
+            
+            <div v-if="userRole && userRole.toLowerCase() === 'superadmin'" class="workspace-dropdown-item action-item" @click="selectWorkspace('create-agency')" 
+                 style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: 0.2s; color: var(--accent);">
+                <div class="workspace-dropdown-icon" style="font-size: 1.2rem;">🏢</div>
+                <div class="workspace-dropdown-text" style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                    <strong style="font-size: 0.85rem; color: var(--accent);">Create Partner Agency</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Configure commission models & tokens</span>
                 </div>
             </div>
         </div>
@@ -1219,6 +1284,7 @@ import MediaView from './components/MediaView.vue';
 import AiLearningCenterView from './components/AiLearningCenterView.vue';
 import AiEstimateBadge from './components/AiEstimateBadge.vue';
 import AgencyCenterView from './components/AgencyCenterView.vue';
+import ContentStudioView from './components/ContentStudioView.vue';
 
 Chart.register(...registerables);
 
@@ -1247,7 +1313,8 @@ export default {
                 MediaView,
                 AiLearningCenterView,
                 AiEstimateBadge,
-                AgencyCenterView
+                AgencyCenterView,
+                ContentStudioView
             },
             provide() {
                 return {
@@ -1267,6 +1334,9 @@ export default {
                     activeView: 'overview',
                     activeCampaignTab: 'board',
                     activeSettingsTab: 'general',
+                    activeAgencyTab: 'agencies',
+                    activeBrandCenterTab: 'canvas',
+                    activeCouponsTab: 'analytics',
                     activeTier1: 'dashboard',
                     sidebarPinned: localStorage.getItem('sc_sidebar_pinned') !== 'false',
                     sidebarHovered: false,
@@ -1313,6 +1383,7 @@ export default {
 
                     // Datasets
                     brands: [],
+                    agencies: [],
                     brandsLoaded: false,
                     brandStyledDashboardEnabled: true,
                     tierFeaturesList: [],
@@ -1603,35 +1674,48 @@ export default {
                     return hostname.replace('dash.dev.', 'dev.').replace('dev-dash.', 'dev.').replace('dash.', '');
                 },
                 activeBrands() {
-                    return (this.brands || []).filter(b => b.status !== 'draft');
+                    let filtered = (this.brands || []).filter(b => b.status !== 'draft');
+                    if (this.userRole && this.userRole.toLowerCase() === 'agency') {
+                        filtered = filtered.filter(b => b.agency_id === this.userAgencyId);
+                    } else if (String(this.activeShopFilter).startsWith('agency:')) {
+                        const agencyId = this.activeShopFilter.split(':')[1];
+                        filtered = filtered.filter(b => b.agency_id === agencyId);
+                    }
+                    return filtered;
                 },
                 isStrategyGenerating() {
-                    if (this.activeShopFilter === 'all' || !this.activeShopFilter) return false;
+                    if (this.activeShopFilter === 'all' || !this.activeShopFilter || String(this.activeShopFilter).startsWith('agency:')) return false;
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.protocol_status === 'generating' : false;
                 },
                 activeWorkspaceLetter() {
                     if (this.activeShopFilter === 'all') return 'S';
+                    if (String(this.activeShopFilter).startsWith('agency:')) return 'A';
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.name.charAt(0).toUpperCase() : 'S';
                 },
                 activeWorkspaceFavicon() {
-                    if (this.activeShopFilter === 'all') return null;
+                    if (this.activeShopFilter === 'all' || String(this.activeShopFilter).startsWith('agency:')) return null;
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.favicon : null;
                 },
                 activeWorkspaceTier() {
-                    if (this.activeShopFilter === 'all') return null;
+                    if (this.activeShopFilter === 'all' || String(this.activeShopFilter).startsWith('agency:')) return null;
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? (brand.ai_tier || 'professional') : null;
                 },
                 activeWorkspaceFreeTier() {
-                    if (this.activeShopFilter === 'all') return false;
+                    if (this.activeShopFilter === 'all' || String(this.activeShopFilter).startsWith('agency:')) return false;
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? !!brand.ai_free_tier : false;
                 },
                 activeWorkspaceName() {
                     if (this.activeShopFilter === 'all') return 'Stricktly Coffee';
+                    if (String(this.activeShopFilter).startsWith('agency:')) {
+                        const agencyId = this.activeShopFilter.split(':')[1];
+                        const agency = this.agencies.find(a => String(a.id) === String(agencyId));
+                        return agency ? agency.name : 'Agency Workspace';
+                    }
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? brand.name : 'Stricktly Coffee';
                 },
@@ -1639,6 +1723,9 @@ export default {
                     if (this.activeShopFilter === 'all') {
                         return this.currentEnv === 'prod' ? '🚀 Production Stack' :
                             this.currentEnv === 'dev' ? '⚙️ Dev Stack' : '💻 Local Dev';
+                    }
+                    if (String(this.activeShopFilter).startsWith('agency:')) {
+                        return '🏢 Partner Agency';
                     }
                     const brand = this.brands.find(b => b.id === this.activeShopFilter);
                     return brand ? this.getBrandSubdomain(brand) : 'Custom Workspace';
@@ -1743,82 +1830,109 @@ export default {
                 },
                 breadcrumbs() {
                     const list = [];
-                    if (this.activeTier1 === 'dashboard') {
+                    if (this.activeView === 'overview') {
                         list.push('Dashboard');
-                        if (this.activeView === 'overview') {
-                            list.push('Overview');
-                        } else if (this.activeView === 'reports') {
-                            list.push('Reports & Analytics');
-                        }
-                    } else if (this.activeTier1 === 'storefront') {
-                        list.push('Channel');
-                        if (this.activeView === 'brands') {
-                            if (this.brandsSubView === 'designer') {
-                                list.push('Storefront Designer');
-                            } else if (this.brandsSubView === 'landing-designer') {
-                                list.push('Landing Page Designer');
-                            } else if (this.brandsSelectedChannelId) {
-                                const ch = this.sidebarChannels.find(c => c.id === this.brandsSelectedChannelId);
-                                list.push(ch ? ch.name : 'Channel');
-                            } else {
-                                list.push('Brand Connections');
-                            }
+                        list.push('Overview');
+                    } else if (this.activeView === 'reports') {
+                        list.push('Dashboard');
+                        list.push('Reports & Analytics');
+                    } else if (this.activeView === 'brands') {
+                        list.push('Channels');
+                        if (this.brandsSubView === 'designer') {
+                            list.push('Storefront Designer');
+                        } else if (this.brandsSubView === 'landing-designer') {
+                            list.push('Landing Page Designer');
+                        } else if (this.brandsSubView === 'channel-connect') {
+                            list.push('Connect Channels');
+                        } else if (this.brandsSelectedChannelId) {
+                            const ch = this.sidebarChannels.find(c => c.id === this.brandsSelectedChannelId);
+                            list.push(ch ? ch.name : 'Channel');
                         } else {
-                            list.push('Channels');
+                            list.push('Brand Connections');
                         }
-                    } else if (this.activeTier1 === 'catalog') {
+                    } else if (this.activeView === 'products') {
                         list.push('Catalog');
-                        if (this.activeView === 'products') {
-                            list.push('Products');
-                        } else if (this.activeView === 'media') {
-                            list.push('Media');
-                        }
-                    } else if (this.activeTier1 === 'marketing') {
-                        list.push('Ads');
-                        if (this.activeCampaignTab === 'performance') {
-                            list.push('Insights');
-                        } else {
-                            list.push('Studio');
-                        }
-                    } else if (this.activeTier1 === 'operations') {
-                        list.push('Ops');
-                        if (this.activeView === 'orders') {
-                            list.push('Orders');
-                        } else if (this.activeView === 'messages') {
-                            list.push('Activity Logs');
-                        } else if (this.activeView === 'customer-support') {
-                            list.push('Customer Support');
-                        } else if (this.activeView === 'team-performance') {
-                            list.push('Team Performance');
-                        }
-                    } else if (this.activeTier1 === 'ai') {
-                        list.push('AI Studio');
-                        if (this.activeView === 'learning') {
-                            list.push('Learning');
-                        } else if (this.activeView === 'ai-analytics') {
-                            list.push('Analytics');
-                        } else if (this.activeView === 'brand-center') {
-                            list.push('Brand Center');
-                        }
-                    } else if (this.activeTier1 === 'settings') {
+                        list.push('Products');
+                    } else if (this.activeView === 'media') {
+                        list.push('Catalog');
+                        list.push('Media');
+                    } else if (this.activeView === 'campaigns') {
+                        list.push('Ads Studio');
+                        const campaignTabLabels = {
+                            board: 'Board',
+                            calendar: 'Calendar',
+                            autopilot: 'Autopilot',
+                            performance: 'Performance',
+                            creative: 'Creative',
+                            audiences: 'Audiences'
+                        };
+                        list.push(campaignTabLabels[this.activeCampaignTab] || 'Board');
+                    } else if (this.activeView === 'settings') {
                         list.push('Settings');
-                        if (this.activeView === 'settings') {
-                            if (this.activeSettingsTab === 'general') {
-                                list.push('General');
-                            } else if (this.activeSettingsTab === 'ecommerce') {
-                                list.push('E-Commerce');
-                            } else if (this.activeSettingsTab === 'social') {
-                                list.push('Social Accounts');
-                            } else {
-                                list.push('General');
-                            }
-                        } else if (this.activeView === 'roles-permissions') {
-                            list.push('Roles & Permissions');
-                        } else if (this.activeView === 'billing-subscription') {
-                            list.push('Billing & Subscriptions');
-                        } else if (this.activeView === 'help') {
-                            list.push('Support Documentation');
-                        }
+                        const settingsTabLabels = {
+                            general: 'General Settings',
+                            ecommerce: 'E-Commerce',
+                            social: 'Social Accounts'
+                        };
+                        list.push(settingsTabLabels[this.activeSettingsTab] || 'General Settings');
+                    } else if (this.activeView === 'agency-center') {
+                        list.push('Agency Center');
+                        const agencyTabLabels = {
+                            agencies: 'Agencies',
+                            brands: 'Brand Accounts',
+                            ledger: 'Consolidated Ledger'
+                        };
+                        list.push(agencyTabLabels[this.activeAgencyTab] || 'Agencies');
+                    } else if (this.activeView === 'brand-center') {
+                        list.push('Brand Center');
+                        const brandCenterTabLabels = {
+                            canvas: 'Canvas',
+                            manuscript: 'Manuscripts',
+                            styles: 'Styles'
+                        };
+                        list.push(brandCenterTabLabels[this.activeBrandCenterTab] || 'Canvas');
+                    } else if (this.activeView === 'coupons') {
+                        list.push('Coupons');
+                        const couponsTabLabels = {
+                            analytics: 'Analytics',
+                            rules: 'Rules',
+                            coupons: 'Coupon List',
+                            logs: 'Usage Logs'
+                        };
+                        list.push(couponsTabLabels[this.activeCouponsTab] || 'Analytics');
+                    } else if (this.activeView === 'orders') {
+                        list.push('Ops');
+                        list.push('Orders');
+                    } else if (this.activeView === 'messages') {
+                        list.push('Ops');
+                        list.push('Activity Logs');
+                    } else if (this.activeView === 'customer-support') {
+                        list.push('Ops');
+                        list.push('Customer Support');
+                    } else if (this.activeView === 'team-performance') {
+                        list.push('Ops');
+                        list.push('Team Performance');
+                    } else if (this.activeView === 'learning') {
+                        list.push('AI Studio');
+                        list.push('Learning');
+                    } else if (this.activeView === 'ai-analytics') {
+                        list.push('AI Studio');
+                        list.push('Console & Tokens');
+                    } else if (this.activeView === 'content-studio') {
+                        list.push('AI Studio');
+                        list.push('Content Studio');
+                    } else if (this.activeView === 'roles-permissions') {
+                        list.push('Settings');
+                        list.push('Roles & Security');
+                    } else if (this.activeView === 'billing-subscription') {
+                        list.push('Settings');
+                        list.push('Subscription Plan');
+                    } else if (this.activeView === 'help') {
+                        list.push('Settings');
+                        list.push('Support Documentation');
+                    } else if (this.activeView === 'warehouse-sim') {
+                        list.push('Ops');
+                        list.push('Warehouse Simulator');
                     }
                     return list;
                 },
@@ -2019,10 +2133,15 @@ export default {
                     this.updateSettingsContext();
                     if (newVal && newVal !== 'all') {
                         localStorage.setItem('sc_admin_brand_id', newVal);
-                        this.previewActiveBrandId = newVal;
-                        this.isCreatingBrand = false;
-                        const activeBrand = this.brands.find(b => b.id === newVal);
-                        this.updateDashboardBranding(activeBrand);
+                        if (String(newVal).startsWith('agency:')) {
+                            this.resetDashboardBranding();
+                            this.activeView = 'agency-center';
+                        } else {
+                            this.previewActiveBrandId = newVal;
+                            this.isCreatingBrand = false;
+                            const activeBrand = this.brands.find(b => b.id === newVal);
+                            this.updateDashboardBranding(activeBrand);
+                        }
                     } else {
                         localStorage.removeItem('sc_admin_brand_id');
                         this.resetDashboardBranding();
@@ -2040,6 +2159,22 @@ export default {
                 },
                 activeView(newVal) {
                     this.syncTier1FromView(newVal);
+                    this.updateURL();
+                },
+                activeCampaignTab(newVal) {
+                    this.updateURL();
+                },
+                activeSettingsTab(newVal) {
+                    this.updateURL();
+                },
+                activeAgencyTab(newVal) {
+                    this.updateURL();
+                },
+                activeBrandCenterTab(newVal) {
+                    this.updateURL();
+                },
+                activeCouponsTab(newVal) {
+                    this.updateURL();
                 }
             },
             mounted() {
@@ -2179,7 +2314,7 @@ export default {
                         this.activeTier1 = 'marketing';
                     } else if (['orders', 'messages', 'customer-support', 'team-performance'].includes(viewId)) {
                         this.activeTier1 = 'operations';
-                    } else if (['learning', 'ai-analytics', 'brand-center'].includes(viewId)) {
+                    } else if (['learning', 'ai-analytics', 'brand-center', 'content-studio'].includes(viewId)) {
                         this.activeTier1 = 'ai';
                     } else if (['settings', 'roles-permissions', 'billing-subscription', 'help', 'agency-center'].includes(viewId)) {
                         this.activeTier1 = 'settings';
@@ -2286,7 +2421,7 @@ export default {
                     // Billing is global for superadmin, brand-specific for merchants
                     if (viewName === 'billing-subscription') {
                         if (this.userRole.toLowerCase() === 'superadmin') return false;
-                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
+                        if (this.activeShopFilter === 'all' || !this.activeShopFilter || String(this.activeShopFilter).startsWith('agency:')) return true;
                         return false;
                     }
 
@@ -2297,13 +2432,13 @@ export default {
                     
                     // Brand strategy guide is brand-specific
                     if (viewName === 'brand-center') {
-                        if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
+                        if (this.activeShopFilter === 'all' || !this.activeShopFilter || String(this.activeShopFilter).startsWith('agency:')) return true;
                         return false;
                     }
                     
                     // Brand must exist and a specific brand must be selected for all catalog/marketing/operations views
                     if (this.brands.length === 0) return true;
-                    if (this.activeShopFilter === 'all' || !this.activeShopFilter) return true;
+                    if (this.activeShopFilter === 'all' || !this.activeShopFilter || String(this.activeShopFilter).startsWith('agency:')) return true;
                     
                     // For merchants only: check if brand strategy is configured before unlocking catalog/marketing/operations
                     if (this.userRole.toLowerCase() !== 'superadmin') {
@@ -2503,6 +2638,9 @@ export default {
                     this.resolveRouteFromURL();
                 },
                 handleBeforeUnload(event) {
+                    if (window.bypassBeforeUnload) {
+                        return;
+                    }
                     if (this.activeView === 'brands' && this.$refs.brandsView && this.$refs.brandsView.isCreatingBrand) {
                         event.preventDefault();
                         event.returnValue = '';
@@ -2702,6 +2840,36 @@ export default {
                     this.workspaceDropdownOpen = false;
                     if (id === 'create') {
                         this.switchView('brands');
+                        return;
+                    }
+                    if (id === 'create-agency') {
+                        this.switchView('agency-center');
+                        if (this.$refs.agencyCenterView) {
+                            this.$refs.agencyCenterView.activeTab = 'setup';
+                        } else {
+                            this.activeAgencyTab = 'setup';
+                        }
+                        return;
+                    }
+                    if (id === 'create-brand-agency') {
+                        this.switchView('brands');
+                        this.$nextTick(() => {
+                            if (this.$refs.brandsView) {
+                                this.$refs.brandsView.startBrandCreation();
+                            }
+                        });
+                        return;
+                    }
+                    if (id === 'all') {
+                        this.activeShopFilter = id;
+                        this.switchView('overview');
+                        this.showNotification(`Workspace context switched.`);
+                        return;
+                    }
+                    if (String(id).startsWith('agency:')) {
+                        this.activeShopFilter = id;
+                        this.switchView('agency-center');
+                        this.showNotification(`Workspace context switched.`);
                         return;
                     }
                     this.activeShopFilter = id;
@@ -3034,6 +3202,7 @@ export default {
                 async bootDashboard() {
                     await this.loadConfig();
                     this.loadBrands();
+                    this.loadAgencies();
                     this.loadTierFeatures();
                     this.loadOrders();
                     this.loadProducts();
@@ -3131,17 +3300,40 @@ export default {
                     }
                 },
                 updateURL() {
-                    let newPath = '/' + (this.activeView === 'brands' ? 'channels' : (this.activeView === 'settings' ? 'integrations' : this.activeView));
-                    if (this.activeView === 'brands' && this.$refs.brandsView) {
-                        const sub = this.$refs.brandsView.activeSubView;
-                        if (sub === 'designer') {
-                            newPath = '/channels/storefront';
-                        } else if (sub === 'landing-designer') {
-                            newPath = '/channels/landingpage';
+                    let path = '';
+                    if (this.activeView === 'brands') {
+                        path = '/channels';
+                        if (this.$refs.brandsView) {
+                            const sub = this.$refs.brandsView.activeSubView;
+                            if (sub === 'designer') {
+                                path += '/storefront';
+                            } else if (sub === 'landing-designer') {
+                                path += '/landingpage';
+                            } else if (sub === 'list') {
+                                path += '/list';
+                            }
                         }
+                    } else if (this.activeView === 'settings') {
+                        path = '/integrations';
+                        path += '/' + this.activeSettingsTab;
+                    } else if (this.activeView === 'campaigns') {
+                        path = '/ads-studio';
+                        path += '/' + this.activeCampaignTab;
+                    } else if (this.activeView === 'agency-center') {
+                        path = '/agency-center';
+                        path += '/' + this.activeAgencyTab;
+                    } else if (this.activeView === 'brand-center') {
+                        path = '/brand-center';
+                        path += '/' + this.activeBrandCenterTab;
+                    } else if (this.activeView === 'coupons') {
+                        path = '/coupons';
+                        path += '/' + this.activeCouponsTab;
+                    } else {
+                        path = '/' + this.activeView;
                     }
-                    if (window.location.pathname !== newPath) {
-                        window.history.pushState({ viewId: this.activeView }, '', newPath);
+
+                    if (window.location.pathname !== path) {
+                        window.history.pushState({ viewId: this.activeView }, '', path);
                     }
                 },
                 switchCampaignTab(tabName) {
@@ -3162,6 +3354,33 @@ export default {
                         }
                     });
                 },
+                switchAgencyTab(tabName) {
+                    this.activeAgencyTab = tabName;
+                    this.switchView('agency-center');
+                    this.$nextTick(() => {
+                        if (this.$refs.agencyCenterView) {
+                            this.$refs.agencyCenterView.activeTab = tabName;
+                        }
+                    });
+                },
+                switchBrandCenterTab(tabName) {
+                    this.activeBrandCenterTab = tabName;
+                    this.switchView('brand-center');
+                    this.$nextTick(() => {
+                        if (this.$refs.brandCenterView) {
+                            this.$refs.brandCenterView.activeTab = tabName;
+                        }
+                    });
+                },
+                switchCouponsTab(tabName) {
+                    this.activeCouponsTab = tabName;
+                    this.switchView('coupons');
+                    this.$nextTick(() => {
+                        if (this.$refs.couponsView) {
+                            this.$refs.couponsView.activeTab = tabName;
+                        }
+                    });
+                },
                 resolveRouteFromURL() {
                     const pathSegments = window.location.pathname.split('/').filter(Boolean);
                     if (pathSegments.length === 0) {
@@ -3177,10 +3396,12 @@ export default {
                         viewId = 'brands';
                     } else if (primary === 'integrations') {
                         viewId = 'settings';
+                    } else if (primary === 'ads-studio') {
+                        viewId = 'campaigns';
                     } else if (primary === 'index.html' || primary === 'admin') {
                         viewId = 'overview';
                     } else {
-                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'brand-center', 'agency-center'];
+                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'brand-center', 'content-studio', 'agency-center'];
                         if (validViews.includes(primary)) {
                             viewId = primary;
                         }
@@ -3197,11 +3418,58 @@ export default {
                                     this.$refs.brandsView.activeSubView = 'designer';
                                 } else if (sub === 'landingpage') {
                                     this.$refs.brandsView.activeSubView = 'landing-designer';
+                                } else if (sub === 'list') {
+                                    this.$refs.brandsView.activeSubView = 'list';
                                 } else {
                                     this.$refs.brandsView.activeSubView = 'list';
                                 }
                             }
                         });
+                    } else if (viewId === 'campaigns') {
+                        if (sub) {
+                            this.activeCampaignTab = sub;
+                            this.$nextTick(() => {
+                                if (this.$refs.campaignsView) {
+                                    this.$refs.campaignsView.activeTab = sub;
+                                }
+                            });
+                        }
+                    } else if (viewId === 'settings') {
+                        if (sub) {
+                            this.activeSettingsTab = sub;
+                            this.$nextTick(() => {
+                                if (this.$refs.settingsView) {
+                                    this.$refs.settingsView.activeTab = sub;
+                                }
+                            });
+                        }
+                    } else if (viewId === 'agency-center') {
+                        if (sub) {
+                            this.activeAgencyTab = sub;
+                            this.$nextTick(() => {
+                                if (this.$refs.agencyCenterView) {
+                                    this.$refs.agencyCenterView.activeTab = sub;
+                                }
+                            });
+                        }
+                    } else if (viewId === 'brand-center') {
+                        if (sub) {
+                            this.activeBrandCenterTab = sub;
+                            this.$nextTick(() => {
+                                if (this.$refs.brandCenterView) {
+                                    this.$refs.brandCenterView.activeTab = sub;
+                                }
+                            });
+                        }
+                    } else if (viewId === 'coupons') {
+                        if (sub) {
+                            this.activeCouponsTab = sub;
+                            this.$nextTick(() => {
+                                if (this.$refs.couponsView) {
+                                    this.$refs.couponsView.activeTab = sub;
+                                }
+                            });
+                        }
                     }
                     
                     // Boot data loaders based on view
@@ -3234,6 +3502,15 @@ export default {
                     setTimeout(() => {
                         this.toastMessage = '';
                     }, 3500);
+                },
+                getCleanImageUrl(url) {
+                    if (!url) return '';
+                    if (typeof url !== 'string') return '';
+                    const match = url.match(/\[Catalog:\s*[^\]]*\]\s*(.*)/i);
+                    if (match && match[1]) {
+                        url = match[1];
+                    }
+                    return url.trim();
                 },
                 triggerUpcoming(title, desc) {
                     this.upcomingModal.open = true;
@@ -3597,6 +3874,21 @@ export default {
                         console.error('Failed to load brands:', err);
                     } finally {
                         this.brandsLoaded = true;
+                    }
+                },
+                async loadAgencies() {
+                    const role = this.userRole ? this.userRole.toLowerCase() : '';
+                    if (role !== 'superadmin' && role !== 'agency') return;
+                    try {
+                        const token = localStorage.getItem('sc_admin_token');
+                        const response = await fetch(`${this.apiBaseUrl}/api/global/agencies`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (response.ok) {
+                            this.agencies = await response.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load agencies:', err);
                     }
                 },
                 // Fetch Orders List

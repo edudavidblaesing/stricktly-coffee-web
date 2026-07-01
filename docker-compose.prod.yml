@@ -1,17 +1,17 @@
 services:
-  web:
+  storefront:
     build: .
     ports:
       - "80:80"
       - "443:443"
     restart: unless-stopped
-    container_name: web-prod
+    container_name: storefront-prod
     volumes:
       # Mount SSL certificates (update path to your certificates)
       - ./ssl:/etc/nginx/ssl:ro
     environment:
-      - VIRTUAL_HOST=${DOMAIN},www.${DOMAIN}
-      - LETSENCRYPT_HOST=${DOMAIN},www.${DOMAIN}
+      - VIRTUAL_HOST=*.${DOMAIN}
+      - LETSENCRYPT_HOST=*.${DOMAIN}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
       - BACKEND_HOST=sc-backend-core
     networks:

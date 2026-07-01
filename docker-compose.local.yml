@@ -1,12 +1,11 @@
 services:
-  web:
+  storefront:
     build: .
     restart: unless-stopped
-    container_name: web-local
+    container_name: storefront-local
     ports:
       - "80:80"
     volumes:
-      - ./web:/usr/share/nginx/html/web:ro
       - ./store:/usr/share/nginx/html/store:ro
     environment:
       - BACKEND_HOST=sc-backend-core

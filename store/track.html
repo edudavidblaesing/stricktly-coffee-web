@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Order | Pesado 58.5 Store</title>
-    <meta name="description" content="Track your Pesado 58.5 precision espresso tools shipment. Enter your order reference ID to see real-time warehouse and delivery status.">
-    <meta name="keywords" content="order tracking, Pesado 58.5 order status, coffee tools delivery, espresso gear tracker">
+    <title>Track Order | Storefront Channel</title>
+    <meta name="description" content="Track your order shipment. Enter your order reference ID to see real-time warehouse and delivery status.">
+    <meta name="keywords" content="order tracking, order status, delivery, gear tracker">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
@@ -385,8 +385,8 @@
     <header>
         <div class="container header-container">
             <a href="/" class="logo">
-                <span class="logo-full-wrapper">PESADO<span>58.5</span></span>
-                <span class="logo-favicon-wrapper" style="display: none;">P</span>
+                <span class="logo-full-wrapper">Strictly<span>Coffee</span></span>
+                <span class="logo-favicon-wrapper" style="display: none;">SC</span>
             </a>
             <nav style="display: flex; align-items: center; gap: 12px;">
                 <!-- Language Selector Dropdown -->
@@ -402,7 +402,7 @@
         <div class="container">
             <div class="tracker-box">
                 <h1 data-translate="track_headline">Track Your Shipment</h1>
-                <p class="subtitle" data-translate="track_subheadline">Check the current dispatch status of your luxury Pesado barista tools.</p>
+                <p class="subtitle" data-translate="track_subheadline">Check the current dispatch status of your order.</p>
 
                 <div class="input-group">
                     <input type="text" id="order-id-input" data-translate="track_placeholder" placeholder="Enter Order ID (e.g. PES_171954...)" required>
@@ -472,12 +472,24 @@
             </div>
             
             <div style="text-align: center;">
-                <p>© 2026 <span>Strictly Coffee</span> | Pesado Dropshipping Center. All rights reserved.</p>
+                <p>© 2026 <span>Strictly Coffee</span> | Dropshipping Center. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
     <script>
+        function optimizeImageUrl(url, w, h) {
+            if (!url) return '';
+            if (url.includes('/uploads/')) {
+                const separator = url.includes('?') ? '&' : '?';
+                const params = [];
+                if (w) params.push(`w=${w}`);
+                if (h) params.push(`h=${h}`);
+                return `${url}${separator}${params.join('&')}`;
+            }
+            return url;
+        }
+
         const getApiBaseUrl = () => {
             const hostname = window.location.hostname;
             if (hostname.includes('dev.stricktlycoffee.be') || hostname.includes('-dev.stricktlycoffee.be')) return 'https://api.dev.stricktlycoffee.be';
@@ -722,12 +734,12 @@
                     const firstLetter = name ? name.charAt(0).toUpperCase() : 'S';
                     const faviconUrl = settings.favicon || settings.logo || '';
                     const faviconImg = faviconUrl 
-                        ? `<img src="${faviconUrl}" alt="${name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
+                        ? `<img src="${optimizeImageUrl(faviconUrl, 80, 80)}" alt="${name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
                         : `<span style="background: var(--primary); color: var(--btn-text-color, var(--bg-color)); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">${firstLetter}</span>`;
 
                     if (settings.logo) {
                         logoEl.innerHTML = `
-                            <span class="logo-full-wrapper"><img src="${settings.logo}" alt="${name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
+                            <span class="logo-full-wrapper"><img src="${optimizeImageUrl(settings.logo, 250)}" alt="${name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
                             <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
                         `;
                     } else {
@@ -866,8 +878,8 @@
             const sf = settings.storefront || {};
 
             let headline = 'Track Your Shipment';
-            let subheadline = 'Check the current dispatch status of your luxury Pesado barista tools.';
-            let placeholder = 'Enter Order ID (e.g. PES_171954...)';
+            let subheadline = 'Check the current dispatch status of your {brandName} order.';
+            let placeholder = 'Enter Order ID';
             let cta = 'Track';
 
             const textSource = settings.text_track_headline ? settings : (sf.text_track_headline ? sf : null);
@@ -1016,12 +1028,12 @@
                     const firstLetter = brand.name ? brand.name.charAt(0).toUpperCase() : 'S';
                     const faviconUrl = activeFavicon || activeLogo || '';
                     const faviconImg = faviconUrl 
-                        ? `<img src="${faviconUrl}" alt="${brand.name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
+                        ? `<img src="${optimizeImageUrl(faviconUrl, 80, 80)}" alt="${brand.name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
                         : `<span style="background: var(--primary); color: var(--btn-text-color, var(--bg-color)); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">${firstLetter}</span>`;
                         
                     if (activeLogo) {
                         logoEl.innerHTML = `
-                            <span class="logo-full-wrapper"><img src="${activeLogo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
+                            <span class="logo-full-wrapper"><img src="${optimizeImageUrl(activeLogo, 250)}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
                             <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
                         `;
                     } else if (brand.name) {

@@ -12,6 +12,8 @@ import { runQuery, getQuery, allQuery } from './db.js';
 import nodemailer from 'nodemailer';
 import { GoogleAdsService } from './googleAdsService.js';
 import { generateAndUploadInvoice } from './invoiceService.js';
+import http from 'http';
+import { WebSocketServer } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -656,12 +658,14 @@ async function callAiModelWithUsage(model, prompt, isJson = false) {
   }
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const promptTokens = data.usageMetadata?.promptTokenCount || 0;
+  const candidatesTokens = data.usageMetadata?.candidatesTokenCount || 0;
   return {
     text: text,
     usage: {
-      promptTokenCount: data.usageMetadata?.promptTokenCount || 0,
-      candidatesTokenCount: data.usageMetadata?.candidatesTokenCount || 0,
-      totalTokenCount: data.usageMetadata?.totalTokenCount || 0
+      promptTokenCount: promptTokens,
+      candidatesTokenCount: candidatesTokens,
+      totalTokenCount: promptTokens + candidatesTokens
     }
   };
 }
@@ -1802,6 +1806,14 @@ async function scrapeShopifyProducts(shopUrl, languages = ['en']) {
       ];
 
       const parsedDetails = extractProductDetailsFromHtml(p.body_html);
+      
+      const pTypeLower = (p.product_type || '').toLowerCase();
+      const tagsStr = Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || '');
+      const tagsLower = String(tagsStr).toLowerCase();
+      const isService = pTypeLower.includes('service') || pTypeLower.includes('consult') || pTypeLower.includes('train') || pTypeLower.includes('course') || pTypeLower.includes('booking') ||
+                        tagsLower.includes('service') || tagsLower.includes('consult') || tagsLower.includes('train') || tagsLower.includes('course') || tagsLower.includes('booking');
+      const itemType = isService ? 'service' : 'product';
+
       return {
         id: p.id,
         title: p.title,
@@ -1813,6 +1825,7 @@ async function scrapeShopifyProducts(shopUrl, languages = ['en']) {
         compatibility: parsedDetails.compatibility,
         sku: firstVariant ? firstVariant.sku : '',
         external_id: firstVariant ? String(firstVariant.id) : String(p.id),
+        type: itemType,
         original_link: p.handle ? `https://${parsedUrl.hostname}/products/${p.handle}` : `https://${parsedUrl.hostname}`,
         translations: {},
         meta_details: {
@@ -1973,6 +1986,68 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// Dynamic image resizing route with local cache to avoid CPU strain
+app.get('/uploads/:filename', async (req, res, next) => {
+  const { filename } = req.params;
+  const w = parseInt(req.query.w, 10);
+  const h = parseInt(req.query.h, 10);
+
+  const localPath = path.join(__dirname, 'uploads', filename);
+
+  // If the file doesn't exist, let next() handle it (404)
+  if (!fs.existsSync(localPath)) {
+    return next();
+  }
+
+  // If no resize query parameter is passed, serve the original file
+  if (isNaN(w) && isNaN(h)) {
+    return res.sendFile(localPath);
+  }
+
+  const ext = path.extname(filename).toLowerCase();
+  // Only resize common image formats. Do not attempt to resize videos or SVGs.
+  if (!['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+    return res.sendFile(localPath);
+  }
+
+  try {
+    // Generate a cache filename, e.g. uploads/cache/w300_h300_filename
+    const cacheDir = path.join(__dirname, 'uploads', 'cache');
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const cacheKey = `w${isNaN(w) ? 'auto' : w}_h${isNaN(h) ? 'auto' : h}_${filename}`;
+    const cachePath = path.join(cacheDir, cacheKey);
+
+    // If cache exists, serve it
+    if (fs.existsSync(cachePath)) {
+      return res.sendFile(cachePath);
+    }
+
+    // Resize image using sharp
+    let transform = sharp(localPath);
+    const resizeOptions = {
+      fit: 'cover',
+      withoutEnlargement: true
+    };
+
+    transform = transform.resize(
+      isNaN(w) ? null : w,
+      isNaN(h) ? null : h,
+      resizeOptions
+    );
+
+    // Write to cache and send
+    await transform.toFile(cachePath);
+    return res.sendFile(cachePath);
+  } catch (err) {
+    console.error(`[Resizer] Failed to resize ${filename}:`, err.message);
+    // Fallback to original image if resizing fails
+    return res.sendFile(localPath);
+  }
+});
+
 // Serve static uploaded files
 app.use('/uploads', express.static('uploads'));
 
@@ -2083,19 +2158,31 @@ async function checkAiLimits(brandId, type = 'campaigns') {
 }
 
 // Helper to log AI usage to database
-async function logAiUsage(brandId, operation, model, usageMetadata) {
+async function logAiUsage(brandId, operation, model, usageMetadata, modality) {
   if (!brandId) return;
   const promptTokens = usageMetadata?.promptTokenCount || 0;
   const completionTokens = usageMetadata?.candidatesTokenCount || 0;
   const totalTokens = usageMetadata?.totalTokenCount || (promptTokens + completionTokens);
   const costUsd = estimateGeminiCost(model, promptTokens, completionTokens);
 
+  let activeModality = modality;
+  if (!activeModality) {
+    const opLower = (operation || '').toLowerCase();
+    if (opLower.includes('video')) {
+      activeModality = 'video';
+    } else if (opLower.includes('image') || opLower.includes('visual')) {
+      activeModality = 'image';
+    } else {
+      activeModality = 'text';
+    }
+  }
+
   try {
     await runQuery(`
-      INSERT INTO ai_usage_logs (brand_id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [brandId, operation, model, promptTokens, completionTokens, totalTokens, costUsd]);
-    console.log(`[AI Usage Tracker] Logged AI usage for ${brandId}: ${operation} (${model}) - Cost: $${costUsd}`);
+      INSERT INTO ai_usage_logs (brand_id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, modality)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [brandId, operation, model, promptTokens, completionTokens, totalTokens, costUsd, activeModality]);
+    console.log(`[AI Usage Tracker] Logged AI usage for ${brandId}: ${operation} (${model}) [${activeModality}] - Cost: $${costUsd}`);
   } catch (err) {
     console.error(`[AI Usage Tracker] Failed to write usage log to database:`, err.message);
   }
@@ -2128,14 +2215,14 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    const payload = { email: user.email, role: user.role, brand_id: user.brand_id, time: Date.now() };
+    const payload = { email: user.email, role: user.role, brand_id: user.brand_id, agency_id: user.agency_id, time: Date.now() };
     const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString('base64');
     const secret = process.env.JWT_SECRET || 'fallback-auth-secret-key-12984-sc';
     const signature = crypto.createHmac('sha256', secret).update(payloadBase64).digest('hex');
     const token = `${payloadBase64}.${signature}`;
 
     addAuditLog("Operator Login", "success", `JWT session token issued for ${user.email} (${user.role}).`);
-    res.json({ success: true, email: user.email, role: user.role, brand_id: user.brand_id, first_name: user.first_name, last_name: user.last_name, token });
+    res.json({ success: true, email: user.email, role: user.role, brand_id: user.brand_id, agency_id: user.agency_id, first_name: user.first_name, last_name: user.last_name, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2143,7 +2230,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 // User registration endpoint (public/outside)
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, invite_agency } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -2162,13 +2249,22 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'A user with this email address already exists.' });
     }
 
+    // Resolve agency_id from invite slug
+    let finalAgencyId = null;
+    if (invite_agency) {
+      const agency = await getQuery('SELECT id FROM agencies WHERE id = $1', [invite_agency]);
+      if (agency) {
+        finalAgencyId = agency.id;
+      }
+    }
+
     const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
     await runQuery(`
-      INSERT INTO users (email, password_hash, role, brand_id)
-      VALUES ($1, $2, 'merchant', NULL)
-    `, [trimmedEmail, passwordHash]);
+      INSERT INTO users (email, password_hash, role, brand_id, agency_id)
+      VALUES ($1, $2, 'merchant', NULL, $3)
+    `, [trimmedEmail, passwordHash, finalAgencyId]);
 
-    addAuditLog("Merchant Registration", "success", `New merchant user registered: ${trimmedEmail}`);
+    addAuditLog("Merchant Registration", "success", `New merchant user registered: ${trimmedEmail} (Invited by Agency: ${finalAgencyId || 'none'})`);
     res.json({ success: true, message: 'Account registered successfully. You can now log in.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2178,7 +2274,7 @@ app.post('/api/auth/register', async (req, res) => {
 // Retrieve current operator profile details
 app.get('/api/global/users/me', verifyAdminToken, async (req, res) => {
   try {
-    const user = await getQuery('SELECT id, email, role, brand_id, first_name, last_name, created_at FROM users WHERE email = $1', [req.user.email]);
+    const user = await getQuery('SELECT id, email, role, brand_id, agency_id, first_name, last_name, created_at FROM users WHERE email = $1', [req.user.email]);
     if (!user) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
@@ -2425,9 +2521,92 @@ app.post('/api/coupons/verify', async (req, res) => {
 });
 
 // Get resolved brand config (public safe properties)
-app.get('/api/brand', (req, res) => {
+app.get('/api/brand', async (req, res) => {
   const { id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id, google_analytics_id } = req.brand;
-  res.json({ id, name, subdomain, contact_email, primary_color, logo, favicon, custom_domain, status, languages, theme_settings, meta_pixel_id, google_analytics_id });
+  
+  // Resolve campaign overrides if targeted
+  const campaignId = req.query.campaignId || req.query.utm_campaign;
+  let campaignOverrides = null;
+  if (campaignId) {
+    try {
+      const campaign = await getQuery(
+        'SELECT headline, subheadline, media_url, coupon_code, target_persona, product_id_override, dynamic_copy_optimization, ad_copy FROM marketing_campaigns WHERE brand_id = $1 AND (id = $2 OR name = $2)',
+        [id, campaignId]
+      );
+      if (campaign) {
+        campaignOverrides = {
+          headline: campaign.headline || '',
+          subheadline: campaign.subheadline || '',
+          media_url: campaign.media_url || '',
+          coupon_code: campaign.coupon_code || '',
+          target_persona: campaign.target_persona || '',
+          product_id_override: campaign.product_id_override || null,
+          dynamic_copy_optimization: !!campaign.dynamic_copy_optimization
+        };
+
+        // If AI Copy Personalization is enabled, dynamically optimize the copywriting
+        if (campaignOverrides.dynamic_copy_optimization) {
+          try {
+            const targetModel = getTargetModel(req.brand.ai_tier || 'professional');
+            const systemPrompt = `You are an elite conversion rate optimization (CRO) AI bot.
+Optimize the following landing page headline and subheadline for a visitor coming from a marketing campaign.
+
+Brand Book guidelines:
+${req.brand.marketing_protocol || 'Default premium coffee brand.'}
+
+Campaign Target Persona: ${campaign.target_persona || 'General audience'}
+Campaign Ad Copy context: ${campaign.ad_copy || ''}
+
+Original Landing Page Copy:
+Headline: ${campaign.headline || ''}
+Subheadline: ${campaign.subheadline || ''}
+
+Tailor the Headline and Subheadline to match the campaign's target persona:
+- If persona is @barista, use precise, scientific, temperature/extraction-oriented, technical language.
+- If persona is @curator, use design-oriented, aesthetic, minimalist, clean, tactile language.
+- Otherwise, keep it highly compelling and relevant to the campaign's ad copy.
+
+Return ONLY a JSON object matching this structure:
+{
+  "headline": "A customized, high-converting headline",
+  "subheadline": "A customized, matching subheadline"
+}`;
+            const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
+            const parsed = parseRobustJson(apiResult.text);
+            if (parsed && parsed.headline) {
+              campaignOverrides.headline = parsed.headline;
+            }
+            if (parsed && parsed.subheadline) {
+              campaignOverrides.subheadline = parsed.subheadline;
+            }
+            await logAiUsage(id, 'Campaign Copy Personalization', targetModel, apiResult.usage);
+            console.log(`[API Brand] Dynamic Copy Personalization applied successfully for campaign: ${campaignId}`);
+          } catch (aiErr) {
+            console.error('[API Brand] AI Copy Personalization failed, falling back to static campaign copy:', aiErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[API Brand] Error loading campaign overrides:', err);
+    }
+  }
+
+  res.json({ 
+    id, 
+    name, 
+    subdomain, 
+    contact_email, 
+    primary_color, 
+    logo, 
+    favicon, 
+    custom_domain, 
+    status, 
+    languages, 
+    theme_settings, 
+    meta_pixel_id, 
+    google_analytics_id,
+    campaign_overrides: campaignOverrides
+  });
 });
 
 // Get Products for the active brand
@@ -2564,7 +2743,8 @@ app.post('/api/checkout', async (req, res) => {
         price: parseFloat(prod.price),
         quantity: cartItem.quantity,
         image: prod.image,
-        options: cartItem.options || {}
+        options: cartItem.options || {},
+        type: prod.type || 'product'
       });
     }
 
@@ -2627,6 +2807,140 @@ app.post('/api/checkout', async (req, res) => {
     ]);
 
     addAuditLog("Order Created", "success", `Pending checkout session for ${customerName} (${orderId}) created, total: €${total.toFixed(2)}.`);
+
+    if (req.brand.billing_type === 'direct_checkout') {
+      let redirectUrl = '';
+      const isShopify = req.brand.platform === 'shopify' && req.brand.shopify_shop_name && req.brand.shopify_access_token;
+      const isWoo = req.brand.platform === 'woocommerce' && req.brand.woocommerce_shop_url && req.brand.woocommerce_consumer_key && req.brand.woocommerce_consumer_secret;
+
+      if (isShopify) {
+        const isMock = req.brand.shopify_access_token.includes('mock_') || req.brand.shopify_shop_name.includes('mock');
+        if (isMock) {
+          console.log(`[Shopify Mock Direct Checkout] Returning sandbox mockup for ${orderId}`);
+          const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+          redirectUrl = `/api/checkout-mock-page?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}&origin=${encodeURIComponent(origin)}`;
+        } else {
+          try {
+            // Attempt to create a Shopify Draft Order via API
+            const shopifyPayload = {
+              draft_order: {
+                line_items: validatedItems.map(item => ({
+                  variant_id: item.external_id && !isNaN(parseInt(item.external_id)) ? parseInt(item.external_id) : null,
+                  quantity: item.quantity,
+                  title: item.title,
+                  price: item.price.toString()
+                })),
+                email: customerEmail,
+                customer: {
+                  first_name: customerName.split(' ')[0] || 'Customer',
+                  last_name: customerName.split(' ').slice(1).join(' ') || 'User',
+                  email: customerEmail
+                },
+                note_attributes: [
+                  { name: "local_order_id", value: orderId }
+                ],
+                note: `Dropshipped checkout ref: ${orderId}`
+              }
+            };
+
+            const response = await fetch(`https://${req.brand.shopify_shop_name}/admin/api/2024-04/draft_orders.json`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Shopify-Access-Token': req.brand.shopify_access_token
+              },
+              body: JSON.stringify(shopifyPayload)
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              redirectUrl = data.draft_order.invoice_url;
+              console.log(`[Shopify Draft Order Created] Invoice URL: ${redirectUrl}`);
+            } else {
+              const errText = await response.text();
+              console.error(`[Shopify Draft Order API Failure] Status ${response.status}: ${errText}. Falling back to Cart Permalink.`);
+              throw new Error(`Draft Order API failed: ${errText}`);
+            }
+          } catch (apiErr) {
+            // Fallback: Construct Cart Permalink
+            const permalinkItems = validatedItems
+              .filter(item => item.external_id && !isNaN(parseInt(item.external_id)))
+              .map(item => `${item.external_id}:${item.quantity}`)
+              .join(',');
+
+            redirectUrl = `https://${req.brand.shopify_shop_name}/cart/${permalinkItems}`;
+            const params = [`attributes[local_order_id]=${orderId}`];
+            if (couponCode) params.push(`discount=${encodeURIComponent(couponCode)}`);
+            if (utm_source) params.push(`utm_source=${encodeURIComponent(utm_source)}`);
+            if (utm_medium) params.push(`utm_medium=${encodeURIComponent(utm_medium)}`);
+            if (utm_campaign) params.push(`utm_campaign=${encodeURIComponent(utm_campaign)}`);
+            if (customerEmail) params.push(`checkout[email]=${encodeURIComponent(customerEmail)}`);
+            
+            redirectUrl += `?${params.join('&')}`;
+            console.log(`[Shopify Cart Permalink Fallback] URL: ${redirectUrl}`);
+          }
+        }
+      } else if (isWoo) {
+        const isMock = req.brand.woocommerce_consumer_key.includes('mock_') || req.brand.woocommerce_shop_url.includes('mock');
+        if (isMock) {
+          console.log(`[WooCommerce Mock Direct Checkout] Returning sandbox mockup for ${orderId}`);
+          const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+          redirectUrl = `/api/checkout-mock-page?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}&origin=${encodeURIComponent(origin)}`;
+        } else {
+          try {
+            // Create a pending order in WooCommerce REST API
+            const wooPayload = {
+              payment_method: 'stripe',
+              payment_method_title: 'Credit Card',
+              set_paid: false,
+              billing: {
+                first_name: customerName.split(' ')[0] || 'Customer',
+                last_name: customerName.split(' ').slice(1).join(' ') || 'User',
+                email: customerEmail
+              },
+              line_items: validatedItems.map(item => ({
+                product_id: parseInt(item.external_id) || null,
+                quantity: item.quantity
+              })),
+              meta_data: [
+                { key: 'local_order_id', value: orderId }
+              ]
+            };
+
+            const wcUrl = req.brand.woocommerce_shop_url.replace(/\/$/, '');
+            const authBase64 = Buffer.from(`${req.brand.woocommerce_consumer_key}:${req.brand.woocommerce_consumer_secret}`).toString('base64');
+            const response = await fetch(`${wcUrl}/wp-json/wc/v3/orders`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${authBase64}`
+              },
+              body: JSON.stringify(wooPayload)
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              redirectUrl = data.payment_url || `${wcUrl}/checkout/order-pay/${data.id}/?pay_for_order=true&key=${data.order_key}`;
+              console.log(`[WooCommerce Order Created] Payment URL: ${redirectUrl}`);
+            } else {
+              const errText = await response.text();
+              console.error(`[WooCommerce Order API Failure] Status ${response.status}: ${errText}.`);
+              throw new Error(`WooCommerce API failed: ${errText}`);
+            }
+          } catch (apiErr) {
+            console.error(`[WooCommerce API Error] Falling back to default mock checkout.`, apiErr);
+            const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+            redirectUrl = `/api/checkout-mock-page?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}&origin=${encodeURIComponent(origin)}`;
+          }
+        }
+      } else {
+        console.warn(`[Direct Checkout Fallback] Neither Shopify nor WooCommerce credentials found for brand ${req.brand.name}.`);
+        const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+        redirectUrl = `/api/checkout-mock-page?orderId=${orderId}&email=${encodeURIComponent(customerEmail)}&name=${encodeURIComponent(customerName)}&origin=${encodeURIComponent(origin)}`;
+      }
+
+      return res.json({ url: redirectUrl });
+    }
 
     const stripe = await getStripeInstance(req.brand);
     if (stripe) {
@@ -3008,6 +3322,124 @@ app.post('/api/webhook/shopify', async (req, res) => {
   res.status(200).send('OK');
 });
 
+// Shopify payment confirmation webhook callback (For direct checkouts)
+app.post('/api/webhook/shopify/order-paid/:brandId', express.json(), async (req, res) => {
+  const { brandId } = req.params;
+  const payload = req.body;
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      console.warn(`[Webhook Shopify Paid] Brand ${brandId} not found.`);
+      return res.status(404).send('Brand not found');
+    }
+
+    // Extract local_order_id from note_attributes or note
+    let localOrderId = null;
+    if (payload.note_attributes && Array.isArray(payload.note_attributes)) {
+      const attr = payload.note_attributes.find(a => a.name === 'local_order_id');
+      if (attr) localOrderId = attr.value;
+    }
+
+    if (!localOrderId && payload.note) {
+      const match = payload.note.match(/local_order_id=(\w+)/i) || payload.note.match(/Local Ref:\s*(\w+)/i);
+      if (match) localOrderId = match[1];
+    }
+
+    if (!localOrderId) {
+      console.log(`[Webhook Shopify Paid] No local_order_id found in note/attributes for Shopify order ${payload.id}`);
+      return res.status(200).send('Ignored - No local reference');
+    }
+
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1', [localOrderId]);
+    if (!order) {
+      console.warn(`[Webhook Shopify Paid] Local order ${localOrderId} not found.`);
+      return res.status(404).send('Order not found');
+    }
+
+    // Only process if pending payment
+    if (order.status === 'pending_payment') {
+      const customerInfo = {
+        name: payload.customer ? `${payload.customer.first_name || ''} ${payload.customer.last_name || ''}`.trim() : (payload.billing_address?.name || 'Shopify Customer'),
+        email: payload.email || payload.customer?.email || 'no-email@example.com',
+        address: payload.shipping_address || payload.billing_address || {}
+      };
+
+      const shopifyOrderId = payload.id?.toString();
+      await handleSuccessfulPayment(localOrderId, customerInfo, shopifyOrderId, brand);
+      await runQuery('UPDATE orders SET shopify_order_id = $1 WHERE id = $2', [shopifyOrderId, localOrderId]);
+      console.log(`[Webhook Shopify Paid] Verified & marked local order ${localOrderId} paid (Shopify Ref: ${shopifyOrderId}).`);
+      addAuditLog("Order Direct Webhook", "success", `Shopify checkout payment confirmed for order ${localOrderId}.`);
+    }
+
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('[Webhook Shopify Paid] Error handling webhook:', err);
+    res.status(500).send(err.message);
+  }
+});
+
+// WooCommerce payment confirmation webhook callback (For direct checkouts)
+app.post('/api/webhook/woocommerce/order-paid/:brandId', express.json(), async (req, res) => {
+  const { brandId } = req.params;
+  const payload = req.body;
+
+  try {
+    const brand = await getQuery('SELECT * FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      console.warn(`[Webhook WooCommerce Paid] Brand ${brandId} not found.`);
+      return res.status(404).send('Brand not found');
+    }
+
+    // Extract local_order_id from meta_data
+    let localOrderId = null;
+    if (payload.meta_data && Array.isArray(payload.meta_data)) {
+      const meta = payload.meta_data.find(m => m.key === 'local_order_id');
+      if (meta) localOrderId = meta.value;
+    }
+
+    if (!localOrderId) {
+      console.log(`[Webhook WooCommerce Paid] No local_order_id found in meta_data for WooCommerce order ${payload.id}`);
+      return res.status(200).send('Ignored - No local reference');
+    }
+
+    const order = await getQuery('SELECT * FROM orders WHERE id = $1', [localOrderId]);
+    if (!order) {
+      console.warn(`[Webhook WooCommerce Paid] Local order ${localOrderId} not found.`);
+      return res.status(404).send('Order not found');
+    }
+
+    // Check WooCommerce status (paid usually corresponds to processing or completed status)
+    const isPaidStatus = ['processing', 'completed'].includes(payload.status);
+
+    if (isPaidStatus && order.status === 'pending_payment') {
+      const customerInfo = {
+        name: `${payload.billing?.first_name || ''} ${payload.billing?.last_name || ''}`.trim() || 'WooCommerce Customer',
+        email: payload.billing?.email || 'no-email@example.com',
+        address: {
+          line1: payload.billing?.address_1 || '',
+          line2: payload.billing?.address_2 || '',
+          city: payload.billing?.city || '',
+          state: payload.billing?.state || '',
+          postal_code: payload.billing?.postcode || '',
+          country: payload.billing?.country || 'BE'
+        }
+      };
+
+      const wooOrderId = payload.id?.toString();
+      await handleSuccessfulPayment(localOrderId, customerInfo, wooOrderId, brand);
+      await runQuery('UPDATE orders SET shopify_order_id = $1 WHERE id = $2', [wooOrderId, localOrderId]);
+      console.log(`[Webhook WooCommerce Paid] Verified & marked local order ${localOrderId} paid (WooCommerce Ref: ${wooOrderId}).`);
+      addAuditLog("Order Direct Webhook", "success", `WooCommerce checkout payment confirmed for order ${localOrderId}.`);
+    }
+
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('[Webhook WooCommerce Paid] Error handling webhook:', err);
+    res.status(500).send(err.message);
+  }
+});
+
 // Retrieve single order tracking details
 app.get('/api/order/:id', async (req, res) => {
   try {
@@ -3046,7 +3478,7 @@ function addAuditLog(action, status, details) {
 }
 
 // Middleware to verify the admin token for simulator access
-function verifyAdminToken(req, res, next) {
+async function verifyAdminToken(req, res, next) {
   const authHeader = req.headers.authorization;
   const urlToken = req.query.token;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : urlToken;
@@ -3058,6 +3490,7 @@ function verifyAdminToken(req, res, next) {
   const AUTH_SECRET = process.env.JWT_SECRET || 'fallback-auth-secret-key-12984-sc';
   const parts = token.split('.');
 
+  let payload;
   if (parts.length === 2) {
     const [payloadBase64, signature] = parts;
     const expectedSignature = crypto.createHmac('sha256', AUTH_SECRET).update(payloadBase64).digest('hex');
@@ -3065,29 +3498,39 @@ function verifyAdminToken(req, res, next) {
       return res.status(401).json({ error: 'Invalid or forged authentication token.' });
     }
     try {
-      const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf-8'));
-      if (!payload.email || !payload.role) {
-        return res.status(401).json({ error: 'Invalid authentication token payload.' });
-      }
-      req.user = payload;
-      return next();
+      payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf-8'));
     } catch (err) {
       return res.status(401).json({ error: 'Malformed authentication token payload.' });
     }
-  }
-
-  // Fallback to legacy un-signed token for local/dev fallback ONLY
-  if (process.env.NODE_ENV !== 'production') {
+  } else if (process.env.NODE_ENV !== 'production') {
+    // Fallback to legacy un-signed token for local/dev fallback ONLY
     try {
-      const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
-      if (payload.email && payload.role) {
-        req.user = payload;
-        return next();
-      }
+      payload = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
     } catch (e) {}
   }
 
-  return res.status(401).json({ error: 'Access Denied. Signed authentication token is required.' });
+  if (!payload || !payload.email || !payload.role) {
+    return res.status(401).json({ error: 'Access Denied. Signed authentication token is required.' });
+  }
+
+  try {
+    const dbUser = await getQuery('SELECT brand_id, agency_id, role FROM users WHERE LOWER(email) = LOWER($1)', [payload.email]);
+    if (dbUser) {
+      payload.brand_id = dbUser.brand_id;
+      payload.agency_id = dbUser.agency_id;
+      payload.role = dbUser.role;
+    }
+    if (!payload.brand_id) {
+      const dbBrand = await getQuery('SELECT id FROM brands WHERE LOWER(contact_email) = LOWER($1) LIMIT 1', [payload.email]);
+      if (dbBrand) {
+        payload.brand_id = dbBrand.id;
+      }
+    }
+    req.user = payload;
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Database error in authentication: ' + err.message });
+  }
 }
 
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
@@ -3239,6 +3682,24 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
       WHERE id = $4
     `, [tNumber, tCarrier, tUrl, orderId]);
 
+    // Deduct stock from self-hosted WMS
+    try {
+      const orderItems = JSON.parse(order.items || '[]');
+      for (const item of orderItems) {
+        const prod = await getQuery('SELECT sku FROM products WHERE id = $1', [item.id]);
+        if (prod && prod.sku) {
+          await runQuery(`
+            UPDATE warehouse_stock
+            SET quantity_on_hand = GREATEST(0, quantity_on_hand - $1),
+                quantity_reserved = GREATEST(0, quantity_reserved - $1)
+            WHERE brand_id = $2 AND sku = $3
+          `, [item.quantity, brandId, prod.sku]);
+        }
+      }
+    } catch (invErr) {
+      console.error('[WMS Fulfill Stock Deduction Error]', invErr.message);
+    }
+
     // Schedule referral email!
     await triggerOrderReferralEmail(orderId, brandId);
 
@@ -3250,25 +3711,334 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// WMS SELF-HOSTED WAREHOUSE INVENTORY API
+// ----------------------------------------------------------------------------
+
+app.get('/api/admin/wms/inventory', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  try {
+    const rows = await allQuery('SELECT * FROM warehouse_stock WHERE brand_id = $1 ORDER BY sku ASC', [brandId]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/wms/inventory/update', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  const { sku, quantityOnHand, binLocation } = req.body;
+  try {
+    await runQuery(`
+      INSERT INTO warehouse_stock (brand_id, sku, bin_location, quantity_on_hand, quantity_reserved)
+      VALUES ($1, $2, $3, $4, 0)
+      ON CONFLICT (brand_id, sku) DO UPDATE
+      SET bin_location = COALESCE($3, warehouse_stock.bin_location),
+          quantity_on_hand = COALESCE($4, warehouse_stock.quantity_on_hand)
+    `, [brandId, sku, binLocation, quantityOnHand]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// HYBRID SUPPORT TICKETING & MESSAGING API
+// ----------------------------------------------------------------------------
+
+app.post('/api/support/tickets/create', async (req, res) => {
+  const { brandId, email, subject, message } = req.body;
+  if (!brandId || !email || !subject || !message) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+  const ticketId = crypto.randomUUID();
+  try {
+    await runQuery(`
+      INSERT INTO support_tickets (id, brand_id, customer_email, subject, status, priority)
+      VALUES ($1, $2, $3, $4, 'open', 'normal')
+    `, [ticketId, brandId, email, subject]);
+    
+    await runQuery(`
+      INSERT INTO support_messages (ticket_id, sender, message_body)
+      VALUES ($1, 'customer', $2)
+    `, [ticketId, message]);
+
+    // Send automatic email notification to client via SMTP
+    const subjectLine = `Support Ticket Created: [#${ticketId.substring(0,8)}] ${subject}`;
+    const bodyText = `Hi there,\n\nWe have received your support request regarding "${subject}". An agent will reply shortly.\n\nYour query:\n"${message}"\n\nTo reply, please reply directly to this email or visit our ticket tracker.`;
+    await sendMailHelper(email, subjectLine, null, bodyText, { replyTo: `reply+${ticketId}@stricktlycoffee.be` });
+
+    res.json({ success: true, ticketId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/support/tickets', verifyAdminToken, async (req, res) => {
+  const brandId = resolveBrandId(req);
+  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  try {
+    const tickets = await allQuery('SELECT * FROM support_tickets WHERE brand_id = $1 ORDER BY updated_at DESC', [brandId]);
+    res.json(tickets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/support/tickets/:id/messages', async (req, res) => {
+  const ticketId = req.params.id;
+  try {
+    const ticket = await getQuery('SELECT * FROM support_tickets WHERE id = $1', [ticketId]);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
+    const messages = await allQuery('SELECT * FROM support_messages WHERE ticket_id = $1 ORDER BY created_at ASC', [ticketId]);
+    res.json({ ticket, messages });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/support/tickets/:id/reply', async (req, res) => {
+  const ticketId = req.params.id;
+  const { sender, messageBody } = req.body;
+  if (!sender || !messageBody) {
+    return res.status(400).json({ error: 'Sender and messageBody are required.' });
+  }
+  try {
+    const ticket = await getQuery('SELECT * FROM support_tickets WHERE id = $1', [ticketId]);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
+
+    await runQuery(`
+      INSERT INTO support_messages (ticket_id, sender, message_body)
+      VALUES ($1, $2, $3)
+    `, [ticketId, sender, messageBody]);
+
+    await runQuery(`
+      UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = $1
+    `, [ticketId]);
+
+    // Broadcast via WebSocket
+    broadcastTicketUpdate(ticketId, { ticketId, sender, messageBody, created_at: new Date() });
+
+    // If agent replies, send email notification to customer
+    if (sender === 'agent') {
+      const subjectLine = `New reply on ticket: [#${ticketId.substring(0,8)}] ${ticket.subject}`;
+      const bodyText = `Hi,\n\nOur support team has replied to your ticket:\n\n"${messageBody}"\n\nReply directly to this email to continue the conversation.`;
+      await sendMailHelper(ticket.customer_email, subjectLine, null, bodyText, { replyTo: `reply+${ticketId}@stricktlycoffee.be` });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// INCOMING WEBHOOK EMAIL INGESTION & SIMULATOR
+// ----------------------------------------------------------------------------
+
+app.post('/api/webhooks/incoming-email', async (req, res) => {
+  const { from, to, subject, text } = req.body;
+  console.log(`[Email Webhook] Ingesting incoming email from ${from} to ${to}: ${subject}`);
+  
+  try {
+    let ticketId = null;
+    const replyMatch = to.match(/reply\+([a-f0-9\-]{36})@/i);
+    if (replyMatch) {
+      ticketId = replyMatch[1];
+    } else {
+      const subjectMatch = subject.match(/\[#([a-f0-9\-]{36})\]/i);
+      if (subjectMatch) {
+        ticketId = subjectMatch[1];
+      }
+    }
+
+    if (ticketId) {
+      const ticket = await getQuery('SELECT * FROM support_tickets WHERE id = $1', [ticketId]);
+      if (ticket) {
+        await runQuery(`
+          INSERT INTO support_messages (ticket_id, sender, message_body)
+          VALUES ($1, 'customer', $2)
+        `, [ticketId, text]);
+        
+        await runQuery(`
+          UPDATE support_tickets SET status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = $1
+        `, [ticketId]);
+
+        broadcastTicketUpdate(ticketId, { ticketId, sender: 'customer', messageBody: text, created_at: new Date() });
+        return res.json({ success: true, action: 'appended_reply' });
+      }
+    }
+
+    // Create a new ticket (dynamic brand fallback)
+    const newTicketId = crypto.randomUUID();
+    const firstBrand = await getQuery('SELECT id FROM brands LIMIT 1');
+    if (!firstBrand) {
+      return res.status(400).json({ error: 'No active brand shops onboarded on the platform yet. Cannot file support tickets.' });
+    }
+    const brandId = firstBrand.id;
+    
+    await runQuery(`
+      INSERT INTO support_tickets (id, brand_id, customer_email, subject, status, priority)
+      VALUES ($1, $2, $3, $4, 'open', 'normal')
+    `, [newTicketId, brandId, from, subject]);
+    
+    await runQuery(`
+      INSERT INTO support_messages (ticket_id, sender, message_body)
+      VALUES ($1, 'customer', $2)
+    `, [newTicketId, text]);
+
+    res.json({ success: true, action: 'created_new_ticket', ticketId: newTicketId });
+  } catch (err) {
+    console.error('[Email Webhook] Parsing failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/simulate-incoming-email', verifyAdminToken, async (req, res) => {
+  const { from, to, subject, text } = req.body;
+  try {
+    const fetchResult = await fetch(`http://localhost:${port}/api/webhooks/incoming-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject, text })
+    });
+    const json = await fetchResult.json();
+    res.json(json);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auto-Scrape and Extract Registered Billing Details (Company Name, Address, VAT) via AI
+app.post('/api/admin/scrape-billing-details', verifyAdminToken, async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required.' });
+
+  try {
+    console.log(`[Scraper] Starting billing details extraction for: ${url}`);
+    
+    // 1. Fetch main page
+    let response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch the URL: ${response.statusText}`);
+    }
+    let html = await response.text();
+
+    // Clean html helper
+    const cleanHtml = (text) => {
+      return text
+        .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
+        .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    let textContent = cleanHtml(html);
+
+    // 2. Find links to Impressum, Imprint, Legal, or Contact
+    const legalKeywords = ['impressum', 'imprint', 'legal', 'contact', 'about', 'terms', 'rechtliches'];
+    let legalUrl = null;
+
+    const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]+)"/gi;
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const link = match[1];
+      if (legalKeywords.some(keyword => link.toLowerCase().includes(keyword))) {
+        if (link.startsWith('http')) {
+          legalUrl = link;
+        } else {
+          try {
+            const base = new URL(url);
+            legalUrl = new URL(link, base.origin).href;
+          } catch (e) {}
+        }
+        break;
+      }
+    }
+
+    // 3. Fetch legal page if found
+    if (legalUrl && legalUrl !== url) {
+      console.log(`[Scraper] Found potential legal URL: ${legalUrl}`);
+      try {
+        const legalResponse = await fetch(legalUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+        });
+        if (legalResponse.ok) {
+          const legalHtml = await legalResponse.text();
+          textContent += ' \n=== LEGAL PAGE ===\n ' + cleanHtml(legalHtml);
+        }
+      } catch (err) {
+        console.warn(`[Scraper] Failed to fetch legal URL ${legalUrl}:`, err.message);
+      }
+    }
+
+    textContent = textContent.substring(0, 8000);
+
+    // 4. Send to Gemini
+    const systemPrompt = `You are a precise data extraction agent. Extract the registered billing details from the following website text.
+Return ONLY a JSON object matching this structure (do not include any markdown fences or other text, just raw JSON):
+{
+  "companyName": "The official corporate name of the registered company (e.g. LLC, GmbH, BV, SRL, etc.), or null if not found",
+  "vatId": "The VAT registration ID or Corporate Tax ID (e.g. BE0987654321, DE123456789), or null if not found",
+  "address": "The official registered physical business address, or null if not found"
+}
+
+Scraped Text:
+${textContent}`;
+
+    const targetModel = 'gemini-2.5-flash';
+    const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
+    
+    try {
+      const brandId = resolveBrandId(req);
+      if (brandId) {
+        await logAiUsage(brandId, 'Billing Details Extraction Scraper', targetModel, apiResult.usage);
+      }
+    } catch (e) {}
+
+    const parsed = parseRobustJson(apiResult.text);
+    res.json({ success: true, details: parsed });
+
+  } catch (err) {
+    console.error(`[Scraper Error] ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // AGENCIES MANAGEMENT API (Multi-tenant system & split payout margins)
 // ----------------------------------------------------------------------------
 
-// List all agencies (Superadmin only)
+// List all agencies (Superadmin or Agency)
 app.get('/api/global/agencies', verifyAdminToken, async (req, res) => {
-  if (req.user.role !== 'superadmin') {
-    return res.status(403).json({ error: 'Superadmin privileges required' });
+  const isSuperadmin = req.user.role === 'superadmin';
+  const isAgency = req.user.role === 'agency';
+  if (!isSuperadmin && !isAgency) {
+    return res.status(403).json({ error: 'Superadmin or Agency privileges required' });
   }
   try {
-    const rows = await allQuery(`
+    let queryStr = `
       SELECT a.*, 
              COALESCE(SUM(CASE WHEN l.status = 'unpaid' THEN l.agency_share ELSE 0 END), 0) as unpaid_balance,
              COALESCE(SUM(CASE WHEN l.status = 'paid' THEN l.agency_share ELSE 0 END), 0) as paid_balance,
              COALESCE(SUM(CASE WHEN l.status = 'pending_invoice' THEN l.agency_share ELSE 0 END), 0) as pending_balance
       FROM agencies a
       LEFT JOIN agency_payout_ledger l ON a.id = l.agency_id
+    `;
+    const params = [];
+    if (isAgency) {
+      queryStr += ` WHERE a.id = $1`;
+      params.push(req.user.agency_id);
+    }
+    queryStr += `
       GROUP BY a.id
       ORDER BY a.name ASC
-    `);
+    `;
+    const rows = await allQuery(queryStr, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3483,14 +4253,14 @@ app.post('/api/global/agencies/:id/unlock-all-splits', verifyAdminToken, async (
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
     if (req.user.role === 'agency') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands WHERE agency_id = $1 ORDER BY id ASC', [req.user.agency_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands WHERE agency_id = $1 ORDER BY id ASC', [req.user.agency_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3863,7 +4633,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     } else if (req.user.role === 'agency') {
       finalAgencyId = req.user.agency_id;
     } else {
-      finalAgencyId = existing ? existing.agency_id : null;
+      finalAgencyId = existing ? existing.agency_id : (req.user.agency_id || null);
     }
 
     await runQuery(`
@@ -4350,14 +5120,21 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
 app.post('/api/global/brands/:id/stripe-connect-link', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
-    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
-  }
-
   try {
-    const brand = await getQuery('SELECT stripe_connect_account_id, agency_id FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT stripe_connect_account_id, agency_id, contact_email FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const userRec = await getQuery('SELECT brand_id, role, agency_id FROM users WHERE email = $1', [req.user.email]);
+    const isAuthorized = 
+      req.user.role === 'superadmin' || 
+      (userRec && userRec.brand_id === brandId) || 
+      (userRec && userRec.role === 'agency' && userRec.agency_id && brand.agency_id === userRec.agency_id) ||
+      (brand.contact_email && brand.contact_email.toLowerCase() === req.user.email.toLowerCase());
+
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
     }
 
     const stripe = await getStripeInstanceForPlatformCharge(brand);
@@ -4406,14 +5183,21 @@ app.post('/api/global/brands/:id/stripe-connect-link', verifyAdminToken, async (
 app.post('/api/global/brands/:id/stripe-setup-session', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
-    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
-  }
-
   try {
     const brand = await getQuery('SELECT name, contact_email, stripe_customer_id, agency_id FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const userRec = await getQuery('SELECT brand_id, role, agency_id FROM users WHERE email = $1', [req.user.email]);
+    const isAuthorized = 
+      req.user.role === 'superadmin' || 
+      (userRec && userRec.brand_id === brandId) || 
+      (userRec && userRec.role === 'agency' && userRec.agency_id && brand.agency_id === userRec.agency_id) ||
+      (brand.contact_email && brand.contact_email.toLowerCase() === req.user.email.toLowerCase());
+
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
     }
 
     const stripe = await getStripeInstanceForPlatformCharge(brand);
@@ -4454,6 +5238,37 @@ app.post('/api/global/brands/:id/stripe-setup-session', verifyAdminToken, async 
   }
 });
 
+// POST Simulate successful Stripe Card connection (local/development fallback)
+app.post('/api/global/brands/:id/simulate-card-link', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  try {
+    const brand = await getQuery('SELECT stripe_customer_id, agency_id, contact_email FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const userRec = await getQuery('SELECT brand_id, role, agency_id FROM users WHERE email = $1', [req.user.email]);
+    const isAuthorized = 
+      req.user.role === 'superadmin' || 
+      (userRec && userRec.brand_id === brandId) || 
+      (userRec && userRec.role === 'agency' && userRec.agency_id && brand.agency_id === userRec.agency_id) ||
+      (brand.contact_email && brand.contact_email.toLowerCase() === req.user.email.toLowerCase());
+
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+    }
+
+    const customerId = (brand && brand.stripe_customer_id) || `cus_mock_${brandId}_${Date.now()}`;
+    await runQuery(
+      'UPDATE brands SET stripe_enabled = TRUE, stripe_customer_id = $1 WHERE id = $2',
+      [customerId, brandId]
+    );
+    res.json({ success: true, message: 'Card link simulated successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET Setup Complete Callback verification
 app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res) => {
   const { brandId, sessionId } = req.query;
@@ -4462,7 +5277,22 @@ app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res)
   }
 
   try {
-    const brand = await getQuery('SELECT agency_id FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT agency_id, contact_email FROM brands WHERE id = $1', [brandId]);
+    if (!brand) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    const userRec = await getQuery('SELECT brand_id, role, agency_id FROM users WHERE email = $1', [req.user.email]);
+    const isAuthorized = 
+      req.user.role === 'superadmin' || 
+      (userRec && userRec.brand_id === brandId) || 
+      (userRec && userRec.role === 'agency' && userRec.agency_id && brand.agency_id === userRec.agency_id) ||
+      (brand.contact_email && brand.contact_email.toLowerCase() === req.user.email.toLowerCase());
+
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+    }
+
     const stripe = await getStripeInstanceForPlatformCharge(brand);
     if (!stripe) {
       return res.status(400).json({ error: 'Stripe is not configured on the platform.' });
@@ -5585,6 +6415,151 @@ Format:
   }
 });
 
+// POST Generate Guideline Asset (Persona or Scenery) with AI
+app.post('/api/global/brands/:id/generate-guideline-asset', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  const { type, prompt, reference_assets } = req.body;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  if (type !== 'persona' && type !== 'scenery') {
+    return res.status(400).json({ error: 'Invalid type parameter. Must be persona or scenery.' });
+  }
+
+  try {
+    const brand = await getQuery('SELECT brand_canvas, ai_tier FROM brands WHERE id = $1', [brandId]);
+    if (!brand) return res.status(404).json({ error: 'Brand not found.' });
+
+    let canvas = {};
+    if (brand.brand_canvas) {
+      try {
+        canvas = JSON.parse(brand.brand_canvas);
+      } catch (e) {}
+    }
+
+    const targetModel = getTargetModel(brand.ai_tier || 'professional');
+
+    let geminiPrompt = '';
+    if (type === 'persona') {
+      geminiPrompt = `You are a DTC brand strategist. Generate a new high-conversion target audience buyer persona for this brand in JSON format.
+The brand guidelines parameters are:
+Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
+Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
+
+      if (prompt) {
+        geminiPrompt += `User Instructions/Prompt: "${prompt}"\n`;
+      }
+      if (reference_assets && reference_assets.length > 0) {
+        geminiPrompt += `Referenced existing brand personas for similarity context:\n${JSON.stringify(reference_assets, null, 2)}\n`;
+      }
+
+      geminiPrompt += `\nReturn ONLY a JSON object representing the persona with the following keys. Do NOT wrap in markdown code blocks.
+JSON Format:
+{
+  "name": "A catchy descriptive name for this archetype (e.g. The Extraction Scientist)",
+  "age": "Target age range (e.g. 28-45)",
+  "role": "Their occupation or hobby role (e.g. data-driven home barista)",
+  "apparel": "What they typically wear in photos (e.g. clean linen shirt)",
+  "expression": "Their facial expression (e.g. focused expression)",
+  "description": "Short description of their lifestyle, motivations, and details (2-3 sentences)."
+}`;
+    } else {
+      geminiPrompt = `You are a DTC photographic director. Generate a new high-conversion photographic setting / scenery backdrop for this brand in JSON format.
+The brand guidelines parameters are:
+Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
+Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
+
+      if (prompt) {
+        geminiPrompt += `User Instructions/Prompt: "${prompt}"\n`;
+      }
+      if (reference_assets && reference_assets.length > 0) {
+        geminiPrompt += `Referenced existing brand sceneries for similarity context:\n${JSON.stringify(reference_assets, null, 2)}\n`;
+      }
+
+      geminiPrompt += `\nReturn ONLY a JSON object representing the scenery with the following keys. Do NOT wrap in markdown code blocks.
+JSON Format:
+{
+  "name": "A catchy name for the setting (e.g. Cozy Concrete Cafe Loft)",
+  "description": "Photographic background environment description (e.g. Warm sunlit residential kitchen counter made of white marble)",
+  "lighting": "Lighting atmosphere cues (e.g. natural soft warm morning side-light)",
+  "photography_style": "Camera optics and lens style cues (e.g. 35mm lens, f/1.8 cinematic medium framing, soft bokeh)"
+}`;
+    }
+
+    const textResult = await callAiModel(targetModel, geminiPrompt, true);
+    const generatedAsset = parseRobustJson(textResult);
+
+    if (!generatedAsset || typeof generatedAsset !== 'object') {
+      throw new Error('Failed to parse generation result as JSON.');
+    }
+
+    res.json({ success: true, item: generatedAsset });
+  } catch (err) {
+    console.warn(`[AI Guideline Asset Gen] Gemini call failed, falling back to local synthesis rules:`, err.message);
+
+    // High fidelity fallback generator
+    let mockAsset = {};
+    if (type === 'persona') {
+      const firstNames = ['Ethan', 'Sophia', 'Marcus', 'Olivia', 'Julian', 'Clara', 'Adrian', 'Elena', 'Lucas', 'Nora'];
+      const lastNames = ['Vance', 'Sterling', 'Gale', 'Rowe', 'Cove', 'Hale', 'Thorne', 'Beck', 'Devereux', 'Aris'];
+      const roles = ['Gourmet home barista', 'Design-conscious professional', 'Specialty coffee roaster', 'Minimalist lifestyle enthusiast', 'Tech-industry creative'];
+      const apparels = ['Structured cotton shirt', 'Clean linen overshirt', 'Monochromatic wool sweater', 'Minimalist apron over tee', 'Cozy cashmere knitwear'];
+      const expressions = ['focused', 'serene', 'contemplative', 'warm welcoming smile', 'curious observation'];
+
+      const randomName = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+      const randomAge = `${24 + Math.floor(Math.random() * 16)}-${40 + Math.floor(Math.random() * 10)}`;
+      const randomRole = roles[Math.floor(Math.random() * roles.length)];
+      const randomApparel = apparels[Math.floor(Math.random() * apparels.length)];
+      const randomExpression = expressions[Math.floor(Math.random() * expressions.length)];
+
+      let description = `A detail-oriented individual focused on aesthetics and precision. Enjoys integrating specialty coffee rituals into a clean, modern daily routine.`;
+
+      // If user prompted for a specific name/feature, parse it in description!
+      if (prompt) {
+        description += ` Tailored toward custom request: "${prompt}".`;
+      }
+      if (reference_assets && reference_assets.length > 0) {
+        const sourceNames = reference_assets.map(r => r.name).join(', ');
+        description += ` Designed as a relative variation matching characteristics of ${sourceNames}.`;
+      }
+
+      mockAsset = {
+        name: randomName,
+        age: randomAge,
+        role: randomRole,
+        apparel: randomApparel,
+        expression: randomExpression,
+        description: description
+      };
+    } else {
+      const settings = ['Minimalist Kitchen Loft', 'Bright Scandinavian Cafe Corner', 'Industrial Concrete Countertop', 'Mid-Century Wooden Credenza', 'Sunlit Modern Glasshouse Studio'];
+      const decors = ['white marble kitchen surface with warm sunlight', 'textured gray stucco wall with soft window shadow', 'warm sunlit oak breakfast bar with micro-pottery', 'matte black slate counter with brass details', 'cozy brick hearth background with concrete pour-over station'];
+      const lightings = ['warm morning side-light', 'soft diffused golden hour glow', 'direct moody window slit light', 'bright airy natural ambient lighting', 'cinematic warm rim-lighting'];
+      const photogs = ['35mm cinematic medium lens, f/1.8 soft background blur', '50mm prime lens focus, high contrast, clean angles', 'analog film texture, warm muted color palette', 'macro lens close-up with shallow depth-of-field'];
+
+      let randomDesc = decors[Math.floor(Math.random() * decors.length)];
+      if (prompt) {
+        randomDesc += ` (Custom backdrop requested: "${prompt}")`;
+      }
+      if (reference_assets && reference_assets.length > 0) {
+        const sourceNames = reference_assets.map(r => r.name).join(', ');
+        randomDesc += ` (Synthesized in contrast/style similarity to ${sourceNames})`;
+      }
+
+      mockAsset = {
+        name: settings[Math.floor(Math.random() * settings.length)],
+        description: randomDesc,
+        lighting: lightings[Math.floor(Math.random() * lightings.length)],
+        photography_style: photogs[Math.floor(Math.random() * photogs.length)]
+      };
+    }
+
+    res.json({ success: true, item: mockAsset });
+  }
+});
+
 // POST Compile brand prompt with scraped data for manual copy pasting
 app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
@@ -6129,6 +7104,69 @@ ${JSON.stringify(englishStrings, null, 2)}`;
   }
 });
 
+function parsePromptTags(promptText) {
+  if (!promptText) return { personas: [], categories: [], products: [], services: [], coupons: [], audiences: [], channels: [], commands: [] };
+  
+  const personas = [];
+  const categories = [];
+  const products = [];
+  const services = [];
+  const coupons = [];
+  const audiences = [];
+  const channels = [];
+  const commands = [];
+  
+  // 1. Parse @ tags (Personas, Categories, Products & Services)
+  const atMatches = promptText.match(/@[a-zA-Z0-9\-_]+/g) || [];
+  atMatches.forEach(match => {
+    const val = match.substring(1).toLowerCase();
+    if (['barista', 'curator', 'home-brewer'].includes(val)) {
+      personas.push(val);
+    } else if (['tamper', 'basket', 'milk', 'accessory'].includes(val)) {
+      categories.push(val);
+    } else if (val.startsWith('product-')) {
+      products.push(val.replace('product-', ''));
+    } else if (val.startsWith('service-')) {
+      services.push(val.replace('service-', ''));
+    } else {
+      categories.push(val);
+    }
+  });
+  
+  // 2. Parse % tags (Coupons & Discounts)
+  const percentMatches = promptText.match(/%[a-zA-Z0-9\-_]+/g) || [];
+  percentMatches.forEach(match => {
+    const val = match.substring(1).toUpperCase();
+    coupons.push(val);
+  });
+  
+  // 3. Parse & tags (Audiences)
+  const ampMatches = promptText.match(/&[a-zA-Z0-9\-_]+/g) || [];
+  ampMatches.forEach(match => {
+    const val = match.substring(1).toLowerCase();
+    audiences.push(val);
+  });
+  
+  // 4. Parse # tags (Channels/Platforms)
+  const hashMatches = promptText.match(/#[a-zA-Z0-9\-_]+/g) || [];
+  hashMatches.forEach(match => {
+    const val = match.substring(1).toLowerCase();
+    channels.push(val);
+  });
+  
+  // 5. Parse / commands
+  const slashMatches = promptText.match(/\/[a-zA-Z0-9\-_]+/g) || [];
+  slashMatches.forEach(match => {
+    const val = match.substring(1).toLowerCase();
+    commands.push(val);
+  });
+
+  return { personas, categories, products, services, coupons, audiences, channels, commands };
+}
+
+// Backwards compatibility alias
+const parseAtTags = parsePromptTags;
+
 app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
@@ -6153,6 +7191,7 @@ app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (r
     }
 
     const { prompt: userPrompt } = req.body;
+    const tags = parseAtTags(userPrompt);
 
     let promptInstructions = `You are a premium digital Brand Designer and Frontend Art Director.
 Analyze the following Brand Strategy Playbook:
@@ -6163,6 +7202,36 @@ ${brand.marketing_protocol}
 
     if (userPrompt) {
       promptInstructions += `\n[USER DESIGN PROMPT/REQUEST]\nThe user wants the storefront layout to match this creative direction / prompt request:\n"${userPrompt}"\n`;
+    }
+
+    if (tags.personas.length > 0) {
+      promptInstructions += `\n[TARGET AUDIENCE PERSONA RULES]`;
+      if (tags.personas.includes('barista')) {
+        promptInstructions += `\n- TARGET: @barista (Technical Barista/Extraction Scientist). Use highly technical, precise, measurement-oriented copywriting. Colors must be sleek, professional, deep charcoals/dark metals (e.g. #111111 or #1b1c1e). Button radius should be sharp/minimal (0px or 4px). Font: Outfit or Inter.`;
+      }
+      if (tags.personas.includes('curator')) {
+        promptInstructions += `\n- TARGET: @curator (Design Purist/Aesthetic Curator). Use elegant, minimalist, design-focused copywriting. Colors must be light, minimal, cream, neutral and extremely high contrast (e.g. #fbfaf8 background, #111111 text). Button radius: 0px. Font: Space Grotesk.`;
+      }
+    }
+
+    if (tags.categories.length > 0) {
+      promptInstructions += `\n- FEATURED CATEGORY THEME: Emphasize products and collections matching: ${tags.categories.join(', ')}.`;
+    }
+
+    if (tags.services.length > 0) {
+      promptInstructions += `\n- FEATURED SERVICE/CONSULTATION THEME: Emphasize brand services: ${tags.services.join(', ')}.`;
+    }
+
+    if (tags.audiences.length > 0) {
+      promptInstructions += `\n[TARGET AUDIENCE SEGMENT CONTEXT]\n- The user specifically targets customer segment rules: ${tags.audiences.join(', ')}. Tailor colors, copy focus, and styles to resonate with this specific group.`;
+    }
+
+    if (tags.channels.length > 0) {
+      promptInstructions += `\n[AD CHANNEL VISUAL FLOW FOCUS]\n- Traffic source is originating from: ${tags.channels.join(', ')}. Align page structure layout and visual flow for optimal conversion of visitors arriving from these channels.`;
+    }
+
+    if (tags.commands.length > 0) {
+      promptInstructions += `\n[DESIGN GENERATOR COMMAND DIRECTIVES]\n- Follow these custom design directives: ${tags.commands.join(', ')}.`;
     }
 
     promptInstructions += `\nDetermine a highly professional, visually stunning, cohesive color scheme, button border radius, font family, and hero copywriting blocks that perfectly matches the brand's voice, customer personas, and the user's custom design request.
@@ -6213,13 +7282,47 @@ app.post('/api/global/brands/:id/generate-ai-page', verifyAdminToken, async (req
       return res.status(404).json({ error: 'Brand not found.' });
     }
 
-    // Load product context if associated
-    let productContext = 'No specific product linked.';
+    const tags = parseAtTags(userTopic);
+
+    // Try to auto-resolve featured product/service from tags if any
     let finalProductId = productId || '';
+    if (tags.products.length > 0) {
+      const prodTag = tags.products[0];
+      const matchingProduct = await getQuery(
+        'SELECT id FROM products WHERE brand_id = $1 AND (id = $2 OR LOWER(title) LIKE $3)',
+        [brandId, isNaN(Number(prodTag)) ? -1 : Number(prodTag), `%${prodTag.toLowerCase()}%`]
+      );
+      if (matchingProduct) {
+        finalProductId = matchingProduct.id;
+      }
+    } else if (tags.services.length > 0) {
+      const servTag = tags.services[0];
+      const matchingProduct = await getQuery(
+        'SELECT id FROM products WHERE brand_id = $1 AND (id = $2 OR LOWER(title) LIKE $3)',
+        [brandId, isNaN(Number(servTag)) ? -1 : Number(servTag), `%${servTag.toLowerCase()}%`]
+      );
+      if (matchingProduct) {
+        finalProductId = matchingProduct.id;
+      }
+    } else if (tags.categories.length > 0) {
+      // Try to find a product matching the category tag
+      const catTag = tags.categories[0];
+      const matchingProduct = await getQuery(
+        'SELECT id FROM products WHERE brand_id = $1 AND (LOWER(category) = $2 OR LOWER(title) LIKE $3)',
+        [brandId, catTag.toLowerCase(), `%${catTag.toLowerCase()}%`]
+      );
+      if (matchingProduct) {
+        finalProductId = matchingProduct.id;
+      }
+    }
+
+    // Load product/service context if associated
+    let productContext = 'No specific product/service linked.';
     if (finalProductId) {
-      const product = await getQuery('SELECT title, description, price FROM products WHERE id = $1 AND brand_id = $2', [finalProductId, brandId]);
+      const product = await getQuery('SELECT title, description, price, type FROM products WHERE id = $1 AND brand_id = $2', [finalProductId, brandId]);
       if (product) {
-        productContext = `Product: ${product.title} (€${parseFloat(product.price).toFixed(2)})\nDescription: ${product.description || ''}`;
+        const typeLabel = product.type === 'service' ? 'Service' : 'Product';
+        productContext = `${typeLabel}: ${product.title} (€${parseFloat(product.price).toFixed(2)})\nDescription: ${product.description || ''}`;
       } else {
         finalProductId = ''; // clear if invalid
       }
@@ -6230,6 +7333,33 @@ app.post('/api/global/brands/:id/generate-ai-page', verifyAdminToken, async (req
     // Check tier permissions
     if (selectedModel && !isModelAllowedForTier(selectedModel, brand.ai_tier)) {
       return res.status(403).json({ error: `Selected model is not allowed under the brand's commercial tier (${brand.ai_tier}). Please upgrade your plan.` });
+    }
+
+    let personaInstructions = '';
+    if (tags.personas.includes('barista')) {
+      personaInstructions = `\nCRITICAL: Optimize for the persona @barista (Technical Barista/Extraction Scientist). Use precise, scientific, temperature/extraction-oriented, technical language (e.g. extraction precision, thermal stability, flow dynamics).`;
+    } else if (tags.personas.includes('curator')) {
+      personaInstructions = `\nCRITICAL: Optimize for the persona @curator (Design Purist/Aesthetic Curator). Use design-oriented, aesthetic, minimalist, clean, tactile language (e.g. minimalist aesthetics, tactile feedback, craftsmanship).`;
+    }
+
+    let couponInstructions = '';
+    if (tags.coupons.length > 0) {
+      couponInstructions = `\nCRITICAL: Use and display the coupon code: "${tags.coupons[0]}" in the copywriting and CTA button text.`;
+    }
+
+    let audienceInstructions = '';
+    if (tags.audiences.length > 0) {
+      audienceInstructions = `\nCRITICAL: Address the customer segment "${tags.audiences[0]}" explicitly or implicitly in your copywriting tone, highlighting benefits relevant to their past interactions.`;
+    }
+
+    let channelInstructions = '';
+    if (tags.channels.length > 0) {
+      channelInstructions = `\nCRITICAL: Optimize copy and hook layout constraints for traffic arriving from the channel "${tags.channels[0]}".`;
+    }
+
+    let commandInstructions = '';
+    if (tags.commands.length > 0) {
+      commandInstructions = `\nCRITICAL: Adhere to the following prompt directives: ${tags.commands.join(', ')}.`;
     }
 
     const prompt = `You are an elite Performance Copywriter and UX Architect.
@@ -6243,6 +7373,11 @@ ${productContext}
 
 Campaign Theme/Topic:
 ${userTopic}
+${personaInstructions}
+${couponInstructions}
+${audienceInstructions}
+${channelInstructions}
+${commandInstructions}
 
 Return ONLY a JSON object representing the page structure and copy content:
 {
@@ -6251,59 +7386,62 @@ Return ONLY a JSON object representing the page structure and copy content:
   "subheadline": "An explanatory subheadline matching the brand voice",
   "cta": "Action button text e.g. Order Now with 20% Off",
   "coupon_code": "Promo coupon code e.g. SAVE20",
-  "features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Precision Shower Screen\n☕ Zero Channeling Guarantee\n📦 Worldwide Express Shipping"
+  "features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Precision Shower Screen\\n☕ Zero Channeling Guarantee\\n📦 Worldwide Express Shipping"
 }`;
 
     console.log(`[AI Page Generator] Drafting campaign landing page structure for brand: ${brandId} using model: ${targetModel}`);
     const apiResult = await callAiModelWithUsage(targetModel, prompt, true);
     const pageDraft = parseRobustJson(apiResult.text);
 
+    // If user specified coupon code, ensure we use that as final fallback override
+    const finalCoupon = tags.coupons.length > 0 ? tags.coupons[0] : (pageDraft.coupon_code || '');
+
     // Log usage metadata
     await logAiUsage(brandId, 'Campaign Page Structure Generation', targetModel, apiResult.usage);
 
-      // Automatically persist/save to the brand's landing_pages array inside theme_settings!
-      let theme = {};
-      if (brand.theme_settings) {
-        try {
-          theme = JSON.parse(brand.theme_settings);
-        } catch (e) {}
-      }
+    // Automatically persist/save to the brand's landing_pages array inside theme_settings!
+    let theme = {};
+    if (brand.theme_settings) {
+      try {
+        theme = JSON.parse(brand.theme_settings);
+      } catch (e) {}
+    }
 
-      const existingPages = theme.landing_pages || [];
-      const newPageId = 'lp_' + Math.random().toString(36).substring(2, 9);
-      const newPageObj = {
-        id: newPageId,
-        title: pageDraft.title || userTopic,
-        type: 'standard',
-        product_id: finalProductId,
-        inherit: true, // inherits brand colors
-        headline: pageDraft.headline || '',
-        subheadline: pageDraft.subheadline || '',
-        cta: pageDraft.cta || '',
-        coupon_code: pageDraft.coupon_code || '',
-        features: pageDraft.features || '',
-        hero_img: '',
-        created_at: new Date().toISOString()
-      };
+    const existingPages = theme.landing_pages || [];
+    const newPageId = 'lp_' + Math.random().toString(36).substring(2, 9);
+    const newPageObj = {
+      id: newPageId,
+      title: pageDraft.title || userTopic,
+      type: finalProductId ? 'product' : 'coupon',
+      product_id: finalProductId,
+      inherit: true, // inherits brand colors
+      headline: pageDraft.headline || '',
+      subheadline: pageDraft.subheadline || '',
+      cta: pageDraft.cta || '',
+      coupon_code: finalCoupon,
+      features: pageDraft.features || '',
+      hero_img: '',
+      created_at: new Date().toISOString()
+    };
 
-      existingPages.push(newPageObj);
-      theme.landing_pages = existingPages;
+    existingPages.push(newPageObj);
+    theme.landing_pages = existingPages;
 
-      // Set fallback parameters if this is the first page
-      if (existingPages.length === 1) {
-        theme.landing_inherit = true;
-        theme.landing_type = 'standard';
-        theme.landing_product_id = finalProductId;
-        theme.landing_headline = pageDraft.headline;
-        theme.landing_subheadline = pageDraft.subheadline;
-        theme.landing_cta = pageDraft.cta;
-        theme.landing_features = pageDraft.features;
-        theme.landing_coupon_code = pageDraft.coupon_code;
-      }
+    // Set fallback parameters if this is the first page
+    if (existingPages.length === 1) {
+      theme.landing_inherit = true;
+      theme.landing_type = finalProductId ? 'product' : 'coupon';
+      theme.landing_product_id = finalProductId;
+      theme.landing_headline = pageDraft.headline;
+      theme.landing_subheadline = pageDraft.subheadline;
+      theme.landing_cta = pageDraft.cta;
+      theme.landing_features = pageDraft.features;
+      theme.landing_coupon_code = finalCoupon;
+    }
 
-      await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [JSON.stringify(theme), brandId]);
+    await runQuery('UPDATE brands SET theme_settings = $1 WHERE id = $2', [JSON.stringify(theme), brandId]);
 
-      res.json({ success: true, page: newPageObj });
+    res.json({ success: true, page: newPageObj });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -6343,9 +7481,22 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
       ORDER BY cost_usd DESC
     `, [brandId]);
 
+    // 2.5 Cost and counts breakdown by modality
+    const modalityBreakdown = await allQuery(`
+      SELECT 
+        modality,
+        COUNT(id) as calls_count,
+        COALESCE(SUM(total_tokens), 0) as total_tokens,
+        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd
+      FROM ai_usage_logs
+      WHERE brand_id = $1
+      GROUP BY modality
+      ORDER BY cost_usd DESC
+    `, [brandId]);
+
     // 3. Recent logs (last 15 records)
     const logs = await allQuery(`
-      SELECT id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, created_at
+      SELECT id, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, created_at, modality
       FROM ai_usage_logs
       WHERE brand_id = $1
       ORDER BY created_at DESC
@@ -6367,6 +7518,12 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         total_tokens: parseInt(b.total_tokens, 10),
         cost_usd: parseFloat(parseFloat(b.cost_usd).toFixed(6))
       })),
+      modality_breakdown: modalityBreakdown.map(mb => ({
+        modality: mb.modality || 'text',
+        calls_count: parseInt(mb.calls_count, 10),
+        total_tokens: parseInt(mb.total_tokens, 10),
+        cost_usd: parseFloat(parseFloat(mb.cost_usd).toFixed(6))
+      })),
       recent_logs: logs.map(l => ({
         id: l.id,
         operation: l.operation,
@@ -6375,7 +7532,8 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         completion_tokens: l.completion_tokens,
         total_tokens: l.total_tokens,
         estimated_cost_usd: parseFloat(parseFloat(l.estimated_cost_usd).toFixed(6)),
-        created_at: l.created_at
+        created_at: l.created_at,
+        modality: l.modality || 'text'
       }))
     });
   } catch (err) {
@@ -6933,7 +8091,7 @@ app.get('/api/global/products', verifyAdminToken, async (req, res) => {
 
 // Add new product to specific brand
 app.post('/api/global/products', verifyAdminToken, async (req, res) => {
-  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit } = req.body;
+  const { brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit, type } = req.body;
 
   if (!brand_id || !title || !price) {
     return res.status(400).json({ error: 'Missing required fields: brand_id, title, price' });
@@ -6961,10 +8119,11 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
     const metaDetailsJson = meta_details ? (typeof meta_details === 'string' ? meta_details : JSON.stringify(meta_details)) : null;
     const initialStock = inventory_quantity !== undefined && inventory_quantity !== null ? parseInt(inventory_quantity) : null;
     const initialLimit = sales_limit !== undefined && sales_limit !== null ? parseInt(sales_limit) : null;
+    const finalType = type || 'product';
 
     await runQuery(`
-      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      INSERT INTO products (brand_id, title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit, type)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
     `, [
       brand_id,
       title,
@@ -6985,7 +8144,8 @@ app.post('/api/global/products', verifyAdminToken, async (req, res) => {
       details_source || (external_id ? 'external' : 'manual'),
       finalOriginalPrice,
       initialStock,
-      initialLimit
+      initialLimit,
+      finalType
     ]);
 
     addAuditLog("Catalog Product Create", "success", `Product "${title}" (SKU: ${sku || 'N/A'}) manually added to brand ${brand_id}.`);
@@ -7148,7 +8308,7 @@ app.post('/api/global/products/generate-seo', verifyAdminToken, async (req, res)
 // Update product in catalog
 app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
   const { id } = req.params;
-  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit } = req.body;
+  const { title, price, currency, image, description, tag, original_link, long_description, features, compatibility, sku, external_id, active, translations, meta_details, price_source, details_source, original_price, inventory_quantity, sales_limit, type } = req.body;
 
   try {
     const product = await getQuery('SELECT brand_id, price, original_price, price_source FROM products WHERE id = $1', [parseInt(id, 10)]);
@@ -7178,6 +8338,7 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
     const metaDetailsJson = meta_details ? (typeof meta_details === 'string' ? meta_details : JSON.stringify(meta_details)) : null;
     const updatedStock = inventory_quantity !== undefined && inventory_quantity !== null ? parseInt(inventory_quantity) : null;
     const updatedLimit = sales_limit !== undefined && sales_limit !== null ? parseInt(sales_limit) : null;
+    const finalType = type || 'product';
 
     await runQuery(`
       UPDATE products 
@@ -7201,8 +8362,9 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
           original_price = $18,
           inventory_quantity = $19,
           sales_limit = $20,
+          type = $21,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $21
+      WHERE id = $22
     `, [
       title,
       parseFloat(finalPrice.toFixed(2)),
@@ -7224,6 +8386,7 @@ app.put('/api/global/products/:id', verifyAdminToken, async (req, res) => {
       finalOriginalPrice,
       updatedStock,
       updatedLimit,
+      finalType,
       parseInt(id, 10)
     ]);
 
@@ -7382,9 +8545,10 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
     const order = await getQuery('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (!order) return;
 
-    // Deduct stock levels and increment platform sales totals
+    let itemsSummary = '';
     try {
       const orderItems = JSON.parse(order.items || '[]');
+      itemsSummary = orderItems.map(item => `${item.title} (${item.type || 'product'})`).join(', ');
       for (const item of orderItems) {
         await runQuery(`
           UPDATE products 
@@ -7394,10 +8558,21 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
             updated_at = CURRENT_TIMESTAMP
           WHERE id = $2
         `, [item.quantity, item.id]);
+
+        // Reserve physical warehouse stock
+        const prod = await getQuery('SELECT sku FROM products WHERE id = $1', [item.id]);
+        if (prod && prod.sku) {
+          await runQuery(`
+            INSERT INTO warehouse_stock (brand_id, sku, bin_location, quantity_on_hand, quantity_reserved)
+            VALUES ($1, $2, 'A-1', 150, $3)
+            ON CONFLICT (brand_id, sku) DO UPDATE
+            SET quantity_reserved = warehouse_stock.quantity_reserved + $3
+          `, [order.brand_id, prod.sku, item.quantity]);
+        }
       }
-      console.log(`[Inventory Engine] Deducted stock levels for order ${orderId} items.`);
+      console.log(`[Inventory Engine] Deducted stock and reserved warehouse stock for order ${orderId} items.`);
     } catch (invErr) {
-      console.error(`[Inventory Engine] Failed to deduct stock for order ${orderId}:`, invErr.message);
+      console.error(`[Inventory Engine] Failed to deduct/reserve stock for order ${orderId}:`, invErr.message);
     }
 
     // Split-Payment Split Engine for external merchants (writes to merchant_payout_ledger)
@@ -7412,10 +8587,19 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
       processingFee = Math.round((grossAmount * 0.014 + 0.25) * 100) / 100;
     }
 
-    if (brand.billing_type === 'external_split' || brand.billing_type === 'free') {
+    if (brand.billing_type === 'external_split' || brand.billing_type === 'free' || brand.billing_type === 'direct_checkout') {
       const existingLedger = await getQuery('SELECT id FROM merchant_payout_ledger WHERE order_id = $1', [orderId]);
       if (!existingLedger) {
-        const netAmount = Math.max(0.00, Math.round((grossAmount - platformMargin - processingFee) * 100) / 100);
+        let netAmount = 0.00;
+        let ledgerDescription = '';
+        if (brand.billing_type === 'direct_checkout') {
+          // Direct checkout: merchant collected funds directly. Merchant owes platform the take-rate fee.
+          netAmount = -platformMargin;
+          ledgerDescription = `Direct checkout platform commission for order ${orderId} (${brand.name}). Items: ${itemsSummary || 'N/A'}. Platform take-rate: ${(takeRate * 100).toFixed(1)}% (Fee: €${platformMargin.toFixed(2)})`;
+        } else {
+          netAmount = Math.max(0.00, Math.round((grossAmount - platformMargin - processingFee) * 100) / 100);
+          ledgerDescription = `Split payment for order ${orderId} (${brand.name}). Items: ${itemsSummary || 'N/A'}. Platform take-rate: ${(takeRate * 100).toFixed(1)}% (€${platformMargin.toFixed(2)}), estimated Stripe processing fee: €${processingFee.toFixed(2)}`;
+        }
         await runQuery(`
           INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, processing_fee, net_amount, type, description)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -7427,9 +8611,9 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
           processingFee,
           netAmount,
           'sale',
-          `Split payment for order ${orderId} (${brand.name}). Platform take-rate: ${(takeRate * 100).toFixed(1)}% (€${platformMargin.toFixed(2)}), estimated Stripe processing fee: €${processingFee.toFixed(2)}`
+          ledgerDescription
         ]);
-        console.log(`[Split Engine] Logged ledger sale for brand ${brand.id}, order ${orderId}. Gross: €${grossAmount}, Platform margin: €${platformMargin}, Processing Fee: €${processingFee}, Net: €${netAmount}`);
+        console.log(`[Split Engine] Logged ledger sale for brand ${brand.id}, order ${orderId}. Gross: €${grossAmount}, Platform margin: €${platformMargin}, Net effect: €${netAmount}`);
       }
     }
 
@@ -7459,7 +8643,7 @@ async function handleSuccessfulPayment(orderId, customerInfo, paymentIntentId, b
               agencyShare,
               platformShare,
               initialStatus,
-              `Split commission share for order ${orderId} (${brand.name}). Agency split: ${(marginShareRatio * 100).toFixed(1)}%`
+              `Split commission share for order ${orderId} (${brand.name}). Items: ${itemsSummary || 'N/A'}. Agency split: ${(marginShareRatio * 100).toFixed(1)}%`
             ]);
             console.log(`[Agency Split Engine] Logged agency split for agency ${brand.agency_id}. Brand: ${brand.id}, Status: ${initialStatus}, Total Margin: €${platformMargin}, Agency Share: €${agencyShare}, Platform Share: €${platformShare}`);
           }
@@ -7775,6 +8959,13 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
           const formatted = data.products.map(p => {
             const firstVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
             const parsedDetails = extractProductDetailsFromHtml(p.body_html);
+            const pTypeLower = (p.product_type || '').toLowerCase();
+            const tagsLower = (p.tags || '').toLowerCase();
+            const isService = (firstVariant && firstVariant.requires_shipping === false) ||
+                              pTypeLower.includes('service') || pTypeLower.includes('consult') || pTypeLower.includes('train') || pTypeLower.includes('course') || pTypeLower.includes('booking') ||
+                              tagsLower.includes('service') || tagsLower.includes('consult') || tagsLower.includes('train') || tagsLower.includes('course') || tagsLower.includes('booking');
+            const itemType = isService ? 'service' : 'product';
+
             return {
               id: p.id,
               title: p.title,
@@ -7786,7 +8977,8 @@ app.get('/api/global/shopify-import', verifyAdminToken, async (req, res) => {
               compatibility: parsedDetails.compatibility,
               sku: firstVariant ? firstVariant.sku : '',
               external_id: firstVariant ? String(firstVariant.id) : String(p.id),
-              inventory_quantity: firstVariant && firstVariant.inventory_quantity !== undefined ? firstVariant.inventory_quantity : null
+              inventory_quantity: firstVariant && firstVariant.inventory_quantity !== undefined ? firstVariant.inventory_quantity : null,
+              type: itemType
             };
           });
           return res.json({ success: true, products: formatted, source: 'shopify_api' });
@@ -9154,11 +10346,84 @@ async function checkDeliveryStatusPolling() {
 setInterval(processDueSubscriptions, 60000);
 setInterval(checkDeliveryStatusPolling, 15000); // Check every 15 seconds in dev/local
 
+// GET Global Platform Billing & Subscription Overview (Superadmin Only)
+app.get('/api/global/billing/overview', verifyAdminToken, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'superadmin') {
+    return res.status(403).json({ error: 'Permission denied. Superadmin access required.' });
+  }
+
+  try {
+    // Fetch all brands with billing details
+    const brands = await allQuery(`
+      SELECT b.id, b.name, b.subdomain, b.ai_tier, b.subscription_billing_method, b.platform_take_rate, b.custom_subscription_price,
+             COALESCE(ledger_sum.balance, 0.00) as ledger_balance,
+             COALESCE(ai_sum.cost, 0.00) as ai_cost
+      FROM brands b
+      LEFT JOIN (
+        SELECT brand_id, SUM(net_amount) as balance 
+        FROM merchant_payout_ledger 
+        GROUP BY brand_id
+      ) ledger_sum ON ledger_sum.brand_id = b.id
+      LEFT JOIN (
+        SELECT brand_id, SUM(estimated_cost_usd) as cost 
+        FROM ai_usage_logs 
+        GROUP BY brand_id
+      ) ai_sum ON ai_sum.brand_id = b.id
+      ORDER BY b.name ASC
+    `);
+
+    // Fetch consolidated list of all invoices
+    const invoices = await allQuery(`
+      SELECT i.*, b.name as brand_name
+      FROM invoices i
+      JOIN brands b ON b.id = i.brand_id
+      ORDER BY i.created_at DESC
+      LIMIT 100
+    `);
+
+    // Fetch total platform summary metrics
+    const statsResult = await getQuery(`
+      SELECT 
+        COUNT(id) as total_brands,
+        SUM(CASE WHEN ai_tier = 'enterprise' THEN 1 ELSE 0 END) as enterprise_count,
+        SUM(CASE WHEN ai_tier = 'professional' THEN 1 ELSE 0 END) as professional_count,
+        SUM(CASE WHEN ai_tier = 'standard' THEN 1 ELSE 0 END) as standard_count
+      FROM brands
+    `);
+
+    const ledgerTotalResult = await getQuery('SELECT SUM(net_amount) as balance FROM merchant_payout_ledger');
+    const aiTotalResult = await getQuery('SELECT SUM(estimated_cost_usd) as cost FROM ai_usage_logs');
+
+    // Calculate MRR from tiers
+    let calculatedMRR = 0;
+    for (const b of brands) {
+      if (b.custom_subscription_price !== null && b.custom_subscription_price !== undefined) {
+        calculatedMRR += parseFloat(b.custom_subscription_price);
+      } else {
+        if (b.ai_tier === 'enterprise') calculatedMRR += 499;
+        else if (b.ai_tier === 'professional') calculatedMRR += 149;
+        else if (b.ai_tier === 'standard') calculatedMRR += 49;
+      }
+    }
+
+    res.json({
+      brands,
+      invoices,
+      total_brands: parseInt(statsResult?.total_brands) || 0,
+      total_ledger_balance: parseFloat(ledgerTotalResult?.balance) || 0.00,
+      total_ai_cost: parseFloat(aiTotalResult?.cost) || 0.00,
+      mrr: calculatedMRR
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET Payout Ledger and calculated balance for a brand
 app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res) => {
   const { brandId } = req.params;
   try {
-    const brand = await getQuery('SELECT stripe_connect_account_id, subscription_billing_method, stripe_customer_id FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT stripe_connect_account_id, subscription_billing_method, stripe_customer_id, stripe_enabled FROM brands WHERE id = $1', [brandId]);
     if (!brand) {
       return res.status(404).json({ error: 'Brand not found' });
     }
@@ -9194,6 +10459,10 @@ app.get('/api/global/billing/ledger/:brandId', verifyAdminToken, async (req, res
       } catch (err) {
         console.error(`[Stripe Customer Retrieve Error] Brand ${brandId}:`, err.message);
       }
+    }
+    // Sandbox / mock fallback
+    if (!hasCardLinked && brand.stripe_enabled) {
+      hasCardLinked = true;
     }
     
     const activeSub = await getQuery(`SELECT amount FROM merchant_subscriptions WHERE brand_id = $1 AND status = 'active'`, [brandId]);
@@ -9359,6 +10628,7 @@ app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =>
     const rows = await allQuery('SELECT * FROM marketing_campaigns WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
     const parsedRows = rows.map(r => ({
       ...r,
+      ad_cta: r.ad_cta || 'Shop Now',
       carousel_cards: r.carousel_cards ? (typeof r.carousel_cards === 'string' ? JSON.parse(r.carousel_cards) : r.carousel_cards) : [],
       translations: r.translations ? (typeof r.translations === 'string' ? JSON.parse(r.translations) : r.translations) : null,
       performance_history: r.performance_history ? (typeof r.performance_history === 'string' ? JSON.parse(r.performance_history) : r.performance_history) : [],
@@ -9385,7 +10655,7 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
     start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
     automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails,
     enable_ab_testing, ab_test_headlines, ab_test_descriptions, ab_test_links, ab_test_media_urls,
-    warmup_days, warmup_budget_percent, lookalike_seeding_enabled
+    warmup_days, warmup_budget_percent, lookalike_seeding_enabled, ad_cta
   } = req.body;
 
   if (!name || !platform || !budget) {
@@ -9415,9 +10685,9 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         start_date, end_date, budget_type, bidding_strategy, target_roas, performance_history, status,
         automation_rules, autopilot_enabled, ai_cost, agent_mode, autopilot_guardrails,
         enable_ab_testing, ab_test_headlines, ab_test_descriptions, ab_test_links, ab_test_media_urls,
-        warmup_days, warmup_budget_percent, lookalike_seeding_enabled
+        warmup_days, warmup_budget_percent, lookalike_seeding_enabled, ad_cta
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         platform = EXCLUDED.platform,
@@ -9453,7 +10723,8 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
         ab_test_media_urls = EXCLUDED.ab_test_media_urls,
         warmup_days = EXCLUDED.warmup_days,
         warmup_budget_percent = EXCLUDED.warmup_budget_percent,
-        lookalike_seeding_enabled = EXCLUDED.lookalike_seeding_enabled
+        lookalike_seeding_enabled = EXCLUDED.lookalike_seeding_enabled,
+        ad_cta = EXCLUDED.ad_cta
     `, [
       campaignId,
       brandId,
@@ -9491,7 +10762,8 @@ app.post('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) =
       ab_test_media_urls ? (typeof ab_test_media_urls === 'string' ? ab_test_media_urls : JSON.stringify(ab_test_media_urls)) : '[]',
       parseInt(warmup_days || 3),
       parseInt(warmup_budget_percent || 15),
-      lookalike_seeding_enabled === true || lookalike_seeding_enabled === 'true'
+      lookalike_seeding_enabled === true || lookalike_seeding_enabled === 'true',
+      ad_cta || 'Shop Now'
     ]);
     res.json({ success: true, campaignId });
   } catch (err) {
@@ -10725,13 +11997,204 @@ app.delete('/api/global/marketing-campaigns/:id', verifyAdminToken, async (req, 
   }
 });
 
+// GET marketing audiences for a brand
+app.get('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    const brand = await oneQuery('SELECT platform FROM brands WHERE id = $1', [brandId]);
+    const platform = brand ? (brand.platform || 'shopify') : 'shopify';
+
+    let rows = await allQuery('SELECT * FROM marketing_audiences WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    if (rows.length === 0) {
+      const defaults = [
+        {
+          id: `${brandId}-vip-customers`,
+          name: 'VIP Spenders',
+          rules: JSON.stringify({
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'total_spent', operator: 'gt', value: 150 },
+              { type: 'rule', field: 'orders_count', operator: 'gt', value: 3 }
+            ]
+          })
+        },
+        {
+          id: `${brandId}-churn-risk`,
+          name: 'Churn Risk',
+          rules: JSON.stringify({
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'days_since_last_order', operator: 'gt', value: 45 },
+              { type: 'rule', field: 'total_spent', operator: 'gt', value: 20 }
+            ]
+          })
+        },
+        {
+          id: `${brandId}-new-signups`,
+          name: 'New Signups',
+          rules: JSON.stringify({
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'orders_count', operator: 'eq', value: 0 }
+            ]
+          })
+        }
+      ];
+
+      for (const d of defaults) {
+        await runQuery(
+          `INSERT INTO marketing_audiences (id, brand_id, name, rules) 
+           VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+          [d.id, brandId, d.name, d.rules]
+        );
+      }
+      rows = await allQuery('SELECT * FROM marketing_audiences WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    }
+
+    const parsed = rows.map(r => ({
+      ...r,
+      rules: r.rules ? JSON.parse(r.rules) : {}
+    }));
+
+    // Inject native segments from Shopify/WooCommerce based on connected e-commerce platform
+    let syncedSegments = [];
+    if (platform === 'woocommerce') {
+      syncedSegments = [
+        {
+          id: `${brandId}-wc-repeat-buyers`,
+          brand_id: brandId,
+          name: 'WooCommerce Repeat Buyers',
+          source: 'woocommerce',
+          sync_color: '#96588a',
+          rules: {
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'orders_count', operator: 'gt', value: 1 }
+            ]
+          },
+          is_synced: true
+        },
+        {
+          id: `${brandId}-wc-dormant-buyers`,
+          brand_id: brandId,
+          name: 'WooCommerce Dormant Buyers',
+          source: 'woocommerce',
+          sync_color: '#96588a',
+          rules: {
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'days_since_last_order', operator: 'gt', value: 30 }
+            ]
+          },
+          is_synced: true
+        }
+      ];
+    } else {
+      syncedSegments = [
+        {
+          id: `${brandId}-shopify-high-ltv`,
+          brand_id: brandId,
+          name: 'Shopify High LTV Customers',
+          source: 'shopify',
+          sync_color: '#96bf48',
+          rules: {
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'total_spent', operator: 'gt', value: 200 }
+            ]
+          },
+          is_synced: true
+        },
+        {
+          id: `${brandId}-shopify-abandoned-cart`,
+          brand_id: brandId,
+          name: 'Shopify Abandoned Carts',
+          source: 'shopify',
+          sync_color: '#96bf48',
+          rules: {
+            type: 'group',
+            logicalOperator: 'AND',
+            rules: [
+              { type: 'rule', field: 'orders_count', operator: 'eq', value: 0 },
+              { type: 'rule', field: 'days_since_last_order', operator: 'gt', value: 7 }
+            ]
+          },
+          is_synced: true
+        }
+      ];
+    }
+
+    res.json({ success: true, audiences: [...syncedSegments, ...parsed] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST create/update marketing audience
+app.post('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  const { id, name, rules } = req.body;
+  if (!id || !name || !rules) {
+    return res.status(400).json({ error: 'Missing audience parameters (id, name, rules).' });
+  }
+
+  // Validate ID format (must start with letter/number, allow hyphens/underscores)
+  const slugPattern = /^[a-zA-Z0-9\-_]+$/;
+  if (!slugPattern.test(id)) {
+    return res.status(400).json({ error: 'Audience ID must be alphanumeric and hyphens/underscores only.' });
+  }
+
+  try {
+    const rulesStr = JSON.stringify(rules);
+    await runQuery(
+      `INSERT INTO marketing_audiences (id, brand_id, name, rules) 
+       VALUES ($1, $2, $3, $4) 
+       ON CONFLICT (id) 
+       DO UPDATE SET name = EXCLUDED.name, rules = EXCLUDED.rules`,
+      [id, brandId, name, rulesStr]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE marketing audience
+app.delete('/api/global/brands/:id/audiences/:audienceId', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+
+  try {
+    await runQuery('DELETE FROM marketing_audiences WHERE id = $1 AND brand_id = $2', [req.params.audienceId, brandId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET consolidated media library
 app.get('/api/global/media', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
   if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
 
   try {
-    const products = await allQuery('SELECT id, title, image FROM products WHERE brand_id = $1', [brandId]);
+    const products = await allQuery('SELECT id, title, image, visual_dna FROM products WHERE brand_id = $1', [brandId]);
     const brand = await getQuery('SELECT id, name, logo, favicon FROM brands WHERE id = $1', [brandId]);
     const library = await allQuery('SELECT id, title, url, folder, created_at, metadata FROM media_library WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
 
@@ -10740,12 +12203,19 @@ app.get('/api/global/media', verifyAdminToken, async (req, res) => {
     // Products folder
     products.forEach(p => {
       if (p.image) {
+        let parsedDna = null;
+        if (p.visual_dna) {
+          try {
+            parsedDna = typeof p.visual_dna === 'string' ? JSON.parse(p.visual_dna) : p.visual_dna;
+          } catch(e) {}
+        }
         mediaItems.push({
           id: `prod_${p.id}`,
           title: p.title || 'Product Graphic',
           url: p.image,
           folder: 'Products',
           source_type: 'product',
+          metadata: parsedDna,
           created_at: new Date().toISOString()
         });
       }
@@ -10978,6 +12448,57 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
         structuredPrompt += ` Extra creative style cue: ${prompt}.`;
       }
       console.log(`[AI Studio] Assembled Visual Studio Prompt: "${structuredPrompt}"`);
+    }
+
+    // Optional Prompt Optimization step using Gemini model calls
+    const { optimizePrompt } = req.body;
+    if (optimizePrompt && (action === 'image' || action === 'generate')) {
+      console.log(`[AI Studio] Optimizing prompt with AI: "${structuredPrompt}"`);
+      let rawPromptText = structuredPrompt;
+      let enginePrefix = '';
+      if (structuredPrompt.startsWith('[Engine:')) {
+        const idx = structuredPrompt.indexOf(']');
+        if (idx !== -1) {
+          enginePrefix = structuredPrompt.substring(0, idx + 1) + ' ';
+          rawPromptText = structuredPrompt.substring(idx + 1).trim();
+        }
+      }
+      
+      const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+      if (apiKey) {
+        const targetModel = getTargetModel(brand.ai_tier || 'professional');
+        const bannedList = (canvas.controlled_vocabulary && canvas.controlled_vocabulary.banned) || [];
+        const approvedList = (canvas.controlled_vocabulary && canvas.controlled_vocabulary.approved) || [];
+        const visualDirection = canvas.visual_direction || '';
+        
+        const optimizationSystemPrompt = `You are an expert AI prompt engineer for text-to-image models (like Imagen 3 and Flux).
+Modify and expand the user's raw input prompt into a highly detailed, visually evocative, and professional text-to-image prompt.
+
+Guidelines:
+1. Describe textures, physical materials, precise lighting (e.g. volumetric, chiaroscuro, natural side window light), camera optics (e.g. 50mm f/1.2 portrait lens, soft bokeh, shallow depth of field), composition, and background details in depth.
+2. Adhere to these Brand Guidelines:
+   Visual Direction Guidelines: ${visualDirection}
+   Primary Color theme: ${brand.primary_color || '#c5a059'}
+3. Respect the Controlled Vocabulary:
+   - BANNED terms (DO NOT USE or mention any of these under any circumstance): ${bannedList.join(', ') || 'none'}
+   - APPROVED terms (incorporate if relevant): ${approvedList.join(', ') || 'none'}
+4. Avoid generic buzzwords like "photorealistic", "hyperrealistic", "super details", "4K", or "rendering". Instead, specify realistic physical properties of the materials and lights.
+
+Input Prompt:
+"${rawPromptText}"
+
+Return ONLY the optimized prompt string. Do not wrap in markdown or include conversational text.`;
+
+        try {
+          const optimizedText = await callAiModel(targetModel, optimizationSystemPrompt, false);
+          if (optimizedText && optimizedText.trim()) {
+            structuredPrompt = `${enginePrefix}${optimizedText.trim()}`;
+            console.log(`[AI Studio] AI Optimized Prompt: "${structuredPrompt}"`);
+          }
+        } catch (e) {
+          console.error('[AI Studio] Prompt optimization failed, using default compiled prompt:', e);
+        }
+      }
     }
 
     let mediaUrl = '';
@@ -11269,7 +12790,56 @@ app.post('/api/global/translate', verifyAdminToken, async (req, res) => {
 });
 
 // Start Server
-app.listen(port, async () => {
+const server = http.createServer(app);
+
+// WebSocket Server initialization
+const wss = new WebSocketServer({ server });
+const clients = new Map(); // Map ticketId/globalId -> Set of WS connections
+
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url, 'http://localhost');
+  const ticketId = url.searchParams.get('ticketId') || 'global-admin-alerts';
+  
+  if (!clients.has(ticketId)) {
+    clients.set(ticketId, new Set());
+  }
+  clients.get(ticketId).add(ws);
+  
+  ws.on('close', () => {
+    const set = clients.get(ticketId);
+    if (set) {
+      set.delete(ws);
+      if (set.size === 0) {
+        clients.delete(ticketId);
+      }
+    }
+  });
+});
+
+// Helper function to broadcast support messages to active clients
+function broadcastTicketUpdate(ticketId, data) {
+  const set = clients.get(ticketId);
+  if (set) {
+    const payload = JSON.stringify(data);
+    for (const ws of set) {
+      if (ws.readyState === 1) { // OPEN
+        ws.send(payload);
+      }
+    }
+  }
+  // Also send to global admins listening to alerts
+  const alertSet = clients.get('global-admin-alerts');
+  if (alertSet && ticketId !== 'global-admin-alerts') {
+    const alertPayload = JSON.stringify({ type: 'message_alert', ticketId, ...data });
+    for (const ws of alertSet) {
+      if (ws.readyState === 1) {
+        ws.send(alertPayload);
+      }
+    }
+  }
+}
+
+server.listen(port, async () => {
   console.log(`Server listening on port ${port}`);
   await loadPricingCache();
   // Initiate immediate delivery checks after a short delay to let DB migrations finish

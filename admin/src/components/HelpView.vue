@@ -17,8 +17,8 @@
             </div>
 
             <!-- Main Content Area -->
-            <div class="panel" style="height: 100%; overflow-y: auto; display: flex; flex-direction: column;">
-                <div class="panel-header">
+            <div class="panel" style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="panel-header" style="flex-shrink: 0; margin-bottom: 20px;">
                     <h3 class="panel-title">Help Center Guidelines</h3>
                     <div style="position: relative; width: 300px;">
                         <input type="text" v-model="searchQuery" placeholder="Search guides..." 
@@ -27,169 +27,157 @@
                     </div>
                 </div>
 
-                <!-- Searching state -->
-                <div v-if="searchQuery.trim()" style="flex-grow: 1;">
-                    <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px;">Search Results for "{{ searchQuery }}"</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <div v-for="article in searchedArticles" :key="article.title" class="panel" style="padding: 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;">
-                            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--accent); margin-bottom: 6px;">{{ article.title }}</h4>
-                            <p style="font-size: 0.85rem; color: var(--text-main); line-height: 1.5; white-space: pre-line;" v-html="highlightCode(article.content)"></p>
-                        </div>
-                        <div v-if="searchedArticles.length === 0" style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
-                            <span style="font-size: 2rem; display: block; margin-bottom: 8px;">🔍</span>
-                            <span>No guides match your search parameters. Try searching for "Shopify", "API", or "DNS".</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Standard Category Views -->
-                <div v-else style="flex-grow: 1;">
-                    <!-- Category 1: Shopify Integration -->
-                    <div v-if="activeCategory === 'shopify'">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                            <span style="font-size: 1.8rem;">🛍️</span>
-                            <div>
-                                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">Shopify Partner App Connection Guide</h3>
-                                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Synchronize catalogs, track inventory, and automate customer order logs</p>
+                <div style="flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">
+                    <!-- Searching state -->
+                    <div v-if="searchQuery.trim()" style="flex-grow: 1;">
+                        <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px;">Search Results for "{{ searchQuery }}"</h3>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div v-for="article in searchedArticles" :key="article.title" class="panel" style="padding: 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;">
+                                <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--accent); margin-bottom: 6px;">{{ article.title }}</h4>
+                                <p style="font-size: 0.85rem; color: var(--text-main); line-height: 1.5; white-space: pre-line;" v-html="highlightCode(article.content)"></p>
                             </div>
-                        </div>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 16px;">
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 1: Create a Custom Partner App</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Log into your Shopify Admin Panel, navigate to <strong>Settings</strong> > <strong>Apps and sales channels</strong> > <strong>Develop apps</strong>, and click <strong>Create an app</strong>. Name the integration <code>Stricktly Coffee Fulfillment</code>.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 2: Configure Admin API Integration Scopes</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0; mb-4: 10px;">
-                                    Click <strong>Configuration</strong> > <strong>Configure Admin API integration</strong>. Select and grant the following permissions:
-                                </p>
-                                <ul style="margin: 8px 0 0 16px; font-size: 0.82rem; color: var(--text-main); line-height: 1.6;">
-                                    <li><code>write_orders</code>, <code>read_orders</code> — For sending order transactions to the warehouse simulator</li>
-                                    <li><code>read_products</code> — For scanning catalogs and importing items</li>
-                                    <li><code>read_inventory</code> — To automatically monitor and synchronize coffee bean stock levels</li>
-                                </ul>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 3: Reveal and Copy Token</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Click <strong>Install App</strong> in the top header. Click <strong>Reveal token once</strong> and copy the Admin API token key (starts with <code>shpat_</code>). Keep this private.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 4: Register Order Creation Webhooks</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Scroll down to the Webhooks segment. Click <strong>Create Webhook</strong>. Select event <code>orders/create</code> (Order creation) and format <code>JSON</code>. Set URL to:
-                                    <code style="display: block; background: var(--bg-color); padding: 8px; border-radius: 6px; margin-top: 8px; font-family: monospace; font-size: 0.78rem; border: 1px solid var(--border); color: var(--accent);">https://api.stricktlycoffee.be/api/webhook/stripe/[YOUR_BRAND_ID]</code>
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 5: Activate Brand Config</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Go to the <strong>Brands</strong> or <strong>System Settings</strong> panel inside Stricktly Coffee dashboard. Input your Shopify store URL (e.g. <code>my-store.myshopify.com</code>) and paste the token, then click Onboard to verify.
-                                </p>
+                            <div v-if="searchedArticles.length === 0" style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
+                                <span style="font-size: 2rem; display: block; margin-bottom: 8px;">🔍</span>
+                                <span>No guides match your search parameters. Try searching for "Shopify", "API", or "DNS".</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Category 2: WooCommerce Integration -->
-                    <div v-if="activeCategory === 'woocommerce'">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                            <span style="font-size: 1.8rem;">🔌</span>
-                            <div>
-                                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">WooCommerce API Connection Guide</h3>
-                                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Link WordPress-based storefronts to our fulfillment backend</p>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: 16px;">
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 1: Generate REST API Keys</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Log in to your WordPress Dashboard. Navigate to <strong>WooCommerce</strong> > <strong>Settings</strong> > <strong>Advanced</strong> > <strong>REST API</strong>. Click <strong>Add Key</strong>.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 2: Key Details and Scopes</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Give the key a description like <code>Stricktly Coffee Sync</code>. Select a user context (admin recommended) and set permissions to <strong>Read/Write</strong>. Click <strong>Generate API Key</strong>.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 3: Copy Consumer Credentials</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Copy the <strong>Consumer Key</strong> (starts with <code>ck_</code>) and the <strong>Consumer Secret</strong> (starts with <code>cs_</code>) immediately.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 4: Enable Legacy REST API (If Applicable)</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    Under WooCommerce settings, make sure the Legacy REST API tick box is checked if you are using older WordPress installations to allow clean webhooks synchronization.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Category 3: Domains & DNS Routing -->
-                    <div v-if="activeCategory === 'dns'">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                            <span style="font-size: 1.8rem;">🌐</span>
-                            <div>
-                                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">Domains and DNS Configuration</h3>
-                                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Setup subdomains, map external domains, and check DNS verification</p>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: 16px;">
-                            <div class="panel" style="padding: 16px; background: var(--card-bg); border: 1px solid var(--border);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">How Subdomain Automation Works</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    When you provision a new brand on our subdomain (e.g. <code>brand.stricktlycoffee.be</code>), our system automatically communicates with <strong>Cloudflare</strong> using DNS API tokens to register the CNAME routing records. The domain is ready to serve traffic within 60 seconds.
-                                </p>
-                            </div>
-
-                            <div class="panel" style="padding: 16px; background: var(--card-bg); border: 1px solid var(--border);">
-                                <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">Configuring External Custom Domains</h4>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
-                                    If you want to map your own custom e-commerce URL (e.g. <code>coffeebuyers.com</code>):
-                                </p>
-                                <ol style="margin: 8px 0 0 16px; font-size: 0.82rem; color: var(--text-main); line-height: 1.6;">
-                                    <li>Log into your DNS provider (GoDaddy, Namecheap, Route53, etc.).</li>
-                                    <li>Create a <strong>CNAME record</strong> pointing to: <code>cname.stricktlycoffee.be</code>.</li>
-                                    <li>Toggle the proxy setting to **DNS Only** (or disabled proxy) to allow SSL handshake.</li>
-                                    <li>Add the domain inside the <strong>System Settings</strong> panel and click verify.</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Category 4: General FAQs -->
-                    <div v-if="activeCategory === 'faqs'">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                            <span style="font-size: 1.8rem;">❓</span>
-                            <div>
-                                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">Frequently Asked Questions</h3>
-                                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Quick answers to common merchant and fulfillment topics</p>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <div v-for="(faq, idx) in faqs" :key="idx" class="panel" style="padding: 12px 16px; cursor: pointer; transition: 0.2s;" @click="toggleFaq(idx)">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-main);">{{ faq.q }}</span>
-                                    <span style="font-size: 0.8rem; color: var(--text-muted);">{{ activeFaq === idx ? '▲' : '▼' }}</span>
+                    <!-- Standard Category Views -->
+                    <div v-else style="flex-grow: 1;">
+                        <!-- Category 1: Shopify Integration -->
+                        <div v-if="activeCategory === 'shopify'">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                <span style="font-size: 1.8rem;">🛍️</span>
+                                <div>
+                                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">Shopify Partner App Connection Guide</h3>
+                                    <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Synchronize catalogs, track inventory, and automate customer order logs</p>
                                 </div>
-                                <div v-if="activeFaq === idx" style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 8px;">
-                                    {{ faq.a }}
+                            </div>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 1: Create a Custom Partner App</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Log into your Shopify Admin Panel, navigate to <strong>Settings</strong> > <strong>Apps and sales channels</strong> > <strong>Develop apps</strong>, and click <strong>Create an app</strong>. Name the integration <code>Stricktly Coffee Fulfillment</code>.
+                                    </p>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 2: Configure Admin API Integration Scopes</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0; mb-4: 10px;">
+                                        Click <strong>Configuration</strong> > <strong>Configure Admin API integration</strong>. Select and grant the following permissions:
+                                    </p>
+                                    <ul style="margin: 8px 0 0 16px; font-size: 0.82rem; color: var(--text-main); line-height: 1.6;">
+                                        <li><code>write_orders</code>, <code>read_orders</code> — For sending order transactions to the warehouse simulator</li>
+                                        <li><code>read_products</code> — For scanning catalogs and importing items</li>
+                                        <li><code>read_inventory</code> — To automatically monitor and synchronize coffee bean stock levels</li>
+                                    </ul>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 3: Reveal and Copy Token</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Click <strong>Install App</strong> in the top header. Click <strong>Reveal token once</strong> and copy the Admin API token key (starts with <code>shpat_</code>). Keep this private.
+                                    </p>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 4: Register Order Creation Webhooks</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Scroll down to the Webhooks segment. Click <strong>Create Webhook</strong>. Select event <code>orders/create</code> (Order creation) and format <code>JSON</code>. Set URL to:
+                                        <code style="display: block; background: var(--bg-color); padding: 8px; border-radius: 6px; margin-top: 8px; font-family: monospace; font-size: 0.78rem; border: 1px solid var(--border); color: var(--accent);">https://api.stricktlycoffee.be/api/webhook/stripe/[YOUR_BRAND_ID]</code>
+                                    </p>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 5: Activate Brand Config</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Go to the <strong>Brands</strong> or <strong>System Settings</strong> panel inside Stricktly Coffee dashboard. Input your Shopify store URL (e.g. <code>my-store.myshopify.com</code>) and paste the token, then click Onboard to verify.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category 2: WooCommerce Integration -->
+                        <div v-if="activeCategory === 'woocommerce'">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                <span style="font-size: 1.8rem;">🔌</span>
+                                <div>
+                                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">WooCommerce API Connection Guide</h3>
+                                    <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Link WordPress-based storefronts to our fulfillment backend</p>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 1: Generate REST API Consumer Credentials</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Log into WordPress Admin. Go to <strong>WooCommerce</strong> > <strong>Settings</strong> > <strong>Advanced</strong> > <strong>REST API</strong>. Click <strong>Add Key</strong>. Provide description <code>Stricktly Coffee Fulfillment</code>, select owner, and grant <strong>Read/Write</strong> permissions.
+                                    </p>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 2: Copy API Keys</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Copy the generated Consumer Key (starts with <code>ck_</code>) and Consumer Secret (starts with <code>cs_</code>) keys. Paste these into your shop channels settings inside Stricktly Coffee dashboard.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category 3: DNS & Custom Domains -->
+                        <div v-if="activeCategory === 'dns'">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                <span style="font-size: 1.8rem;">🌐</span>
+                                <div>
+                                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">DNS Routing & Domain White-Labeling</h3>
+                                    <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Map your own brand domain address to host strictly coffee storefronts</p>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 1: Point DNS CNAME Records</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        Navigate to your domain registrar (GoDaddy, Namecheap, Google Domains) or Cloudflare panel. Add a new <strong>CNAME</strong> record:
+                                    </p>
+                                    <ul style="margin: 8px 0 0 16px; font-size: 0.82rem; color: var(--text-main); line-height: 1.6;">
+                                        <li><strong>Type:</strong> <code>CNAME</code></li>
+                                        <li><strong>Host/Name:</strong> <code>@</code> (root) or subdomain (e.g. <code>shop</code>)</li>
+                                        <li><strong>Value/Target:</strong> <code>cname.stricktlycoffee.be</code></li>
+                                        <li><strong>TTL:</strong> <code>Auto</code> or <code>3600</code></li>
+                                    </ul>
+                                </div>
+
+                                <div class="panel" style="padding: 16px; border-left: 4px solid var(--primary); background: var(--card-bg);">
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Step 2: Disable Proxy (DNS Only)</h4>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+                                        If you use Cloudflare DNS, make sure to set the Proxy Status toggle to <strong>DNS Only</strong> (Grey cloud icon). Enabling Cloudflare proxy over our Traefik routes will break automated Let's Encrypt SSL handshake verification.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Category 4: FAQs -->
+                        <div v-if="activeCategory === 'faqs'">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                <span style="font-size: 1.8rem;">❓</span>
+                                <div>
+                                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0;">Frequently Asked Questions</h3>
+                                    <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Quick answers to common merchant and fulfillment topics</p>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div v-for="(faq, idx) in faqs" :key="idx" class="panel" style="padding: 12px 16px; cursor: pointer; transition: 0.2s;" @click="toggleFaq(idx)">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-main);">{{ faq.q }}</span>
+                                        <span style="font-size: 0.8rem; color: var(--text-muted);">{{ activeFaq === idx ? '▲' : '▼' }}</span>
+                                    </div>
+                                    <div v-if="activeFaq === idx" style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 8px;">
+                                        {{ faq.a }}
+                                    </div>
                                 </div>
                             </div>
                         </div>

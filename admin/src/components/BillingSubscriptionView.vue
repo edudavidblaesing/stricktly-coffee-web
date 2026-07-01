@@ -1,8 +1,176 @@
 <template>
     <div id="view-billing-subscription" class="admin-view inset-view" :class="{ active: app.activeView === 'billing-subscription' }">
         
-        <!-- No Brand Selected Guard -->
-        <div v-if="app.activeShopFilter === 'all'" class="panel" style="text-align: center; padding: 60px 20px;">
+        <!-- Global Platform Subscriptions Dashboard (Superadmin Only when 'all' is selected) -->
+        <div v-if="app.activeShopFilter === 'all' && userRole.toLowerCase() === 'superadmin'" style="display: flex; flex-direction: column; gap: 20px; width: 100%; height: 100%; overflow: hidden;">
+            <!-- Loading Indicator for global overview -->
+            <div v-if="loadingGlobal" class="panel" style="text-align: center; padding: 60px 20px;">
+                <div class="loading-spinner" style="margin: 0 auto 15px auto;"></div>
+                <p style="color: var(--text-muted); margin: 0;">Loading platform subscription overview...</p>
+            </div>
+            
+            <template v-else>
+                <!-- Global Overview Metrics Cards -->
+                <div class="metrics-grid" style="margin-bottom: 4px;">
+                    <!-- Card 1: Platform MRR -->
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <span class="metric-label">Estimated Platform MRR</span>
+                            <div class="metric-main-row">
+                                <span class="metric-value">€{{ globalStats.mrr.toFixed(2) }}</span>
+                                <div class="metric-sparkline">
+                                    <div class="metric-sparkbar active" style="height: 12px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 18px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 24px; width: 4px; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Active Brand Shops -->
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <span class="metric-label">Active Storefronts</span>
+                            <div class="metric-main-row">
+                                <span class="metric-value">{{ globalStats.total_brands }}</span>
+                                <div class="metric-sparkline">
+                                    <div class="metric-sparkbar active" style="height: 10px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 15px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 20px; width: 4px; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Platform Ledger Balance -->
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <span class="metric-label">Accrued Payout Ledger</span>
+                            <div class="metric-main-row">
+                                <span class="metric-value">€{{ globalStats.total_ledger_balance.toFixed(2) }}</span>
+                                <div class="metric-sparkline">
+                                    <div class="metric-sparkbar active" style="height: 8px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 16px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 24px; width: 4px; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Total AI Costs -->
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <span class="metric-label">Platform AI Cost</span>
+                            <div class="metric-main-row">
+                                <span class="metric-value">${{ globalStats.total_ai_cost.toFixed(2) }} USD</span>
+                                <div class="metric-sparkline">
+                                    <div class="metric-sparkbar active" style="height: 10px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 14px; width: 4px; border-radius: 2px;"></div>
+                                    <div class="metric-sparkbar active" style="height: 18px; width: 4px; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Main Content split grid -->
+                <div class="dashboard-layout-grid" style="flex: 1; min-height: 0;">
+                    <!-- Left: Brand Subscriptions Table -->
+                    <div class="panel" style="display: flex; flex-direction: column; overflow: hidden;">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Brand Subscription & Billing Status</h3>
+                        </div>
+                        <div class="table-responsive" style="flex: 1; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Brand</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Plan / Tier</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Billing Type</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">MRR Rate</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">AI Cost</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">Ledger Balance</th>
+                                        <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="b in globalStats.brands" :key="b.id" style="border-bottom: 1px solid var(--border);">
+                                        <td style="padding: 12px; font-weight: 700; color: var(--text-main);">
+                                            {{ b.name }}
+                                            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">{{ b.subdomain }}.stricktlycoffee.be</div>
+                                        </td>
+                                        <td style="padding: 12px; text-transform: capitalize;">
+                                            <span v-if="b.ai_tier === 'enterprise'" class="status-badge status-success" style="font-size: 0.72rem; padding: 2px 6px;">Enterprise</span>
+                                            <span v-else-if="b.ai_tier === 'professional'" class="status-badge status-info" style="font-size: 0.72rem; padding: 2px 6px;">Growth</span>
+                                            <span v-else-if="b.ai_tier === 'standard'" class="status-badge status-warning" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">Entry</span>
+                                            <span v-else class="status-badge" style="font-size: 0.72rem; padding: 2px 6px;">Sandbox</span>
+                                        </td>
+                                        <td style="padding: 12px; font-size: 0.8rem; color: var(--text-main);">
+                                            <span v-if="b.subscription_billing_method === 'stripe_card'">💳 Card</span>
+                                            <span v-else-if="b.subscription_billing_method === 'stripe_connect'">🔗 Connect</span>
+                                            <span v-else>💡 Ledger</span>
+                                        </td>
+                                        <td style="padding: 12px; text-align: right; font-weight: 600; color: var(--text-main);">
+                                            €{{ b.custom_subscription_price !== null && b.custom_subscription_price !== undefined ? parseFloat(b.custom_subscription_price).toFixed(2) : (b.ai_tier === 'enterprise' ? '499.00' : (b.ai_tier === 'professional' ? '149.00' : (b.ai_tier === 'standard' ? '49.00' : '0.00'))) }}
+                                        </td>
+                                        <td style="padding: 12px; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
+                                            ${{ parseFloat(b.ai_cost).toFixed(2) }}
+                                        </td>
+                                        <td style="padding: 12px; text-align: right; font-weight: 700; color: var(--success);">
+                                            €{{ parseFloat(b.ledger_balance).toFixed(2) }}
+                                        </td>
+                                        <td style="padding: 12px; text-align: center;">
+                                            <button @click="manageBrandSubscription(b.id)" class="btn btn-accent" style="padding: 4px 10px; font-size: 0.75rem; margin: 0; font-weight: 700; height: 28px;">
+                                                ⚙️ Manage
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Platform Invoices -->
+                    <div class="panel" style="display: flex; flex-direction: column; overflow: hidden; max-height: 100%;">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Recent Invoices</h3>
+                        </div>
+                        <div class="table-responsive" style="flex: 1; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                                        <th style="padding: 10px; color: var(--text-muted); font-weight: 700;">Brand</th>
+                                        <th style="padding: 10px; color: var(--text-muted); font-weight: 700;">Date</th>
+                                        <th style="padding: 10px; color: var(--text-muted); font-weight: 700; text-align: right;">Amount</th>
+                                        <th style="padding: 10px; color: var(--text-muted); font-weight: 700; text-align: center;">Status</th>
+                                        <th style="padding: 10px; color: var(--text-muted); font-weight: 700; text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="inv in globalStats.invoices" :key="inv.id" style="border-bottom: 1px solid var(--border);">
+                                        <td style="padding: 10px; font-weight: 600; color: var(--text-main);">{{ inv.brand_name }}</td>
+                                        <td style="padding: 10px; color: var(--text-muted); font-size: 0.78rem;">{{ formatDate(inv.created_at) }}</td>
+                                        <td style="padding: 10px; text-align: right; font-weight: 600; color: var(--text-main);">€{{ parseFloat(inv.amount).toFixed(2) }}</td>
+                                        <td style="padding: 10px; text-align: center;">
+                                            <span class="status-badge" :class="inv.status === 'paid' ? 'status-success' : 'status-danger'" style="font-size: 0.7rem; padding: 2px 4px;">
+                                                {{ inv.status.toUpperCase() }}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 10px; text-align: right;">
+                                            <a v-if="inv.pdf_url" :href="inv.pdf_url" target="_blank" class="btn" style="padding: 2px 8px; font-size: 0.72rem; margin: 0; height: 24px; font-weight: 600; background: var(--border); color: var(--text-main); border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">View PDF</a>
+                                            <span v-else style="color: var(--text-muted); font-size: 0.75rem;">N/A</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Regular No Brand Selected Guard for Merchants -->
+        <div v-else-if="app.activeShopFilter === 'all'" class="panel" style="text-align: center; padding: 60px 20px;">
             <div style="font-size: 3rem; margin-bottom: 20px;">💳</div>
             <h3 style="color: var(--text-main); margin-bottom: 8px;">No Coffee Shop Selected</h3>
             <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto;">
@@ -17,7 +185,7 @@
         </div>
 
         <!-- Dynamic Billing Views -->
-        <div v-else>
+        <div v-else style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px;">
             <!-- Billing Meters Grid -->
             <div class="metrics-grid" style="margin-bottom: 24px;">
                 <!-- Card 1: Active Subscription Plan -->
@@ -117,71 +285,26 @@
 
             <!-- Ledger History and Payout Controls -->
             <div class="dashboard-layout-grid">
-                <!-- Left: Transactions Ledger Table -->
+                <!-- Left: Billing Settings & Quick Actions -->
                 <div class="panel">
                     <div class="panel-header">
-                        <h3 class="panel-title">Transactions Ledger</h3>
+                        <h3 class="panel-title">
+                            ⚙️ Manage Subscription & Billing Settings
+                        </h3>
                     </div>
-                    <div class="table-responsive">
-                        <table v-if="ledgerEntries.length > 0">
-                            <thead>
-                                <tr>
-                                    <th>Transaction ID</th>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Description</th>
-                                    <th>Gross Amount</th>
-                                    <th>Platform Fee</th>
-                                    <th style="text-align: right;">Net Balance Effect</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="entry in ledgerEntries" :key="entry.id">
-                                    <td>
-                                        <div style="font-weight: 700; color: var(--text-main);">TX-{{ String(entry.id).padStart(4, '0') }}</div>
-                                    </td>
-                                    <td>{{ formatDate(entry.created_at) }}</td>
-                                    <td>
-                                        <span v-if="entry.type === 'sale'" class="status-badge status-success" style="font-size: 0.72rem; padding: 2px 6px;">Sale</span>
-                                        <span v-else-if="entry.type === 'subscription_fee'" class="status-badge status-warning" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">Subscription</span>
-                                        <span v-else-if="entry.type === 'payout'" class="status-badge status-info" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3);">Disbursement</span>
-                                        <span v-else class="status-badge" style="font-size: 0.72rem; padding: 2px 6px;">{{ entry.type }}</span>
-                                    </td>
-                                    <td>
-                                        <div style="font-size: 0.8rem; color: var(--text-main);">{{ entry.description }}</div>
-                                    </td>
-                                    <td>{{ entry.amount !== null && entry.amount !== undefined ? '€' + parseFloat(entry.amount).toFixed(2) : '—' }}</td>
-                                    <td>{{ entry.platform_margin !== null && entry.platform_margin !== undefined && parseFloat(entry.platform_margin) !== 0 ? '€' + parseFloat(entry.platform_margin).toFixed(2) : '—' }}</td>
-                                    <td style="text-align: right; font-weight: 700;" :style="{ color: parseFloat(entry.net_amount) >= 0 ? 'var(--success)' : '#ef4444' }">
-                                        {{ parseFloat(entry.net_amount) >= 0 ? '+' : '' }}€{{ parseFloat(entry.net_amount).toFixed(2) }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div v-else style="text-align: center; padding: 40px 10px; color: var(--text-muted);">
-                            No ledger transactions recorded yet for this brand.
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right: Billing Settings & Quick Actions -->
-                <div class="panel" style="height: fit-content;">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Manage Subscription & Billing Settings</h3>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 15px;">
+                    <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 16px;">
                         
                         <!-- Plan / AI Tier selector -->
                         <div>
-                            <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Plan Tier</label>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="margin-bottom: 10px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Plan Tier</label>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
                                 <!-- None/Sandbox -->
                                 <div @click="currentBrand.ai_tier = 'none'" 
                                      :style="{
                                          border: currentBrand.ai_tier === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
                                          background: currentBrand.ai_tier === 'none' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
-                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
                                          <span>None (Sandbox Trial)</span>
                                          <span style="color: var(--accent);">€0.00 / mo</span>
@@ -196,7 +319,7 @@
                                          border: currentBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
                                          background: currentBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
-                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
                                          <span>Entry Plan</span>
                                          <span style="color: var(--accent);">€49.00 / mo</span>
@@ -211,7 +334,7 @@
                                          border: currentBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
                                          background: currentBrand.ai_tier === 'professional' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
-                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
                                          <span>Growth Plan</span>
                                          <span style="color: var(--accent);">€149.00 / mo</span>
@@ -226,7 +349,7 @@
                                          border: currentBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
                                          background: currentBrand.ai_tier === 'enterprise' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
-                                     style="padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
+                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
                                          <span>Enterprise Plan</span>
                                          <span style="color: var(--accent);">€499.00 / mo</span>
@@ -240,8 +363,8 @@
 
                         <!-- Billing Method choice -->
                         <div v-if="currentBrand.ai_tier !== 'none'">
-                            <label style="margin-bottom: 8px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Billing Method</label>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="margin-bottom: 10px; display: block; font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💳 Select Subscription Billing Method</label>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                                 <!-- Credit Card -->
                                 <div @click="currentBrand.subscription_billing_method = 'stripe_card'"
                                      :style="{
@@ -286,7 +409,7 @@
                         <div v-if="currentBrand.subscription_billing_method === 'stripe_card' && currentBrand.ai_tier !== 'none'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem;">
                                 <span style="color: var(--text-muted);">Card Status: <strong :style="{ color: cardLinked ? 'var(--success)' : '#ef4444' }">{{ cardLinked ? '✅ Linked' : '❌ Not Linked' }}</strong></span>
-                                <button type="button" @click="initiateStripeCardSetup" class="btn" style="background: var(--accent); color: #fff; font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px;">
+                                <button type="button" @click="initiateStripeCardSetup" class="btn btn-accent" style="font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px;">
                                     💳 {{ cardLinked ? 'Update Card' : 'Link Card' }}
                                 </button>
                             </div>
@@ -295,29 +418,121 @@
                         <div v-if="currentBrand.subscription_billing_method === 'stripe_connect' && currentBrand.ai_tier !== 'none'" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem;">
                                 <span style="color: var(--text-muted);">Stripe Connect: <strong :style="{ color: stripeConnectStatus === 'active' ? 'var(--success)' : '#ef4444' }">{{ stripeConnectStatus === 'active' ? '✅ Active' : '❌ Unlinked' }}</strong></span>
-                                <button type="button" @click="initiateStripeConnect" class="btn" style="background: #635bff; color: #fff; font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px;">
+                                <button type="button" @click="initiateStripeConnect" class="btn" style="background: #635bff !important; color: #ffffff !important; font-size: 0.75rem; padding: 4px 10px; margin: 0; font-weight: 700; height: 28px; border: none !important;">
                                     🔗 Link Stripe Account
                                 </button>
                             </div>
+                        </div>
+
+                        <!-- Custom Subscription Pricing Override (Superadmin only) -->
+                        <div v-if="userRole.toLowerCase() === 'superadmin' && currentBrand.ai_tier !== 'none'" style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="font-weight: bold; color: var(--text-main); font-size: 0.82rem;">💶 Custom Subscription Price Override (€/month)</label>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                min="0" 
+                                v-model.number="currentBrand.custom_subscription_price" 
+                                placeholder="Leave empty for standard pricing"
+                                class="input-text" 
+                                style="width: 100%; height: 38px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; color: var(--text-main);"
+                            />
+                            <p style="color: var(--text-muted); font-size: 0.7rem; margin: 0; line-height: 1.3;">
+                                Set a custom monthly fee to override the standard tier pricing (Entry: €49, Growth: €149, Enterprise: €499).
+                            </p>
                         </div>
 
                         <!-- Update Button -->
                         <button type="button" class="btn btn-accent" @click="updateSubscriptionSettings" style="width: 100%; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 0 0;">
                             💾 Update Subscription Settings
                         </button>
+                    </div>
+                </div>
+
+                <!-- Right: Payout Settlement Sidebar -->
+                <div class="panel" style="height: fit-content;">
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            💸 Payout Settlement
+                        </h3>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+                        <div style="text-align: center; padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+                                Available Payout Balance
+                            </div>
+                            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); font-family: monospace;">
+                                €{{ balance.toFixed(2) }}
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 10px;">
+                                Platform Take Rate: <strong style="color: var(--text-main);">{{ (currentBrand.platform_take_rate * 100).toFixed(1) }}%</strong>
+                            </div>
+                        </div>
 
                         <!-- Stripe Payout settlement button -->
-                        <button v-if="balance > 0" class="btn" @click="disbursePayout" style="width: 100%; font-weight: bold; background: var(--success); color: #fff; border-color: var(--success); height: 38px; margin: 0;">
+                        <button v-if="balance > 0" class="btn" @click="disbursePayout" style="width: 100%; font-weight: bold; background: var(--success) !important; color: #fff !important; border-color: var(--success) !important; height: 38px; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             💸 Process Ledger Payout Settlement
                         </button>
+                        <div v-else style="font-size: 0.76rem; color: var(--text-muted); text-align: center; padding: 10px 0;">
+                            No dropshipping balance available for payout.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Ledger Table Section (Full Width) -->
+            <div class="panel" style="margin-top: 24px;">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        📜 Transactions Ledger History
+                    </h3>
+                </div>
+                
+                <div class="table-responsive" style="min-height: 120px; overflow-x: auto; width: 100%;">
+                    <table v-if="ledgerEntries.length > 0" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Transaction ID</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Date</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Type</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Description</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Gross Amount</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700;">Platform Fee</th>
+                                <th style="padding: 12px; color: var(--text-muted); font-weight: 700; text-align: right;">Net Balance Effect</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="entry in ledgerEntries" :key="entry.id" style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 12px;">
+                                    <div style="font-weight: 700; color: var(--text-main);">TX-{{ String(entry.id).padStart(4, '0') }}</div>
+                                </td>
+                                <td style="padding: 12px; color: var(--text-muted);">{{ formatDate(entry.created_at) }}</td>
+                                <td style="padding: 12px;">
+                                    <span v-if="entry.type === 'sale'" class="status-badge status-success" style="font-size: 0.72rem; padding: 2px 6px;">Sale</span>
+                                    <span v-else-if="entry.type === 'subscription_fee'" class="status-badge status-warning" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">Subscription</span>
+                                    <span v-else-if="entry.type === 'payout'" class="status-badge status-info" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3);">Disbursement</span>
+                                    <span v-else class="status-badge" style="font-size: 0.72rem; padding: 2px 6px;">{{ entry.type }}</span>
+                                </td>
+                                <td style="padding: 12px;">
+                                    <div style="font-size: 0.8rem; color: var(--text-main);">{{ entry.description }}</div>
+                                </td>
+                                <td style="padding: 12px; color: var(--text-main);">{{ entry.amount !== null && entry.amount !== undefined ? '€' + parseFloat(entry.amount).toFixed(2) : '—' }}</td>
+                                <td style="padding: 12px; color: var(--text-muted);">{{ entry.platform_margin !== null && entry.platform_margin !== undefined && parseFloat(entry.platform_margin) !== 0 ? '€' + parseFloat(entry.platform_margin).toFixed(2) : '—' }}</td>
+                                <td style="padding: 12px; text-align: right; font-weight: 700;" :style="{ color: parseFloat(entry.net_amount) >= 0 ? 'var(--success)' : '#ef4444' }">
+                                    {{ parseFloat(entry.net_amount) >= 0 ? '+' : '' }}€{{ parseFloat(entry.net_amount).toFixed(2) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div v-else style="text-align: center; padding: 40px 10px; color: var(--text-muted);">
+                        No ledger transactions recorded yet for this brand.
                     </div>
                 </div>
             </div>
 
             <!-- Invoices & Billing Statements Section -->
             <div class="panel" style="margin-top: 24px;">
-                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 15px;">
-                    <h3 class="panel-title" style="margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-main); font-weight: 800; font-family: var(--font-display);">
+                <div class="panel-header">
+                    <h3 class="panel-title">
                         📄 Invoices & Billing Statements
                     </h3>
                     <button v-if="userRole.toLowerCase() === 'superadmin'" 
@@ -328,7 +543,7 @@
                     </button>
                 </div>
                 
-                <div class="table-responsive">
+                <div class="table-responsive" style="min-height: 120px; overflow-x: auto; width: 100%;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--border); text-align: left;">
@@ -451,6 +666,8 @@ export default {
     data() {
         return {
             loading: false,
+            loadingGlobal: false,
+            globalStats: { brands: [], invoices: [], total_brands: 0, total_ledger_balance: 0.00, total_ai_cost: 0.00, mrr: 0.00 },
             balance: 0.00,
             ledgerEntries: [],
             aiUsage: { total_cost_usd: 0.00 },
@@ -472,7 +689,12 @@ export default {
     methods: {
         async fetchBillingData() {
             const brandId = this.app.activeShopFilter;
-            if (!brandId || brandId === 'all') return;
+            if (!brandId || brandId === 'all') {
+                if (this.userRole.toLowerCase() === 'superadmin') {
+                    this.fetchGlobalBillingData();
+                }
+                return;
+            }
             
             const brand = this.app.brands.find(b => b.id === brandId);
             if (!brand) return;
@@ -660,17 +882,34 @@ export default {
             const brandId = this.app.activeShopFilter;
             if (!brandId || brandId === 'all') return;
             try {
-                const token = localStorage.getItem('sc_admin_token');
                 const res = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${brandId}/invoices`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
                 });
                 if (res.ok) {
                     this.invoicesList = await res.json();
                 }
             } catch (err) {
-                console.error('Failed to load invoices list:', err);
+                console.error('[BillingSubscriptionView] Error loading invoices:', err);
             }
         },
+        async fetchGlobalBillingData() {
+            this.loadingGlobal = true;
+            try {
+                const headers = { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` };
+                const res = await fetch(`${this.app.apiBaseUrl}/api/global/billing/overview`, { headers });
+                if (res.ok) {
+                    this.globalStats = await res.json();
+                }
+            } catch (err) {
+                console.error('[BillingSubscriptionView] Error fetching global billing stats:', err);
+            } finally {
+                this.loadingGlobal = false;
+            }
+        },
+        manageBrandSubscription(brandId) {
+            this.app.selectWorkspace(brandId);
+        },
+        async saveManualInvoice() {},
         viewInvoicePdf(inv) {
             this.selectedPdfUrl = `${this.app.apiBaseUrl}${inv.pdf_url}`;
             this.pdfViewerOpen = true;
@@ -715,17 +954,21 @@ export default {
             handler(newVal) {
                 if (newVal && newVal !== 'all') {
                     this.fetchBillingData();
-                } else {
-                    this.balance = 0.00;
-                    this.ledgerEntries = [];
-                    this.aiUsage = { total_cost_usd: 0.00 };
-                    this.aiLimit = 0.00;
-                    this.aiQuotaPercentage = 0.0;
-                    this.currentBrand = {};
-                    this.stripeConnectStatus = 'unlinked';
-                    this.subscriptionBillingMethod = 'ledger';
-                    this.cardLinked = false;
-                    this.invoicesList = [];
+                } else if (newVal === 'all') {
+                    if (this.userRole.toLowerCase() === 'superadmin') {
+                        this.fetchGlobalBillingData();
+                    } else {
+                        this.balance = 0.00;
+                        this.ledgerEntries = [];
+                        this.aiUsage = { total_cost_usd: 0.00 };
+                        this.aiLimit = 0.00;
+                        this.aiQuotaPercentage = 0.0;
+                        this.currentBrand = {};
+                        this.stripeConnectStatus = 'unlinked';
+                        this.subscriptionBillingMethod = 'ledger';
+                        this.cardLinked = false;
+                        this.invoicesList = [];
+                    }
                 }
             },
             immediate: true

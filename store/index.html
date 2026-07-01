@@ -1003,6 +1003,7 @@
             <nav>
                 <a href="#products" class="active">Collection</a>
                 <a href="track">Track Order</a>
+                <a href="tickets.html">Support</a>
             </nav>
             <div class="header-actions" style="display: flex; align-items: center; gap: 16px;">
                 <!-- Language Selector Dropdown -->
@@ -1074,8 +1075,8 @@
             </div>
             
             <div style="text-align: center;">
-                <p>© 2026 <span>Strictly Coffee</span> | Pesado 58.5 Sub-Store. All rights reserved.</p>
-                <p style="margin-top: 4px; font-size: 0.85rem; opacity: 0.7;">Designed for coffee purists and espresso perfectionists.</p>
+                <p class="dynamic-bind" data-field="footer_copyright" id="footer-copyright-text">© 2026 <span>Strictly Coffee</span> | Pesado 58.5 Sub-Store. All rights reserved.</p>
+                <p class="dynamic-bind" data-field="footer_description" id="footer-description-text" style="margin-top: 4px; font-size: 0.85rem; opacity: 0.7;">Designed for coffee purists and espresso perfectionists.</p>
             </div>
         </div>
     </footer>
@@ -1242,6 +1243,32 @@
                 }, '*');
             }
         });
+
+        // Dynamic Image Resize URL helper to request downsized assets
+        function optimizeImageUrl(url, w, h) {
+            if (!url) return '';
+            // Resolve @product-ID or @inventory-ID notation
+            if (typeof url === 'string' && (url.startsWith('@product-') || url.startsWith('@inventory-'))) {
+                const identifier = url.startsWith('@product-') ? url.replace('@product-', '') : url.replace('@inventory-', '');
+                const found = (window.storeProducts || storeProducts || []).find(p => 
+                    String(p.id) === identifier || 
+                    (p.sku && p.sku.toLowerCase() === identifier.toLowerCase()) ||
+                    (p.title && p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').includes(identifier.toLowerCase()))
+                );
+                if (found && found.image) {
+                    url = found.image;
+                }
+            }
+            // Only optimize local uploaded files
+            if (typeof url === 'string' && url.includes('/uploads/')) {
+                const separator = url.includes('?') ? '&' : '?';
+                const params = [];
+                if (w) params.push(`w=${w}`);
+                if (h) params.push(`h=${h}`);
+                return `${url}${separator}${params.join('&')}`;
+            }
+            return url;
+        }
 
         // Dynamic API Base URL resolution
         const getApiBaseUrl = () => {
@@ -1612,12 +1639,12 @@
                     const firstLetter = name ? name.charAt(0).toUpperCase() : 'S';
                     const faviconUrl = settings.favicon || settings.logo || '';
                     const faviconImg = faviconUrl 
-                        ? `<img src="${faviconUrl}" alt="${name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
+                        ? `<img src="${optimizeImageUrl(faviconUrl, 80, 80)}" alt="${name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
                         : `<span style="background: var(--primary); color: var(--btn-text-color, var(--bg-color)); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">${firstLetter}</span>`;
 
                     if (settings.logo) {
                         logoEl.innerHTML = `
-                            <span class="logo-full-wrapper"><img src="${settings.logo}" alt="${name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
+                            <span class="logo-full-wrapper"><img src="${optimizeImageUrl(settings.logo, 250)}" alt="${name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
                             <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
                         `;
                     } else {
@@ -1849,18 +1876,137 @@
             }
         }
 
+        // Dynamic Persona-based Storefront Styling
+        function applyPersonaStyles(persona) {
+            if (!persona) return;
+            console.log(`[Storefront Persona] Applying custom styles for persona: ${persona}`);
+            const styleId = 'persona-override-styles';
+            let styleTag = document.getElementById(styleId);
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = styleId;
+                document.head.appendChild(styleTag);
+            }
+            
+            if (persona === '@barista') {
+                // Technical Barista: Dark mode, precise, sleek, sharp elements
+                styleTag.textContent = `
+                    body, .main-storefront-wrapper, #storefront-root {
+                        background-color: #0c0f0d !important;
+                        color: #f1f5f3 !important;
+                        font-family: 'Courier New', Courier, monospace !important;
+                    }
+                    .section-hero, .hero-content-inner {
+                        text-align: left !important;
+                        align-items: flex-start !important;
+                    }
+                    .hero-title {
+                        font-size: 3rem !important;
+                        font-weight: 800 !important;
+                        letter-spacing: -1px !important;
+                        text-transform: uppercase !important;
+                        color: #ffffff !important;
+                        text-shadow: 0 0 10px rgba(255,255,255,0.1);
+                    }
+                    .hero-subheadline {
+                        font-size: 1.1rem !important;
+                        color: #a3b899 !important;
+                        border-left: 3px solid var(--accent-color, #c5a059);
+                        padding-left: 12px !important;
+                    }
+                    .product-card {
+                        background: #141816 !important;
+                        border: 1px solid #232a27 !important;
+                        border-radius: 0px !important;
+                    }
+                    .product-title {
+                        font-family: monospace !important;
+                    }
+                    .btn-accent, .hero-cta-btn {
+                        border-radius: 0px !important;
+                        background-color: var(--accent-color, #c5a059) !important;
+                        color: #000000 !important;
+                        font-weight: 800 !important;
+                        letter-spacing: 1px !important;
+                        box-shadow: 4px 4px 0px #ffffff;
+                    }
+                `;
+            } else if (persona === '@curator') {
+                // Design Purist: Cream/light background, elegant fonts, ultra-minimal grids, high contrast
+                styleTag.textContent = `
+                    body, .main-storefront-wrapper, #storefront-root {
+                        background-color: #faf8f5 !important;
+                        color: #1a1a1a !important;
+                        font-family: 'Outfit', 'Georgia', serif !important;
+                    }
+                    .hero-title {
+                        font-family: 'Georgia', serif !important;
+                        font-weight: 300 !important;
+                        font-size: 3.5rem !important;
+                        color: #111111 !important;
+                        letter-spacing: 0px !important;
+                    }
+                    .hero-subheadline {
+                        font-family: 'Outfit', sans-serif !important;
+                        font-weight: 300 !important;
+                        font-size: 1.2rem !important;
+                        color: #555555 !important;
+                    }
+                    .product-card {
+                        background: transparent !important;
+                        border: none !important;
+                        border-bottom: 1px solid #eae5df !important;
+                        border-radius: 0px !important;
+                        box-shadow: none !important;
+                    }
+                    .btn-accent, .hero-cta-btn {
+                        border-radius: 40px !important;
+                        background: transparent !important;
+                        color: #111111 !important;
+                        border: 1px solid #111111 !important;
+                        padding: 10px 24px !important;
+                        font-weight: 500 !important;
+                        text-transform: lowercase !important;
+                    }
+                    .btn-accent:hover, .hero-cta-btn:hover {
+                        background: #111111 !important;
+                        color: #ffffff !important;
+                    }
+                `;
+            }
+        }
+
         // Fetch and load brand configs dynamically
         async function fetchBrandConfig() {
             try {
-                const url = previewBrandId ? `${apiBaseUrl}/api/brand?previewBrandId=${previewBrandId}` : `${apiBaseUrl}/api/brand`;
+                const urlParams = new URLSearchParams(window.location.search);
+                const campaignId = urlParams.get('campaignId') || urlParams.get('utm_campaign') || '';
+                let url = previewBrandId ? `${apiBaseUrl}/api/brand?previewBrandId=${previewBrandId}` : `${apiBaseUrl}/api/brand?`;
+                if (campaignId) {
+                    url += (url.includes('?') ? '&' : '?') + `campaignId=${encodeURIComponent(campaignId)}`;
+                }
                 const response = await fetch(url);
                 if (!response.ok) throw new Error();
                 const brand = await response.json();
+                window.brandConfig = brand;
                 window.brandName = brand.name;
+                
+                // Apply persona styling if overrides exist
+                if (brand.campaign_overrides && brand.campaign_overrides.target_persona) {
+                    applyPersonaStyles(brand.campaign_overrides.target_persona);
+                }
+                
+                // Auto-apply campaign coupon if any
+                if (brand.campaign_overrides && brand.campaign_overrides.coupon_code) {
+                    sessionStorage.setItem('pending_coupon', brand.campaign_overrides.coupon_code.toUpperCase());
+                    setTimeout(() => {
+                        applyCouponCode(brand.campaign_overrides.coupon_code);
+                    }, 500);
+                }
 
                 // Dynamically initialize Meta Pixel if configured
                 if (brand.meta_pixel_id) {
-                    (function(f,b,e,v,n,t,s)
+                    !function(f,b,e,v,n,t,s)
                     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
                     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
                     if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
@@ -2110,7 +2256,7 @@
                     
                     let logoHtml = '';
                     if (activeLogo) {
-                        logoHtml = `<img src="${activeLogo}" alt="${brand.name}" style="height: 60px; margin-bottom: 24px; object-fit: contain;">`;
+                        logoHtml = `<img src="${optimizeImageUrl(activeLogo, 300)}" alt="${brand.name}" style="height: 60px; margin-bottom: 24px; object-fit: contain;">`;
                     } else {
                         logoHtml = `<h1 style="font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 24px; text-transform: uppercase; color: var(--primary, #c5a059);">${brand.name}</h1>`;
                     }
@@ -2145,12 +2291,12 @@
                     const firstLetter = brand.name ? brand.name.charAt(0).toUpperCase() : 'S';
                     const faviconUrl = activeFavicon || activeLogo || '';
                     const faviconImg = faviconUrl 
-                        ? `<img src="${faviconUrl}" alt="${brand.name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
+                        ? `<img src="${optimizeImageUrl(faviconUrl, 80, 80)}" alt="${brand.name}" style="height: 28px; width: 28px; object-fit: contain; border-radius: 6px; vertical-align: middle;">`
                         : `<span style="background: var(--primary); color: var(--btn-text-color, var(--bg-color)); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700;">${firstLetter}</span>`;
                         
                     if (activeLogo) {
                         logoEl.innerHTML = `
-                            <span class="logo-full-wrapper"><img src="${activeLogo}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
+                            <span class="logo-full-wrapper"><img src="${optimizeImageUrl(activeLogo, 250)}" alt="${brand.name}" style="height: 36px; object-fit: contain; vertical-align: middle;"></span>
                             <span class="logo-favicon-wrapper" style="display: none;">${faviconImg}</span>
                         `;
                     } else if (brand.name) {
@@ -2165,6 +2311,14 @@
                 const footerSpan = document.querySelector('footer span');
                 if (footerSpan) {
                     footerSpan.textContent = brand.name;
+                }
+                const footerCopyright = document.getElementById('footer-copyright-text');
+                if (footerCopyright) {
+                    footerCopyright.innerHTML = settings.footer_copyright || `© 2026 <span>${brand.name}</span> | Pesado 58.5 Sub-Store. All rights reserved.`;
+                }
+                const footerDesc = document.getElementById('footer-description-text');
+                if (footerDesc) {
+                    footerDesc.textContent = settings.footer_description || 'Designed for coffee purists and espresso perfectionists.';
                 }
 
                 function applyStorefrontTexts() {
@@ -2293,6 +2447,12 @@
                 storeProducts = fallbackProducts;
             }
             renderProducts();
+            if (window.storefrontConfig) {
+                applyThemeSettings(window.storefrontConfig);
+            }
+            if (window.brandSettings && window.brandSettings.sections && window.renderPageSections) {
+                window.renderPageSections(window.brandSettings.sections);
+            }
 
             // Auto-open product details if query param exists
             const urlParams = new URLSearchParams(window.location.search);
@@ -2333,6 +2493,18 @@
                 if (tr.subheadline) subheadline = tr.subheadline;
                 if (tr.cta) cta = tr.cta;
                 if (tr.features) features = tr.features;
+            }
+            
+            // Campaign level overrides injection
+            if (window.brandConfig && window.brandConfig.campaign_overrides) {
+                const overrides = window.brandConfig.campaign_overrides;
+                if (overrides.subheadline) {
+                    headline = overrides.subheadline;
+                }
+                if (overrides.product_id_override) {
+                    page.product_id = overrides.product_id_override;
+                    page.type = 'product';
+                }
             }
 
             // Create a translated wrapper page copy to pass downstream
@@ -2381,7 +2553,7 @@
             const heroImg = document.getElementById('landing-hero-img');
             const heroFallback = document.getElementById('landing-hero-img-fallback');
             if (page.hero_img) {
-                heroImg.src = page.hero_img;
+                heroImg.src = optimizeImageUrl(page.hero_img, 1200);
                 heroImg.style.display = 'block';
                 if (heroFallback) heroFallback.style.display = 'none';
             } else {
@@ -2417,7 +2589,7 @@
                 // Look for product in storeProducts
                 const prod = storeProducts.find(p => p.id === prodId);
                 if (prod) {
-                    document.getElementById('landing-prod-img').src = prod.image || 'https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591';
+                    document.getElementById('landing-prod-img').src = optimizeImageUrl(prod.image, 600) || 'https://pesado585.com/cdn/shop/files/LMHD_a20fcda8-4b93-430c-ba92-da68aac7be98.jpg?v=1757481591';
                     document.getElementById('landing-prod-title').innerText = prod.title;
                     document.getElementById('landing-prod-desc').innerText = prod.description || page.subheadline;
                     
@@ -2645,7 +2817,7 @@
                 card.innerHTML = `
                     ${prod.tag ? `<span class="product-badge">${prod.tag}</span>` : ''}
                     <div class="product-image-wrapper">
-                        <img src="${prod.image}" alt="${prod.title}" class="product-image">
+                        <img src="${optimizeImageUrl(prod.image, 400)}" alt="${prod.title}" class="product-image">
                     </div>
                     <div class="product-info">
                         <h3 class="product-title">${prod.title}</h3>
@@ -2697,7 +2869,7 @@
                 });
             }
 
-            document.getElementById('detail-image').src = prod.image;
+            document.getElementById('detail-image').src = optimizeImageUrl(prod.image, 600);
             document.getElementById('detail-image').alt = prod.title;
             
             const badgeEl = document.getElementById('detail-badge');
@@ -2733,11 +2905,11 @@
                 const allImages = [prod.image, ...extraImages.filter(img => img !== prod.image)];
                 allImages.forEach((imgUrl, idx) => {
                     const thumb = document.createElement('img');
-                    thumb.src = imgUrl;
+                    thumb.src = optimizeImageUrl(imgUrl, 100, 100);
                     thumb.style = "width: 48px; height: 48px; border-radius: 6px; object-fit: cover; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; flex-shrink: 0;";
                     if (idx === 0) thumb.style.borderColor = "var(--primary)";
                     thumb.onclick = () => {
-                        document.getElementById('detail-image').src = imgUrl;
+                        document.getElementById('detail-image').src = optimizeImageUrl(imgUrl, 600);
                         const thumbs = thumbnailContainer.querySelectorAll('img');
                         thumbs.forEach(t => t.style.borderColor = "transparent");
                         thumb.style.borderColor = "var(--primary)";
@@ -3002,7 +3174,7 @@
                     const cartItemEl = document.createElement('div');
                     cartItemEl.className = 'cart-item';
                     cartItemEl.innerHTML = `
-                        <img src="${item.image}" alt="${item.title}" class="cart-item-img">
+                        <img src="${optimizeImageUrl(item.image, 120, 120)}" alt="${item.title}" class="cart-item-img">
                         <div class="cart-item-details">
                             <div>
                                 <h4 class="cart-item-title">${item.title}</h4>
@@ -3434,6 +3606,44 @@
             const urlParams = new URLSearchParams(window.location.search);
             const isPreview = urlParams.get('previewBrandId') || window.parent !== window;
             if (!isPreview) return;
+
+            // Bind listeners for static header/footer fields
+            document.querySelectorAll('header .dynamic-bind, footer .dynamic-bind').forEach(bindEl => {
+                const field = bindEl.dataset.field;
+                if (bindEl.dataset.editorBound) return;
+                bindEl.dataset.editorBound = "true";
+                
+                bindEl.contentEditable = "true";
+                bindEl.style.cursor = "text";
+                bindEl.style.outline = "none";
+                bindEl.addEventListener('mouseenter', () => {
+                    if (window.inlineEditingEnabled) {
+                        bindEl.style.boxShadow = "0 0 0 2px var(--primary, #c5a059)";
+                        bindEl.style.borderRadius = "4px";
+                    }
+                });
+                bindEl.addEventListener('mouseleave', () => {
+                    bindEl.style.boxShadow = "none";
+                });
+                bindEl.addEventListener('focus', () => {
+                    if (window.inlineEditingEnabled) {
+                        bindEl.style.boxShadow = "0 0 0 2px var(--primary, #c5a059), 0 0 8px rgba(197, 160, 89, 0.4)";
+                        const parentId = bindEl.closest('footer') ? 'footer' : (bindEl.closest('header') ? 'header' : 'footer');
+                        showToolbar(bindEl, `${parentId}_${field}`, 'home');
+                    }
+                });
+                bindEl.addEventListener('blur', () => {
+                    bindEl.style.boxShadow = "none";
+                    const text = bindEl.innerText.trim();
+                    const parentId = bindEl.closest('footer') ? 'footer' : (bindEl.closest('header') ? 'header' : 'footer');
+                    window.parent.postMessage({
+                        type: 'SECTION_SETTING_EDIT',
+                        sectionId: parentId,
+                        field: field,
+                        value: text
+                    }, '*');
+                });
+            });
 
             // Inject Toolbar CSS
             if (!document.getElementById('sc-inline-editor-css')) {
@@ -4163,7 +4373,17 @@
                     }
                 });
 
-                const rawSettings = section.settings || {};
+                let rawSettings = section.settings || {};
+                
+                // Campaign override injection
+                if (section.type === 'hero' && window.brandConfig && window.brandConfig.campaign_overrides) {
+                    const overrides = window.brandConfig.campaign_overrides;
+                    rawSettings = {
+                        ...rawSettings,
+                        headline: overrides.headline || rawSettings.headline,
+                        hero_img: overrides.media_url || rawSettings.hero_img
+                    };
+                }
                 const settings = {};
                 Object.keys(rawSettings).forEach(k => {
                     const val = rawSettings[k];
@@ -4180,7 +4400,7 @@
                         <div class="hero-media-wrapper" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:-1; overflow:hidden;">
                             ${isVideo ? 
                                 `<video src="${settings.hero_img}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; opacity:0.85;"></video>` :
-                                `<div style="background-image: url('${settings.hero_img || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1200'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.85;"></div>`
+                                `<div style="background-image: url('${optimizeImageUrl(settings.hero_img, 1200) || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1200'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.85;"></div>`
                             }
                             <div style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.8) 100%);"></div>
                         </div>
@@ -4201,26 +4421,68 @@
                     const colSubtitle = settings.subtitle || '';
                     const colLimit = parseInt(settings.limit) || 4;
                     const colId = settings.collection_id || 'all';
-
+ 
                     sectionEl.innerHTML = `
                         <div class="container" style="padding: 80px 24px;">
                             <div class="section-header" style="text-align: center; margin-bottom: 48px;">
-                                <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 12px; color: var(--text-main);">${colTitle}</h2>
-                                ${colSubtitle ? `<p style="color: var(--text-muted); font-size: 1rem;">${colSubtitle}</p>` : ''}
+                                <h2 class="dynamic-bind" data-field="title" style="font-size: 2.2rem; font-weight: 800; margin-bottom: 12px; color: var(--text-main);">${colTitle}</h2>
+                                <p class="dynamic-bind" data-field="subtitle" style="color: var(--text-muted); font-size: 1rem; min-height: 1.2em;">${colSubtitle || 'Meticulously engineered tools for the discerning barista.'}</p>
                             </div>
                             <div class="products-grid sc-dynamic-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px;">
                             </div>
                         </div>
                     `;
-
+ 
                     const grid = sectionEl.querySelector('.sc-dynamic-grid');
                     if (grid) {
                         const items = storeProducts.filter(p => {
-                            if (colId === 'all') return true;
-                            const text = `${p.title} ${p.description} ${p.tag}`.toLowerCase();
-                            return text.includes(colId.toLowerCase());
+                            // 0. Explicit product IDs list filter (add/remove items)
+                            if (settings.product_ids) {
+                                const allowedIds = settings.product_ids.split(',').map(id => id.trim());
+                                if (!allowedIds.includes(String(p.id))) return false;
+                            }
+                            // 1. Collection ID filter
+                            if (colId !== 'all') {
+                                if (colId === 'services') {
+                                    if (p.type !== 'service') return false;
+                                } else {
+                                    const text = `${p.title || ''} ${p.description || ''} ${p.tag || ''}`.toLowerCase();
+                                    if (!text.includes(colId.toLowerCase())) return false;
+                                }
+                            }
+                            // 2. Tag filter
+                            if (settings.tag_filter) {
+                                const pTag = (p.tag || '').toLowerCase();
+                                const fTag = settings.tag_filter.toLowerCase();
+                                if (pTag !== fTag && !pTag.includes(fTag)) return false;
+                            }
+                            // 3. Price range
+                            const price = parseFloat(p.price) || 0;
+                            if (settings.min_price) {
+                                const min = parseFloat(settings.min_price) || 0;
+                                if (price < min) return false;
+                            }
+                            if (settings.max_price) {
+                                const max = parseFloat(settings.max_price) || 999999;
+                                if (price > max) return false;
+                            }
+                            // 4. Persona matching
+                            if (settings.target_persona) {
+                                const personaText = settings.target_persona.toLowerCase();
+                                const pText = `${p.title} ${p.description} ${p.tag} ${p.long_description || ''}`.toLowerCase();
+                                let matches = false;
+                                if (personaText.includes('barista') || personaText.includes('scientist') || personaText.includes('technical')) {
+                                    matches = pText.includes('tamper') || pText.includes('dosing') || pText.includes('precision') || pText.includes('micro') || pText.includes('rigid') || pText.includes('basket') || pText.includes('58.5') || pText.includes('shower');
+                                } else if (personaText.includes('curator') || personaText.includes('design') || personaText.includes('purist') || personaText.includes('aesthetic')) {
+                                    matches = pText.includes('wood') || pText.includes('timber') || pText.includes('handcrafted') || pText.includes('marble') || pText.includes('design') || pText.includes('aesthetic') || pText.includes('ritual') || pText.includes('leather');
+                                } else {
+                                    matches = pText.includes(personaText);
+                                }
+                                if (!matches) return false;
+                            }
+                            return true;
                         }).slice(0, colLimit);
-
+ 
                         if (items.length === 0) {
                             grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding: 40px; color:var(--text-muted);">No products found in collection "${colId}".</div>`;
                         } else {
@@ -4235,7 +4497,7 @@
                                 card.innerHTML = `
                                     ${prod.tag ? `<span class="product-badge">${prod.tag}</span>` : ''}
                                     <div class="product-image-wrapper">
-                                        <img src="${prod.image}" alt="${prod.title}" class="product-image">
+                                        <img src="${optimizeImageUrl(prod.image, 400)}" alt="${prod.title}" class="product-image">
                                     </div>
                                     <div class="product-info">
                                         <h3 class="product-title">${prod.title}</h3>
@@ -4273,7 +4535,7 @@
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
                                 ${blocks.map((block, bIdx) => `
                                     <div class="sc-dynamic-block" data-block-id="${block.id}" style="position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--card-bg); aspect-ratio: 4/3; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                                        <div style="background-image: url('${block.settings.image || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.8;"></div>
+                                        <div style="background-image: url('${optimizeImageUrl(block.settings.image, 600, 450) || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600'}'); background-size: cover; background-position: center; width:100%; height:100%; opacity:0.8;"></div>
                                         <div style="position: absolute; bottom: 0; left: 0; width:100%; padding: 20px; background: linear-gradient(360deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%); display: flex; align-items: flex-end; justify-content: space-between;">
                                             <span style="font-weight: 700; font-size: 1.2rem; color: #ffffff;">${block.settings.title || 'Collection Title'} →</span>
                                         </div>

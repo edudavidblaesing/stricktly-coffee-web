@@ -272,7 +272,7 @@
                                 ✍️ Custom Promo
                             </button>
                             <button type="button" class="btn" style="flex: 1; margin: 0; padding: 8px; font-size: 0.76rem; font-weight: 700; border-radius: 6px; transition: 0.2s;" :style="newCampaign.campaign_type === 'product' ? 'background: var(--primary); color: var(--bg-color); border-color: var(--primary);' : 'background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main);'" @click="setCampaignType('product')">
-                                📦 Product Showcase
+                                📦 Product & Service Showcase
                             </button>
                             <button type="button" class="btn" style="flex: 1; margin: 0; padding: 8px; font-size: 0.76rem; font-weight: 700; border-radius: 6px; transition: 0.2s;" :style="newCampaign.campaign_type === 'page' ? 'background: var(--primary); color: var(--bg-color); border-color: var(--primary);' : 'background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main);'" @click="setCampaignType('page')">
                                 📄 Landing Page
@@ -283,16 +283,28 @@
                     <!-- Target Product Catalog Item select -->
                     <div v-if="newCampaign.campaign_type === 'product'" class="form-group" style="margin-bottom: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px; border-radius: 8px;">
                         <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 6px;">
-                            <span>Select Products to Promote (Showcase)</span>
-                            <span class="info-tooltip-trigger" data-tooltip="Choose one or more products to promote. For carousels, this will pre-populate individual cards.">i</span>
+                            <span>Select Products & Services to Promote</span>
+                            <span class="info-tooltip-trigger" data-tooltip="Choose one or more items to promote. For carousels, this will pre-populate individual cards.">i</span>
                         </label>
+                        <!-- Search Box for Products / Services in Campaign Creator -->
+                        <input type="text" v-model="catalogShowcaseSearch" placeholder="Search products & services..." 
+                               style="width: 100%; height: 32px; font-size: 0.76rem; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); margin-bottom: 8px; padding: 0 8px; outline: none;">
+                        
                         <div style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--card-bg); display: flex; flex-direction: column; gap: 8px;">
-                            <label v-for="p in app.products" :key="p.id" style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; margin: 0; padding: 4px 6px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                            <label v-for="p in filteredCampaignProducts" :key="p.id" style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; margin: 0; padding: 4px 6px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
                                 <input type="checkbox" :value="p.id" v-model="selectedProductIds" @change="applyProductCatalogDetails" style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
-                                <span>{{ p.title }} (Price: €{{ parseFloat(p.price).toFixed(2) }})</span>
+                                <img :src="p.image || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=50'" style="width: 28px; height: 28px; object-fit: cover; border-radius: 4px; background: white; border: 1px solid var(--border);" />
+                                <span style="flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0;">
+                                    <span style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ p.title }}</span>
+                                    <span style="font-size: 0.62rem; padding: 1px 4px; border-radius: 3px; font-weight: 700; white-space: nowrap;"
+                                          :style="p.type === 'service' ? 'background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3);' : 'background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border);'">
+                                        {{ p.type === 'service' ? 'Service' : 'Product' }}
+                                    </span>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem; white-space: nowrap;">(€{{ parseFloat(p.price).toFixed(2) }})</span>
+                                </span>
                             </label>
-                            <div v-if="!app.products || app.products.length === 0" style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 12px;">
-                                No products in catalog.
+                            <div v-if="filteredCampaignProducts.length === 0" style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 12px;">
+                                No items found matching search filters.
                             </div>
                         </div>
                     </div>
@@ -735,6 +747,51 @@
                                 <option value="custom_url">Custom Target URL</option>
                             </select>
                         </div>
+                        
+                        <!-- Campaign Personalization Overrides -->
+                        <div style="border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px; background: rgba(255,255,255,0.015); width: 100%;">
+                            <h4 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                                <span>⚙️</span> Storefront Personalization Overrides
+                            </h4>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Target Persona Override</label>
+                                    <select v-model="newCampaign.target_persona" style="width: 100%; font-size: 0.78rem; height: 32px; padding: 0 6px;">
+                                        <option value="">-- No target persona override --</option>
+                                        <option value="@barista">☕ @barista (Technical & Precision Barista)</option>
+                                        <option value="@curator">✨ @curator (Design Purist & Aesthetic Curator)</option>
+                                        <option value="@home-brewer">🏠 @home-brewer (Daily Home Coffee Brewer)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Featured Showcase Product Override</label>
+                                    <select v-model="newCampaign.product_id_override" style="width: 100%; font-size: 0.78rem; height: 32px; padding: 0 6px;">
+                                        <option :value="null">-- No product override --</option>
+                                        <option v-for="p in (app.products || []).filter(x => x.brand_id === newCampaign.brand_id)" :key="p.id" :value="p.id">
+                                            {{ p.title }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="margin: 0;">
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Headline Copy Override</label>
+                                    <input type="text" v-model="newCampaign.subheadline" placeholder="Override landing page headline for this campaign..." style="width: 100%; font-size: 0.78rem; height: 32px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                </div>
+
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" id="campaign-opt-toggle" v-model="newCampaign.dynamic_copy_optimization" style="width: 15px; height: 15px; cursor: pointer; margin: 0;">
+                                    <label for="campaign-opt-toggle" style="font-size: 0.75rem; color: var(--text-main); font-weight: 600; cursor: pointer; margin: 0;">
+                                        Enable Real-time AI Copy Optimization
+                                    </label>
+                                </div>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.3;">
+                                    If enabled, the Gemini agent automatically optimizes page headlines and feature copywriting based on the campaign's target persona and ad text.
+                                </span>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <template v-if="newCampaign.destination_type === 'custom_url'">
                                 <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
@@ -892,136 +949,20 @@
                     </div>
 
                     <div v-if="newCampaign.format !== 'Carousel'" class="form-group" style="margin-bottom: 15px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <label style="margin: 0; font-weight: 700; font-size: 0.85rem;">Ad Creative Graphic (Media)</label>
-                            <!-- Tab toggle pills -->
-                            <div style="display: flex; gap: 4px; background: var(--border); padding: 2px; border-radius: 6px; overflow-x: auto; max-width: 100%;">
-                                <button type="button" @click="mediaTab = 'upload'" style="font-size: 0.7rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s; white-space: nowrap;" :style="mediaTab === 'upload' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">📁 Upload</button>
-                                <button type="button" @click="mediaTab = 'catalog'" style="font-size: 0.7rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s; white-space: nowrap;" :style="mediaTab === 'catalog' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🛍️ Catalog</button>
-                                <button type="button" @click="mediaTab = 'library'" style="font-size: 0.7rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s; white-space: nowrap;" :style="mediaTab === 'library' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🗂️ Library</button>
-                                <button type="button" @click="mediaTab = 'url'" style="font-size: 0.7rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s; white-space: nowrap;" :style="mediaTab === 'url' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🔗 URL</button>
-                                <button type="button" @click="mediaTab = 'aistudio'" style="font-size: 0.7rem; padding: 3px 8px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s; white-space: nowrap;" :style="mediaTab === 'aistudio' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">✨ AI Studio</button>
+                        <label style="margin: 0 0 6px 0; font-weight: 700; font-size: 0.85rem; display: block;">Ad Creative Graphic (Media)</label>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <div style="width: 70px; height: 70px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); background: var(--card-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <img v-if="newCampaign.media_url" :src="app.getCleanImageUrl(resolveProductImage(newCampaign.media_url))" style="width: 100%; height: 100%; object-fit: contain;">
+                                <span v-else style="font-size: 1.2rem;">🖼️</span>
                             </div>
-                        </div>
-
-                        <!-- Tab 1: Upload Image -->
-                        <div v-if="mediaTab === 'upload'" style="border: 1px dashed var(--border); border-radius: 8px; padding: 20px; text-align: center; background: var(--card-bg); position: relative; cursor: pointer; transition: border-color 0.2s;">
-                            <input type="file" @change="uploadAdMedia" accept="image/*" style="opacity: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;">
-                            <div v-if="uploadingMedia">
-                                <div style="inline-block; width: 24px; height: 24px; border: 2px solid var(--text-muted); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 8px;"></div>
-                                <div style="font-size: 0.78rem; color: var(--text-muted);">Uploading asset to store storage...</div>
-                            </div>
-                            <div v-else>
-                                <span style="font-size: 1.6rem; display: block; margin-bottom: 6px;">📤</span>
-                                <span style="font-size: 0.78rem; color: var(--text-main); font-weight: 600;">Drag & drop or click to upload campaign graphic</span>
-                                <span style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-top: 4px;">Supports JPG, PNG, WebP up to 5MB</span>
-                            </div>
-                        </div>
-
-                        <!-- Tab 2: Catalog Image Gallery -->
-                        <div v-else-if="mediaTab === 'catalog'" style="border: 1px solid var(--border); border-radius: 8px; padding: 8px; max-height: 140px; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--bg-color);">
-                            <div v-for="p in app.products" :key="p.id" @click="selectCatalogImage(p.image)" style="cursor: pointer; border: 2px solid var(--border); border-radius: 6px; overflow: hidden; height: 50px; position: relative;" :style="newCampaign.media_url === p.image ? 'border-color: var(--primary); font-weight: 700;' : ''" :title="p.title">
-                                <img :src="p.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 100%; height: 100%; object-fit: cover;">
-                                <div v-if="newCampaign.media_url === p.image" style="position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: var(--bg-color); border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: bold;">✓</div>
-                            </div>
-                            <div v-if="!app.products || app.products.length === 0" style="grid-column: span 4; text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 16px;">
-                                No products in catalog to select images from.
-                            </div>
-                        </div>
-
-                        <!-- Tab 3: Media Library Picker -->
-                        <div v-else-if="mediaTab === 'library'" style="border: 1px solid var(--border); border-radius: 8px; padding: 8px; max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: var(--bg-color);">
-                            <input type="text" v-model="widgetSearchQuery" placeholder="Search Media Library..." 
-                                style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin-bottom: 2px;">
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-                                <div v-for="item in filteredWidgetMedia" :key="item.id" @click="selectCatalogImage(item.url)" style="cursor: pointer; border: 2px solid var(--border); border-radius: 6px; overflow: hidden; height: 50px; position: relative;" :style="newCampaign.media_url === item.url ? 'border-color: var(--primary); font-weight: 700;' : ''" :title="item.title">
-                                    <img :src="item.url" style="width: 100%; height: 100%; object-fit: cover;">
-                                    <div v-if="newCampaign.media_url === item.url" style="position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: var(--bg-color); border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: bold;">✓</div>
+                            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px;">
+                                <ProductTagField v-model="newCampaign.media_url" placeholder="Media asset URL" :audiences="audiences" />
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" @click="triggerCampaignContentStudio('main')" class="btn btn-primary"
+                                            style="height: 28px; font-size: 0.72rem; font-weight: 700; padding: 0 10px; margin: 0; display: inline-flex; align-items: center; gap: 4px;">
+                                        🎨 Content Studio
+                                    </button>
                                 </div>
-                                <div v-if="filteredWidgetMedia.length === 0" style="grid-column: span 4; text-align: center; font-size: 0.72rem; color: var(--text-muted); padding: 8px;">
-                                    No matching media assets found.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Tab 4: Manual Media URL Input -->
-                        <div v-else-if="mediaTab === 'url'">
-                            <input type="text" v-model="newCampaign.media_url" placeholder="Paste image/media asset URL"
-                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
-                        </div>
-
-                        <!-- Tab 5: AI Creative Studio -->
-                        <div v-else style="background: rgba(139, 92, 246, 0.03); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-                                <span style="font-size: 0.72rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px;">
-                                    ✨ AI Creative Studio
-                                </span>
-                                <!-- Mode Selector -->
-                                <select v-model="aiStudioAction" style="font-size: 0.65rem; padding: 2px 16px 2px 4px !important; height: 20px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0; cursor: pointer; outline: none; width: auto;">
-                                    <option value="generate">🎨 Generate New Image</option>
-                                    <option value="refine">✏️ Refine Selected</option>
-                                    <option value="video">🎬 Animate to Video</option>
-                                </select>
-                            </div>
-
-                            <!-- Guidelines / Manuscript Helper Prompt -->
-                            <div v-if="activeBrand && activeBrand.brand_canvas" style="background: rgba(255,255,255,0.02); border-radius: 4px; padding: 4px 8px; font-size: 0.62rem; color: var(--text-muted); border-left: 2px solid #8b5cf6;">
-                                💡 <strong>Style Guide:</strong> {{ getBrandCanvasVisualDirection() }}
-                            </div>
-
-                            <!-- Mode 1: Generate New Image -->
-                            <div v-if="aiStudioAction === 'generate'" style="display: flex; flex-direction: column; gap: 6px;">
-                                <textarea v-model="aiStudioPrompt" placeholder="Describe the image you want to generate... e.g. Minimalist coffee cup with steam, marble background, morning light" 
-                                    style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.75rem; height: 50px; resize: none;"></textarea>
-                            </div>
-
-                            <!-- Mode 2: Refine Selected Image -->
-                            <div v-else-if="aiStudioAction === 'refine'" style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <div style="width: 36px; height: 36px; border-radius: 4px; overflow: hidden; background: #eee; flex-shrink: 0; border: 1px solid var(--border);">
-                                        <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
-                                        <span v-else style="font-size: 1rem; display: flex; align-items: center; justify-content: center; height: 100%;">🖼️</span>
-                                    </div>
-                                    <div style="flex: 1; font-size: 0.68rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        <strong>Target:</strong> {{ newCampaign.media_url ? newCampaign.media_url.split('/').pop() : 'No media selected' }}
-                                    </div>
-                                </div>
-                                <textarea v-model="aiStudioPrompt" placeholder="Describe refinement instructions... e.g. Make it warmer, add soft morning steam, blur background" 
-                                    style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.75rem; height: 50px; resize: none;"></textarea>
-                            </div>
-
-                            <!-- Mode 3: Animate to Video -->
-                            <div v-else style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <div style="width: 36px; height: 36px; border-radius: 4px; overflow: hidden; background: #eee; flex-shrink: 0; border: 1px solid var(--border);">
-                                        <img v-if="newCampaign.media_url" :src="newCampaign.media_url" style="width: 100%; height: 100%; object-fit: cover;">
-                                        <span v-else style="font-size: 1rem; display: flex; align-items: center; justify-content: center; height: 100%;">🖼️</span>
-                                    </div>
-                                    <div style="flex: 1; font-size: 0.68rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        <strong>Source Image:</strong> {{ newCampaign.media_url ? newCampaign.media_url.split('/').pop() : 'No image selected' }}
-                                    </div>
-                                </div>
-                                <textarea v-model="aiStudioPrompt" placeholder="Describe the motion/animation... e.g. Pouring milk into espresso, slow motion steam rising" 
-                                    style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.75rem; height: 40px; resize: none;"></textarea>
-                            </div>
-
-                            <!-- Channel Recommendations Presets banner -->
-                            <div style="font-size: 0.65rem; color: var(--text-muted); background: rgba(255,255,255,0.01); border: 1px dashed var(--border); padding: 6px; border-radius: 4px; margin-bottom: 8px;">
-                                💡 Recommended Presets:
-                                <span @click="applyMainCreativePreset('feed')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-left: 4px; margin-right: 8px; font-weight: 600;">Feed (1:1)</span>
-                                <span @click="applyMainCreativePreset('reels')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 8px; font-weight: 600;">Reels/TikTok (9:16)</span>
-                                <span @click="applyMainCreativePreset('youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube/Wide (16:9)</span>
-                            </div>
-
-                            <!-- Composed Brand AI Assets Actions -->
-                            <div style="display: flex; gap: 8px; margin-top: 6px;">
-                                <button type="button" @click="generateAIStudioAsset" :disabled="aiStudioGenerating" class="sc-ai-button" style="flex: 1; font-size: 0.72rem; padding: 4px 12px; height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: white; border: none; font-weight: 700; border-radius: 4px;">
-                                    <span v-if="aiStudioGenerating">⏳ Generating...</span>
-                                    <span v-else>⚡ 1-Click Auto-Gen</span>
-                                </button>
-                                <button type="button" @click="openComposerModal('main', 0)" class="sc-ai-button" style="flex: 1; font-size: 0.72rem; padding: 4px 12px; height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%); color: var(--workspace-bg); border: none; font-weight: 700; border-radius: 4px;">
-                                    🎨 Visual Composer
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1063,86 +1004,23 @@
                                 </select>
                             </div>
 
-                            <!-- Tabs toggle for individual card -->
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                                <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">Card Image Source:</span>
-                                <div style="display: flex; gap: 4px; background: var(--border); padding: 2px; border-radius: 6px; overflow-x: auto; max-width: 100%;">
-                                    <button type="button" @click="card.activeTab = 'upload'" style="font-size: 0.65rem; padding: 3px 6px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="(card.activeTab || 'url') === 'upload' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">📁 Upload</button>
-                                    <button type="button" @click="card.activeTab = 'catalog'" style="font-size: 0.65rem; padding: 3px 6px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="(card.activeTab || 'url') === 'catalog' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🛍️ Catalog</button>
-                                    <button type="button" @click="card.activeTab = 'library'" style="font-size: 0.65rem; padding: 3px 6px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="(card.activeTab || 'url') === 'library' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🗂️ Library</button>
-                                    <button type="button" @click="card.activeTab = 'url'" style="font-size: 0.65rem; padding: 3px 6px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="(card.activeTab || 'url') === 'url' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">🔗 URL</button>
-                                    <button type="button" @click="card.activeTab = 'aistudio'" style="font-size: 0.65rem; padding: 3px 6px; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;" :style="(card.activeTab || 'url') === 'aistudio' ? 'background: var(--card-bg); color: var(--text-main); font-weight: bold;' : 'background: none; color: var(--text-muted);'">✨ AI Studio</button>
-                                </div>
-                            </div>
-
-                            <!-- CARD TAB 1: Upload Card Image -->
-                            <div v-if="(card.activeTab || 'url') === 'upload'" style="border: 1px dashed var(--border); border-radius: 8px; padding: 14px; text-align: center; background: var(--card-bg); position: relative; cursor: pointer; margin-bottom: 10px;">
-                                <input type="file" @change="uploadCarouselCardMedia(idx, $event)" accept="image/*" style="opacity: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;">
-                                <div>
-                                    <span style="font-size: 1.2rem; display: block; margin-bottom: 4px;">📤</span>
-                                    <span style="font-size: 0.72rem; color: var(--text-main); font-weight: 600;">Click to upload card image</span>
-                                </div>
-                            </div>
-
-                            <!-- CARD TAB 2: Catalog Gallery -->
-                            <div v-else-if="(card.activeTab || 'url') === 'catalog'" style="border: 1px solid var(--border); border-radius: 8px; padding: 6px; max-height: 120px; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--bg-color); margin-bottom: 10px;">
-                                <div v-for="p in app.products" :key="p.id" @click="card.image = p.image; card.title = p.title" style="cursor: pointer; border: 2px solid var(--border); border-radius: 6px; overflow: hidden; height: 45px; position: relative;" :style="card.image === p.image ? 'border-color: var(--primary);' : ''" :title="p.title">
-                                    <img :src="p.image || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=120'" style="width: 100%; height: 100%; object-fit: cover;">
-                                    <div v-if="card.image === p.image" style="position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: var(--bg-color); border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; font-size: 0.5rem; font-weight: bold;">✓</div>
-                                </div>
-                                <div v-if="!app.products || app.products.length === 0" style="grid-column: span 4; text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 8px;">
-                                    No products in catalog.
-                                </div>
-                            </div>
-
-                            <!-- CARD TAB 3: Media Library -->
-                            <div v-else-if="(card.activeTab || 'url') === 'library'" style="border: 1px solid var(--border); border-radius: 8px; padding: 6px; max-height: 120px; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--bg-color); margin-bottom: 10px;">
-                                <div v-for="item in filteredWidgetMedia" :key="item.id" @click="card.image = item.url" style="cursor: pointer; border: 2px solid var(--border); border-radius: 6px; overflow: hidden; height: 45px; position: relative;" :style="card.image === item.url ? 'border-color: var(--primary);' : ''" :title="item.title">
-                                    <img :src="item.url" style="width: 100%; height: 100%; object-fit: cover;">
-                                    <div v-if="card.image === item.url" style="position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: var(--bg-color); border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; font-size: 0.5rem; font-weight: bold;">✓</div>
-                                </div>
-                                <div v-if="filteredWidgetMedia.length === 0" style="grid-column: span 4; text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 8px;">
-                                    No media library assets.
-                                </div>
-                            </div>
-
-                            <!-- CARD TAB 4: URL Input -->
-                            <div v-else-if="(card.activeTab || 'url') === 'url'" style="margin-bottom: 10px;">
-                                <input type="text" v-model="card.image" placeholder="Card Image URL" style="font-size: 0.75rem; padding: 6px 10px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
-                            </div>
-
-                            <!-- CARD TAB 5: AI Creative Studio for Card -->
-                            <div v-else style="background: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #8b5cf6;">✨ Card AI Studio</span>
-                                    <select v-model="card.aiStudioAction" style="font-size: 0.65rem; padding: 2px 14px 2px 4px !important; height: 20px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); margin: 0; width: auto;">
-                                        <option value="">Select Option</option>
-                                        <option value="generate">🎨 Generate New Image</option>
-                                        <option value="refine">✏️ Refine Card Image</option>
-                                        <option value="video">🎬 Animate to Video</option>
-                                    </select>
-                                </div>
-
-                                <textarea v-model="card.aiStudioPrompt" :placeholder="!card.aiStudioAction ? 'Select an AI action first...' : card.aiStudioAction === 'generate' ? 'Describe the card image...' : card.aiStudioAction === 'refine' ? 'Describe card refinements...' : 'Describe video motion...'" 
-                                    style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.72rem; height: 40px; resize: none;"></textarea>
-
-                                <!-- Recommended card presets banner -->
-                                <div style="font-size: 0.62rem; color: var(--text-muted); margin-top: 2px;">
-                                    💡 Recommended: 
-                                    <span @click="applyCardCreativePreset(card, 'feed')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 6px; font-weight: 600;">Feed (1:1)</span>
-                                    <span @click="applyCardCreativePreset(card, 'reels')" style="cursor: pointer; color: var(--accent); text-decoration: underline; margin-right: 6px; font-weight: 600;">Reels/TikTok (9:16)</span>
-                                    <span @click="applyCardCreativePreset(card, 'youtube')" style="cursor: pointer; color: var(--accent); text-decoration: underline; font-weight: 600;">YouTube (16:9)</span>
-                                </div>
-
-                                <!-- Composed Brand AI Assets Actions -->
-                                <div style="display: flex; gap: 8px; margin-top: 6px;">
-                                    <button type="button" @click="generateCardAIStudioAsset(idx)" :disabled="card.aiStudioGenerating" class="sc-ai-button" style="flex: 1; font-size: 0.68rem; padding: 4px 8px; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); color: white; border: none; font-weight: 700; border-radius: 4px;">
-                                        <span v-if="card.aiStudioGenerating">⏳ Generating...</span>
-                                        <span v-else>⚡ 1-Click Auto-Gen</span>
-                                    </button>
-                                    <button type="button" @click="openComposerModal('card', idx)" class="sc-ai-button" style="flex: 1; font-size: 0.68rem; padding: 4px 8px; height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 0; background: linear-gradient(135deg, var(--accent) 0%, #d4b26f 100%); color: var(--workspace-bg); border: none; font-weight: 700; border-radius: 4px;">
-                                        🎨 Visual Composer
-                                    </button>
+                            <!-- Card Image Input with Content Studio -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Card Image Media</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <div style="width: 50px; height: 50px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); background: var(--card-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <img v-if="card.image" :src="app.getCleanImageUrl(resolveProductImage(card.image))" style="width: 100%; height: 100%; object-fit: contain;">
+                                        <span v-else style="font-size: 1rem;">🖼️</span>
+                                    </div>
+                                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+                                        <ProductTagField v-model="card.image" placeholder="Card Image URL" :audiences="audiences" />
+                                        <div style="display: flex; gap: 6px;">
+                                            <button type="button" @click="triggerCardContentStudio(idx)" class="btn btn-primary"
+                                                    style="height: 24px; font-size: 0.68rem; font-weight: 700; padding: 0 8px; margin: 0; display: inline-flex; align-items: center; gap: 2px;">
+                                                🎨 Content Studio
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1164,7 +1042,7 @@
                                         </template>
                                     </button>
                                 </div>
-                                <input type="text" v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" style="font-size: 0.75rem; padding: 6px 10px; width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main);">
+                                <ProductTagField v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" :audiences="audiences" />
                             </div>
                         </div>
                     </div>
@@ -1263,10 +1141,25 @@
                                 <span>Ad Headline Copy</span>
                                 <span class="info-tooltip-trigger" data-tooltip="The main bold title text displayed on the ad post (e.g. Try Our Premium Special Roasts Today!).">i</span>
                             </label>
-                            <input v-if="campaignContentLang === 'en'" type="text" v-model="newCampaign.headline" placeholder="e.g. Try Our Premium Special Roasts Today!"
-                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
-                            <input v-else type="text" v-model="newCampaign.translations[campaignContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Probieren Sie noch heute unsere Premium-Röstungen!'"
-                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem;">
+                            <ProductTagField v-if="campaignContentLang === 'en'" v-model="newCampaign.headline" placeholder="e.g. Try Our Premium Special Roasts Today!" :audiences="audiences" />
+                            <ProductTagField v-else v-model="newCampaign.translations[campaignContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Probieren Sie noch heute unsere Premium-Röstungen!'" :audiences="audiences" />
+                        </div>
+
+                        <!-- Ad Call-to-Action (CTA) Selector Option -->
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+                                <span>Ad Call to Action (CTA) Button</span>
+                                <span class="info-tooltip-trigger" data-tooltip="Select the action button shown on your campaign ad copy across social channels.">i</span>
+                            </label>
+                            <select v-model="newCampaign.ad_cta" style="width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.85rem; outline: none; padding: 0 10px; cursor: pointer;">
+                                <option value="Shop Now">Shop Now</option>
+                                <option value="Book Now">Book Now</option>
+                                <option value="Learn More">Learn More</option>
+                                <option value="Sign Up">Sign Up</option>
+                                <option value="Get Offer">Get Offer</option>
+                                <option value="Apply Now">Apply Now</option>
+                                <option value="Send Message">Send Message</option>
+                            </select>
                         </div>
 
                         <!-- Body Description for the active tab -->
@@ -1275,10 +1168,8 @@
                                 <span>Body Description Text</span>
                                 <span class="info-tooltip-trigger" data-tooltip="The primary body text/copywriting that details the offer and convinces readers to click.">i</span>
                             </label>
-                            <textarea v-if="campaignContentLang === 'en'" v-model="newCampaign.ad_copy" rows="3" placeholder="Write compelling marketing ad descriptions..."
-                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
-                            <textarea v-else v-model="newCampaign.translations[campaignContentLang].ad_copy" rows="3" :placeholder="'[AI Translation Pending] e.g. Schreiben Sie hier ansprechende Werbebeschreibungen...'"
-                                style="width: 100%; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 8px; font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
+                            <ProductTagField v-if="campaignContentLang === 'en'" type="textarea" v-model="newCampaign.ad_copy" rows="3" placeholder="Write compelling marketing ad descriptions... (Use @, %, &, #, / for autocomplete tags)" :audiences="audiences" />
+                            <ProductTagField v-else type="textarea" v-model="newCampaign.translations[campaignContentLang].ad_copy" rows="3" :placeholder="'[AI Translation Pending] e.g. Schreiben Sie hier ansprechende Werbebeschreibungen...'" :audiences="audiences" />
                         </div>
 
                         <!-- A/B Creative split testing -->
@@ -1306,14 +1197,14 @@
                                             <span>Headline Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline headline variant.">i</span>
                                         </label>
-                                        <input type="text" v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                        <ProductTagField v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" :audiences="audiences" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Headline Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative headline variant to split test.">i</span>
                                         </label>
-                                        <input type="text" v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                        <ProductTagField v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" :audiences="audiences" />
                                     </div>
                                 </div>
 
@@ -1324,14 +1215,14 @@
                                             <span>Description Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline description variant.">i</span>
                                         </label>
-                                        <textarea v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
+                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" :audiences="audiences" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Description Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative description variant to split test.">i</span>
                                         </label>
-                                        <textarea v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; resize: vertical; font-family: inherit;"></textarea>
+                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" :audiences="audiences" />
                                     </div>
                                 </div>
 
@@ -1360,14 +1251,14 @@
                                             <span>Media Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline visual media asset URL.">i</span>
                                         </label>
-                                        <input type="text" v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" :audiences="audiences" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Media Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative visual media asset URL to split test.">i</span>
                                         </label>
-                                        <input type="text" v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); padding: 6px; font-size: 0.78rem; height: 32px;">
+                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" :audiences="audiences" />
                                     </div>
                                 </div>
 
@@ -1567,12 +1458,12 @@
                                     <div style="display: flex; width: 100%; height: 100%; overflow: hidden;">
                                         <div v-for="(card, i) in newCampaign.carousel_cards" :key="i" style="min-width: 50%; border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; background: #fff;">
                                             <div style="flex-grow: 1; position: relative; background: #eee; overflow: hidden;">
-                                                <img v-if="card.image" :src="card.image" style="width: 100%; height: 100%; object-fit: cover;">
+                                                <img v-if="card.image" :src="app.getCleanImageUrl(resolveProductImage(card.image))" style="width: 100%; height: 100%; object-fit: cover;">
                                                 <div v-else style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 0.7rem;">Card {{i+1}} Image</div>
                                             </div>
                                             <div style="padding: 6px; border-top: 1px solid #e5e5e5;">
-                                                <div style="font-size: 0.72rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1c1e21;">{{ card.title || 'Dynamic Product' }}</div>
-                                                <button type="button" @click="previewChannel = 'destination'" style="border: 0; outline: 0; border-radius: 3px; font-size: 0.65rem; padding: 3px 6px; background: #e4e6eb; color: #050505; margin-top: 4px; font-weight: 600; width: 100%;">Shop Now</button>
+                                                <div style="font-size: 0.72rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1c1e21;">{{ resolveCampaignField(card.title, 'headline', campaignContentLang) || 'Dynamic Product' }}</div>
+                                                <button type="button" @click="previewChannel = 'destination'" style="border: 0; outline: 0; border-radius: 3px; font-size: 0.65rem; padding: 3px 6px; background: #e4e6eb; color: #050505; margin-top: 4px; font-weight: 600; width: 100%;">{{ newCampaign.ad_cta || 'Shop Now' }}</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1585,7 +1476,7 @@
                                     <span style="font-size: 0.7rem; color: #606770; text-transform: uppercase;">{{ previewDestinationUrl }}</span>
                                     <strong style="font-size: 0.85rem; color: #1c1e21; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</strong>
                                 </div>
-                                <button type="button" style="background: #e4e6eb; color: #050505; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; text-transform: none;">Shop Now</button>
+                                <button type="button" style="background: #e4e6eb; color: #050505; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; text-transform: none;">{{ newCampaign.ad_cta || 'Shop Now' }}</button>
                             </div>
                         </div>
 
@@ -1619,7 +1510,7 @@
                                 <template v-else>
                                     <div style="display: flex; width: 100%; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory;">
                                         <div v-for="(card, i) in newCampaign.carousel_cards" :key="i" style="min-width: 100%; scroll-snap-align: start; position: relative; background: #eee; overflow: hidden; display: flex; flex-direction: column;">
-                                            <img v-if="card.image" :src="card.image" style="width: 100%; height: 100%; object-fit: cover;">
+                                            <img v-if="card.image" :src="app.getCleanImageUrl(resolveProductImage(card.image))" style="width: 100%; height: 100%; object-fit: cover;">
                                             <div v-else style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 0.75rem;">Card {{i+1}} Image</div>
                                         </div>
                                     </div>
@@ -1729,7 +1620,7 @@
                             </p>
                             <!-- CTA Button -->
                             <div @click="previewChannel = 'destination'" style="background: #ff0050; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; font-size: 0.78rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2); cursor: pointer; letter-spacing: 0.05em;">
-                                Shop Now
+                                {{ newCampaign.ad_cta || 'Shop Now' }}
                             </div>
                         </div>
                     </div>
@@ -1768,7 +1659,7 @@
                                 <div style="font-size: 0.82rem; font-weight: 600; color: rgba(0,0,0,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ previewHeadline }}</div>
                                 <span style="font-size: 0.7rem; color: rgba(0,0,0,0.6);">{{ previewDestinationUrl }}</span>
                             </div>
-                            <button type="button" style="background: transparent; border: 1px solid #0a66c2; color: #0a66c2; padding: 4px 12px; border-radius: 16px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">Shop Now</button>
+                            <button type="button" style="background: transparent; border: 1px solid #0a66c2; color: #0a66c2; padding: 4px 12px; border-radius: 16px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">{{ newCampaign.ad_cta || 'Shop Now' }}</button>
                         </div>
                     </div>
 
@@ -1823,6 +1714,9 @@
                         </button>
                         <button type="button" @click="activeTab = 'creative'" :style="{ borderBottom: activeTab === 'creative' ? '2px solid var(--accent)' : 'none', color: activeTab === 'creative' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
                             ✨ Creative Audits
+                        </button>
+                        <button type="button" @click="activeTab = 'audiences'" :style="{ borderBottom: activeTab === 'audiences' ? '2px solid var(--accent)' : 'none', color: activeTab === 'audiences' ? 'var(--text-main)' : 'var(--text-muted)' }" style="background: transparent; border: none; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; font-weight: 600; padding-bottom: 8px; transition: all 0.2s;">
+                            👥 Audience Segments
                         </button>
                     </div>
                 </div>
@@ -2503,6 +2397,131 @@
                     </div>
                 </div>
             </template>
+
+            <!-- TAB 5: Audiences segment builder -->
+            <template v-if="activeTab === 'audiences'">
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 12px 16px; border-radius: 8px;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-main);">Audience Segments List</h4>
+                            <p style="margin: 4px 0 0 0; font-size: 0.72rem; color: var(--text-muted);">Manage and build custom rules-based targeting segments (using the <strong>&amp;</strong> symbol in composers)</p>
+                        </div>
+                        <button type="button" class="btn btn-accent" style="margin: 0; font-size: 0.75rem; height: 32px; padding: 0 12px;" @click="openCreateAudienceModal">
+                            ➕ Create Segment
+                        </button>
+                    </div>
+
+                    <!-- AI Audience Advisor Recommendations -->
+                    <div style="background: linear-gradient(135deg, rgba(197, 160, 89, 0.08) 0%, rgba(26, 27, 38, 0.3) 100%); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.25rem;">✨</span>
+                            <div>
+                                <h4 style="margin: 0; font-size: 0.9rem; color: var(--accent); font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">AI Audience Advisor Recommendations</h4>
+                                <p style="margin: 2px 0 0 0; font-size: 0.72rem; color: var(--text-muted);">Predictive behavioral cohorts recommended for targeted coffee marketing campaigns.</p>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+                            <div v-for="rec in aiRecommendations" :key="rec.id" 
+                                 style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: border-color 0.2s;"
+                                 :style="isRecommendationActive(rec) ? { opacity: 0.65, borderColor: 'rgba(16, 185, 129, 0.2)' } : {}">
+                                <div>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                                        <span style="font-size: 0.78rem; font-weight: bold; color: var(--text-main);">{{ rec.name }}</span>
+                                        <span v-if="isRecommendationActive(rec)" style="font-size: 0.6rem; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; border-radius: 100px; display: inline-flex; align-items: center; gap: 2px;">
+                                            ✓ Active
+                                        </span>
+                                    </div>
+                                    <p style="margin: 6px 0; font-size: 0.68rem; color: var(--text-muted); line-height: 1.35;">{{ rec.description }}</p>
+                                    <code style="font-size: 0.62rem; color: var(--accent); background: rgba(0,0,0,0.15); padding: 2px 4px; border-radius: 4px; font-family: monospace; display: block; margin-top: 4px; word-break: break-all;">
+                                        {{ getRulesSummaryDescription(rec.rules) }}
+                                    </code>
+                                </div>
+                                
+                                <button type="button" class="btn" 
+                                        style="font-size: 0.68rem; padding: 5px 10px; height: auto; margin: 0; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; border-radius: 6px; width: 100%; transition: all 0.2s;"
+                                        :style="isRecommendationActive(rec) 
+                                            ? { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', cursor: 'default' } 
+                                            : { background: 'var(--accent)', color: 'var(--workspace-bg)', border: 'none', cursor: 'pointer' }"
+                                        @click="isRecommendationActive(rec) ? null : activateRecommendedSegment(rec)">
+                                    {{ isRecommendationActive(rec) ? 'Segment Active' : '⚡ Activate Cohort' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="audiences.length === 0" style="padding: 40px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px;">
+                        <span style="font-size: 2rem; display: block; margin-bottom: 8px;">👥</span>
+                        No custom audience segments created yet. Click "Create Segment" to start.
+                    </div>
+                    
+                    <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+                        <div v-for="aud in audiences" :key="aud.id" 
+                             style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s;"
+                             :style="aud.is_synced ? { border: '1px solid ' + aud.sync_color + '33', boxShadow: '0 2px 10px ' + aud.sync_color + '0a' } : {}">
+                            <div>
+                                <h4 style="margin: 0 0 8px 0; font-size: 0.95rem; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <span style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                        <span>{{ aud.name }}</span>
+                                        <span v-if="aud.is_synced" :style="{ fontSize: '0.6rem', background: aud.sync_color + '15', color: aud.sync_color, border: '1px solid ' + aud.sync_color + '33', padding: '1px 5px', borderRadius: '100px', fontWeight: 'bold', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '3px' }">
+                                            🔄 {{ aud.source }}
+                                        </span>
+                                    </span>
+                                    <code style="font-size: 0.72rem; color: var(--accent); font-weight: bold;">&amp;{{ aud.id }}</code>
+                                </h4>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 12px;">
+                                    <strong>Target Rules &amp; Conditions:</strong>
+                                    <div style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 1px solid var(--border); margin-top: 6px; font-size: 0.7rem; line-height: 1.3; color: var(--text-main); word-break: break-all;">
+                                        {{ getRulesSummaryDescription(aud.rules) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                                <span v-if="aud.is_synced" style="font-size: 0.65rem; color: var(--text-muted); font-style: italic; margin-right: auto;">
+                                    🔒 Synced Read-Only
+                                </span>
+                                <button type="button" class="btn" :disabled="aud.is_synced" style="font-size: 0.65rem; height: auto; padding: 4px 8px; border: 1px solid var(--border); background: transparent; color: var(--text-main); margin: 0;" :style="aud.is_synced ? { opacity: 0.35, cursor: 'not-allowed' } : {}" @click="editAudience(aud)">Edit</button>
+                                <button type="button" class="btn" :disabled="aud.is_synced" style="font-size: 0.65rem; height: auto; padding: 4px 8px; border: 1px solid #ef4444; background: transparent; color: #ef4444; margin: 0;" :style="aud.is_synced ? { opacity: 0.35, cursor: 'not-allowed' } : {}" @click="deleteAudience(aud.id)">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Create/Edit Audience Segment Modal -->
+        <div v-if="showAudienceModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 100020; padding: 16px;">
+            <div class="modal-content" style="background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 24px 38px 3px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+                    <h3 style="margin: 0; color: var(--text-main); font-size: 1.1rem;">{{ isEditingAudience ? 'Edit Audience Segment' : 'Create Audience Segment' }}</h3>
+                    <button type="button" @click="closeAudienceModal" style="background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; line-height: 1;">&times;</button>
+                </div>
+                <!-- Body -->
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 60vh;">
+                    <div>
+                        <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 700;">Audience Segment Name</label>
+                        <input type="text" v-model="currAudience.name" placeholder="e.g. VIP High Spenders" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; outline: none;" @input="syncAudienceId">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 700;">Audience Segment ID (slug prefix &amp;)</label>
+                        <input type="text" v-model="currAudience.id" placeholder="e.g. vip-high-spenders" :disabled="isEditingAudience" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.8rem; outline: none;">
+                        <span style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-top: 4px;">Alphanumeric and hyphens only. Used as tag in composer (e.g. &amp;vip-high-spenders)</span>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 0.8rem; color: var(--text-main);">Target Rules &amp; Conditions</h4>
+                        
+                        <!-- Recursive Visual Rules Builder -->
+                        <AudienceRuleGroup :group="currAudience.rules" :is-root="true" />
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: rgba(255,255,255,0.02);">
+                    <button type="button" class="btn btn-secondary" style="margin: 0; font-size: 0.76rem;" @click="closeAudienceModal">Cancel</button>
+                    <button type="button" class="btn btn-accent" style="margin: 0; font-size: 0.76rem;" @click="saveAudience">Save Segment</button>
+                </div>
+            </div>
         </div>
 
         <!-- Campaign Detail & Performance Optimization Console Modal -->
@@ -2927,11 +2946,19 @@
 </template>
 
 <script>
+import AudienceRuleGroup from './AudienceRuleGroup.vue';
+import ProductTagField from './ProductTagField.vue';
+
 export default {
     name: 'CampaignsView',
+    components: {
+        AudienceRuleGroup,
+        ProductTagField
+    },
     inject: ['app'],
     data() {
         return {
+            productTranslationCache: {},
             campaigns: [],
             selectedCampaignIds: [],
             isCreatingCampaign: false,
@@ -2981,6 +3008,7 @@ export default {
             mediaTab: 'upload',
             aiAutopilotDirection: '',
             aiAutopilotFormat: 'auto',
+            catalogShowcaseSearch: '',
             aiAutopilotStyle: 'brand',
             runningAutopilotSection: false,
             uploadingMedia: false,
@@ -2998,7 +3026,69 @@ export default {
             roasSlider: 1.0,
             budgetSlider: 0,
             savingAdjustments: false,
-            activeTab: 'board',
+            activeTab: (this.app && this.app.activeCampaignTab) ? this.app.activeCampaignTab : 'board',
+            audiences: [],
+            aiRecommendations: [
+                {
+                    id: 'dormant-vips',
+                    name: 'Dormant VIPs',
+                    description: 'High-value customers who spent highly but haven\'t purchased recently. Win them back with exclusive VIP gift codes.',
+                    rules: {
+                        type: 'group',
+                        logicalOperator: 'AND',
+                        rules: [
+                            { type: 'rule', field: 'total_spent', operator: 'gt', value: 200 },
+                            { type: 'rule', field: 'days_since_last_order', operator: 'gt', value: 60 }
+                        ]
+                    }
+                },
+                {
+                    id: 'local-loyalists',
+                    name: 'Local Loyalists',
+                    description: 'Customers located in your primary domestic market (e.g. Belgium) who have ordered multiple times.',
+                    rules: {
+                        type: 'group',
+                        logicalOperator: 'AND',
+                        rules: [
+                            { type: 'rule', field: 'customer_country', operator: 'eq', value: 'BE' },
+                            { type: 'rule', field: 'orders_count', operator: 'gt', value: 2 }
+                        ]
+                    }
+                },
+                {
+                    id: 'high-volume-wholesalers',
+                    name: 'High Volume Wholesalers',
+                    description: 'Accounts with large cart sizes or high order volumes. Ideal for wholesale blend offers or corporate discounts.',
+                    rules: {
+                        type: 'group',
+                        logicalOperator: 'AND',
+                        rules: [
+                            { type: 'rule', field: 'total_spent', operator: 'gt', value: 500 }
+                        ]
+                    }
+                }
+            ],
+            showAudienceModal: false,
+            isEditingAudience: false,
+            showAutocomplete: false,
+            autocompleteSearch: '',
+            activeTriggerSymbol: '',
+            activeAutocompleteTarget: 'en',
+            currAudience: {
+                id: '',
+                name: '',
+                rules: {
+                    hasSpentRule: false,
+                    spentCondition: 'gt',
+                    spentValue: 0,
+                    hasOrdersRule: false,
+                    ordersCondition: 'gt',
+                    ordersValue: 0,
+                    hasRecencyRule: false,
+                    recencyCondition: 'gt',
+                    recencyValue: 0
+                }
+            },
             selectedAttributionModel: 'last_click',
             attributionData: null,
             cohortData: [],
@@ -3023,6 +3113,10 @@ export default {
                 id: '',
                 name: '',
                 campaign_type: 'manual',
+                target_persona: '',
+                product_id_override: null,
+                subheadline: '',
+                dynamic_copy_optimization: false,
                 platforms: ['meta'],
                 budget: 150,
                 segmentation: 'All Customers',
@@ -3034,6 +3128,7 @@ export default {
                 ad_copy: '',
                 headline: '',
                 media_url: '',
+                ad_cta: 'Shop Now',
                 destination_type: 'homepage',
                 landing_page_id: '',
                 custom_url: '',
@@ -3157,6 +3252,13 @@ export default {
             }
             return { id: 'pesado', name: 'Pesado', logo: '', subdomain: 'pesado' };
         },
+        filteredCampaignProducts() {
+            const query = (this.catalogShowcaseSearch || '').toLowerCase();
+            const brandId = this.activeBrand ? this.activeBrand.id : '';
+            return (this.app.products || []).filter(p => p.brand_id === brandId).filter(p => {
+                return p.title.toLowerCase().includes(query) || (p.type || '').toLowerCase().includes(query);
+            });
+        },
         availableLocales() {
             if (this.activeBrand && this.activeBrand.languages) {
                 if (Array.isArray(this.activeBrand.languages)) {
@@ -3236,50 +3338,62 @@ export default {
         },
         previewHeadline() {
             const lang = this.campaignContentLang;
+            let rawHeadline = '';
             if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
                 if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline_b) {
-                    return this.newCampaign.translations[lang].headline_b;
+                    rawHeadline = this.newCampaign.translations[lang].headline_b;
+                } else {
+                    rawHeadline = this.newCampaign.ab_test_headlines[1] || this.newCampaign.headlines[1] || 'Headline Variant B';
                 }
-                return this.newCampaign.ab_test_headlines[1] || this.newCampaign.headlines[1] || 'Headline Variant B';
-            }
-            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+            } else if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
                 if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline) {
-                    return this.newCampaign.translations[lang].headline;
+                    rawHeadline = this.newCampaign.translations[lang].headline;
+                } else {
+                    rawHeadline = this.newCampaign.ab_test_headlines[0] || this.newCampaign.headline || 'Headline Variant A';
                 }
-                return this.newCampaign.ab_test_headlines[0] || this.newCampaign.headline || 'Headline Variant A';
+            } else {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline) {
+                    rawHeadline = this.newCampaign.translations[lang].headline;
+                } else {
+                    rawHeadline = this.newCampaign.headline || 'Product Headline';
+                }
             }
-            if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].headline) {
-                return this.newCampaign.translations[lang].headline;
-            }
-            return this.newCampaign.headline || 'Product Headline';
+            return this.resolveCampaignField(rawHeadline, 'headline', lang);
         },
         previewAdCopy() {
             const lang = this.campaignContentLang;
+            let rawAdCopy = '';
             if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
                 if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy_b) {
-                    return this.newCampaign.translations[lang].ad_copy_b;
+                    rawAdCopy = this.newCampaign.translations[lang].ad_copy_b;
+                } else {
+                    rawAdCopy = this.newCampaign.ab_test_descriptions[1] || 'Ad Copy Variant B description...';
                 }
-                return this.newCampaign.ab_test_descriptions[1] || 'Ad Copy Variant B description...';
-            }
-            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+            } else if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
                 if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy) {
-                    return this.newCampaign.translations[lang].ad_copy;
+                    rawAdCopy = this.newCampaign.translations[lang].ad_copy;
+                } else {
+                    rawAdCopy = this.newCampaign.ab_test_descriptions[0] || this.newCampaign.ad_copy || 'Ad Copy Variant A description...';
                 }
-                return this.newCampaign.ab_test_descriptions[0] || this.newCampaign.ad_copy || 'Ad Copy Variant A description...';
+            } else {
+                if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy) {
+                    rawAdCopy = this.newCampaign.translations[lang].ad_copy;
+                } else {
+                    rawAdCopy = this.newCampaign.ad_copy || 'Write some compelling copy here for your audience to see in their social feeds...';
+                }
             }
-            if (lang && lang !== 'en' && this.newCampaign.translations && this.newCampaign.translations[lang] && this.newCampaign.translations[lang].ad_copy) {
-                return this.newCampaign.translations[lang].ad_copy;
-            }
-            return this.newCampaign.ad_copy || 'Write some compelling copy here for your audience to see in their social feeds...';
+            return this.resolveCampaignField(rawAdCopy, 'description', lang);
         },
         previewMediaUrl() {
+            let rawMediaUrl = '';
             if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
-                return this.newCampaign.ab_test_media_urls[1] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80';
+                rawMediaUrl = this.newCampaign.ab_test_media_urls[1] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80';
+            } else if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
+                rawMediaUrl = this.newCampaign.ab_test_media_urls[0] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
+            } else {
+                rawMediaUrl = this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
             }
-            if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'A') {
-                return this.newCampaign.ab_test_media_urls[0] || this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
-            }
-            return this.newCampaign.media_url || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80';
+            return this.resolveCampaignField(rawMediaUrl, 'url', this.campaignContentLang);
         },
         previewDestinationUrl() {
             if (this.newCampaign.enable_ab_testing && this.abVariantPreview === 'B') {
@@ -3348,12 +3462,101 @@ export default {
                 if (modelName === 'deep-research-pro-preview') return 'Deep Research Pro';
                 return modelName;
             };
+        },
+        autocompleteTags() {
+            const list = [];
+            const symbol = this.activeTriggerSymbol || '@';
+            
+            if (symbol === '@') {
+                list.push(
+                    { label: '@barista', value: '@barista', description: 'Technical Barista target audience' },
+                    { label: '@curator', value: '@curator', description: 'Design Purist / Aesthetic Curator target' },
+                    { label: '@home-brewer', value: '@home-brewer', description: 'Home Brewer target audience' },
+                    { label: '@tamper', value: '@tamper', description: 'Filter by Tampers collection' },
+                    { label: '@basket', value: '@basket', description: 'Filter by Precision Baskets collection' },
+                    { label: '@milk', value: '@milk', description: 'Filter by Milk Jugs collection' },
+                    { label: '@accessory', value: '@accessory', description: 'Filter by Accessories collection' },
+                    { label: '@service-training', value: '@service-training', description: 'Technical Barista Training Session' },
+                    { label: '@service-consultancy', value: '@service-consultancy', description: 'Café Layout & Flow Consulting' }
+                );
+                
+                // Add products
+                const prods = this.app.products ? this.app.products.filter(p => p.brand_id === this.app.activeShopFilter) : [];
+                prods.forEach(p => {
+                    list.push({
+                        label: `@inventory-${p.id}`,
+                        value: `@inventory-${p.id}`,
+                        description: p.title
+                    });
+                });
+            } else if (symbol === '%') {
+                if (this.app.coupons && this.app.coupons.length > 0) {
+                    this.app.coupons.forEach(c => {
+                        list.push({
+                            label: `%${c.code.toUpperCase()}`,
+                            value: `%${c.code.toUpperCase()}`,
+                            description: `Discount Coupon: ${c.code}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '%SAVE20', value: '%SAVE20', description: '20% discount coupon' },
+                        { label: '%WELCOME10', value: '%WELCOME10', description: '10% welcome coupon' }
+                    );
+                }
+            } else if (symbol === '&') {
+                if (this.audiences && this.audiences.length > 0) {
+                    this.audiences.forEach(aud => {
+                        list.push({
+                            label: `&${aud.id}`,
+                            value: `&${aud.id}`,
+                            description: `Audience Segment: ${aud.name}`
+                        });
+                    });
+                } else {
+                    list.push(
+                        { label: '&past-purchasers', value: '&past-purchasers', description: 'Customers who purchased previously' },
+                        { label: '&lookalike-vips', value: '&lookalike-vips', description: 'Lookalike 1% of high value spenders' }
+                    );
+                }
+            } else if (symbol === '#') {
+                list.push(
+                    { label: '#meta', value: '#meta', description: 'Meta Facebook / Instagram Ad Traffic' },
+                    { label: '#google', value: '#google', description: 'Google search and display traffic' },
+                    { label: '#tiktok', value: '#tiktok', description: 'TikTok feed and post traffic' },
+                    { label: '#email', value: '#email', description: 'Newsletter or automated email traffic' },
+                    { label: '#instagram', value: '#instagram', description: 'Instagram bio or story traffic' }
+                );
+            } else if (symbol === '/') {
+                list.push(
+                    { label: '/rebuild', value: '/rebuild', description: 'Command: Rebuild sections layout strategy' },
+                    { label: '/translate-de', value: '/translate-de', description: 'Command: Translate entire copywriting to German' },
+                    { label: '/translate-fr', value: '/translate-fr', description: 'Command: Translate entire copywriting to French' },
+                    { label: '/dark-mode', value: '/dark-mode', description: 'Command: Force deep carbon/slate dark themes' },
+                    { label: '/light-mode', value: '/light-mode', description: 'Command: Force warm cream/beige minimal themes' }
+                );
+            }
+            return list;
+        },
+        filteredAutocompleteTags() {
+            if (!this.autocompleteSearch) return this.autocompleteTags;
+            const searchVal = this.autocompleteSearch.toLowerCase();
+            return this.autocompleteTags.filter(t => {
+                const cleanTagVal = t.value.substring(1).toLowerCase();
+                return cleanTagVal.includes(searchVal) || t.value.toLowerCase().includes(searchVal);
+            });
         }
     },
     watch: {
         activeTab(newVal) {
             if (this.app) {
                 this.app.activeCampaignTab = newVal;
+                this.app.updateURL();
+            }
+        },
+        'app.activeCampaignTab'(newVal) {
+            if (newVal && newVal !== this.activeTab) {
+                this.activeTab = newVal;
             }
         },
         isCreatingCampaign(newVal) {
@@ -3374,6 +3577,7 @@ export default {
             immediate: true,
             handler() {
                 this.loadCampaigns();
+                this.fetchAudiences();
                 // Default target languages to first brand language
                 if (this.availableLocales.length > 0) {
                     this.newCampaign.languages = [...this.availableLocales];
@@ -3426,6 +3630,310 @@ export default {
         }
     },
     methods: {
+        handleAdCopyInput(e) {
+            const text = this.newCampaign.ad_copy || '';
+            const cursor = e.target.selectionStart;
+            const beforeCursor = text.substring(0, cursor);
+            const match = beforeCursor.match(/([@%&#\/])(\w*)$/);
+            if (match) {
+                this.activeTriggerSymbol = match[1];
+                this.showAutocomplete = true;
+                this.autocompleteSearch = match[2].toLowerCase();
+                this.activeAutocompleteTarget = 'en';
+            } else {
+                this.showAutocomplete = false;
+                this.activeTriggerSymbol = '';
+            }
+        },
+        handleAdCopyInputTrans(e) {
+            const activeLang = this.campaignContentLang;
+            if (!this.newCampaign.translations || !this.newCampaign.translations[activeLang]) return;
+            const text = this.newCampaign.translations[activeLang].ad_copy || '';
+            const cursor = e.target.selectionStart;
+            const beforeCursor = text.substring(0, cursor);
+            const match = beforeCursor.match(/([@%&#\/])(\w*)$/);
+            if (match) {
+                this.activeTriggerSymbol = match[1];
+                this.showAutocomplete = true;
+                this.autocompleteSearch = match[2].toLowerCase();
+                this.activeAutocompleteTarget = activeLang;
+            } else {
+                this.showAutocomplete = false;
+                this.activeTriggerSymbol = '';
+            }
+        },
+        insertCampaignAutocompleteTag(tag) {
+            const activeLang = this.activeAutocompleteTarget || 'en';
+            let text = '';
+            let textarea = null;
+            
+            if (activeLang === 'en') {
+                text = this.newCampaign.ad_copy || '';
+                textarea = this.$refs.adCopyInput;
+            } else {
+                text = (this.newCampaign.translations && this.newCampaign.translations[activeLang]) ? (this.newCampaign.translations[activeLang].ad_copy || '') : '';
+                textarea = this.$refs.adCopyInputTrans;
+            }
+
+            const cursor = textarea ? textarea.selectionStart : text.length;
+            const beforeCursor = text.substring(0, cursor);
+            const afterCursor = text.substring(cursor);
+            const beforeTag = beforeCursor.replace(/([@%&#\/])(\w*)$/, '');
+            
+            const newText = beforeTag + tag.value + ' ' + afterCursor;
+            if (activeLang === 'en') {
+                this.newCampaign.ad_copy = newText;
+            } else {
+                this.newCampaign.translations[activeLang].ad_copy = newText;
+            }
+            
+            this.showAutocomplete = false;
+            this.activeTriggerSymbol = '';
+            this.$nextTick(() => {
+                if (textarea) {
+                    textarea.focus();
+                    const newPos = beforeTag.length + tag.value.length + 1;
+                    textarea.setSelectionRange(newPos, newPos);
+                }
+            });
+        },
+        async fetchAudiences() {
+            if (this.app.activeShopFilter === 'all') {
+                this.audiences = [];
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.app.activeShopFilter}/audiences`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.audiences = data.audiences || [];
+                }
+            } catch (err) {
+                console.error('[CampaignsView] Error fetching audiences:', err);
+            }
+        },
+        openCreateAudienceModal() {
+            this.isEditingAudience = false;
+            this.currAudience = {
+                id: '',
+                name: '',
+                rules: {
+                    type: 'group',
+                    logicalOperator: 'AND',
+                    rules: []
+                }
+            };
+            this.showAudienceModal = true;
+        },
+        closeAudienceModal() {
+            this.showAudienceModal = false;
+        },
+        syncAudienceId() {
+            if (this.isEditingAudience) return;
+            this.currAudience.id = this.currAudience.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '');
+        },
+        editAudience(aud) {
+            this.isEditingAudience = true;
+            const rules = aud.rules || {};
+            let groupRules;
+            if (rules.type === 'group') {
+                groupRules = JSON.parse(JSON.stringify(rules));
+            } else {
+                groupRules = {
+                    type: 'group',
+                    logicalOperator: 'AND',
+                    rules: []
+                };
+                if (rules.spentValue !== undefined) {
+                    groupRules.rules.push({
+                        type: 'rule',
+                        field: 'total_spent',
+                        operator: rules.spentCondition || 'gt',
+                        value: Number(rules.spentValue)
+                    });
+                }
+                if (rules.ordersValue !== undefined) {
+                    groupRules.rules.push({
+                        type: 'rule',
+                        field: 'orders_count',
+                        operator: rules.ordersCondition || 'gt',
+                        value: Number(rules.ordersValue)
+                    });
+                }
+                if (rules.recencyValue !== undefined) {
+                    groupRules.rules.push({
+                        type: 'rule',
+                        field: 'days_since_last_order',
+                        operator: rules.recencyCondition || 'gt',
+                        value: Number(rules.recencyValue)
+                    });
+                }
+            }
+            this.currAudience = {
+                id: aud.id,
+                name: aud.name,
+                rules: groupRules
+            };
+            this.showAudienceModal = true;
+        },
+        async deleteAudience(audienceId) {
+            if (!confirm('Are you sure you want to delete this audience segment?')) return;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.app.activeShopFilter}/audiences/${audienceId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` }
+                });
+                if (response.ok) {
+                    this.app.showNotification('👥 Audience segment deleted successfully.');
+                    this.fetchAudiences();
+                } else {
+                    const err = await response.json();
+                    alert('Delete failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('[CampaignsView] Error deleting audience:', err);
+            }
+        },
+        formatRuleKey(key) {
+            if (key === 'spentValue') return 'Total Spent (€)';
+            if (key === 'spentCondition') return 'Spent Operator';
+            if (key === 'ordersValue') return 'Orders Count';
+            if (key === 'ordersCondition') return 'Orders Operator';
+            if (key === 'recencyValue') return 'Days Since Last Order';
+            if (key === 'recencyCondition') return 'Recency Operator';
+            return key;
+        },
+        getRulesSummaryDescription(rules) {
+            if (!rules) return 'No rules defined';
+            if (rules.type === 'group') {
+                if (!rules.rules || rules.rules.length === 0) return 'Empty group';
+                const subDescriptions = rules.rules.map(r => this.getRulesSummaryDescription(r));
+                return `(${subDescriptions.join(` ${rules.logicalOperator} `)})`;
+            } else if (rules.type === 'rule') {
+                const fieldLabels = {
+                    total_spent: 'Total Spent',
+                    orders_count: 'Orders Count',
+                    days_since_last_order: 'Days Since Last Order',
+                    customer_country: 'Country',
+                    email_domain: 'Email Domain',
+                    last_purchased_item: 'Last Purchased SKU'
+                };
+                const opLabels = {
+                    gt: '>',
+                    lt: '<',
+                    eq: '=',
+                    contains: 'contains',
+                    starts_with: 'starts with'
+                };
+                const fieldName = fieldLabels[rules.field] || rules.field;
+                const opName = opLabels[rules.operator] || rules.operator;
+                const valSuffix = rules.field === 'total_spent' ? '€' : '';
+                return `${fieldName} ${opName} ${valSuffix}${rules.value}`;
+            }
+            // Fallback for legacy format
+            const parts = [];
+            if (rules.spentValue !== undefined) parts.push(`Total Spent ${rules.spentCondition === 'lt' ? '<' : '>'} €${rules.spentValue}`);
+            if (rules.ordersValue !== undefined) parts.push(`Orders Count ${rules.ordersCondition === 'lt' ? '<' : '>'} ${rules.ordersValue}`);
+            if (rules.recencyValue !== undefined) parts.push(`Days Since Last Order ${rules.recencyCondition === 'lt' ? '<' : '>'} ${rules.recencyValue}`);
+            return parts.join(' AND ');
+        },
+        async saveAudience() {
+            if (!this.currAudience.name || !this.currAudience.id) {
+                alert('Please provide a name and slug ID for this segment.');
+                return;
+            }
+            
+            // Validate that we have at least one condition/group inside the rules tree
+            if (!this.currAudience.rules.rules || this.currAudience.rules.rules.length === 0) {
+                alert('Please configure at least one segment targeting rule.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.app.activeShopFilter}/audiences`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    },
+                    body: JSON.stringify({
+                        id: this.currAudience.id,
+                        name: this.currAudience.name,
+                        rules: this.currAudience.rules
+                    })
+                });
+
+                if (response.ok) {
+                    this.app.showNotification('👥 Audience segment saved successfully.');
+                    this.showAudienceModal = false;
+                    this.fetchAudiences();
+                } else {
+                    const err = await response.json();
+                    alert('Save failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('[CampaignsView] Error saving audience segment:', err);
+            }
+        },
+        isRecommendationActive(rec) {
+            const suffixId = `${this.app.activeShopFilter}-${rec.id}`;
+            return this.audiences.some(a => a.id === suffixId || a.id === rec.id);
+        },
+        async activateRecommendedSegment(rec) {
+            try {
+                const suffixId = `${this.app.activeShopFilter}-${rec.id}`;
+                if (this.isRecommendationActive(rec)) {
+                    alert('This segment is already active.');
+                    return;
+                }
+
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.app.activeShopFilter}/audiences`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    },
+                    body: JSON.stringify({
+                        id: suffixId,
+                        name: rec.name,
+                        rules: rec.rules
+                    })
+                });
+
+                if (response.ok) {
+                    this.app.showNotification(`👥 AI Segment "${rec.name}" activated successfully!`);
+                    this.fetchAudiences();
+                } else {
+                    const err = await response.json();
+                    alert('Activation failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('[CampaignsView] Error activating AI segment:', err);
+            }
+        },
+        triggerCampaignContentStudio(field) {
+            this.app.openContentStudio((url, item) => {
+                this.newCampaign.media_url = url;
+            }, {
+                promptPreset: this.newCampaign.headline ? `${this.newCampaign.headline}` : ''
+            });
+        },
+        triggerCardContentStudio(idx) {
+            const card = this.newCampaign.carousel_cards[idx];
+            this.app.openContentStudio((url, item) => {
+                card.image = url;
+                if (item && item.title) {
+                    card.title = item.title;
+                }
+            }, {
+                promptPreset: card ? `${card.title || ''}` : ''
+            });
+        },
         async generateABVariantsWithAI() {
             if (!this.newCampaign.headline || !this.newCampaign.ad_copy) {
                 alert('Please fill out the main Headline and Description first, so the AI has context to generate variations.');
@@ -3581,9 +4089,9 @@ export default {
         autofillWithProduct() {
             if (this.app.products && this.app.products.length > 0) {
                 const p = this.app.products[0];
-                this.newCampaign.media_url = p.image || '';
-                this.newCampaign.headline = `Try the all-new ${p.title}!`;
-                this.newCampaign.ad_copy = `Get premium ${p.title} starting from €${parseFloat(p.price).toFixed(2)}. ${p.description || ''}`;
+                this.newCampaign.media_url = `@inventory-${p.id}`;
+                this.newCampaign.headline = `@inventory-${p.id}`;
+                this.newCampaign.ad_copy = `@inventory-${p.id}`;
                 this.app.showNotification(`Autofilled ad using product catalog details for "${p.title}".`);
             } else {
                 this.app.showNotification('Product catalog is currently empty. Add products first!');
@@ -3603,8 +4111,8 @@ export default {
                 for (let i = 0; i < count; i++) {
                     const p = productsToUse[i];
                     this.newCampaign.carousel_cards.push({
-                        image: p.image || '',
-                        title: p.title || '',
+                        image: `@inventory-${p.id}`,
+                        title: `@inventory-${p.id}`,
                         link: `/store/${this.activeBrand.id}?product=${p.id}`,
                         activeTab: 'url',
                         aiStudioAction: '',
@@ -3651,6 +4159,63 @@ export default {
             }
             this.newCampaign.carousel_cards.splice(idx, 1);
         },
+        resolveProductImage(val) {
+            if (!val || typeof val !== 'string') return '';
+            if (val.startsWith('@product-') || val.startsWith('@inventory-')) {
+                const identifier = val.startsWith('@product-') ? val.replace('@product-', '') : val.replace('@inventory-', '');
+                const found = (this.app.products || []).find(p => String(p.id) === identifier);
+                return found ? (found.image || '') : '';
+            }
+            return val;
+        },
+        resolveCampaignField(value, type, lang = 'en') {
+            if (!value || typeof value !== 'string') return value;
+            const regex = /@(product|inventory)-([a-zA-Z0-9\-_]+)/g;
+            return value.replace(regex, (match, prefix, identifier) => {
+                const product = (this.app.products || []).find(p => 
+                    String(p.id) === identifier || 
+                    (p.sku && p.sku.toLowerCase() === identifier.toLowerCase())
+                );
+                if (!product) return match;
+                if (type === 'url') {
+                    return product.image || '';
+                }
+                const defaultField = type === 'headline' ? 'title' : 'description';
+                const baseText = product[defaultField] || '';
+                if (!lang || lang === 'en') {
+                    return baseText;
+                }
+                const cacheKey = `${product.id}-${defaultField}-${lang}`;
+                if (this.productTranslationCache[cacheKey]) {
+                    return this.productTranslationCache[cacheKey];
+                }
+                this.fetchProductTranslation(product.id, defaultField, lang, baseText);
+                return baseText;
+            });
+        },
+        async fetchProductTranslation(productId, field, lang, baseText) {
+            const cacheKey = `${productId}-${field}-${lang}`;
+            this.$set(this.productTranslationCache, cacheKey, baseText + '...');
+            try {
+                const response = await fetch('/api/global/translate', {
+                    method: 'POST',
+                    headers: this.authHeaders,
+                    body: JSON.stringify({
+                        text: baseText,
+                        targetLang: lang
+                    })
+                });
+                if (response.ok) {
+                    const res = await response.json();
+                    if (res && res.translatedText) {
+                        this.$set(this.productTranslationCache, cacheKey, res.translatedText);
+                    }
+                }
+            } catch (err) {
+                console.error('[CampaignsView] Error translating product field:', err);
+                this.$set(this.productTranslationCache, cacheKey, baseText);
+            }
+        },
         parseLanguages(langs) {
             if (!langs) return ['en'];
             return langs.split(',');
@@ -3681,6 +4246,10 @@ export default {
                 brand_id: this.app.activeShopFilter === 'all' ? (this.app.brands[0] ? this.app.brands[0].id : '') : this.app.activeShopFilter,
                 selectedModel: defaultModel,
                 campaign_type: 'manual',
+                target_persona: '',
+                product_id_override: null,
+                subheadline: '',
+                dynamic_copy_optimization: false,
                 platforms: ['meta'],
                 budget: 150,
                 segmentation: 'All Customers',
@@ -3802,6 +4371,10 @@ export default {
                         id: '',
                         name: '',
                         campaign_type: 'manual',
+                        target_persona: '',
+                        product_id_override: null,
+                        subheadline: '',
+                        dynamic_copy_optimization: false,
                         platforms: ['meta'],
                         budget: 150,
                         segmentation: 'All Customers',
@@ -5310,18 +5883,22 @@ export default {
                 const selectedProducts = this.app.products.filter(p => this.selectedProductIds.includes(p.id));
                 if (selectedProducts.length === 1) {
                     const product = selectedProducts[0];
-                    this.newCampaign.name = `Promo: ${product.title}`;
-                    this.newCampaign.headline = `Shop the all-new ${product.title}!`;
-                    this.newCampaign.ad_copy = `Get premium ${product.title} starting from €${parseFloat(product.price).toFixed(2)}. ${product.description || ''}`;
-                    this.newCampaign.media_url = product.image || '';
+                    const isService = product.type === 'service';
+                    this.newCampaign.name = `${isService ? 'Service' : 'Promo'}: ${product.title}`;
+                    this.newCampaign.headline = `@inventory-${product.id}`;
+                    this.newCampaign.ad_copy = `@inventory-${product.id}`;
+                    this.newCampaign.media_url = `@inventory-${product.id}`;
+                    this.newCampaign.ad_cta = isService ? 'Book Now' : 'Shop Now';
                 } else {
                     const titles = selectedProducts.map(p => p.title).join(', ');
                     const listTitles = selectedProducts.slice(0, 3).map(p => p.title).join(' & ');
+                    const hasServices = selectedProducts.some(p => p.type === 'service');
                     this.newCampaign.name = `Showcase: ${listTitles}`;
                     this.newCampaign.headline = `Discover our premium ${listTitles} series!`;
-                    this.newCampaign.ad_copy = `Shop our exclusive selection including ${titles}. Hand-picked premium quality coffee and gears.`;
-                    this.newCampaign.media_url = selectedProducts[0].image || '';
+                    this.newCampaign.ad_copy = `Shop our exclusive selection including ${titles}. Hand-picked premium quality coffee, gears and services.`;
+                    this.newCampaign.media_url = `@inventory-${selectedProducts[0].id}`;
                     this.newCampaign.format = 'Carousel';
+                    this.newCampaign.ad_cta = hasServices ? 'Book Now' : 'Shop Now';
                 }
                 this.newCampaign.destination_type = 'homepage';
                 
@@ -5400,8 +5977,8 @@ export default {
                 const currentCard = this.newCampaign.carousel_cards[idx] || {};
                 this.$set(this.newCampaign.carousel_cards, idx, {
                     ...currentCard,
-                    image: product.image || '',
-                    title: product.title || '',
+                    image: `@inventory-${product.id}`,
+                    title: `@inventory-${product.id}`,
                     link: `/store/${this.activeBrand.id}?product=${product.id}`,
                     activeTab: currentCard.activeTab || 'catalog'
                 });
