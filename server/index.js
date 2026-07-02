@@ -13389,6 +13389,11 @@ async function fetchImageBufferForComposite(urlOrPath) {
     if (fs.existsSync(localPath)) {
       return await fs.promises.readFile(localPath);
     }
+  } else if (urlOrPath.startsWith('data:image')) {
+    const base64Data = urlOrPath.split(',')[1];
+    if (base64Data) {
+      return Buffer.from(base64Data, 'base64');
+    }
   }
   try {
     const res = await fetch(urlOrPath);
@@ -13834,12 +13839,35 @@ async function resolveAndUploadLocalFileToFal(url, falKey) {
         if (ext === '.png') mime = 'image/png';
         if (ext === '.webp') mime = 'image/webp';
         
-        const base64Str = fileBuffer.toString('base64');
-        const dataUri = `data:${mime};base64,${base64Str}`;
-        console.log(`[Local Base64 Converter] Successfully converted to Base64 URI (size: ${dataUri.length} chars)`);
-        return dataUri;
+        const fileBlob = new Blob([fileBuffer], { type: mime });
+        const formData = new FormData();
+        formData.append('file', fileBlob, filename);
+
+        console.log(`[Fal CDN Uploader] Uploading local file to Fal: ${localPath}...`);
+        const uploadRes = await fetch('https://queue.fal.run/files/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Key ${falKey}`
+          },
+          body: formData
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          const falUrl = uploadData.url;
+          console.log(`[Fal CDN Uploader] Successfully uploaded to Fal CDN: ${falUrl}`);
+          return falUrl;
+        } else {
+          const errText = await uploadRes.text();
+          console.error(`[Fal CDN Uploader] Failed to upload ${filename}: ${uploadRes.status} - ${errText}`);
+          // Fallback to Data URI if upload fails
+          const base64Str = fileBuffer.toString('base64');
+          const dataUri = `data:${mime};base64,${base64Str}`;
+          console.log(`[Local Base64 Converter] Falling back to Base64 URI (size: ${dataUri.length} chars)`);
+          return dataUri;
+        }
       } catch (err) {
-        console.error(`[Local Base64 Converter Error] Failed to read/convert local file ${localPath}:`, err);
+        console.error(`[Fal CDN Uploader Error] Failed to process/upload local file ${localPath}:`, err);
       }
     }
   }
@@ -13917,7 +13945,10 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
 
       // 1. Fetch isolated product buffer & build the protective mask aligned to the composite layout
       let productBuffer = null;
-      if (resolvedProduct.startsWith('http')) {
+      if (resolvedProduct.startsWith('data:image')) {
+        const base64Data = resolvedProduct.split(',')[1];
+        if (base64Data) productBuffer = Buffer.from(base64Data, 'base64');
+      } else if (resolvedProduct.startsWith('http')) {
         const fetchRes = await fetch(resolvedProduct);
         if (fetchRes.ok) {
           productBuffer = Buffer.from(await fetchRes.arrayBuffer());
@@ -13933,8 +13964,9 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
       if (productBuffer) {
         localMaskFilename = await generateProtectiveMaskLocal(productBuffer, uploadDir, seed, resolvedSize, cameraLens, composition);
         if (localMaskFilename) {
-          productMask = `${apiBaseUrl}/uploads/${localMaskFilename}`;
-          console.log(`[Advanced Pipeline] Protective mask generated at: ${productMask}`);
+          const rawProductMask = `${apiBaseUrl}/uploads/${localMaskFilename}`;
+          productMask = await resolveAndUploadLocalFileToFal(rawProductMask, falKey) || rawProductMask;
+          console.log(`[Advanced Pipeline] Protective mask generated and resolved: ${productMask.substring(0, 50)}...`);
         }
       }
 
@@ -13954,8 +13986,9 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
         const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutout, resolvedProduct, tempPath, resolvedSize, cameraLens, composition);
 
         if (hasComposited) {
-          const compositeUrl = `${apiBaseUrl}/uploads/${tempFilename}`;
-          console.log(`[Advanced Pipeline] Composited overlay layer: ${compositeUrl}. Requesting protected FLUX Inpainting...`);
+          const rawCompositeUrl = `${apiBaseUrl}/uploads/${tempFilename}`;
+          const compositeUrl = await resolveAndUploadLocalFileToFal(rawCompositeUrl, falKey) || rawCompositeUrl;
+          console.log(`[Advanced Pipeline] Composited overlay layer generated and resolved: ${compositeUrl.substring(0, 50)}...`);
 
           // 4. Regenerate everything around the protected product with the full brand prompt
           const inpaintPrompt = `${subjectHint}${prompt} Seamless photographic integration, physically accurate contact shadows and reflections around the product, no collage seams, no cut-out edges.`;
