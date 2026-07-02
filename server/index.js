@@ -13806,11 +13806,67 @@ async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canva
   }
 }
 
+// Helper to upload local/relative images to Fal CDN so cloud AI engines can download them,
+// enabling full product/persona features to work seamlessly on local development (localhost)
+async function resolveAndUploadLocalFileToFal(url, falKey) {
+  if (!url) return null;
+  if (url.startsWith('http') && !url.includes('localhost') && !url.includes('.local') && !url.includes('127.0.0.1') && !url.includes('postgres-db') && !url.includes('minio:9000')) {
+    return url;
+  }
+
+  let filename = null;
+  if (url.includes('/uploads/')) {
+    filename = url.split('/uploads/')[1];
+  } else if (url.startsWith('/') && !url.startsWith('/uploads/')) {
+    filename = url.startsWith('/') ? url.slice(1) : url;
+  }
+
+  if (filename) {
+    filename = filename.split('?')[0];
+    const localPath = path.join('uploads', filename);
+    if (fs.existsSync(localPath)) {
+      try {
+        console.log(`[Local fal.ai Upload] Uploading local file to Fal CDN: ${localPath}...`);
+        const fileBuffer = await fs.promises.readFile(localPath);
+        const blob = new Blob([fileBuffer]);
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+
+        const res = await fetch('https://queue.fal.run/files/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Key ${falKey}`
+          },
+          body: formData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.url) {
+            console.log(`[Local fal.ai Upload] Successfully uploaded to Fal CDN: ${data.url}`);
+            return data.url;
+          }
+        } else {
+          const errText = await res.text();
+          console.warn(`[Local fal.ai Upload] Fal upload endpoint failed: ${res.status} - ${errText}`);
+        }
+      } catch (err) {
+        console.error(`[Local fal.ai Upload] Failed to upload local file ${localPath} to Fal CDN:`, err);
+      }
+    }
+  }
+
+  return null;
+}
+
 async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl, seed, falKey, backend = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate', uploadDir = null, apiBaseUrl = null, brandId = null, userId = null, productSubject = null, cameraLens = '', composition = '') {
   // Only publicly reachable URLs can be sent to Fal. If a reference is local-only we drop it
   // rather than substituting an unrelated stock image (which put wrong products into ads).
-  const resolvePublicUrl = (url) => {
+  const resolvePublicUrl = async (url) => {
     if (!url) return null;
+    const resolved = await resolveAndUploadLocalFileToFal(url, falKey);
+    if (resolved) return resolved;
+
     let targetUrl = url;
     if (targetUrl.startsWith('/') && apiBaseUrl) {
       const base = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
@@ -13822,7 +13878,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
     return null;
   };
 
-  const rawProduct = resolvePublicUrl(productUrl);
+  const rawProduct = await resolvePublicUrl(productUrl);
   let resolvedProduct = null;
   if (rawProduct) {
     resolvedProduct = await isolateProductBackground(rawProduct, falKey);
@@ -13830,8 +13886,8 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
       await logAiUsage(brandId, 'AI Studio', 'Product Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
     }
   }
-  const resolvedScenery = resolvePublicUrl(sceneryUrl);
-  const resolvedPersona = resolvePublicUrl(personaUrl);
+  const resolvedScenery = await resolvePublicUrl(sceneryUrl);
+  const resolvedPersona = await resolvePublicUrl(personaUrl);
 
   const resolvedSize = resolveGenerationSize(aspectRatio, { draft: false });
   const enableSafety = safetyTolerance === 'strict';
@@ -14514,19 +14570,7 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         try {
           console.log(`[AI Studio] Generating main asset via Fal.ai with prompt: "${structuredPrompt}"`);
 
-          const isPublicRef = (u) => {
-            if (!u) return null;
-            let target = u;
-            if (target.startsWith('/') && apiBaseUrl) {
-              const base = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
-              target = base + target;
-            }
-            if (target.startsWith('http') && !target.includes('localhost') && !target.includes('127.0.0.1')) {
-              return target;
-            }
-            return null;
-          };
-          const personaFaceRef = selectedPersona ? isPublicRef(selectedPersona.image) : null;
+          const personaFaceRef = selectedPersona ? await resolveAndUploadLocalFileToFal(selectedPersona.image, falKey) : null;
           const brandContext = `${brand.name} — ${canvas.visual_direction || canvas.brand_voice || 'premium DTC brand'}`;
           const bestOf = Math.min(Math.max(parseInt(req.body.bestOf) || 1, 1), 3);
 
