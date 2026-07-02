@@ -98,18 +98,38 @@
                     </div>
                 </div>
 
-                <!-- 1-Click Onboarding Trigger Card -->
-                <div v-else-if="!settingsBrand.marketing_protocol" style="background: rgba(139, 92, 246, 0.03); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 12px; padding: 35px 25px; text-align: center; margin-bottom: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
-                    <span style="font-size: 2rem;">🎯</span>
+                 <!-- 1-Click Onboarding Trigger Card -->
+                <div v-else-if="!settingsBrand.marketing_protocol" 
+                     :style="{
+                         background: settingsBrand.ai_tier === 'none' ? 'rgba(255, 255, 255, 0.01)' : 'rgba(139, 92, 246, 0.03)',
+                         borderColor: settingsBrand.ai_tier === 'none' ? 'var(--border)' : 'rgba(139, 92, 246, 0.15)'
+                     }"
+                     style="border: 1px solid; border-radius: 12px; padding: 35px 25px; text-align: center; margin-bottom: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                    <span style="font-size: 2rem;">{{ settingsBrand.ai_tier === 'none' ? '🔒' : '🎯' }}</span>
                     <div>
-                        <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Welcome to your Brand Identity Center</h4>
+                        <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">
+                            {{ settingsBrand.ai_tier === 'none' ? 'Brand Identity Center (Sandbox Trial)' : 'Welcome to your Brand Identity Center' }}
+                        </h4>
                         <p style="margin: 0 auto; max-width: 540px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
-                            To start launching high-converting ad copy, landing pages, and creatives tailored exactly to your brand, trigger a 1-tap automated strategy analysis or load preset specialty coffee defaults.
+                            <template v-if="settingsBrand.ai_tier === 'none'">
+                                AI Brand Strategy Analysis, including Voice & Tone Guidelines, Target Audience Personas, Controlled Vocabulary, and Visual Briefing generation, is disabled under the Sandbox Trial plan. Please upgrade to a Standard, Professional, or Enterprise plan to trigger automated brand analysis. You can still load DTC Coffee Defaults to preview the workflow.
+                            </template>
+                            <template v-else>
+                                To start launching high-converting ad copy, landing pages, and creatives tailored exactly to your brand, trigger a 1-tap automated strategy analysis or load preset specialty coffee defaults.
+                            </template>
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 5px;">
-                        <button type="button" class="sc-ai-button" style="margin: 0; height: 36px; padding: 0 16px; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none;" @click="generateMarketingProtocol">
-                            🚀 1-Click Brand Analysis & Setup
+                        <button type="button" 
+                                class="sc-ai-button" 
+                                :style="{
+                                    background: settingsBrand.ai_tier === 'none' ? 'var(--border)' : 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                                    color: settingsBrand.ai_tier === 'none' ? 'var(--text-muted)' : 'white',
+                                    cursor: settingsBrand.ai_tier === 'none' ? 'not-allowed' : 'pointer'
+                                }"
+                                style="margin: 0; height: 36px; padding: 0 16px; border: none;" 
+                                @click="generateMarketingProtocol">
+                            {{ settingsBrand.ai_tier === 'none' ? '🔒 1-Click Brand Analysis & Setup' : '🚀 1-Click Brand Analysis & Setup' }}
                         </button>
                         <button type="button" class="btn btn-secondary" style="margin: 0; height: 36px; padding: 0 16px;" @click="populateDefaultCoffeeCanvas">
                             📋 Load DTC Coffee Defaults
@@ -150,15 +170,15 @@
                             <div style="margin-bottom: 12px;">
                                 <strong style="color: var(--success); font-size: 0.74rem; display: block; margin-bottom: 4px;">✅ APPROVED TERMS (Data-Anchored)</strong>
                                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                    <span v-for="word in canvas.controlled_vocabulary.approved" :key="word" class="vocab-tag tag-approved">{{ word }}</span>
-                                    <span v-if="!canvas.controlled_vocabulary.approved.length" style="color: var(--text-muted); font-size: 0.75rem;">None added yet</span>
+                                    <span v-for="word in (canvas.controlled_vocabulary?.approved || [])" :key="word" class="vocab-tag tag-approved">{{ word }}</span>
+                                    <span v-if="!(canvas.controlled_vocabulary?.approved || []).length" style="color: var(--text-muted); font-size: 0.75rem;">None added yet</span>
                                 </div>
                             </div>
                             <div>
                                 <strong style="color: #ef4444; font-size: 0.74rem; display: block; margin-bottom: 4px;">❌ BANNED TERMS (Clichés)</strong>
                                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                    <span v-for="word in canvas.controlled_vocabulary.banned" :key="word" class="vocab-tag tag-banned">{{ word }}</span>
-                                    <span v-if="!canvas.controlled_vocabulary.banned.length" style="color: var(--text-muted); font-size: 0.75rem;">None added yet</span>
+                                    <span v-for="word in (canvas.controlled_vocabulary?.banned || [])" :key="word" class="vocab-tag tag-banned">{{ word }}</span>
+                                    <span v-if="!(canvas.controlled_vocabulary?.banned || []).length" style="color: var(--text-muted); font-size: 0.75rem;">None added yet</span>
                                 </div>
                             </div>
                         </div>
@@ -1077,7 +1097,13 @@ export default {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (response.ok) {
-                    this.canvas = await response.json();
+                    const data = await response.json();
+                    if (!data.controlled_vocabulary) {
+                        data.controlled_vocabulary = { approved: [], banned: [] };
+                    }
+                    if (!data.controlled_vocabulary.approved) data.controlled_vocabulary.approved = [];
+                    if (!data.controlled_vocabulary.banned) data.controlled_vocabulary.banned = [];
+                    this.canvas = data;
                 }
             } catch (e) {
                 console.error('[Brand Center] Error loading canvas:', e);
@@ -1206,8 +1232,8 @@ export default {
             this.editingSection = section;
             if (section === 'controlled_vocabulary') {
                 this.tempSectionData = {
-                    approvedTags: [...(this.canvas.controlled_vocabulary.approved || [])],
-                    bannedTags: [...(this.canvas.controlled_vocabulary.banned || [])]
+                    approvedTags: [...(this.canvas.controlled_vocabulary?.approved || [])],
+                    bannedTags: [...(this.canvas.controlled_vocabulary?.banned || [])]
                 };
                 this.newApprovedInput = '';
                 this.newBannedInput = '';
@@ -1232,6 +1258,9 @@ export default {
         },
         async saveSectionEdits() {
             if (this.editingSection === 'controlled_vocabulary') {
+                if (!this.canvas.controlled_vocabulary) {
+                    this.canvas.controlled_vocabulary = { approved: [], banned: [] };
+                }
                 this.canvas.controlled_vocabulary.approved = [...this.tempSectionData.approvedTags];
                 this.canvas.controlled_vocabulary.banned = [...this.tempSectionData.bannedTags];
                 await this.saveBrandCanvas();
@@ -1398,6 +1427,10 @@ export default {
             }
         },
         async generateMarketingProtocol() {
+            if (this.settingsBrand.ai_tier === 'none') {
+                alert('AI Brand Strategy Analysis is disabled under the Sandbox Trial plan. Please upgrade to a Standard, Professional, or Enterprise plan.');
+                return;
+            }
             this.isGeneratingProtocol = true;
             this.liveEstimatedTokens = 0;
             this.liveEstimatedCost = 0;

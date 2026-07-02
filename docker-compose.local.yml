@@ -20,7 +20,7 @@ services:
     container_name: backend-core-local
     ports:
       - "3000:3000"
-    command: node --watch index.js
+    command: node --watch --watch-path=index.js index.js
     volumes:
       - ./server:/app
       - /app/node_modules
@@ -59,6 +59,7 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - BRAND_STYLED_DASHBOARD_ENABLED=${BRAND_STYLED_DASHBOARD_ENABLED:-false}
+      - FAL_KEY=${FAL_KEY}
     depends_on:
       - postgres-db
       - minio

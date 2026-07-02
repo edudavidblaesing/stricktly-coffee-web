@@ -956,7 +956,7 @@
                                 <span v-else style="font-size: 1.2rem;">🖼️</span>
                             </div>
                             <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px;">
-                                <ProductTagField v-model="newCampaign.media_url" placeholder="Media asset URL" :audiences="audiences" />
+                                <ProductTagField v-model="newCampaign.media_url" placeholder="Media asset URL" :audiences="audiences" :brand-canvas="brandCanvas" />
                                 <div style="display: flex; gap: 8px;">
                                     <button type="button" @click="triggerCampaignContentStudio('main')" class="btn btn-primary"
                                             style="height: 28px; font-size: 0.72rem; font-weight: 700; padding: 0 10px; margin: 0; display: inline-flex; align-items: center; gap: 4px;">
@@ -1013,7 +1013,7 @@
                                         <span v-else style="font-size: 1rem;">🖼️</span>
                                     </div>
                                     <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
-                                        <ProductTagField v-model="card.image" placeholder="Card Image URL" :audiences="audiences" />
+                                        <ProductTagField v-model="card.image" placeholder="Card Image URL" :audiences="audiences" :brand-canvas="brandCanvas" />
                                         <div style="display: flex; gap: 6px;">
                                             <button type="button" @click="triggerCardContentStudio(idx)" class="btn btn-primary"
                                                     style="height: 24px; font-size: 0.68rem; font-weight: 700; padding: 0 8px; margin: 0; display: inline-flex; align-items: center; gap: 2px;">
@@ -1042,7 +1042,7 @@
                                         </template>
                                     </button>
                                 </div>
-                                <ProductTagField v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" :audiences="audiences" />
+                                <ProductTagField v-model="card.title" placeholder="Card Headline (e.g. Shop Best Sellers)" :audiences="audiences" :brand-canvas="brandCanvas" />
                             </div>
                         </div>
                     </div>
@@ -1141,8 +1141,8 @@
                                 <span>Ad Headline Copy</span>
                                 <span class="info-tooltip-trigger" data-tooltip="The main bold title text displayed on the ad post (e.g. Try Our Premium Special Roasts Today!).">i</span>
                             </label>
-                            <ProductTagField v-if="campaignContentLang === 'en'" v-model="newCampaign.headline" placeholder="e.g. Try Our Premium Special Roasts Today!" :audiences="audiences" />
-                            <ProductTagField v-else v-model="newCampaign.translations[campaignContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Probieren Sie noch heute unsere Premium-Röstungen!'" :audiences="audiences" />
+                            <ProductTagField v-if="campaignContentLang === 'en'" v-model="newCampaign.headline" placeholder="e.g. Try Our Premium Special Roasts Today!" :audiences="audiences" :brand-canvas="brandCanvas" />
+                            <ProductTagField v-else v-model="newCampaign.translations[campaignContentLang].headline" :placeholder="'[AI Translation Pending] e.g. Probieren Sie noch heute unsere Premium-Röstungen!'" :audiences="audiences" :brand-canvas="brandCanvas" />
                         </div>
 
                         <!-- Ad Call-to-Action (CTA) Selector Option -->
@@ -1168,8 +1168,8 @@
                                 <span>Body Description Text</span>
                                 <span class="info-tooltip-trigger" data-tooltip="The primary body text/copywriting that details the offer and convinces readers to click.">i</span>
                             </label>
-                            <ProductTagField v-if="campaignContentLang === 'en'" type="textarea" v-model="newCampaign.ad_copy" rows="3" placeholder="Write compelling marketing ad descriptions... (Use @, %, &, #, / for autocomplete tags)" :audiences="audiences" />
-                            <ProductTagField v-else type="textarea" v-model="newCampaign.translations[campaignContentLang].ad_copy" rows="3" :placeholder="'[AI Translation Pending] e.g. Schreiben Sie hier ansprechende Werbebeschreibungen...'" :audiences="audiences" />
+                            <ProductTagField v-if="campaignContentLang === 'en'" type="textarea" v-model="newCampaign.ad_copy" rows="3" placeholder="Write compelling marketing ad descriptions... (Use $ for products/services, @ for personas, # for sceneries, % for audiences)" :audiences="audiences" :brand-canvas="brandCanvas" />
+                            <ProductTagField v-else type="textarea" v-model="newCampaign.translations[campaignContentLang].ad_copy" rows="3" :placeholder="'[AI Translation Pending] e.g. Schreiben Sie hier ansprechende Werbebeschreibungen...'" :audiences="audiences" :brand-canvas="brandCanvas" />
                         </div>
 
                         <!-- A/B Creative split testing -->
@@ -1197,14 +1197,14 @@
                                             <span>Headline Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline headline variant.">i</span>
                                         </label>
-                                        <ProductTagField v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" :audiences="audiences" />
+                                        <ProductTagField v-model="newCampaign.ab_test_headlines[0]" placeholder="Headline A" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Headline Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative headline variant to split test.">i</span>
                                         </label>
-                                        <ProductTagField v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" :audiences="audiences" />
+                                        <ProductTagField v-model="newCampaign.ab_test_headlines[1]" placeholder="Headline B" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                 </div>
 
@@ -1215,14 +1215,14 @@
                                             <span>Description Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline description variant.">i</span>
                                         </label>
-                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" :audiences="audiences" />
+                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[0]" rows="2" placeholder="Description A" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Description Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative description variant to split test.">i</span>
                                         </label>
-                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" :audiences="audiences" />
+                                        <ProductTagField type="textarea" v-model="newCampaign.ab_test_descriptions[1]" rows="2" placeholder="Description B" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                 </div>
 
@@ -1251,14 +1251,14 @@
                                             <span>Media Variant A (Base)</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The baseline visual media asset URL.">i</span>
                                         </label>
-                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" :audiences="audiences" />
+                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[0]" placeholder="Media A Image/Video URL" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                     <div class="form-group" style="margin: 0;">
                                         <label style="font-size: 0.68rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
                                             <span>Media Variant B</span>
                                             <span class="info-tooltip-trigger" data-tooltip="The alternative visual media asset URL to split test.">i</span>
                                         </label>
-                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" :audiences="audiences" />
+                                        <ProductTagField v-model="newCampaign.ab_test_media_urls[1]" placeholder="Media B Image/Video URL" :audiences="audiences" :brand-canvas="brandCanvas" />
                                     </div>
                                 </div>
 

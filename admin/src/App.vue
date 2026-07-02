@@ -2203,7 +2203,7 @@ export default {
                 } else if (primary === 'integrations') {
                     initialView = 'settings';
                 } else {
-                    const validViews = ['overview', 'brand-center', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim'];
+                    const validViews = ['overview', 'brand-center', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'ai-analytics', 'learning', 'content-studio', 'agency-center'];
                     if (validViews.includes(primary)) {
                         initialView = primary;
                     }
@@ -3401,7 +3401,7 @@ export default {
                     } else if (primary === 'index.html' || primary === 'admin') {
                         viewId = 'overview';
                     } else {
-                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'brand-center', 'content-studio', 'agency-center'];
+                        const validViews = ['overview', 'products', 'media', 'orders', 'reports', 'messages', 'team-performance', 'campaigns', 'coupons', 'customers', 'roles-permissions', 'billing-subscription', 'customer-support', 'help', 'warehouse-sim', 'brand-center', 'content-studio', 'agency-center', 'ai-analytics', 'learning'];
                         if (validViews.includes(primary)) {
                             viewId = primary;
                         }

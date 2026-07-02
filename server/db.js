@@ -108,6 +108,39 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_address TEXT`);
     await client.query(`ALTER TABLE brands ADD COLUMN IF NOT EXISTS billing_vat VARCHAR(100)`);
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS visual_dna TEXT`);
+    await client.query(`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS modality VARCHAR(20) DEFAULT 'text'`);
+    await client.query(`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE ai_model_pricing ADD COLUMN IF NOT EXISTS flat_rate NUMERIC(10, 6) DEFAULT 0.0`);
+    await client.query(`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS tool VARCHAR(50) DEFAULT 'Generic'`);
+    
+    // Migrate existing logs by parsing 'operation' into 'tool' and clean 'operation'
+    await client.query(`
+      UPDATE ai_usage_logs
+      SET 
+        tool = CASE 
+          WHEN operation LIKE 'AI Studio %' THEN 'AI Studio'
+          WHEN operation LIKE 'AI Campaign %' THEN 'Campaigns'
+          WHEN operation LIKE 'AI Copy %' THEN 'AI Copywriter'
+          WHEN operation LIKE 'AI Creative %' THEN 'AI Creative Autopilot'
+          WHEN operation LIKE 'Brand Style %' THEN 'Design System'
+          WHEN operation LIKE 'Campaign Page %' THEN 'Page Builder'
+          WHEN operation LIKE 'Campaign Ad %' THEN 'Ad Creator'
+          WHEN operation LIKE 'Brand Protocol %' THEN 'Strategy'
+          ELSE 'Generic'
+        END,
+        operation = CASE 
+          WHEN operation LIKE 'AI Studio %' THEN SUBSTRING(operation FROM 11)
+          WHEN operation LIKE 'AI Campaign %' THEN SUBSTRING(operation FROM 13)
+          WHEN operation LIKE 'AI Copy %' THEN SUBSTRING(operation FROM 9)
+          WHEN operation LIKE 'AI Creative %' THEN SUBSTRING(operation FROM 13)
+          WHEN operation LIKE 'Brand Style %' THEN SUBSTRING(operation FROM 13)
+          WHEN operation LIKE 'Campaign Page %' THEN SUBSTRING(operation FROM 15)
+          WHEN operation LIKE 'Campaign Ad %' THEN SUBSTRING(operation FROM 13)
+          WHEN operation LIKE 'Brand Protocol %' THEN SUBSTRING(operation FROM 7)
+          ELSE operation
+        END
+      WHERE tool = 'Generic'
+    `);
 
     // Create Agencies Table
     await client.query(`
@@ -416,12 +449,15 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS ai_usage_logs (
         id SERIAL PRIMARY KEY,
         brand_id VARCHAR(50) REFERENCES brands(id) ON DELETE CASCADE,
+        tool VARCHAR(50) DEFAULT 'Generic',
         operation VARCHAR(100) NOT NULL,
         model VARCHAR(100) NOT NULL,
         prompt_tokens INTEGER DEFAULT 0,
         completion_tokens INTEGER DEFAULT 0,
         total_tokens INTEGER DEFAULT 0,
         estimated_cost_usd NUMERIC(10, 6) DEFAULT 0.0,
+        modality VARCHAR(20) DEFAULT 'text',
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -431,26 +467,48 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS ai_model_pricing (
         model VARCHAR(100) PRIMARY KEY,
         prompt_rate_per_million NUMERIC(10, 4) NOT NULL,
-        completion_rate_per_million NUMERIC(10, 4) NOT NULL
+        completion_rate_per_million NUMERIC(10, 4) NOT NULL,
+        flat_rate NUMERIC(10, 6) DEFAULT 0.0
       )
     `);
 
-    // Insert Default Gemini model rates
+    // Insert Default Gemini and Fal.ai model rates
     await client.query(`
-      INSERT INTO ai_model_pricing (model, prompt_rate_per_million, completion_rate_per_million)
+      INSERT INTO ai_model_pricing (model, prompt_rate_per_million, completion_rate_per_million, flat_rate)
       VALUES 
-        ('gemini-1.5-pro', 1.25, 5.00),
-        ('gemini-3.1-pro', 1.25, 5.00),
-        ('gemini-1.5-flash', 0.075, 0.30),
-        ('gemini-2.5-flash', 0.075, 0.30),
-        ('deep-research-pro-preview', 10.00, 40.00)
-      ON CONFLICT (model) DO NOTHING
+        ('gemini-1.5-pro', 1.25, 5.00, 0.0),
+        ('gemini-3.1-pro', 1.25, 5.00, 0.0),
+        ('gemini-1.5-flash', 0.075, 0.30, 0.0),
+        ('gemini-2.5-flash', 0.075, 0.30, 0.0),
+        ('deep-research-pro-preview', 10.00, 40.00, 0.0),
+        ('flux-2-flex', 0.0, 0.0, 0.050000),
+        ('flux-2-max', 0.0, 0.0, 0.070000),
+        ('flux-pro', 0.0, 0.0, 0.040000),
+        ('flux-schnell', 0.0, 0.0, 0.003000),
+        ('flux', 0.0, 0.0, 0.025000),
+        ('luma', 0.0, 0.0, 0.080000),
+        ('imagen', 0.0, 0.0, 0.030000),
+        ('dalle', 0.0, 0.0, 0.040000),
+        ('image-apps-v2/product-holding', 0.0, 0.0, 0.040000),
+        ('image-apps-v2/product-photography', 0.0, 0.0, 0.040000),
+        ('bria/product-shot', 0.0, 0.0, 0.040000),
+        ('sam-3/image', 0.0, 0.0, 0.005000),
+        ('iclight-v2', 0.0, 0.0, 0.100000),
+        ('flux-2-max/edit', 0.0, 0.0, 0.070000)
+      ON CONFLICT (model) DO UPDATE SET flat_rate = EXCLUDED.flat_rate
     `);
 
     // Create AI Tier Features Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS ai_tier_features (
         tier VARCHAR(20) PRIMARY KEY,
+        display_name VARCHAR(100) DEFAULT '',
+        monthly_price NUMERIC(10, 2) DEFAULT 0.00,
+        yearly_price NUMERIC(10, 2) DEFAULT 0.00,
+        products_limit INTEGER DEFAULT 0,
+        campaigns_limit INTEGER DEFAULT 0,
+        visuals_limit INTEGER DEFAULT 0,
+        is_public BOOLEAN DEFAULT TRUE,
         allow_manuscript BOOLEAN DEFAULT TRUE,
         allow_copywriter BOOLEAN DEFAULT TRUE,
         allow_translator BOOLEAN DEFAULT TRUE,
@@ -461,15 +519,50 @@ async function initializeDatabase() {
       )
     `);
 
-    // Seed Defaults
+    // Add new columns to existing table if they don't exist
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) DEFAULT ''`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS monthly_price NUMERIC(10, 2) DEFAULT 0.00`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS yearly_price NUMERIC(10, 2) DEFAULT 0.00`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS products_limit INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS campaigns_limit INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS visuals_limit INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE`);
+
+    // Seed Defaults / Updates
     await client.query(`
-      INSERT INTO ai_tier_features (tier, allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization)
+      INSERT INTO ai_tier_features (
+        tier, display_name, monthly_price, yearly_price, products_limit, campaigns_limit, visuals_limit, is_public,
+        allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization
+      )
       VALUES 
-        ('none', FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
-        ('standard', TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
-        ('professional', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
-        ('enterprise', TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
-      ON CONFLICT (tier) DO NOTHING
+        ('none', 'Sandbox Trial', 0.00, 0.00, 0, 0, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+        ('standard', 'Standard', 49.00, 468.00, 15, 5, 30, TRUE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
+        ('professional', 'Professional', 149.00, 1428.00, 100, 30, 150, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
+        ('enterprise', 'Enterprise', 499.00, 4788.00, 1000, 150, 600, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+      ON CONFLICT (tier) DO UPDATE SET
+        display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), ai_tier_features.display_name),
+        monthly_price = EXCLUDED.monthly_price,
+        yearly_price = EXCLUDED.yearly_price,
+        products_limit = EXCLUDED.products_limit,
+        campaigns_limit = EXCLUDED.campaigns_limit,
+        visuals_limit = EXCLUDED.visuals_limit,
+        is_public = EXCLUDED.is_public
+    `);
+
+    // Create global system settings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key VARCHAR(100) PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        description TEXT
+      )
+    `);
+
+    // Seed default cost markup parameter
+    await client.query(`
+      INSERT INTO system_settings (key, value, description)
+      VALUES ('token_cost_markup_percentage', '0', 'Global percentage markup/topping applied on estimated token cost calculations for users.')
+      ON CONFLICT (key) DO NOTHING
     `);
 
     // Create Payout Ledger Table

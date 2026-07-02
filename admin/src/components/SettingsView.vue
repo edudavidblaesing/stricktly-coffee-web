@@ -18,6 +18,10 @@
                         <label>Max Upload Image Size (Resized width px)</label>
                         <input type="number" id="global-image-rules" value="800">
                     </div>
+                    <div class="form-group">
+                        <label>AI Token Cost Markup (%)</label>
+                        <input type="number" step="0.1" v-model="tokenCostMarkupPercentage" placeholder="e.g. 15">
+                    </div>
                     <div class="form-group form-full">
                         <label>Global API Webhook Logs Path</label>
                         <input type="text" id="global-webhook-logs" readonly
@@ -26,7 +30,7 @@
                 </div>
                 <div class="panel-footer">
                     <button type="button" class="btn btn-accent" style="margin: 0;"
-                        @click="showNotification('Global integrations updated.')">Save Global Configurations</button>
+                        @click="saveGlobalSettings">Save Global Configurations</button>
                 </div>
             </form>
         </div>
@@ -45,115 +49,23 @@
                         <thead>
                             <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700;">
                                 <th style="padding: 12px 10px; width: 40%;">AI Capability Feature</th>
-                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Standard</th>
-                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Professional</th>
-                                <th style="padding: 12px 10px; text-align: center; width: 20%;">Enterprise</th>
+                                <th v-for="item in app.tierFeaturesList" :key="item.tier" style="padding: 12px 10px; text-align: center;">
+                                    {{ item.display_name || item.tier }}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                            <tr v-for="feature in featuresList" :key="feature.key" style="border-bottom: 1px solid var(--border); color: var(--text-main);">
                                 <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">Strategy Manuscript Crawler</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Scrapes site, builds playbooks & manuscripts</span>
+                                    <strong style="display: block;">{{ feature.label }}</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted);">{{ feature.desc }}</span>
                                 </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_manuscript" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">AI Copywriter Studio</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Generates high-converting variant copy</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_copywriter" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">Multilingual AI Translator</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Translates storefront & campaigns instantly</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_translator" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">AI Catalog SEO Pitcher</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Auto-writes conversion-tuned descriptions</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_seo" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">AI Look-Alike Storefront Designer</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Matches visual theme/color presets to manuscript</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_designer" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">AI Campaign Landing Page Builder</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Generates page structures & full marketing copies</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_page_builder" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-main);">
-                                <td style="padding: 12px 10px;">
-                                    <strong style="display: block;">Dynamic Funnel Swapping & Optimization</strong>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted);">Swaps headlines & images in real-time based on dropoffs</span>
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.standard.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.professional.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
-                                </td>
-                                <td style="text-align: center; padding: 12px 10px;">
-                                    <input type="checkbox" v-model="localFeatures.enterprise.allow_dynamic_optimization" :disabled="userRole.toLowerCase() !== 'superadmin'" style="width: 16px; height: 16px; cursor: pointer;" />
+                                <td v-for="item in app.tierFeaturesList" :key="item.tier" style="text-align: center; padding: 12px 10px;">
+                                    <input type="checkbox" 
+                                           v-if="localFeatures[item.tier]" 
+                                           v-model="localFeatures[item.tier][feature.key]" 
+                                           :disabled="userRole.toLowerCase() !== 'superadmin'" 
+                                           style="width: 16px; height: 16px; cursor: pointer;" />
                                 </td>
                             </tr>
                         </tbody>
@@ -169,6 +81,73 @@
                         @click="saveTierFeatures">
                     {{ savingTierFeatures ? 'Saving Matrix...' : 'Save Feature Matrix' }}
                 </button>
+            </div>
+        </div>
+
+        <!-- 📦 AI Subscription Packages -->
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="panel-title">📦 AI Subscription Packages</h3>
+                <button type="button" class="btn btn-accent btn-sm" @click="openCreatePackageModal">
+                    ➕ Create Custom Package
+                </button>
+            </div>
+            <div style="padding: 15px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.45;">
+                    Manage the pricing, limits, and public status of your AI package tiers. Standard system tiers cannot be deleted.
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700;">
+                                <th style="padding: 12px 10px;">Package Name</th>
+                                <th style="padding: 12px 10px;">Monthly Price</th>
+                                <th style="padding: 12px 10px;">Yearly Price</th>
+                                <th style="padding: 12px 10px; text-align: center;">Products Limit</th>
+                                <th style="padding: 12px 10px; text-align: center;">Campaigns Limit</th>
+                                <th style="padding: 12px 10px; text-align: center;">Visuals Limit</th>
+                                <th style="padding: 12px 10px; text-align: center;">Visibility</th>
+                                <th style="padding: 12px 10px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="pkg in app.tierFeaturesList" :key="pkg.tier" style="border-bottom: 1px solid var(--border); color: var(--text-main);">
+                                <td style="padding: 12px 10px;">
+                                    <strong>{{ pkg.display_name || pkg.tier }}</strong>
+                                    <code style="display: block; font-size: 0.7rem; color: var(--text-muted);">{{ pkg.tier }}</code>
+                                </td>
+                                <td style="padding: 12px 10px;">€{{ formatBillingCost(pkg.monthly_price) }}</td>
+                                <td style="padding: 12px 10px;">€{{ formatBillingCost(pkg.yearly_price) }}</td>
+                                <td style="padding: 12px 10px; text-align: center;">{{ pkg.products_limit }}</td>
+                                <td style="padding: 12px 10px; text-align: center;">{{ pkg.campaigns_limit }}</td>
+                                <td style="padding: 12px 10px; text-align: center;">{{ pkg.visuals_limit }}</td>
+                                <td style="padding: 12px 10px; text-align: center;">
+                                    <span :style="{
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '600',
+                                        backgroundColor: pkg.is_public ? 'rgba(46, 213, 115, 0.15)' : 'rgba(255, 71, 87, 0.15)',
+                                        color: pkg.is_public ? '#2ed573' : '#ff4757'
+                                    }">
+                                        {{ pkg.is_public ? 'Public' : 'Private' }}
+                                    </span>
+                                </td>
+                                <td style="padding: 12px 10px; text-align: right;">
+                                    <button type="button" class="btn btn-sm" style="margin: 0 5px 0 0;" @click="editPackage(pkg)">
+                                        ✏️ Edit
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            style="margin: 0;"
+                                            :disabled="['none', 'standard', 'professional', 'enterprise'].includes(pkg.tier.toLowerCase())"
+                                            @click="deletePackage(pkg.tier)">
+                                        🗑️ Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -192,9 +171,9 @@
                         <label>AI Operation Tier (Limits & Capabilities)</label>
                         <select :value="settingsBrand.ai_tier" @change="onAiTierChange($event.target.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                             <option value="none">No AI / Basic Tier (Sandbox Trial)</option>
-                            <option value="standard">Entry Tier (Gemini 2.5 Flash - €49/mo)</option>
-                            <option value="professional">Growth Tier (Gemini 3.1 Pro - €149/mo)</option>
-                            <option value="enterprise">Enterprise Tier (Deep Research Pro - €499/mo)</option>
+                            <option v-for="pkg in app.tierFeaturesList" :key="pkg.tier" :value="pkg.tier">
+                                {{ pkg.display_name }} ({{ getManuscriptModelNameForTier(pkg.tier) }} - €{{ formatBillingCost(pkg.monthly_price) }}/mo)
+                            </option>
                         </select>
                         <div v-if="userRole.toLowerCase() === 'superadmin' || settingsBrand.ai_free_tier" style="display: flex; align-items: center; margin-top: 8px;">
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin: 0;">
@@ -956,6 +935,85 @@
                 </div>
             </div>
         </div>
+
+        <!-- Create/Edit Package Modal -->
+        <div v-if="pkgModalOpen" class="modal-overlay" @click.self="pkgModalOpen = false" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(10px);">
+            <div class="panel" style="width: 100%; max-width: 650px; max-height: 90vh; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin: 0; font-size: 1.05rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>📦 {{ isEditingPkg ? 'Edit AI Package Tier' : 'Create Custom AI Package' }}</span>
+                    </h3>
+                    <button @click="pkgModalOpen = false" style="background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer; transition: color 0.2s; padding: 0;">&times;</button>
+                </div>
+                <div style="padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>Package Tier Identifier (Unique lowercase)</label>
+                            <input type="text" v-model="pkgForm.tier" :disabled="isEditingPkg" required placeholder="e.g. enterprise_plus" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Display Name</label>
+                            <input type="text" v-model="pkgForm.display_name" required placeholder="e.g. Enterprise Plus" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>Monthly Price (€)</label>
+                            <input type="number" step="0.01" v-model.number="pkgForm.monthly_price" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Yearly Price (€)</label>
+                            <input type="number" step="0.01" v-model.number="pkgForm.yearly_price" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                        <div class="form-group">
+                            <label>Products Limit</label>
+                            <input type="number" v-model.number="pkgForm.products_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Campaigns Limit</label>
+                            <input type="number" v-model.number="pkgForm.campaigns_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Visuals Limit</label>
+                            <input type="number" v-model.number="pkgForm.visuals_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                            <input type="checkbox" v-model="pkgForm.is_public" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                            <span style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">Public Plan (Visible on self-onboarding & billing)</span>
+                        </label>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border); padding-top: 15px;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-main); font-weight: 700;">Authorized AI Capabilities</h4>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                            <label v-for="feat in featuresList" :key="feat.key" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 8px; border-radius: 6px;">
+                                <input type="checkbox" v-model="pkgForm[feat.key]" style="width: 16px; height: 16px; margin-top: 2px; cursor: pointer;">
+                                <div>
+                                    <span style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">{{ feat.label }}</span>
+                                    <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">{{ feat.desc }}</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Buttons Group -->
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
+                        <button type="button" @click="pkgModalOpen = false" class="btn btn-secondary" style="height: 36px; padding: 0 15px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; background: transparent; border: 1px solid var(--border); color: var(--text-main); cursor: pointer;">Cancel</button>
+                        <button type="button" @click="savePackage" class="btn btn-accent" style="height: 36px; padding: 0 20px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; background: var(--accent); border: none; color: #fff; cursor: pointer;">
+                            💾 Save Package
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -1004,11 +1062,20 @@ export default {
             generationMethod: 'auto',
             compiledPrompt: '',
             savingTierFeatures: false,
-            localFeatures: {
-                standard: { allow_manuscript: true, allow_copywriter: true, allow_translator: false, allow_seo: true, allow_designer: false, allow_page_builder: false, allow_dynamic_optimization: false },
-                professional: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: false },
-                enterprise: { allow_manuscript: true, allow_copywriter: true, allow_translator: true, allow_seo: true, allow_designer: true, allow_page_builder: true, allow_dynamic_optimization: true }
-            },
+            localFeatures: {},
+            tokenCostMarkupPercentage: '0',
+            pkgModalOpen: false,
+            isEditingPkg: false,
+            pkgForm: {},
+            featuresList: [
+                { key: 'allow_manuscript', label: 'Manuscript Generation', desc: 'Allows generation of long-form manuscripts and strategy documents.' },
+                { key: 'allow_copywriter', label: 'Copywriting Studio', desc: 'Access to product descriptions, headlines, and social media copy generation.' },
+                { key: 'allow_translator', label: 'Translation Hub', desc: 'Translate copy and content assets to different languages.' },
+                { key: 'allow_seo', label: 'SEO Optimizer', desc: 'Generate SEO keyword maps and optimize page search signals.' },
+                { key: 'allow_designer', label: 'AI Designer', desc: 'Generate and edit product visuals and marketing creatives.' },
+                { key: 'allow_page_builder', label: 'Storefront Page Builder', desc: 'Access to custom landing page design and layout builders.' },
+                { key: 'allow_dynamic_optimization', label: 'Dynamic Price & SEO Optimization', desc: 'Automatic background improvements to conversions.' }
+            ],
             protocolPollInterval: null,
             subModalOpen: false,
             subModalInterval: 'monthly',
@@ -1070,6 +1137,7 @@ export default {
                 this.startProtocolPolling();
                 this.loadStripeConnectStatus();
                 this.loadManuscripts();
+                this.loadSystemSettings();
             } else {
                 this.stopProtocolPolling();
             }
@@ -1104,30 +1172,22 @@ export default {
         oldTierDisplay() {
             if (!this.settingsBrand) return 'None';
             const tier = this.settingsBrand.ai_tier || 'none';
-            if (tier === 'standard') return 'Entry (Gemini 2.5 Flash)';
-            if (tier === 'professional') return 'Growth (Gemini 3.1 Pro)';
-            if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
-            return 'No AI / Basic';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier.toLowerCase());
+            return pkg ? `${pkg.display_name} (${this.getManuscriptModelNameForTier(tier)})` : 'No AI / Basic';
         },
         targetTierDisplay() {
             const tier = this.subModalTargetTier;
-            if (tier === 'standard') return 'Entry (Gemini 2.5 Flash)';
-            if (tier === 'professional') return 'Growth (Gemini 3.1 Pro)';
-            if (tier === 'enterprise') return 'Enterprise (Deep Research Pro)';
-            return 'No AI / Basic';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier.toLowerCase());
+            return pkg ? `${pkg.display_name} (${this.getManuscriptModelNameForTier(tier)})` : 'No AI / Basic';
         },
         targetTierPrice() {
             const tier = this.subModalTargetTier;
             const interval = this.subModalInterval;
             if (tier === 'none') return '0';
-            if (interval === 'yearly') {
-                if (tier === 'standard') return '39 (billed annually)';
-                if (tier === 'professional') return '119 (billed annually)';
-                if (tier === 'enterprise') return '399 (billed annually)';
-            } else {
-                if (tier === 'standard') return '49';
-                if (tier === 'professional') return '149';
-                if (tier === 'enterprise') return '499';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier.toLowerCase());
+            if (pkg) {
+                const price = interval === 'yearly' ? pkg.yearly_price : pkg.monthly_price;
+                return interval === 'yearly' ? `${this.formatBillingCost(price)} (billed annually)` : this.formatBillingCost(price);
             }
             return '0';
         },
@@ -1135,9 +1195,7 @@ export default {
         activeManuscriptModelName() {
             if (!this.settingsBrand) return 'Gemini 3.1 Pro';
             const tier = this.settingsBrand.ai_tier || 'professional';
-            if (tier === 'standard') return 'Gemini 2.5 Flash';
-            if (tier === 'enterprise') return 'Deep Research Pro';
-            return 'Gemini 3.1 Pro';
+            return this.getManuscriptModelNameForTier(tier);
         },
         protocolErrorSuggestion() {
             if (!this.settingsBrand) return '';
@@ -1183,9 +1241,15 @@ export default {
         },
         getActiveTierSpendLimit() {
             if (!this.settingsBrand) return 50.00;
-            const tier = this.settingsBrand.ai_tier || 'professional';
-            if (tier === 'standard') return 10.00;
-            if (tier === 'enterprise') return 200.00;
+            const tier = (this.settingsBrand.ai_tier || 'professional').toLowerCase();
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier);
+            if (pkg) {
+                if (tier === 'standard') return 10.00;
+                if (tier === 'professional') return 50.00;
+                if (tier === 'enterprise') return 200.00;
+                if (tier === 'none') return 0.00;
+                return parseFloat(pkg.monthly_price) * 0.4;
+            }
             return 50.00;
         },
         getSpendLimitProgressPercent() {
@@ -1238,6 +1302,7 @@ export default {
             this.loadRealtimeLimits();
             this.startProtocolPolling();
             this.loadStripeConnectStatus();
+            this.loadSystemSettings();
         }
     },
     beforeDestroy() {
@@ -1613,6 +1678,10 @@ export default {
             this.showNotification('📋 Strategy prompt copied to clipboard!');
         },
         async generateMarketingProtocol() {
+            if (this.settingsBrand.ai_tier === 'none') {
+                alert('AI Brand Strategy Analysis is disabled under the Sandbox Trial plan. Please upgrade to a Standard, Professional, or Enterprise plan.');
+                return;
+            }
             this.isGeneratingProtocol = true;
             this.app.startAiTicker(this.activeManuscriptModelName);
             try {
@@ -1719,9 +1788,7 @@ export default {
             };
             if (this.app.tierFeaturesList && this.app.tierFeaturesList.length > 0) {
                 this.app.tierFeaturesList.forEach(item => {
-                    if (defaults[item.tier]) {
-                        defaults[item.tier] = { ...item };
-                    }
+                    defaults[item.tier] = { ...item };
                 });
             }
             this.localFeatures = defaults;
@@ -1755,16 +1822,158 @@ export default {
                 this.savingTierFeatures = false;
             }
         },
+        async loadSystemSettings() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/system-settings`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.settings) {
+                        const markupObj = data.settings.find(s => s.key === 'token_cost_markup_percentage');
+                        if (markupObj) {
+                            this.tokenCostMarkupPercentage = markupObj.value;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading system settings:', err);
+            }
+        },
+        async saveGlobalSettings() {
+            if (this.userRole.toLowerCase() !== 'superadmin') return;
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/system-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        key: 'token_cost_markup_percentage',
+                        value: this.tokenCostMarkupPercentage.toString()
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showNotification('✨ Global configurations updated successfully!');
+                    } else {
+                        throw new Error(data.error || 'Failed to update configurations');
+                    }
+                } else {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to update configurations');
+                }
+            } catch (err) {
+                alert('Error saving global configurations: ' + err.message);
+            }
+        },
+        openCreatePackageModal() {
+            this.isEditingPkg = false;
+            this.pkgForm = {
+                tier: '',
+                display_name: '',
+                monthly_price: 0.00,
+                yearly_price: 0.00,
+                products_limit: 10,
+                campaigns_limit: 5,
+                visuals_limit: 10,
+                is_public: true,
+                allow_manuscript: false,
+                allow_copywriter: false,
+                allow_translator: false,
+                allow_seo: false,
+                allow_designer: false,
+                allow_page_builder: false,
+                allow_dynamic_optimization: false
+            };
+            this.pkgModalOpen = true;
+        },
+        editPackage(pkg) {
+            this.isEditingPkg = true;
+            this.pkgForm = JSON.parse(JSON.stringify(pkg));
+            this.pkgForm.monthly_price = parseFloat(this.pkgForm.monthly_price || 0);
+            this.pkgForm.yearly_price = parseFloat(this.pkgForm.yearly_price || 0);
+            this.pkgForm.products_limit = parseInt(this.pkgForm.products_limit || 0, 10);
+            this.pkgForm.campaigns_limit = parseInt(this.pkgForm.campaigns_limit || 0, 10);
+            this.pkgForm.visuals_limit = parseInt(this.pkgForm.visuals_limit || 0, 10);
+            this.pkgModalOpen = true;
+        },
+        async deletePackage(tier) {
+            if (['none', 'standard', 'professional', 'enterprise'].includes(tier.toLowerCase())) {
+                alert('Standard system tiers cannot be deleted.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to permanently delete custom package tier: ${tier}?`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/ai-packages/${encodeURIComponent(tier)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`
+                    }
+                });
+                if (response.ok) {
+                    this.showNotification(`🗑️ Custom package tier "${tier}" deleted successfully!`);
+                    await this.app.loadTierFeatures();
+                } else {
+                    const err = await response.json();
+                    alert('Error deleting package: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error deleting package: ' + err.message);
+            }
+        },
+        async savePackage() {
+            if (!this.pkgForm.tier || !this.pkgForm.display_name) {
+                alert('Tier identifier and Display name are required.');
+                return;
+            }
+            if (!this.isEditingPkg) {
+                this.pkgForm.tier = this.pkgForm.tier.toLowerCase().replace(/[^a-z0-9_]/g, '');
+            }
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/ai-packages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.pkgForm)
+                });
+                if (response.ok) {
+                    this.showNotification(`✨ Package tier "${this.pkgForm.display_name}" saved successfully!`);
+                    this.pkgModalOpen = false;
+                    await this.app.loadTierFeatures();
+                } else {
+                    const err = await response.json();
+                    alert('Error saving package: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error saving package: ' + err.message);
+            }
+        },
+        getManuscriptModelNameForTier(tier) {
+            if (!tier) return 'Gemini 3.1 Pro';
+            const t = tier.toLowerCase();
+            if (t === 'standard') return 'Gemini 2.5 Flash';
+            if (t === 'enterprise') return 'Deep Research Pro';
+            return 'Gemini 3.1 Pro';
+        },
         formatBillingCost(val) {
             if (val === undefined || val === null) return '0.00';
             return parseFloat(val).toFixed(2);
         },
         getTierSubscriptionCost() {
             if (!this.settingsBrand) return 45;
-            const tier = this.settingsBrand.ai_tier || 'professional';
-            if (tier === 'standard') return 15;
-            if (tier === 'enterprise') return 150;
-            return 45;
+            const tier = this.settingsBrand.ai_tier || 'none';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier.toLowerCase());
+            return pkg ? parseFloat(pkg.monthly_price) : 0;
         },
         formatCost(val) {
             if (val === undefined || val === null) return '0.000000';

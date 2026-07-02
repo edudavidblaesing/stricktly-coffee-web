@@ -726,43 +726,19 @@
                                          Sandbox preview model. AI operations are locked or simulation-only.
                                      </div>
                                 </div>
-                                <!-- Standard Plan -->
-                                <div @click="newBrand.ai_tier = 'standard'" 
+                                <!-- Dynamic Packages -->
+                                <div v-for="pkg in packages.filter(p => p.tier.toLowerCase() !== 'none')"
+                                     :key="pkg.tier"
+                                     @click="newBrand.ai_tier = pkg.tier" 
                                      :style="{
-                                         border: newBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: newBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                         border: newBrand.ai_tier === pkg.tier ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: newBrand.ai_tier === pkg.tier ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
                                      style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Standard Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€49.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
+                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">{{ pkg.display_name }}</div>
+                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€{{ parseFloat(pkg.monthly_price).toFixed(2) }} <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
                                      <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
-                                         Standard copywriting, SEO metadata extraction, and basic translation tools.
-                                     </div>
-                                </div>
-                                <!-- Professional Plan -->
-                                <div @click="newBrand.ai_tier = 'professional'" 
-                                     :style="{
-                                         border: newBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: newBrand.ai_tier === 'professional' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                     }" 
-                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Professional Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€149.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
-                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
-                                         All Standard features, plus the AI Storefront Designer & custom page builder wizard.
-                                     </div>
-                                </div>
-                                <!-- Enterprise Plan -->
-                                <div @click="newBrand.ai_tier = 'enterprise'" 
-                                     :style="{
-                                         border: newBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: newBrand.ai_tier === 'enterprise' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                     }" 
-                                     style="padding: 18px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.95rem;">Enterprise Plan</div>
-                                     <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent);">€499.00 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">/ mo</span></div>
-                                     <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
-                                         All features plus tournament-based dynamic ad campaigns and autopilot rules.
+                                         {{ getPackageDescription(pkg) }}
                                      </div>
                                 </div>
                             </div>
@@ -1749,6 +1725,7 @@ export default {
                 }
             });
         }
+        this.fetchPublicPackages();
     },
     beforeUnmount() {
         window.removeEventListener('message', this.handleOAuthMessage);
@@ -1846,6 +1823,7 @@ export default {
             faviconUploading: false,
             shopifyConnectionMode: 'oauth',
             woocommerceConnectionMode: 'oauth',
+            packages: [],
             
             // Billing inputs
             billingCardNumber: '',
@@ -2069,6 +2047,44 @@ export default {
         settingsBrand() { return this.app.settingsBrand; }
     },
     methods: {
+        async fetchPublicPackages() {
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/public-packages`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && Array.isArray(data.packages)) {
+                        this.packages = data.packages;
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching public packages:', err);
+            }
+        },
+        getPackageDescription(pkg) {
+            if (pkg.tier === 'none') {
+                return 'Sandbox preview model. AI operations are locked or simulation-only.';
+            }
+            if (pkg.tier === 'standard') {
+                return 'Standard copywriting, SEO metadata extraction, and basic translation tools.';
+            }
+            if (pkg.tier === 'professional') {
+                return 'All Standard features, plus the AI Storefront Designer & custom page builder wizard.';
+            }
+            if (pkg.tier === 'enterprise') {
+                return 'All features plus tournament-based dynamic ad campaigns and autopilot rules.';
+            }
+            
+            const features = [];
+            if (pkg.allow_manuscript) features.push('Manuscript');
+            if (pkg.allow_copywriter) features.push('Copywriter');
+            if (pkg.allow_translator) features.push('Translator');
+            if (pkg.allow_seo) features.push('SEO');
+            if (pkg.allow_designer) features.push('Designer');
+            if (pkg.allow_page_builder) features.push('Page Builder');
+            if (pkg.allow_dynamic_optimization) features.push('Optimization');
+            
+            return `Features: ${features.join(', ') || 'None'}. Limits: ${pkg.products_limit} products, ${pkg.campaigns_limit} campaigns, ${pkg.visuals_limit} visuals.`;
+        },
         async scrapeBillingDetails() {
             let defaultUrl = '';
             if (this.localDomainType === 'external') {
@@ -4019,7 +4035,7 @@ export default {
 
                     // Auto-trigger Strategy Manuscript Generation in the background!
                     const brandId = result.brandId || this.newBrand.id;
-                    if (brandId) {
+                    if (brandId && this.newBrand.ai_tier !== 'none') {
                         this.app.showNotification('✨ Compiling AI Brand Strategy Manuscript in background...');
                         fetch(`${this.app.apiBaseUrl}/api/global/brands/${brandId}/generate-protocol`, {
                             method: 'POST',
@@ -4033,7 +4049,7 @@ export default {
                                 console.log('[Onboarding] Background strategy manuscript generation successfully initiated.');
                             }
                         }).catch(err => {
-                            console.error('[Onboarding] Failed to trigger background manuscript generation:', err);
+                                console.error('[Onboarding] Failed to trigger background manuscript generation:', err);
                         });
                     }
 

@@ -99,11 +99,10 @@
                                             {{ b.name }}
                                             <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">{{ b.subdomain }}.stricktlycoffee.be</div>
                                         </td>
-                                        <td style="padding: 12px; text-transform: capitalize;">
-                                            <span v-if="b.ai_tier === 'enterprise'" class="status-badge status-success" style="font-size: 0.72rem; padding: 2px 6px;">Enterprise</span>
-                                            <span v-else-if="b.ai_tier === 'professional'" class="status-badge status-info" style="font-size: 0.72rem; padding: 2px 6px;">Growth</span>
-                                            <span v-else-if="b.ai_tier === 'standard'" class="status-badge status-warning" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">Entry</span>
-                                            <span v-else class="status-badge" style="font-size: 0.72rem; padding: 2px 6px;">Sandbox</span>
+                                        <td style="padding: 12px;">
+                                            <span class="status-badge" :style="getBrandTierBadgeStyle(b.ai_tier)" style="font-size: 0.72rem; padding: 2px 6px;">
+                                                {{ getBrandTierName(b.ai_tier) }}
+                                            </span>
                                         </td>
                                         <td style="padding: 12px; font-size: 0.8rem; color: var(--text-main);">
                                             <span v-if="b.subscription_billing_method === 'stripe_card'">💳 Card</span>
@@ -111,7 +110,7 @@
                                             <span v-else>💡 Ledger</span>
                                         </td>
                                         <td style="padding: 12px; text-align: right; font-weight: 600; color: var(--text-main);">
-                                            €{{ b.custom_subscription_price !== null && b.custom_subscription_price !== undefined ? parseFloat(b.custom_subscription_price).toFixed(2) : (b.ai_tier === 'enterprise' ? '499.00' : (b.ai_tier === 'professional' ? '149.00' : (b.ai_tier === 'standard' ? '49.00' : '0.00'))) }}
+                                            €{{ getBrandTierPrice(b) }}
                                         </td>
                                         <td style="padding: 12px; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
                                             ${{ parseFloat(b.ai_cost).toFixed(2) }}
@@ -301,8 +300,8 @@
                                 <!-- None/Sandbox -->
                                 <div @click="currentBrand.ai_tier = 'none'" 
                                      :style="{
-                                         border: currentBrand.ai_tier === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: currentBrand.ai_tier === 'none' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                         border: (currentBrand.ai_tier || '').toLowerCase() === 'none' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: (currentBrand.ai_tier || '').toLowerCase() === 'none' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
                                      style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
@@ -313,49 +312,21 @@
                                          Sandbox preview model. AI operations are locked or simulation-only. (2% Transaction fee)
                                      </div>
                                 </div>
-                                <!-- Entry Plan (Standard) -->
-                                <div @click="currentBrand.ai_tier = 'standard'" 
+                                <!-- Dynamic Packages -->
+                                <div v-for="pkg in packages.filter(p => p.tier.toLowerCase() !== 'none')" 
+                                     :key="pkg.tier"
+                                     @click="currentBrand.ai_tier = pkg.tier" 
                                      :style="{
-                                         border: currentBrand.ai_tier === 'standard' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: currentBrand.ai_tier === 'standard' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
+                                         border: (currentBrand.ai_tier || '').toLowerCase() === pkg.tier.toLowerCase() ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                         background: (currentBrand.ai_tier || '').toLowerCase() === pkg.tier.toLowerCase() ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
                                      }" 
                                      style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
                                      <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
-                                         <span>Entry Plan</span>
-                                         <span style="color: var(--accent);">€49.00 / mo</span>
+                                         <span>{{ pkg.display_name }}</span>
+                                         <span style="color: var(--accent);">€{{ parseFloat(pkg.monthly_price).toFixed(2) }} / mo</span>
                                      </div>
                                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Includes entry AI content creation & ad templates. (2% Transaction fee)
-                                     </div>
-                                </div>
-                                <!-- Growth Plan (Professional) -->
-                                <div @click="currentBrand.ai_tier = 'professional'" 
-                                     :style="{
-                                         border: currentBrand.ai_tier === 'professional' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: currentBrand.ai_tier === 'professional' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                     }" 
-                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
-                                         <span>Growth Plan</span>
-                                         <span style="color: var(--accent);">€149.00 / mo</span>
-                                     </div>
-                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Includes AI Storefront Designer & custom page builder. (1% Transaction fee)
-                                     </div>
-                                </div>
-                                <!-- Enterprise Plan (Enterprise) -->
-                                <div @click="currentBrand.ai_tier = 'enterprise'" 
-                                     :style="{
-                                         border: currentBrand.ai_tier === 'enterprise' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                         background: currentBrand.ai_tier === 'enterprise' ? 'rgba(197, 160, 89, 0.05)' : 'rgba(255,255,255,0.01)'
-                                     }" 
-                                     style="padding: 14px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: all 0.2s ease;">
-                                     <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem; display: flex; justify-content: space-between;">
-                                         <span>Enterprise Plan</span>
-                                         <span style="color: var(--accent);">€499.00 / mo</span>
-                                     </div>
-                                     <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3;">
-                                         Includes autopilot dynamic ad campaigns and automation rules. (0% Transaction fee)
+                                         {{ getPackageDescription(pkg) }}
                                      </div>
                                 </div>
                             </div>
@@ -437,7 +408,7 @@
                                 style="width: 100%; height: 38px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; color: var(--text-main);"
                             />
                             <p style="color: var(--text-muted); font-size: 0.7rem; margin: 0; line-height: 1.3;">
-                                Set a custom monthly fee to override the standard tier pricing (Entry: €49, Growth: €149, Enterprise: €499).
+                                Set a custom monthly fee to override the standard tier pricing.
                             </p>
                         </div>
 
@@ -683,8 +654,12 @@ export default {
             pdfViewerOpen: false,
             selectedPdfUrl: '',
             showManualInvoiceModal: false,
-            manualInvoiceForm: { amount: '', vat_amount: '', status: 'paid', description: '' }
+            manualInvoiceForm: { amount: '', vat_amount: '', status: 'paid', description: '' },
+            packages: []
         };
+    },
+    async created() {
+        await this.fetchPublicPackages();
     },
     methods: {
         async fetchBillingData() {
@@ -702,18 +677,16 @@ export default {
             this.currentBrand = { ...brand };
             this.loading = true;
             
-            // Map Plan Details
-            if (brand.ai_tier === 'enterprise') {
-                this.planName = 'Enterprise';
-                this.planRecurringFee = '499.00';
-            } else if (brand.ai_tier === 'professional') {
-                this.planName = 'Growth';
-                this.planRecurringFee = '149.00';
-            } else if (brand.ai_tier === 'standard') {
-                this.planName = 'Entry';
-                this.planRecurringFee = '49.00';
-            } else {
+            // Map Plan Details dynamically
+            const matchingPkg = this.packages.find(p => p.tier.toLowerCase() === (brand.ai_tier || '').toLowerCase());
+            if (matchingPkg) {
+                this.planName = matchingPkg.display_name;
+                this.planRecurringFee = parseFloat(matchingPkg.monthly_price).toFixed(2);
+            } else if ((brand.ai_tier || '').toLowerCase() === 'none') {
                 this.planName = 'Sandbox Trial';
+                this.planRecurringFee = '0.00';
+            } else {
+                this.planName = brand.ai_tier || 'Sandbox Trial';
                 this.planRecurringFee = '0.00';
             }
             
@@ -743,9 +716,18 @@ export default {
                     this.aiUsage = aiData.summary || { total_cost_usd: 0.00 };
                 }
                 
-                // 3. Calculate Limits & Quota
+                // 3. Calculate Limits & Quota dynamically
                 const limits = { standard: 10.00, professional: 50.00, enterprise: 200.00, none: 0.00 };
-                this.aiLimit = limits[brand.ai_tier] || 0.00;
+                let limit = limits[(brand.ai_tier || '').toLowerCase()];
+                if (limit === undefined) {
+                    const pkg = this.packages.find(p => p.tier.toLowerCase() === (brand.ai_tier || '').toLowerCase());
+                    if (pkg) {
+                        limit = parseFloat(pkg.monthly_price) * 0.4;
+                    } else {
+                        limit = 0.00;
+                    }
+                }
+                this.aiLimit = limit;
                 
                 if (brand.ai_free_tier || brand.pay_as_you_go_enabled) {
                     this.aiQuotaPercentage = 0.0;
@@ -947,6 +929,72 @@ export default {
             } catch (err) {
                 console.error('Failed to save manual invoice:', err);
             }
+        },
+        async fetchPublicPackages() {
+            try {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/public-packages`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && Array.isArray(data.packages)) {
+                        this.packages = data.packages;
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching public packages:', err);
+            }
+        },
+        getPackageDescription(pkg) {
+            if (pkg.tier === 'none') {
+                return 'Sandbox preview model. AI operations are locked or simulation-only. (2% Transaction fee)';
+            }
+            if (pkg.tier === 'standard') {
+                return 'Includes entry AI content creation & ad templates. (2% Transaction fee)';
+            }
+            if (pkg.tier === 'professional') {
+                return 'Includes AI Storefront Designer & custom page builder. (1% Transaction fee)';
+            }
+            if (pkg.tier === 'enterprise') {
+                return 'Includes autopilot dynamic ad campaigns and automation rules. (0% Transaction fee)';
+            }
+            
+            const features = [];
+            if (pkg.allow_manuscript) features.push('Manuscript');
+            if (pkg.allow_copywriter) features.push('Copywriter');
+            if (pkg.allow_translator) features.push('Translator');
+            if (pkg.allow_seo) features.push('SEO');
+            if (pkg.allow_designer) features.push('Designer');
+            if (pkg.allow_page_builder) features.push('Page Builder');
+            if (pkg.allow_dynamic_optimization) features.push('Optimization');
+            
+            return `Features: ${features.join(', ') || 'None'}. Limits: ${pkg.products_limit} products, ${pkg.campaigns_limit} campaigns, ${pkg.visuals_limit} visuals.`;
+        },
+        getBrandTierName(tier) {
+            if (!tier || tier.toLowerCase() === 'none') return 'Sandbox';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier.toLowerCase());
+            return pkg ? pkg.display_name : tier.charAt(0).toUpperCase() + tier.slice(1);
+        },
+        getBrandTierBadgeStyle(tier) {
+            if (!tier) return {};
+            const t = tier.toLowerCase();
+            if (t === 'enterprise') return { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' };
+            if (t === 'professional') return { background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', borderColor: 'rgba(59, 130, 246, 0.3)' };
+            if (t === 'standard') return { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' };
+            return { background: 'rgba(156, 163, 175, 0.15)', color: '#9ca3af', borderColor: 'rgba(156, 163, 175, 0.3)' };
+        },
+        getBrandTierPrice(brand) {
+            if (brand.custom_subscription_price !== null && brand.custom_subscription_price !== undefined) {
+                return parseFloat(brand.custom_subscription_price).toFixed(2);
+            }
+            const tier = (brand.ai_tier || '').toLowerCase();
+            if (tier === 'none' || !tier) return '0.00';
+            const pkg = this.app.tierFeaturesList.find(p => p.tier.toLowerCase() === tier);
+            if (pkg) {
+                return parseFloat(pkg.monthly_price).toFixed(2);
+            }
+            if (tier === 'enterprise') return '499.00';
+            if (tier === 'professional') return '149.00';
+            if (tier === 'standard') return '49.00';
+            return '0.00';
         }
     },
     watch: {

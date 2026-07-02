@@ -49,17 +49,24 @@
 
       <!-- Autocomplete dropdown nested locally inside each textfield wrapper -->
       <div v-if="showAutocomplete" 
-           style="position: absolute; bottom: 100%; left: 0; width: 100%; max-height: 165px; overflow-y: auto; background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 -4px 16px rgba(0,0,0,0.5); z-index: 100020; margin-bottom: 4px; display: flex; flex-direction: column;">
+           style="position: absolute; bottom: 100%; left: 0; width: 100%; max-height: 185px; overflow-y: auto; background: var(--panel-bg, #1a1b26); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 -4px 16px rgba(0,0,0,0.5); z-index: 100020; margin-bottom: 4px; display: flex; flex-direction: column;">
         <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; padding: 6px 10px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">Select suggestion tag</div>
         <button v-for="tag in filteredAutocompleteTags" 
                 :key="tag.value" 
                 type="button" 
                 @click="insertAutocompleteTag(tag)" 
-                style="padding: 8px 12px; text-align: left; background: none; border: none; color: var(--text-main); font-size: 0.75rem; cursor: pointer; display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.01);" 
+                style="padding: 8px 12px; text-align: left; background: none; border: none; color: var(--text-main); font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 10px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.01);" 
                 onmouseover="this.style.background='rgba(255,255,255,0.05)'" 
                 onmouseout="this.style.background='none'">
-          <span style="font-weight: 700; color: var(--accent);">{{ tag.label }}</span>
-          <span style="font-size: 0.65rem; color: var(--text-muted);">{{ tag.description }}</span>
+          <!-- Image thumbnail (if available) -->
+          <img v-if="tag.image" :src="resolveImageUrl(tag.image)" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); flex-shrink: 0;" />
+          <span v-else style="font-size: 1.1rem; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            {{ tag.icon || '🏷️' }}
+          </span>
+          <div style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+            <span style="font-weight: 700; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ tag.label }}</span>
+            <span style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ tag.description }}</span>
+          </div>
         </button>
       </div>
     </div>
@@ -90,6 +97,10 @@ export default {
     audiences: {
       type: Array,
       default: () => []
+    },
+    brandCanvas: {
+      type: Object,
+      default: () => null
     }
   },
   data() {
@@ -110,11 +121,13 @@ export default {
   computed: {
     isProductTag() {
       const val = (this.value || '').trim();
-      return (val.startsWith('@product-') || val.startsWith('@inventory-')) && !val.includes(' ');
+      return (val.startsWith('@product-') || val.startsWith('@inventory-') || val.startsWith('$product-') || val.startsWith('$inventory-')) && !val.includes(' ');
     },
     productInfo() {
       if (!this.isProductTag) return {};
-      const identifier = this.value.trim().startsWith('@product-') ? this.value.trim().replace('@product-', '') : this.value.trim().replace('@inventory-', '');
+      const identifier = this.value.trim().startsWith('@product-') || this.value.trim().startsWith('$product-') 
+        ? this.value.trim().replace(/^[@$]product-/, '') 
+        : this.value.trim().replace(/^[@$]inventory-/, '');
       const products = this.app.products || [];
       const found = products.find(p => 
         String(p.id) === identifier || 
@@ -127,73 +140,83 @@ export default {
       const symbol = this.activeTriggerSymbol || '@';
       const brandId = this.app.activeShopFilter !== 'all' ? this.app.activeShopFilter : '';
       
-      if (symbol === '@') {
-        list.push(
-          { label: '@barista', value: '@barista', description: 'Technical Barista target audience' },
-          { label: '@curator', value: '@curator', description: 'Design Purist / Aesthetic Curator target' },
-          { label: '@home-brewer', value: '@home-brewer', description: 'Home Brewer target audience' },
-          { label: '@tamper', value: '@tamper', description: 'Filter by Tampers collection' },
-          { label: '@basket', value: '@basket', description: 'Filter by Precision Baskets collection' },
-          { label: '@milk', value: '@milk', description: 'Filter by Milk Jugs collection' },
-          { label: '@accessory', value: '@accessory', description: 'Filter by Accessories collection' },
-          { label: '@service-training', value: '@service-training', description: 'Technical Barista Training Session' },
-          { label: '@service-consultancy', value: '@service-consultancy', description: 'Café Layout & Flow Consulting' }
-        );
-        
-        // Add brand-specific products
+      if (symbol === '$') {
+        // Add brand-specific products and services
         const prods = this.app.products ? this.app.products.filter(p => !brandId || p.brand_id === brandId) : [];
         prods.forEach(p => {
           list.push({
-            label: `@inventory-${p.id}`,
-            value: `@inventory-${p.id}`,
+            label: `$inventory-${p.id}`,
+            value: `$inventory-${p.id}`,
+            image: p.image,
+            icon: p.type === 'service' ? '💼' : '📦',
             description: `${p.type === 'service' ? '🛎️ Service' : '📦 Product'}: ${p.title}`
           });
         });
-      } else if (symbol === '%') {
-        if (this.app.coupons && this.app.coupons.length > 0) {
-          this.app.coupons.forEach(c => {
+      } else if (symbol === '@') {
+        // Ambassadors / Personas
+        if (this.brandCanvas && this.brandCanvas.personas && this.brandCanvas.personas.length > 0) {
+          this.brandCanvas.personas.forEach(p => {
             list.push({
-              label: `%${c.code.toUpperCase()}`,
-              value: `%${c.code.toUpperCase()}`,
-              description: `Discount Coupon: ${c.code}`
+              label: `@${p.name.toLowerCase().replace(/\s+/g, '-')}`,
+              value: `@${p.name.toLowerCase().replace(/\s+/g, '-')}`,
+              image: p.image,
+              icon: '👥',
+              description: `Persona: ${p.role}`
             });
           });
         } else {
           list.push(
-            { label: '%SAVE20', value: '%SAVE20', description: '20% discount coupon' },
-            { label: '%WELCOME10', value: '%WELCOME10', description: '10% welcome coupon' }
+            { label: '@barista', value: '@barista', description: 'Technical Barista target audience persona', icon: '👥' },
+            { label: '@curator', value: '@curator', description: 'Design Purist / Aesthetic Curator target persona', icon: '👥' },
+            { label: '@home-brewer', value: '@home-brewer', description: 'Home Brewer target audience persona', icon: '👥' }
           );
         }
-      } else if (symbol === '&') {
+      } else if (symbol === '%') {
+        // Target Audiences
         if (this.audiences && this.audiences.length > 0) {
           this.audiences.forEach(aud => {
             list.push({
-              label: `&${aud.id}`,
-              value: `&${aud.id}`,
+              label: `%${aud.id || aud.name.toLowerCase().replace(/\s+/g, '-')}`,
+              value: `%${aud.id || aud.name.toLowerCase().replace(/\s+/g, '-')}`,
+              icon: '🎯',
               description: `Audience Segment: ${aud.name}`
             });
           });
         } else {
           list.push(
-            { label: '&past-purchasers', value: '&past-purchasers', description: 'Customers who purchased previously' },
-            { label: '&lookalike-vips', value: '&lookalike-vips', description: 'Lookalike 1% of high value spenders' }
+            { label: '%barista', value: '%barista', description: 'Technical Barista target audience segment', icon: '🎯' },
+            { label: '%curator', value: '%curator', description: 'Design Purist / Aesthetic Curator target segment', icon: '🎯' },
+            { label: '%home-brewer', value: '%home-brewer', description: 'Home Brewer target audience segment', icon: '🎯' }
           );
         }
       } else if (symbol === '#') {
+        // Sceneries / Backdrops
+        if (this.brandCanvas && this.brandCanvas.sceneries && this.brandCanvas.sceneries.length > 0) {
+          this.brandCanvas.sceneries.forEach(s => {
+            list.push({
+              label: `#${s.name.toLowerCase().replace(/\s+/g, '-')}`,
+              value: `#${s.name.toLowerCase().replace(/\s+/g, '-')}`,
+              image: s.image,
+              icon: '🌄',
+              description: `Scenery: ${s.description}`
+            });
+          });
+        }
+        // Channels / Traffic Platforms
         list.push(
-          { label: '#meta', value: '#meta', description: 'Meta Facebook / Instagram Ad Traffic' },
-          { label: '#google', value: '#google', description: 'Google search and display traffic' },
-          { label: '#tiktok', value: '#tiktok', description: 'TikTok feed and post traffic' },
-          { label: '#email', value: '#email', description: 'Newsletter or automated email traffic' },
-          { label: '#instagram', value: '#instagram', description: 'Instagram bio or story traffic' }
+          { label: '#meta', value: '#meta', description: 'Meta Facebook / Instagram Ad Traffic', icon: '📱' },
+          { label: '#google', value: '#google', description: 'Google search and display traffic', icon: '🔍' },
+          { label: '#tiktok', value: '#tiktok', description: 'TikTok feed and post traffic', icon: '🎵' },
+          { label: '#email', value: '#email', description: 'Newsletter or automated email traffic', icon: '✉️' },
+          { label: '#instagram', value: '#instagram', description: 'Instagram bio or story traffic', icon: '📸' }
         );
       } else if (symbol === '/') {
         list.push(
-          { label: '/rebuild', value: '/rebuild', description: 'Command: Rebuild sections layout strategy' },
-          { label: '/translate-de', value: '/translate-de', description: 'Command: Translate entire copywriting to German' },
-          { label: '/translate-fr', value: '/translate-fr', description: 'Command: Translate entire copywriting to French' },
-          { label: '/dark-mode', value: '/dark-mode', description: 'Command: Force deep carbon/slate dark themes' },
-          { label: '/light-mode', value: '/light-mode', description: 'Command: Force warm cream/beige minimal themes' }
+          { label: '/rebuild', value: '/rebuild', description: 'Command: Rebuild sections layout strategy', icon: '⚙️' },
+          { label: '/translate-de', value: '/translate-de', description: 'Command: Translate entire copywriting to German', icon: '🇩🇪' },
+          { label: '/translate-fr', value: '/translate-fr', description: 'Command: Translate entire copywriting to French', icon: '🇫🇷' },
+          { label: '/dark-mode', value: '/dark-mode', description: 'Command: Force deep carbon/slate dark themes', icon: '🌙' },
+          { label: '/light-mode', value: '/light-mode', description: 'Command: Force warm cream/beige minimal themes', icon: '☀️' }
         );
       }
       return list;
@@ -208,12 +231,19 @@ export default {
     }
   },
   methods: {
+    resolveImageUrl(url) {
+      if (!url) return '';
+      if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+        return url;
+      }
+      return `${this.app.apiBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    },
     handleInput(e) {
       this.$emit('input', this.inputValue);
       
       const cursor = e.target.selectionStart;
       const beforeCursor = this.inputValue.substring(0, cursor);
-      const match = beforeCursor.match(/([@%&#\/])(\w*)$/);
+      const match = beforeCursor.match(/([@%$#\/])(\w*)$/);
       if (match) {
         this.activeTriggerSymbol = match[1];
         this.showAutocomplete = true;
@@ -228,7 +258,7 @@ export default {
       const cursor = textarea ? textarea.selectionStart : this.inputValue.length;
       const beforeCursor = this.inputValue.substring(0, cursor);
       const afterCursor = this.inputValue.substring(cursor);
-      const beforeTag = beforeCursor.replace(/([@%&#\/])(\w*)$/, '');
+      const beforeTag = beforeCursor.replace(/([@%$#\/])(\w*)$/, '');
       
       this.inputValue = beforeTag + tag.value + ' ' + afterCursor;
       this.$emit('input', this.inputValue);

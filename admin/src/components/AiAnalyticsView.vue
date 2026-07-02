@@ -267,17 +267,103 @@
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
                         <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total Spend (USD)</div>
                         <div style="font-size: 1.35rem; font-weight: 800; color: var(--accent); font-family: monospace;">${{ formatCost(aiUsageSummary.total_cost_usd) }}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">{{ formatTokens(aiUsageSummary.total_tokens) }} total tokens</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+                            <div>{{ formatTokens(aiUsageSummary.total_tokens) }} total tokens</div>
+                            <div v-if="imageGensCount > 0 || videoGensCount > 0" style="font-size: 0.68rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
+                                <template v-if="imageGensCount > 0">🖼️ {{ imageGensCount }} image gen{{ imageGensCount > 1 ? 's' : '' }}</template>
+                                <template v-if="imageGensCount > 0 && videoGensCount > 0"> • </template>
+                                <template v-if="videoGensCount > 0">🎥 {{ videoGensCount }} video gen{{ videoGensCount > 1 ? 's' : '' }}</template>
+                            </div>
+                        </div>
                     </div>
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
                         <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Total AI Calls</div>
                         <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main);">{{ aiUsageSummary.total_calls }}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Across all integrations</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+                            <div>Across all integrations</div>
+                            <div v-if="textCallsCount > 0 || (imageGensCount + videoGensCount) > 0" style="font-size: 0.68rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
+                                <template v-if="textCallsCount > 0">💬 {{ textCallsCount }} text</template>
+                                <template v-if="textCallsCount > 0 && (imageGensCount + videoGensCount) > 0"> • </template>
+                                <template v-if="(imageGensCount + videoGensCount) > 0">🎬 {{ imageGensCount + videoGensCount }} media</template>
+                            </div>
+                        </div>
                     </div>
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 15px; text-align: center;">
                         <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">Avg Cost / Call</div>
                         <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${{ formatCost(aiUsageSummary.total_calls > 0 ? aiUsageSummary.total_cost_usd / aiUsageSummary.total_calls : 0) }}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Input & output combined</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+                            <div>Input & output combined</div>
+                            <div v-if="textCallsCount > 0 || (imageGensCount + videoGensCount) > 0" style="font-size: 0.68rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
+                                <template v-if="textCallsCount > 0">💬 avg text: ${{ formatCost(avgTextCost) }}</template>
+                                <template v-if="textCallsCount > 0 && (imageGensCount + videoGensCount) > 0"> • </template>
+                                <template v-if="(imageGensCount + videoGensCount) > 0">🎬 avg media: ${{ formatCost(avgMediaCost) }}</template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Subscription Quota Usage -->
+                <div v-if="aiQuota" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 25px; text-align: left;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                            <span>📊</span> Monthly Subscription Quotas (Tier: <span style="color: var(--accent); text-transform: uppercase;">{{ aiQuota.tier }}</span>)
+                        </h4>
+                        <span v-if="aiQuota.is_free" style="font-size: 0.72rem; font-weight: 700; color: var(--success); background: rgba(34, 197, 94, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                            Free Tier (Unlimited)
+                        </span>
+                        <span v-else-if="aiQuota.pay_as_you_go" style="font-size: 0.72rem; font-weight: 700; color: var(--success); background: rgba(34, 197, 94, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                            Pay-As-You-Go Active
+                        </span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <!-- Visual Studio Assets -->
+                        <div style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 8px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 8px; font-weight: 600;">
+                                <span style="color: var(--text-main); display: flex; align-items: center; gap: 6px;">🖼️ Visual Studio Assets</span>
+                                <span v-if="aiQuota.is_free || aiQuota.pay_as_you_go" style="color: var(--accent);">{{ aiQuota.usage.visuals }} generated</span>
+                                <span v-else style="color: var(--accent);">{{ aiQuota.usage.visuals }} / {{ aiQuota.limits.visuals }}</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden; width: 100%; margin-bottom: 6px;">
+                                <div :style="{ width: getQuotaPercentage(aiQuota.usage.visuals, aiQuota.limits.visuals) + '%', background: getQuotaColor(aiQuota.usage.visuals, aiQuota.limits.visuals) }" style="height: 100%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted);">
+                                <span>Includes personas, scenes & creatives</span>
+                                <span v-if="!aiQuota.is_free && !aiQuota.pay_as_you_go">{{ getQuotaPercentage(aiQuota.usage.visuals, aiQuota.limits.visuals) }}% used</span>
+                            </div>
+                        </div>
+
+                        <!-- Copywriting Campaigns -->
+                        <div style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 8px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 8px; font-weight: 600;">
+                                <span style="color: var(--text-main); display: flex; align-items: center; gap: 6px;">📝 Copywriting Campaigns</span>
+                                <span v-if="aiQuota.is_free || aiQuota.pay_as_you_go" style="color: var(--accent);">{{ aiQuota.usage.campaigns }} generated</span>
+                                <span v-else style="color: var(--accent);">{{ aiQuota.usage.campaigns }} / {{ aiQuota.limits.campaigns }}</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden; width: 100%; margin-bottom: 6px;">
+                                <div :style="{ width: getQuotaPercentage(aiQuota.usage.campaigns, aiQuota.limits.campaigns) + '%', background: getQuotaColor(aiQuota.usage.campaigns, aiQuota.limits.campaigns) }" style="height: 100%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted);">
+                                <span>Autopilots, rewrites, structures & strategy</span>
+                                <span v-if="!aiQuota.is_free && !aiQuota.pay_as_you_go">{{ getQuotaPercentage(aiQuota.usage.campaigns, aiQuota.limits.campaigns) }}% used</span>
+                            </div>
+                        </div>
+
+                        <!-- Products Content -->
+                        <div style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 8px; padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 8px; font-weight: 600;">
+                                <span style="color: var(--text-main); display: flex; align-items: center; gap: 6px;">☕ Indexed Products</span>
+                                <span v-if="aiQuota.is_free || aiQuota.pay_as_you_go" style="color: var(--accent);">{{ aiQuota.usage.products }} indexed</span>
+                                <span v-else style="color: var(--accent);">{{ aiQuota.usage.products }} / {{ aiQuota.limits.products }}</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden; width: 100%; margin-bottom: 6px;">
+                                <div :style="{ width: getQuotaPercentage(aiQuota.usage.products, aiQuota.limits.products) + '%', background: getQuotaColor(aiQuota.usage.products, aiQuota.limits.products) }" style="height: 100%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted);">
+                                <span>SEO content optimization & Visual DNA</span>
+                                <span v-if="!aiQuota.is_free && !aiQuota.pay_as_you_go">{{ getQuotaPercentage(aiQuota.usage.products, aiQuota.limits.products) }}% used</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -289,13 +375,23 @@
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             <div v-for="item in aiUsageBreakdown" :key="item.operation" style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 10px 12px;">
                                 <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
-                                    <span style="font-weight: 600; color: var(--text-main);">{{ item.operation }}</span>
+                                    <span style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: var(--accent); font-size: 0.68rem; font-weight: 800; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.2); padding: 1px 5px; border-radius: 4px; letter-spacing: 0.02em;">{{ item.tool }}</span>
+                                        <span>{{ item.operation }}</span>
+                                    </span>
                                     <span style="font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(item.cost_usd) }} ({{ item.calls_count }} calls)</span>
                                 </div>
                                 <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; width: 100%;">
                                     <div :style="{ width: getSpendPercentage(item.cost_usd) + '%', background: 'var(--accent)' }" style="height: 100%; transition: width 0.3s ease;"></div>
                                 </div>
-                                <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">{{ formatTokens(item.total_tokens) }} tokens generated</div>
+                                <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">
+                                    <template v-if="item.modality === 'image' || item.modality === 'video'">
+                                        {{ item.calls_count }} generation{{ item.calls_count > 1 ? 's' : '' }}
+                                    </template>
+                                    <template v-else>
+                                        {{ formatTokens(item.total_tokens) }} tokens generated
+                                    </template>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -314,7 +410,14 @@
                                 <div style="background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; overflow: hidden; width: 100%;">
                                     <div :style="{ width: getSpendPercentage(item.cost_usd) + '%', background: getModalityColor(item.modality) }" style="height: 100%; transition: width 0.3s ease;"></div>
                                 </div>
-                                <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">{{ formatTokens(item.total_tokens) }} tokens processed</div>
+                                <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; margin-top: 4px;">
+                                    <template v-if="item.modality === 'image' || item.modality === 'video'">
+                                        {{ item.calls_count }} generation{{ item.calls_count > 1 ? 's' : '' }}
+                                    </template>
+                                    <template v-else>
+                                        {{ formatTokens(item.total_tokens) }} tokens processed
+                                    </template>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -322,22 +425,49 @@
 
                 <!-- Recent Activity Logs -->
                 <div style="margin-top: 25px; text-align: left;">
-                    <h5 style="margin: 0 0 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
-                    <div v-if="aiUsageLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+                        <h5 style="margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Recent Activity Logs</h5>
+                        
+                        <!-- Tool & Operation Filters -->
+                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">Filter Tool:</span>
+                                <select v-model="selectedToolFilter" @change="selectedOperationFilter = ''" style="height: 28px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.75rem; padding: 0 8px; cursor: pointer;">
+                                    <option value="">All Tools</option>
+                                    <option v-for="t in uniqueTools" :key="t" :value="t">{{ t }}</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">Filter Operation:</span>
+                                <select v-model="selectedOperationFilter" style="height: 28px; border-radius: 4px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.75rem; padding: 0 8px; cursor: pointer;">
+                                    <option value="">All Operations</option>
+                                    <option v-for="op in uniqueOperations" :key="op" :value="op">{{ op }}</option>
+                                </select>
+                            </div>
+                            <button v-if="selectedToolFilter || selectedOperationFilter" @click="resetFilters" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); font-size: 0.72rem; border-radius: 4px; padding: 4px 10px; cursor: pointer; transition: background 0.2s;">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="filteredLogs.length > 0" style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15);">
                         <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
                             <thead>
                                 <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
                                     <th style="padding: 10px 12px; color: var(--text-muted);">Timestamp</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Tool</th>
                                     <th style="padding: 10px 12px; color: var(--text-muted);">Operation</th>
                                     <th style="padding: 10px 12px; color: var(--text-muted);">Modality</th>
                                     <th style="padding: 10px 12px; color: var(--text-muted);">Model</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Operator</th>
                                     <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Tokens (In/Out)</th>
                                     <th style="padding: 10px 12px; color: var(--text-muted); text-align: right;">Est. Cost</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="log in aiUsageLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                <tr v-for="log in filteredLogs" :key="log.id" style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                                     <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">{{ formatDate(log.created_at) }}</td>
+                                    <td style="padding: 10px 12px; font-weight: 600; color: var(--accent);">{{ log.tool }}</td>
                                     <td style="padding: 10px 12px; font-weight: 600; color: var(--text-main);">{{ log.operation }}</td>
                                     <td style="padding: 10px 12px; white-space: nowrap;">
                                         <span :style="getModalityBadgeStyle(log.modality)" style="padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">
@@ -345,18 +475,28 @@
                                         </span>
                                     </td>
                                     <td style="padding: 10px 12px; font-family: monospace; color: var(--text-muted);">{{ log.model }}</td>
-                                    <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">{{ log.prompt_tokens }} / {{ log.completion_tokens }}</td>
+                                    <td style="padding: 10px 12px; color: var(--text-muted); white-space: nowrap;">
+                                        {{ log.user_name || log.user_email || 'System' }}
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--text-muted);">
+                                        <template v-if="log.modality === 'image' || log.modality === 'video'">
+                                            —
+                                        </template>
+                                        <template v-else>
+                                            {{ log.prompt_tokens }} / {{ log.completion_tokens }}
+                                        </template>
+                                    </td>
                                     <td style="padding: 10px 12px; text-align: right; font-family: monospace; color: var(--accent); font-weight: 600;">${{ formatCost(log.estimated_cost_usd) }}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                        <div v-else style="background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
-                            No recent AI operations recorded for this brand.
-                        </div>
+                    <div v-else style="background: rgba(255,255,255,0.01); border: 1px dashed var(--border); border-radius: 6px; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                        No matching AI operations found.
                     </div>
                 </div>
             </div>
+        </div>
 
         <!-- FALLBACK NO STORE SELECTED & NOT SUPERADMIN -->
         <div v-else class="panel" style="text-align: center; padding: 40px; color: var(--text-muted);">
@@ -379,12 +519,15 @@ export default {
             aiUsageBreakdown: [],
             aiUsageModalityBreakdown: [],
             aiUsageLogs: [],
+            aiQuota: null,
             superadminAiUsageSummary: [],
             realtimeLimits: [],
             globalPricing: [],
             realtimeLimitsBrandFilter: '',
             isLoadingSuperadminAiUsage: false,
-            isLoadingRealtimeLimits: false
+            isLoadingRealtimeLimits: false,
+            selectedToolFilter: '',
+            selectedOperationFilter: ''
         };
     },
     computed: {
@@ -420,6 +563,59 @@ export default {
             const limit = this.getActiveTierSpendLimit;
             const overage = Math.max(0, usage - limit);
             return overage * 0.92;
+        },
+        imageGensCount() {
+            if (!this.aiUsageModalityBreakdown) return 0;
+            const imgRecord = this.aiUsageModalityBreakdown.find(mb => (mb.modality || '').toLowerCase() === 'image');
+            return imgRecord ? imgRecord.calls_count : 0;
+        },
+        videoGensCount() {
+            if (!this.aiUsageModalityBreakdown) return 0;
+            const vidRecord = this.aiUsageModalityBreakdown.find(mb => (mb.modality || '').toLowerCase() === 'video');
+            return vidRecord ? vidRecord.calls_count : 0;
+        },
+        textCallsCount() {
+            if (!this.aiUsageModalityBreakdown) return 0;
+            const textRecord = this.aiUsageModalityBreakdown.find(mb => (mb.modality || '').toLowerCase() === 'text');
+            return textRecord ? textRecord.calls_count : 0;
+        },
+        avgTextCost() {
+            if (!this.aiUsageModalityBreakdown) return 0;
+            const textRecord = this.aiUsageModalityBreakdown.find(mb => (mb.modality || '').toLowerCase() === 'text');
+            if (!textRecord || textRecord.calls_count === 0) return 0;
+            return textRecord.cost_usd / textRecord.calls_count;
+        },
+        avgMediaCost() {
+            if (!this.aiUsageModalityBreakdown) return 0;
+            const mediaRecords = this.aiUsageModalityBreakdown.filter(mb => ['image', 'video'].includes((mb.modality || '').toLowerCase()));
+            const totalCost = mediaRecords.reduce((sum, r) => sum + parseFloat(r.cost_usd || 0), 0);
+            const totalCalls = mediaRecords.reduce((sum, r) => sum + parseInt(r.calls_count || 0, 10), 0);
+            if (totalCalls === 0) return 0;
+            return totalCost / totalCalls;
+        },
+        filteredLogs() {
+            let logs = this.aiUsageLogs || [];
+            if (this.selectedToolFilter) {
+                logs = logs.filter(l => l.tool === this.selectedToolFilter);
+            }
+            if (this.selectedOperationFilter) {
+                logs = logs.filter(l => l.operation === this.selectedOperationFilter);
+            }
+            return logs;
+        },
+        uniqueTools() {
+            if (!this.aiUsageLogs) return [];
+            const tools = new Set(this.aiUsageLogs.map(l => l.tool).filter(Boolean));
+            return Array.from(tools).sort();
+        },
+        uniqueOperations() {
+            if (!this.aiUsageLogs) return [];
+            let logs = this.aiUsageLogs;
+            if (this.selectedToolFilter) {
+                logs = logs.filter(l => l.tool === this.selectedToolFilter);
+            }
+            const ops = new Set(logs.map(l => l.operation).filter(Boolean));
+            return Array.from(ops).sort();
         }
     },
     watch: {
@@ -451,6 +647,7 @@ export default {
         },
         async loadAiUsage() {
             if (!this.settingsBrand || !this.settingsBrand.id) return;
+            this.resetFilters();
             try {
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/brands/${this.settingsBrand.id}/ai-usage`, {
                     headers: {
@@ -464,6 +661,7 @@ export default {
                         this.aiUsageBreakdown = data.breakdown;
                         this.aiUsageModalityBreakdown = data.modality_breakdown || [];
                         this.aiUsageLogs = data.recent_logs;
+                        this.aiQuota = data.quota || null;
                     }
                 }
             } catch (err) {
@@ -592,6 +790,20 @@ export default {
             if (m === 'video') return '#ec4899';
             if (m === 'system' || m === 'other') return '#f59e0b';
             return '#3b82f6';
+        },
+        getQuotaPercentage(used, limit) {
+            if (!limit) return 0;
+            return Math.min(100, Math.round((used / limit) * 100));
+        },
+        getQuotaColor(used, limit) {
+            const pct = this.getQuotaPercentage(used, limit);
+            if (pct >= 90) return '#ef4444';
+            if (pct >= 75) return '#f59e0b';
+            return 'var(--accent)';
+        },
+        resetFilters() {
+            this.selectedToolFilter = '';
+            this.selectedOperationFilter = '';
         }
     }
 };

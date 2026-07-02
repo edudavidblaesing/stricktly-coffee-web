@@ -36,7 +36,7 @@ async function run() {
 
   const mockPayload = {
     ...brand,
-    ai_tier: 'professional',
+    ai_tier: 'none',
     subscription_billing_method: 'stripe_card',
   };
 
