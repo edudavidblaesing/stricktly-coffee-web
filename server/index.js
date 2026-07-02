@@ -13806,8 +13806,8 @@ async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canva
   }
 }
 
-// Helper to upload local/relative images to Fal CDN so cloud AI engines can download them,
-// enabling full product/persona features to work seamlessly on local development (localhost)
+// Helper to convert local/relative images to Base64 data URIs, allowing cloud AI engines to process
+// local files seamlessly without requiring public CDN uploads (perfect for localhost)
 async function resolveAndUploadLocalFileToFal(url, falKey) {
   if (!url) return null;
   if (url.startsWith('http') && !url.includes('localhost') && !url.includes('.local') && !url.includes('127.0.0.1') && !url.includes('postgres-db') && !url.includes('minio:9000')) {
@@ -13826,32 +13826,20 @@ async function resolveAndUploadLocalFileToFal(url, falKey) {
     const localPath = path.join('uploads', filename);
     if (fs.existsSync(localPath)) {
       try {
-        console.log(`[Local fal.ai Upload] Uploading local file to Fal CDN: ${localPath}...`);
+        console.log(`[Local Base64 Converter] Converting local file to Base64: ${localPath}...`);
         const fileBuffer = await fs.promises.readFile(localPath);
-        const blob = new Blob([fileBuffer]);
-        const formData = new FormData();
-        formData.append('file', blob, filename);
-
-        const res = await fetch('https://queue.fal.run/files/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Key ${falKey}`
-          },
-          body: formData
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.url) {
-            console.log(`[Local fal.ai Upload] Successfully uploaded to Fal CDN: ${data.url}`);
-            return data.url;
-          }
-        } else {
-          const errText = await res.text();
-          console.warn(`[Local fal.ai Upload] Fal upload endpoint failed: ${res.status} - ${errText}`);
-        }
+        
+        let ext = path.extname(filename).toLowerCase();
+        let mime = 'image/jpeg';
+        if (ext === '.png') mime = 'image/png';
+        if (ext === '.webp') mime = 'image/webp';
+        
+        const base64Str = fileBuffer.toString('base64');
+        const dataUri = `data:${mime};base64,${base64Str}`;
+        console.log(`[Local Base64 Converter] Successfully converted to Base64 URI (size: ${dataUri.length} chars)`);
+        return dataUri;
       } catch (err) {
-        console.error(`[Local fal.ai Upload] Failed to upload local file ${localPath} to Fal CDN:`, err);
+        console.error(`[Local Base64 Converter Error] Failed to read/convert local file ${localPath}:`, err);
       }
     }
   }
