@@ -1,7 +1,7 @@
 <template>
     <div id="view-settings" class="admin-view" :class="{ active: app.activeView === 'settings' }">
         <!-- Global configs -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected && activeTab === 'general'">
             <div class="panel-header">
                 <h3 class="panel-title">Global Stripe & API Settings</h3>
             </div>
@@ -18,10 +18,6 @@
                         <label>Max Upload Image Size (Resized width px)</label>
                         <input type="number" id="global-image-rules" value="800">
                     </div>
-                    <div class="form-group">
-                        <label>AI Token Cost Markup (%)</label>
-                        <input type="number" step="0.1" v-model="tokenCostMarkupPercentage" placeholder="e.g. 15">
-                    </div>
                     <div class="form-group form-full">
                         <label>Global API Webhook Logs Path</label>
                         <input type="text" id="global-webhook-logs" readonly
@@ -36,7 +32,7 @@
         </div>
 
         <!-- AI Tier Feature Authorization Matrix (superadmin only, global context) -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected && activeTab === 'general'" style="margin-top: 20px;">
             <div class="panel-header">
                 <h3 class="panel-title">🛡️ AI Tier Feature Authorization Matrix</h3>
             </div>
@@ -85,7 +81,7 @@
         </div>
 
         <!-- 📦 AI Subscription Packages -->
-        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected" style="margin-top: 20px;">
+        <div class="panel" v-if="userRole.toLowerCase() === 'superadmin' && !isValidBrandSelected && activeTab === 'general'" style="margin-top: 20px;">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 class="panel-title">📦 AI Subscription Packages</h3>
                 <button type="button" class="btn btn-accent btn-sm" @click="openCreatePackageModal">
@@ -106,6 +102,7 @@
                                 <th style="padding: 12px 10px; text-align: center;">Products Limit</th>
                                 <th style="padding: 12px 10px; text-align: center;">Campaigns Limit</th>
                                 <th style="padding: 12px 10px; text-align: center;">Visuals Limit</th>
+                                <th style="padding: 12px 10px; text-align: center;">Spend Limit</th>
                                 <th style="padding: 12px 10px; text-align: center;">Visibility</th>
                                 <th style="padding: 12px 10px; text-align: right;">Actions</th>
                             </tr>
@@ -121,6 +118,7 @@
                                 <td style="padding: 12px 10px; text-align: center;">{{ pkg.products_limit }}</td>
                                 <td style="padding: 12px 10px; text-align: center;">{{ pkg.campaigns_limit }}</td>
                                 <td style="padding: 12px 10px; text-align: center;">{{ pkg.visuals_limit }}</td>
+                                <td style="padding: 12px 10px; text-align: center; font-family: monospace; font-weight: 700; color: var(--accent);">€{{ formatBillingCost(pkg.monthly_spend_limit) }}</td>
                                 <td style="padding: 12px 10px; text-align: center;">
                                     <span :style="{
                                         padding: '2px 6px',
@@ -849,8 +847,9 @@
             </div>
         </div>
 
-        <div class="panel" id="no-shop-selected-settings" v-if="!isValidBrandSelected"
-            style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+        <div class="panel" id="no-shop-selected-settings" 
+             v-if="!isValidBrandSelected && (userRole.toLowerCase() !== 'superadmin' || activeTab !== 'general')"
+             style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
             <p v-if="activeTab === 'general'">⚠️ Select a specific Shop Context in the top bar to configure individual integrations and Shopify parameters.</p>
             <p v-else-if="activeTab === 'ecommerce'">⚠️ Select a specific Shop Context in the top bar to configure individual E-commerce parameters and Stripe integrations.</p>
             <p v-else-if="activeTab === 'social'">⚠️ Select a specific Shop Context in the top bar to configure individual Social Account integrations.</p>
@@ -969,7 +968,7 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
                         <div class="form-group">
                             <label>Products Limit</label>
                             <input type="number" v-model.number="pkgForm.products_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
@@ -981,6 +980,10 @@
                         <div class="form-group">
                             <label>Visuals Limit</label>
                             <input type="number" v-model.number="pkgForm.visuals_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Spend Limit (€)</label>
+                            <input type="number" step="0.01" v-model.number="pkgForm.monthly_spend_limit" required style="width: 100%; border-radius: 6px; border: 1px solid var(--border); background: var(--workspace-bg); color: var(--text-main); font-size: 0.85rem; padding: 8px 12px; height: 38px; margin: 0;">
                         </div>
                     </div>
 
@@ -1882,6 +1885,7 @@ export default {
                 products_limit: 10,
                 campaigns_limit: 5,
                 visuals_limit: 10,
+                monthly_spend_limit: 50.00,
                 is_public: true,
                 allow_manuscript: false,
                 allow_copywriter: false,
@@ -1901,6 +1905,7 @@ export default {
             this.pkgForm.products_limit = parseInt(this.pkgForm.products_limit || 0, 10);
             this.pkgForm.campaigns_limit = parseInt(this.pkgForm.campaigns_limit || 0, 10);
             this.pkgForm.visuals_limit = parseInt(this.pkgForm.visuals_limit || 0, 10);
+            this.pkgForm.monthly_spend_limit = parseFloat(this.pkgForm.monthly_spend_limit || 0);
             this.pkgModalOpen = true;
         },
         async deletePackage(tier) {

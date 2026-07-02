@@ -2231,6 +2231,7 @@ async function loadTiersCache() {
         products_limit: parseInt(r.products_limit || 0),
         campaigns_limit: parseInt(r.campaigns_limit || 0),
         visuals_limit: parseInt(r.visuals_limit || 0),
+        monthly_spend_limit: parseFloat(r.monthly_spend_limit || 0),
         is_public: r.is_public !== false,
         allow_manuscript: !!r.allow_manuscript,
         allow_copywriter: !!r.allow_copywriter,
@@ -2305,7 +2306,7 @@ async function syncAiPricingFromProviders() {
   return { success: true, synced: updatedCount };
 }
 
-function estimateGeminiCost(model, promptTokens, completionTokens, meta) {
+function estimateGeminiCost(model, promptTokens, completionTokens, meta, returnRaw = false) {
   // Match cache entry by exact match or substring prefix
   const config = cachedPricing[model] || Object.entries(cachedPricing).find(([k]) => model.includes(k))?.[1];
 
@@ -2391,6 +2392,10 @@ function estimateGeminiCost(model, promptTokens, completionTokens, meta) {
 
   const cost = (promptTokens * promptRate) + (completionTokens * completionRate);
   
+  if (returnRaw) {
+    return parseFloat(cost.toFixed(6));
+  }
+  
   // Apply global markup percentage if configured
   const markupPercent = parseFloat(cachedSystemSettings['token_cost_markup_percentage'] || '0');
   let finalCost = cost;
@@ -2413,6 +2418,23 @@ async function checkAiLimits(brandId, type = 'campaigns') {
     const tier = brand.ai_tier || 'professional';
     if (tier === 'none') {
       throw new Error('No active AI subscription plan. Please subscribe to standard, professional, or enterprise.');
+    }
+
+    // Verify Monthly AI spend budget limit
+    const spendResult = await getQuery(`
+      SELECT COALESCE(SUM(estimated_cost_usd), 0.0)::numeric as spend 
+      FROM ai_usage_logs 
+      WHERE brand_id = $1 
+        AND created_at >= date_trunc('month', CURRENT_DATE)
+    `, [brandId]);
+    const currentMonthSpend = parseFloat(spendResult.spend || 0);
+
+    const tierLower = tier.toLowerCase();
+    const pkg = cachedTiers[tierLower];
+    const spendLimit = pkg ? pkg.monthly_spend_limit : 50.00;
+
+    if (currentMonthSpend >= spendLimit) {
+      throw new Error(`Monthly AI spend budget limit reached ($${currentMonthSpend.toFixed(2)} / $${spendLimit.toFixed(2)}). Please purchase an overage pack, enable pay-as-you-go, or upgrade your subscription tier.`);
     }
 
     let operationCondition = '';
@@ -2453,14 +2475,47 @@ async function checkAiLimits(brandId, type = 'campaigns') {
   }
 }
 
+// Helper to record subscription payment splits for partner agencies
+async function handleSubscriptionSplit(brandId, amount, description = '') {
+  try {
+    const brand = await getQuery('SELECT name, agency_id FROM brands WHERE id = $1', [brandId]);
+    if (!brand || !brand.agency_id) return;
+
+    const agency = await getQuery('SELECT subscription_share_ratio FROM agencies WHERE id = $1', [brand.agency_id]);
+    if (!agency) return;
+
+    const subShareRatio = parseFloat(agency.subscription_share_ratio) || 0.00;
+    if (subShareRatio <= 0) return;
+
+    const agencyShare = Math.round(amount * subShareRatio * 100) / 100;
+    const platformShare = Math.round((amount - agencyShare) * 100) / 100;
+
+    await runQuery(`
+      INSERT INTO agency_payout_ledger (agency_id, order_id, gross_amount, platform_margin, agency_share, platform_share, status, description)
+      VALUES ($1, NULL, $2, $2, $3, $4, $5, $6)
+    `, [
+      brand.agency_id,
+      amount,
+      agencyShare,
+      platformShare,
+      'unpaid',
+      `Subscription split share for brand ${brand.name}: ${description}. Subscription split: ${(subShareRatio * 100).toFixed(1)}% (Share: €${agencyShare.toFixed(2)})`
+    ]);
+    console.log(`[Agency Split Engine] Logged subscription split for agency ${brand.agency_id}. Brand: ${brandId}, Amount: €${amount}, Agency Share: €${agencyShare}`);
+  } catch (err) {
+    console.error('[Agency Split Engine Error - Sub Split]', err.message);
+  }
+}
+
 // Helper to log AI usage to database
 // Helper to log AI usage to database
-async function logAiUsage(brandId, tool, operation, model, usageMetadata, modality, userId) {
+async function logAiUsage(brandId, tool, operation, model, usageMetadata, modality, userId, durationMs = 0) {
   if (!brandId) return;
   const promptTokens = usageMetadata?.promptTokenCount || 0;
   const completionTokens = usageMetadata?.candidatesTokenCount || 0;
   const totalTokens = usageMetadata?.totalTokenCount || (promptTokens + completionTokens);
-  const costUsd = estimateGeminiCost(model, promptTokens, completionTokens, usageMetadata);
+  const rawCostUsd = estimateGeminiCost(model, promptTokens, completionTokens, usageMetadata, true);
+  const costUsd = estimateGeminiCost(model, promptTokens, completionTokens, usageMetadata, false);
 
   let activeModality = modality;
   if (!activeModality) {
@@ -2476,10 +2531,10 @@ async function logAiUsage(brandId, tool, operation, model, usageMetadata, modali
 
   try {
     await runQuery(`
-      INSERT INTO ai_usage_logs (brand_id, tool, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, modality, user_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `, [brandId, tool, operation, model, promptTokens, completionTokens, totalTokens, costUsd, activeModality, userId || null]);
-    console.log(`[AI Usage Tracker] Logged AI usage for ${brandId}: ${tool} - ${operation} (${model}) [${activeModality}] - User: ${userId || 'System'} - Cost: $${costUsd}`);
+      INSERT INTO ai_usage_logs (brand_id, tool, operation, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, modality, user_id, duration_ms, raw_cost_usd)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [brandId, tool, operation, model, promptTokens, completionTokens, totalTokens, costUsd, activeModality, userId || null, durationMs, rawCostUsd]);
+    console.log(`[AI Usage Tracker] Logged AI usage for ${brandId}: ${tool} - ${operation} (${model}) [${activeModality}] - User: ${userId || 'System'} - Cost: $${costUsd} (Raw: $${rawCostUsd}) - Duration: ${durationMs}ms`);
   } catch (err) {
     console.error(`[AI Usage Tracker] Failed to write usage log to database:`, err.message);
   }
@@ -3861,18 +3916,23 @@ async function checkBrandAccess(user, brandId) {
 
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
 app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
-  const brandId = resolveBrandId(req);
-
-  if (!brandId) {
-    return res.status(400).json({ error: 'No brand context resolved.' });
-  }
+  let brandId = resolveBrandId(req);
+  if (brandId === 'all') brandId = null;
 
   try {
-    const rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    let rows;
+    if (!brandId && req.user && (req.user.role.toLowerCase() === 'superadmin' || req.user.role.toLowerCase() === 'admin')) {
+      rows = await allQuery('SELECT * FROM orders ORDER BY created_at DESC');
+    } else {
+      if (!brandId) {
+        return res.status(400).json({ error: 'No brand context resolved.' });
+      }
+      rows = await allQuery('SELECT * FROM orders WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    }
     const parsedRows = rows.map(row => ({
       ...row,
-      items: JSON.parse(row.items),
-      shipping_address: row.shipping_address ? JSON.parse(row.shipping_address) : null
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : (row.items || []),
+      shipping_address: row.shipping_address ? (typeof row.shipping_address === 'string' ? JSON.parse(row.shipping_address) : row.shipping_address) : null
     }));
     res.json(parsedRows);
   } catch (err) {
@@ -4041,10 +4101,16 @@ app.post('/api/admin/fulfill', verifyAdminToken, async (req, res) => {
 // ----------------------------------------------------------------------------
 
 app.get('/api/admin/wms/inventory', verifyAdminToken, async (req, res) => {
-  const brandId = resolveBrandId(req);
-  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  let brandId = resolveBrandId(req);
+  if (brandId === 'all') brandId = null;
   try {
-    const rows = await allQuery('SELECT * FROM warehouse_stock WHERE brand_id = $1 ORDER BY sku ASC', [brandId]);
+    let rows;
+    if (!brandId && req.user && (req.user.role.toLowerCase() === 'superadmin' || req.user.role.toLowerCase() === 'admin')) {
+      rows = await allQuery('SELECT * FROM warehouse_stock ORDER BY sku ASC');
+    } else {
+      if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+      rows = await allQuery('SELECT * FROM warehouse_stock WHERE brand_id = $1 ORDER BY sku ASC', [brandId]);
+    }
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4102,10 +4168,16 @@ app.post('/api/support/tickets/create', async (req, res) => {
 });
 
 app.get('/api/admin/support/tickets', verifyAdminToken, async (req, res) => {
-  const brandId = resolveBrandId(req);
-  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  let brandId = resolveBrandId(req);
+  if (brandId === 'all') brandId = null;
   try {
-    const tickets = await allQuery('SELECT * FROM support_tickets WHERE brand_id = $1 ORDER BY updated_at DESC', [brandId]);
+    let tickets;
+    if (!brandId && req.user && (req.user.role.toLowerCase() === 'superadmin' || req.user.role.toLowerCase() === 'admin')) {
+      tickets = await allQuery('SELECT * FROM support_tickets ORDER BY updated_at DESC');
+    } else {
+      if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+      tickets = await allQuery('SELECT * FROM support_tickets WHERE brand_id = $1 ORDER BY updated_at DESC', [brandId]);
+    }
     res.json(tickets);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4377,10 +4449,10 @@ app.post('/api/global/agencies', verifyAdminToken, async (req, res) => {
     return res.status(403).json({ error: 'Superadmin privileges required' });
   }
   const { 
-    id, name, contact_email, margin_share_ratio, stripe_connect_account_id,
+    id, name, contact_email, margin_share_ratio, subscription_share_ratio, stripe_connect_account_id,
     is_platform_biller, stripe_secret_key, stripe_webhook_secret,
     billing_display_name, billing_support_email,
-    billing_name, billing_address, billing_vat
+    billing_name, billing_address, billing_vat, onboarding_stopped
   } = req.body;
 
   const cleanId = (id || '').trim().toLowerCase();
@@ -4390,21 +4462,25 @@ app.post('/api/global/agencies', verifyAdminToken, async (req, res) => {
 
   const ratio = parseFloat(margin_share_ratio);
   const finalRatio = isNaN(ratio) ? 0.5000 : Math.max(0, Math.min(1, ratio));
+  const subRatio = parseFloat(subscription_share_ratio);
+  const finalSubRatio = isNaN(subRatio) ? 0.0000 : Math.max(0, Math.min(1, subRatio));
   const isBiller = !!is_platform_biller;
+  const stopOnboard = !!onboarding_stopped;
 
   try {
     await runQuery(`
       INSERT INTO agencies (
-        id, name, contact_email, margin_share_ratio, stripe_connect_account_id,
+        id, name, contact_email, margin_share_ratio, subscription_share_ratio, stripe_connect_account_id,
         is_platform_biller, stripe_secret_key, stripe_webhook_secret,
         billing_display_name, billing_support_email,
-        billing_name, billing_address, billing_vat, updated_at
+        billing_name, billing_address, billing_vat, onboarding_stopped, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         contact_email = EXCLUDED.contact_email,
         margin_share_ratio = EXCLUDED.margin_share_ratio,
+        subscription_share_ratio = EXCLUDED.subscription_share_ratio,
         stripe_connect_account_id = EXCLUDED.stripe_connect_account_id,
         is_platform_biller = EXCLUDED.is_platform_biller,
         stripe_secret_key = EXCLUDED.stripe_secret_key,
@@ -4414,12 +4490,14 @@ app.post('/api/global/agencies', verifyAdminToken, async (req, res) => {
         billing_name = EXCLUDED.billing_name,
         billing_address = EXCLUDED.billing_address,
         billing_vat = EXCLUDED.billing_vat,
+        onboarding_stopped = EXCLUDED.onboarding_stopped,
         updated_at = CURRENT_TIMESTAMP
     `, [
       cleanId, 
       name, 
       contact_email, 
       finalRatio, 
+      finalSubRatio,
       stripe_connect_account_id || null,
       isBiller,
       stripe_secret_key || null,
@@ -4428,10 +4506,11 @@ app.post('/api/global/agencies', verifyAdminToken, async (req, res) => {
       billing_support_email || null,
       billing_name || null,
       billing_address || null,
-      billing_vat || null
+      billing_vat || null,
+      stopOnboard
     ]);
 
-    console.log(`[Agency Admin] Saved agency details for ${cleanId} (Platform Biller: ${isBiller}, Split Ratio: ${(finalRatio * 100).toFixed(1)}%)`);
+    console.log(`[Agency Admin] Saved agency details for ${cleanId} (Platform Biller: ${isBiller}, Split Ratio: ${(finalRatio * 100).toFixed(1)}%, Sub Split: ${(finalSubRatio * 100).toFixed(1)}%, Stop Onboard: ${stopOnboard})`);
     res.json({ success: true, message: 'Agency saved successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4579,14 +4658,14 @@ app.post('/api/global/agencies/:id/unlock-all-splits', verifyAdminToken, async (
 app.get('/api/global/brands', verifyAdminToken, async (req, res) => {
   try {
     if (req.user.role === 'merchant') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands WHERE id = $1', [req.user.brand_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url, business_segment, business_niche FROM brands WHERE id = $1', [req.user.brand_id]);
       return res.json(rows);
     }
     if (req.user.role === 'agency') {
-      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands WHERE agency_id = $1 ORDER BY id ASC', [req.user.agency_id]);
+      const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url, business_segment, business_niche FROM brands WHERE agency_id = $1 ORDER BY id ASC', [req.user.agency_id]);
       return res.json(rows);
     }
-    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url FROM brands ORDER BY id ASC');
+    const rows = await allQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url, business_segment, business_niche FROM brands ORDER BY id ASC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4811,6 +4890,21 @@ app.post('/api/global/brands/verify-connection', verifyAdminToken, async (req, r
   return res.json({ success: true, message: connectionMessage });
 });
 
+// Get single brand
+app.get('/api/global/brands/:id', verifyAdminToken, async (req, res) => {
+  const brandId = req.params.id;
+  if (!(await checkBrandAccess(req.user, brandId))) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
+  }
+  try {
+    const brand = await getQuery('SELECT id, name, subdomain, contact_email, primary_color, shopify_shop_name, stripe_secret_key IS NOT NULL as has_stripe, shopify_access_token IS NOT NULL as has_shopify, custom_domain, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, protocol_status, protocol_error, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, brand_canvas, meta_pixel_id, google_analytics_id, agency_id, billing_name, billing_address, billing_vat, platform, subscription_billing_method, stripe_connect_account_id, woocommerce_shop_url, business_segment, business_niche FROM brands WHERE id = $1', [brandId]);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    res.json(brand);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Onboard new brand
 app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
 
@@ -4962,6 +5056,13 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
       finalAgencyId = existing ? existing.agency_id : (req.user.agency_id || null);
     }
 
+    if (finalAgencyId && (!existing || existing.agency_id !== finalAgencyId)) {
+      const agencyCheck = await getQuery('SELECT onboarding_stopped FROM agencies WHERE id = $1', [finalAgencyId]);
+      if (agencyCheck && (agencyCheck.onboarding_stopped === 1 || agencyCheck.onboarding_stopped === true)) {
+        return res.status(400).json({ error: `New brand onboarding is currently stopped for agency "${finalAgencyId}".` });
+      }
+    }
+
     await runQuery(`
       INSERT INTO brands (id, name, subdomain, shopify_shop_name, shopify_access_token, stripe_secret_key, stripe_webhook_secret, contact_email, primary_color, cloudflare_dns_record_id, custom_domain, cloudflare_custom_domain_dns_record_id, logo, favicon, theme_settings, languages, marketing_protocol, ai_tier, ai_free_tier, pay_as_you_go_enabled, competitors, auto_find_competitors, price_markup, billing_type, platform_take_rate, stripe_connect_account_id, subscription_billing_method, stripe_customer_id, status, business_segment, business_niche, share_performance_data, meta_pixel_id, google_analytics_id, brand_voice_copy, typography_fonts, target_audience_demographics, visual_identity_guidelines, agency_id, billing_name, billing_address, billing_vat)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42)
@@ -5083,7 +5184,6 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         new Date(Date.now() + 30 * 24 * 3600 * 1000) // 30 days from now
       ]);
 
-      // 2. Perform immediate first charge deduction in the payout ledger (reduces payout balance)
       await runQuery(`
         INSERT INTO merchant_payout_ledger (brand_id, order_id, amount, platform_margin, net_amount, type, description)
         VALUES ($1, NULL, $2, $2, $3, 'subscription_fee', $4)
@@ -5093,6 +5193,8 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
         -subAmount,
         `Immediate charge for initial ${finalAiTier} tier subscription`
       ]);
+
+      await handleSubscriptionSplit(brandId, subAmount, `Initial ${finalAiTier} tier subscription`);
 
       console.log(`[Subscription Engine] Self-onboarding charged initial first-month subscription for brand ${brandId} (${finalAiTier}: €${subAmount})`);
     }
@@ -5349,6 +5451,8 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
           -upfrontCharge,
           `Immediate prorated charge for upgrading to ${target_tier} tier (${target_interval})`
         ]);
+
+        await handleSubscriptionSplit(brandId, upfrontCharge, `Prorated upgrade to ${target_tier} (${target_interval})`);
       }
 
       if (sub) {
@@ -6884,8 +6988,30 @@ Format:
 
     const textResult = await callAiModel(targetModel, systemPrompt, true);
     const updatedCanvas = parseRobustJson(textResult);
-    await runQuery('UPDATE brands SET brand_canvas = $1 WHERE id = $2', [JSON.stringify(updatedCanvas), brandId]);
-    res.json(updatedCanvas);
+
+    // Merge to preserve missing keys and protect existing metadata fields
+    const mergedCanvas = {
+      ...currentCanvas,
+      ...updatedCanvas,
+      controlled_vocabulary: {
+        approved: (updatedCanvas && updatedCanvas.controlled_vocabulary && Array.isArray(updatedCanvas.controlled_vocabulary.approved))
+          ? updatedCanvas.controlled_vocabulary.approved 
+          : (currentCanvas && currentCanvas.controlled_vocabulary && Array.isArray(currentCanvas.controlled_vocabulary.approved) ? currentCanvas.controlled_vocabulary.approved : []),
+        banned: (updatedCanvas && updatedCanvas.controlled_vocabulary && Array.isArray(updatedCanvas.controlled_vocabulary.banned))
+          ? updatedCanvas.controlled_vocabulary.banned 
+          : (currentCanvas && currentCanvas.controlled_vocabulary && Array.isArray(currentCanvas.controlled_vocabulary.banned) ? currentCanvas.controlled_vocabulary.banned : [])
+      }
+    };
+
+    const textKeys = ['brand_voice', 'product_architecture', 'visual_direction'];
+    for (const key of textKeys) {
+      if (currentCanvas && currentCanvas[key] && (!mergedCanvas[key] || mergedCanvas[key] === '')) {
+        mergedCanvas[key] = currentCanvas[key];
+      }
+    }
+
+    await runQuery('UPDATE brands SET brand_canvas = $1 WHERE id = $2', [JSON.stringify(mergedCanvas), brandId]);
+    res.json(mergedCanvas);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -8061,7 +8187,8 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
         COALESCE(SUM(completion_tokens), 0) as total_completion_tokens,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
-        COALESCE(SUM(estimated_cost_usd), 0.0) as total_cost_usd
+        COALESCE(SUM(estimated_cost_usd), 0.0) as total_cost_usd,
+        COALESCE(SUM(raw_cost_usd), 0.0) as total_raw_cost_usd
       FROM ai_usage_logs
       WHERE brand_id = $1
     `, [brandId]);
@@ -8101,7 +8228,8 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         MAX(modality) as modality,
         COUNT(id) as calls_count,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
-        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd
+        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd,
+        COALESCE(SUM(raw_cost_usd), 0.0) as raw_cost_usd
       FROM ai_usage_logs
       WHERE brand_id = $1
       GROUP BY tool, operation
@@ -8114,7 +8242,8 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         modality,
         COUNT(id) as calls_count,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
-        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd
+        COALESCE(SUM(estimated_cost_usd), 0.0) as cost_usd,
+        COALESCE(SUM(raw_cost_usd), 0.0) as raw_cost_usd
       FROM ai_usage_logs
       WHERE brand_id = $1
       GROUP BY modality
@@ -8124,7 +8253,7 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
     // 3. Recent logs (last 15 records)
     const logs = await allQuery(`
       SELECT l.id, l.tool, l.operation, l.model, l.prompt_tokens, l.completion_tokens, l.total_tokens, l.estimated_cost_usd, l.created_at, l.modality,
-             u.email as user_email, u.first_name, u.last_name
+             l.raw_cost_usd, u.email as user_email, u.first_name, u.last_name
       FROM ai_usage_logs l
       LEFT JOIN users u ON l.user_id = u.id
       WHERE l.brand_id = $1
@@ -8139,7 +8268,8 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         total_prompt_tokens: parseInt(summary.total_prompt_tokens, 10),
         total_completion_tokens: parseInt(summary.total_completion_tokens, 10),
         total_tokens: parseInt(summary.total_tokens, 10),
-        total_cost_usd: parseFloat(parseFloat(summary.total_cost_usd).toFixed(6))
+        total_cost_usd: parseFloat(parseFloat(summary.total_cost_usd).toFixed(6)),
+        total_raw_cost_usd: parseFloat(parseFloat(summary.total_raw_cost_usd || 0).toFixed(6))
       },
       quota: {
         tier,
@@ -8162,13 +8292,15 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         modality: b.modality || 'text',
         calls_count: parseInt(b.calls_count, 10),
         total_tokens: parseInt(b.total_tokens, 10),
-        cost_usd: parseFloat(parseFloat(b.cost_usd).toFixed(6))
+        cost_usd: parseFloat(parseFloat(b.cost_usd).toFixed(6)),
+        raw_cost_usd: parseFloat(parseFloat(b.raw_cost_usd || 0).toFixed(6))
       })),
       modality_breakdown: modalityBreakdown.map(mb => ({
         modality: mb.modality || 'text',
         calls_count: parseInt(mb.calls_count, 10),
         total_tokens: parseInt(mb.total_tokens, 10),
-        cost_usd: parseFloat(parseFloat(mb.cost_usd).toFixed(6))
+        cost_usd: parseFloat(parseFloat(mb.cost_usd).toFixed(6)),
+        raw_cost_usd: parseFloat(parseFloat(mb.raw_cost_usd || 0).toFixed(6))
       })),
       recent_logs: logs.map(l => ({
         id: l.id,
@@ -8179,6 +8311,7 @@ app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) =>
         completion_tokens: l.completion_tokens,
         total_tokens: l.total_tokens,
         estimated_cost_usd: parseFloat(parseFloat(l.estimated_cost_usd).toFixed(6)),
+        raw_cost_usd: parseFloat(parseFloat(l.raw_cost_usd || 0).toFixed(6)),
         created_at: l.created_at,
         modality: l.modality || 'text',
         user_email: l.user_email,
@@ -8205,7 +8338,8 @@ app.get('/api/global/superadmin/ai-usage', verifyAdminToken, async (req, res) =>
         b.ai_free_tier,
         COUNT(l.id) as total_calls,
         COALESCE(SUM(l.total_tokens), 0) as total_tokens,
-        COALESCE(SUM(l.estimated_cost_usd), 0.0) as total_cost_usd
+        COALESCE(SUM(l.estimated_cost_usd), 0.0) as total_cost_usd,
+        COALESCE(SUM(l.raw_cost_usd), 0.0) as total_raw_cost_usd
       FROM brands b
       LEFT JOIN ai_usage_logs l ON b.id = l.brand_id
       GROUP BY b.id, b.name, b.ai_tier, b.ai_free_tier
@@ -8221,7 +8355,8 @@ app.get('/api/global/superadmin/ai-usage', verifyAdminToken, async (req, res) =>
         ai_free_tier: !!row.ai_free_tier,
         total_calls: parseInt(row.total_calls, 10),
         total_tokens: parseInt(row.total_tokens, 10),
-        total_cost_usd: parseFloat(parseFloat(row.total_cost_usd).toFixed(6))
+        total_cost_usd: parseFloat(parseFloat(row.total_cost_usd).toFixed(6)),
+        total_raw_cost_usd: parseFloat(parseFloat(row.total_raw_cost_usd || 0).toFixed(6))
       }))
     });
   } catch (err) {
@@ -10821,6 +10956,8 @@ async function processDueSubscriptions() {
         chargeDescription
       ]);
 
+      await handleSubscriptionSplit(sub.brand_id, amount, `Auto-renewal subscription charge: ${sub.name}`);
+
       // Dunning and Auto-Suspension Engine
       const balanceResult = await getQuery('SELECT SUM(net_amount) as balance FROM merchant_payout_ledger WHERE brand_id = $1', [sub.brand_id]);
       const updatedBalance = parseFloat(balanceResult?.balance) || 0.00;
@@ -11304,11 +11441,17 @@ function generateMockPerformanceHistory(startDateStr, endDateStr, budget, budget
 
 // Get all marketing campaigns for the active brand
 app.get('/api/global/marketing-campaigns', verifyAdminToken, async (req, res) => {
-  const brandId = resolveBrandId(req);
-  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  let brandId = resolveBrandId(req);
+  if (brandId === 'all') brandId = null;
 
   try {
-    const rows = await allQuery('SELECT * FROM marketing_campaigns WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    let rows;
+    if (!brandId && req.user && (req.user.role.toLowerCase() === 'superadmin' || req.user.role.toLowerCase() === 'admin')) {
+      rows = await allQuery('SELECT * FROM marketing_campaigns ORDER BY created_at DESC');
+    } else {
+      if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+      rows = await allQuery('SELECT * FROM marketing_campaigns WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    }
     const parsedRows = rows.map(r => ({
       ...r,
       ad_cta: r.ad_cta || 'Shop Now',
@@ -11965,7 +12108,7 @@ app.post('/api/global/ai-estimator/predict', verifyAdminToken, async (req, res) 
 
     // 3. Fetch historical logs for this operation (either brand-specific or global platform fallback)
     const logs = await allQuery(`
-      SELECT prompt_tokens, completion_tokens 
+      SELECT prompt_tokens, completion_tokens, duration_ms
       FROM ai_usage_logs 
       WHERE (brand_id = $1 AND operation = $2) 
          OR (operation = $2)
@@ -11975,29 +12118,48 @@ app.post('/api/global/ai-estimator/predict', verifyAdminToken, async (req, res) 
 
     let avgPrompt = 0;
     let avgCompletion = 0;
+    let avgDurationMs = 0;
     
     if (logs.length > 0) {
       const sumPrompt = logs.reduce((acc, log) => acc + log.prompt_tokens, 0);
       const sumCompletion = logs.reduce((acc, log) => acc + log.completion_tokens, 0);
+      const validDurations = logs.filter(log => log.duration_ms > 0);
+      const sumDuration = validDurations.reduce((acc, log) => acc + log.duration_ms, 0);
+
       avgPrompt = Math.ceil(sumPrompt / logs.length);
       avgCompletion = Math.ceil(sumCompletion / logs.length);
-    } else {
+      if (validDurations.length > 0) {
+        avgDurationMs = Math.ceil(sumDuration / validDurations.length);
+      }
+    }
+
+    if (logs.length === 0 || avgDurationMs === 0) {
       // Hardcoded baseline fallback estimates for platform cold-starts
       const defaults = {
-        'Brand Protocol & Strategy Generation': { prompt: 15000, completion: 4000 },
-        'AI Copy Rewrite': { prompt: 150, completion: 50 },
-        'AI Campaign Generation': { prompt: 1200, completion: 600 },
-        'AI Copy Translation': { prompt: 150, completion: 50 },
-        'Brand Style Layout Generation': { prompt: 1000, completion: 500 },
-        'Campaign Page Structure Generation': { prompt: 1200, completion: 600 },
-        'Product SEO Content Generation': { prompt: 1000, completion: 500 },
-        'Campaign Ad Copy Generation': { prompt: 1000, completion: 500 }
+        'Brand Protocol & Strategy Generation': { prompt: 15000, completion: 4000, durationMs: 12000 },
+        'Persona Generation': { prompt: 1000, completion: 500, durationMs: 8500 },
+        'Scenery Generation': { prompt: 1000, completion: 500, durationMs: 8500 },
+        'Object Generation': { prompt: 1000, completion: 500, durationMs: 8500 },
+        'Image Composition': { prompt: 1000, completion: 500, durationMs: 11000 },
+        'Multi-Reference Composition': { prompt: 1000, completion: 500, durationMs: 12000 },
+        'AI Copy Rewrite': { prompt: 150, completion: 50, durationMs: 1500 },
+        'AI Campaign Generation': { prompt: 1200, completion: 600, durationMs: 4000 },
+        'AI Copy Translation': { prompt: 150, completion: 50, durationMs: 1500 },
+        'Brand Style Layout Generation': { prompt: 1000, completion: 500, durationMs: 3500 },
+        'Campaign Page Structure Generation': { prompt: 1200, completion: 600, durationMs: 4500 },
+        'Product SEO Content Generation': { prompt: 1000, completion: 500, durationMs: 4000 },
+        'Campaign Ad Copy Generation': { prompt: 1000, completion: 500, durationMs: 4000 }
       };
       
       const foundKey = Object.keys(defaults).find(k => operation.toLowerCase().includes(k.toLowerCase()));
-      const baseline = foundKey ? defaults[foundKey] : { prompt: 800, completion: 400 };
-      avgPrompt = baseline.prompt;
-      avgCompletion = baseline.completion;
+      const baseline = foundKey ? defaults[foundKey] : { prompt: 800, completion: 400, durationMs: 5000 };
+      if (logs.length === 0) {
+        avgPrompt = baseline.prompt;
+        avgCompletion = baseline.completion;
+      }
+      if (avgDurationMs === 0) {
+        avgDurationMs = baseline.durationMs;
+      }
     }
 
     // 4. Calculate dynamic size adjustment based on current input text size
@@ -12044,6 +12206,7 @@ app.post('/api/global/ai-estimator/predict', verifyAdminToken, async (req, res) 
         completionRate
       },
       estimates: {
+        estimated_duration_ms: avgDurationMs,
         promptTokens: predictedPrompt,
         completionTokens: predictedCompletion,
         totalTokens,
@@ -12524,6 +12687,7 @@ app.post('/api/global/ai-packages', verifyAdminToken, async (req, res) => {
     products_limit,
     campaigns_limit,
     visuals_limit,
+    monthly_spend_limit,
     is_public,
     allow_manuscript,
     allow_copywriter,
@@ -12545,10 +12709,10 @@ app.post('/api/global/ai-packages', verifyAdminToken, async (req, res) => {
   try {
     await runQuery(`
       INSERT INTO ai_tier_features (
-        tier, display_name, monthly_price, yearly_price, products_limit, campaigns_limit, visuals_limit, is_public,
+        tier, display_name, monthly_price, yearly_price, products_limit, campaigns_limit, visuals_limit, monthly_spend_limit, is_public,
         allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       ON CONFLICT (tier) DO UPDATE SET
         display_name = EXCLUDED.display_name,
         monthly_price = EXCLUDED.monthly_price,
@@ -12556,6 +12720,7 @@ app.post('/api/global/ai-packages', verifyAdminToken, async (req, res) => {
         products_limit = EXCLUDED.products_limit,
         campaigns_limit = EXCLUDED.campaigns_limit,
         visuals_limit = EXCLUDED.visuals_limit,
+        monthly_spend_limit = EXCLUDED.monthly_spend_limit,
         is_public = EXCLUDED.is_public,
         allow_manuscript = EXCLUDED.allow_manuscript,
         allow_copywriter = EXCLUDED.allow_copywriter,
@@ -12572,6 +12737,7 @@ app.post('/api/global/ai-packages', verifyAdminToken, async (req, res) => {
       parseInt(products_limit || 0),
       parseInt(campaigns_limit || 0),
       parseInt(visuals_limit || 0),
+      parseFloat(monthly_spend_limit || 0.00),
       is_public !== false,
       !!allow_manuscript,
       !!allow_copywriter,
@@ -12842,7 +13008,7 @@ app.get('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) =
   }
 
   try {
-    const brand = await oneQuery('SELECT platform FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT platform FROM brands WHERE id = $1', [brandId]);
     const platform = brand ? (brand.platform || 'shopify') : 'shopify';
 
     let rows = await allQuery('SELECT * FROM marketing_audiences WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
@@ -13027,13 +13193,22 @@ app.delete('/api/global/brands/:id/audiences/:audienceId', verifyAdminToken, asy
 
 // GET consolidated media library
 app.get('/api/global/media', verifyAdminToken, async (req, res) => {
-  const brandId = resolveBrandId(req);
-  if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+  let brandId = resolveBrandId(req);
+  if (brandId === 'all') brandId = null;
 
   try {
-    const products = await allQuery('SELECT id, title, image, visual_dna FROM products WHERE brand_id = $1', [brandId]);
-    const brand = await getQuery('SELECT id, name, logo, favicon FROM brands WHERE id = $1', [brandId]);
-    const library = await allQuery('SELECT id, title, url, folder, created_at, metadata FROM media_library WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    let products, brandsList, library;
+    if (!brandId && req.user && (req.user.role.toLowerCase() === 'superadmin' || req.user.role.toLowerCase() === 'admin')) {
+      products = await allQuery('SELECT id, title, image, visual_dna, brand_id FROM products');
+      brandsList = await allQuery('SELECT id, name, logo, favicon FROM brands');
+      library = await allQuery('SELECT id, title, url, folder, created_at, metadata, brand_id FROM media_library ORDER BY created_at DESC');
+    } else {
+      if (!brandId) return res.status(400).json({ error: 'No brand context resolved.' });
+      products = await allQuery('SELECT id, title, image, visual_dna FROM products WHERE brand_id = $1', [brandId]);
+      const brand = await getQuery('SELECT id, name, logo, favicon FROM brands WHERE id = $1', [brandId]);
+      brandsList = brand ? [brand] : [];
+      library = await allQuery('SELECT id, title, url, folder, created_at, metadata FROM media_library WHERE brand_id = $1 ORDER BY created_at DESC', [brandId]);
+    }
 
     const mediaItems = [];
 
@@ -13059,7 +13234,7 @@ app.get('/api/global/media', verifyAdminToken, async (req, res) => {
     });
 
     // Brand Assets folder
-    if (brand) {
+    brandsList.forEach(brand => {
       if (brand.logo) {
         mediaItems.push({
           id: `brand_logo_${brand.id}`,
@@ -13080,7 +13255,7 @@ app.get('/api/global/media', verifyAdminToken, async (req, res) => {
           created_at: new Date().toISOString()
         });
       }
-    }
+    });
 
     // Custom Uploads / Campaigns folder
     library.forEach(item => {
@@ -13203,19 +13378,30 @@ async function runFalQueueJob(endpointPath, payload, falKey, { maxAttempts = 60,
   const queueId = result.request_id;
   if (!queueId) throw new Error(`Fal.ai queue request_id not returned for ${endpointPath}.`);
 
-  const checkUrl = `https://queue.fal.run/${endpointPath}/requests/${queueId}`;
+  const statusUrl = result.status_url;
+  const responseUrl = result.response_url;
+
+  if (!statusUrl || !responseUrl) {
+    throw new Error(`Fal.ai queue did not return status_url or response_url for ${endpointPath}.`);
+  }
+
   let attempts = 0;
   while (attempts < maxAttempts) {
-    const statusRes = await fetch(checkUrl, { headers: { 'Authorization': `Key ${falKey}` } });
+    const statusRes = await fetch(statusUrl, { headers: { 'Authorization': `Key ${falKey}` } });
     if (statusRes.ok) {
       const statusData = await statusRes.json();
       if (statusData.status === 'COMPLETED') {
-        const mediaUrl = statusData.images?.[0]?.url || statusData.image?.url || statusData.video?.url || statusData.videos?.[0]?.url;
+        const finalRes = await fetch(responseUrl, { headers: { 'Authorization': `Key ${falKey}` } });
+        if (!finalRes.ok) throw new Error(`Fal.ai failed to fetch final response for ${endpointPath}.`);
+        const finalData = await finalRes.json();
+        const mediaUrl = finalData.images?.[0]?.url || finalData.image?.url || finalData.video?.url || finalData.videos?.[0]?.url;
         if (mediaUrl) return mediaUrl;
         throw new Error(`Fal.ai job completed without media output (${endpointPath}).`);
       } else if (statusData.status === 'FAILED') {
         throw new Error(`Fal.ai job failed (${endpointPath}): ${statusData.error || 'unknown error'}`);
       }
+    } else {
+      console.warn(`[Fal.ai] Polling status returned ${statusRes.status} for ${endpointPath}. Retrying...`);
     }
     await new Promise(r => setTimeout(r, pollMs));
     attempts++;
@@ -13303,82 +13489,92 @@ Return ONLY JSON: {"score": 0.87, "reason": "one sentence"}`;
 }
 
 // Shared proportional layout so the composite overlay and the protective inpainting mask stay pixel-aligned
-function computeCompositeLayout(canvasW, canvasH, cameraLens = '', composition = '') {
+function computeCompositeLayout(canvasW, canvasH, cameraLens = '', composition = '', numProducts = 1, numPersonas = 1) {
   const lens = (cameraLens || '').toLowerCase();
   const comp = (composition || '').toLowerCase();
 
   const minDim = Math.min(canvasW, canvasH);
-  let productSize = Math.round(minDim * 0.42);
-  let productLeft = Math.round(canvasW * 0.60);
-  let productTop = Math.round(canvasH * 0.52);
+  let baseProductSize = Math.round(minDim * 0.42);
+  let baseProductLeft = Math.round(canvasW * 0.60);
+  let baseProductTop = Math.round(canvasH * 0.52);
 
-  let personaSize = Math.round(minDim * 0.62);
-  let personaLeft = Math.round(canvasW * 0.06);
-  let personaTop = Math.round(canvasH * 0.16);
+  let basePersonaSize = Math.round(minDim * 0.62);
+  let basePersonaLeft = Math.round(canvasW * 0.06);
+  let basePersonaTop = Math.round(canvasH * 0.16);
 
   // 1. Adjust sizes based on Camera Lens (Optics/Scale)
   if (lens.includes('macro') || comp.includes('macro') || comp.includes('close-up')) {
-    // Extreme close-up / Macro: Product is hero, very large
-    productSize = Math.round(minDim * 0.70);
-    productLeft = Math.round((canvasW - productSize) / 2);
-    productTop = Math.round((canvasH - productSize) / 2);
-
-    // Persona is zoomed in/out of focus
-    personaSize = Math.round(minDim * 0.85);
-    personaLeft = Math.round(canvasW * -0.10);
-    personaTop = Math.round(canvasH * 0.05);
+    baseProductSize = Math.round(minDim * 0.70);
+    baseProductLeft = Math.round((canvasW - baseProductSize) / 2);
+    baseProductTop = Math.round((canvasH - baseProductSize) / 2);
+    basePersonaSize = Math.round(minDim * 0.85);
+    basePersonaLeft = Math.round(canvasW * -0.10);
+    basePersonaTop = Math.round(canvasH * 0.05);
   } else if (lens.includes('wide-angle') || lens.includes('wide angle') || comp.includes('wide') || comp.includes('spacious')) {
-    // Wide-angle: spacious layout, elements are smaller to show environment
-    productSize = Math.round(minDim * 0.28);
-    productLeft = Math.round(canvasW * 0.65);
-    productTop = Math.round(canvasH * 0.60);
-
-    personaSize = Math.round(minDim * 0.45);
-    personaLeft = Math.round(canvasW * 0.10);
-    personaTop = Math.round(canvasH * 0.25);
+    baseProductSize = Math.round(minDim * 0.28);
+    baseProductLeft = Math.round(canvasW * 0.65);
+    baseProductTop = Math.round(canvasH * 0.60);
+    basePersonaSize = Math.round(minDim * 0.45);
+    basePersonaLeft = Math.round(canvasW * 0.10);
+    basePersonaTop = Math.round(canvasH * 0.25);
   }
 
   // 2. Adjust placement/layout based on Composition
   if (comp.includes('flat lay') || comp.includes('top-down')) {
-    // Top-down flat lay: product is centered, persona/hands coming from side
-    productSize = Math.round(minDim * 0.45);
-    productLeft = Math.round((canvasW - productSize) / 2);
-    productTop = Math.round((canvasH - productSize) / 2);
-
-    personaSize = Math.round(minDim * 0.55);
-    personaLeft = Math.round(canvasW * 0.02);
-    personaTop = Math.round(canvasH * 0.02);
+    baseProductSize = Math.round(minDim * 0.45);
+    baseProductLeft = Math.round((canvasW - baseProductSize) / 2);
+    baseProductTop = Math.round((canvasH - baseProductSize) / 2);
+    basePersonaSize = Math.round(minDim * 0.55);
+    basePersonaLeft = Math.round(canvasW * 0.02);
+    basePersonaTop = Math.round(canvasH * 0.02);
   } else if (comp.includes('low-angle') || comp.includes('heroic')) {
-    // Heroic low angle: product is low in frame and larger
-    productSize = Math.round(minDim * 0.52);
-    productLeft = Math.round((canvasW - productSize) / 2);
-    productTop = Math.round(canvasH * 0.40);
+    baseProductSize = Math.round(minDim * 0.52);
+    baseProductLeft = Math.round((canvasW - baseProductSize) / 2);
+    baseProductTop = Math.round(canvasH * 0.40);
+    basePersonaSize = Math.round(minDim * 0.65);
+    basePersonaLeft = Math.round(canvasW * 0.05);
+    basePersonaTop = Math.round(canvasH * 0.10);
+  }
 
-    personaSize = Math.round(minDim * 0.65);
-    personaLeft = Math.round(canvasW * 0.05);
-    personaTop = Math.round(canvasH * 0.10);
-  } else if (comp.includes('three-quarter') || comp.includes('portrait')) {
-    // Standard three-quarter portrait
-    productSize = Math.round(minDim * 0.42);
-    productLeft = Math.round(canvasW * 0.58);
-    productTop = Math.round(canvasH * 0.50);
+  // Generate arrays for products
+  const products = [];
+  const pCount = Math.max(1, numProducts);
+  // Scale down slightly if multiple products to fit side by side
+  const scaledPSize = pCount > 1 ? Math.round(baseProductSize * (0.9 - (pCount * 0.1))) : baseProductSize;
+  const pSpacing = Math.round(scaledPSize * 1.1); // add some padding
+  
+  // Center the block of products around the base position
+  const totalPWidth = scaledPSize + (pCount - 1) * pSpacing;
+  const startPLeft = baseProductLeft - (totalPWidth / 2) + (scaledPSize / 2);
 
-    personaSize = Math.round(minDim * 0.62);
-    personaLeft = Math.round(canvasW * 0.08);
-    personaTop = Math.round(canvasH * 0.15);
+  for (let i = 0; i < numProducts; i++) {
+    products.push({
+      size: scaledPSize,
+      left: Math.round(startPLeft + (i * pSpacing)),
+      top: baseProductTop
+    });
+  }
+
+  // Generate arrays for personas
+  const personas = [];
+  const persCount = Math.max(1, numPersonas);
+  const scaledPersSize = persCount > 1 ? Math.round(basePersonaSize * (0.9 - (persCount * 0.1))) : basePersonaSize;
+  const persSpacing = Math.round(scaledPersSize * 0.9); // slight overlap
+  
+  const totalPersWidth = scaledPersSize + (persCount - 1) * persSpacing;
+  const startPersLeft = basePersonaLeft - (totalPersWidth / 2) + (scaledPersSize / 2);
+
+  for (let i = 0; i < numPersonas; i++) {
+    personas.push({
+      size: scaledPersSize,
+      left: Math.round(startPersLeft + (i * persSpacing)),
+      top: basePersonaTop
+    });
   }
 
   return {
-    product: {
-      size: productSize,
-      left: productLeft,
-      top: productTop
-    },
-    persona: {
-      size: personaSize,
-      left: personaLeft,
-      top: personaTop
-    }
+    products,
+    personas
   };
 }
 
@@ -13406,15 +13602,18 @@ async function fetchImageBufferForComposite(urlOrPath) {
   return null;
 }
 
-async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath, canvasSize = null, cameraLens = '', composition = '') {
+async function compositeVisualAsset(sceneryUrl, personaUrls = [], productUrls = [], destPath, canvasSize = null, cameraLens = '', composition = '') {
   try {
     const canvasW = (canvasSize && canvasSize.width) || 1152;
     const canvasH = (canvasSize && canvasSize.height) || 1152;
-    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition);
+    
+    // Convert to arrays if strings passed by mistake
+    const pUrls = Array.isArray(productUrls) ? productUrls : [productUrls].filter(Boolean);
+    const persUrls = Array.isArray(personaUrls) ? personaUrls : [personaUrls].filter(Boolean);
+
+    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition, pUrls.length, persUrls.length);
 
     const bgBuffer = await fetchImageBufferForComposite(sceneryUrl);
-    const personaBuffer = await fetchImageBufferForComposite(personaUrl);
-    const productBuffer = await fetchImageBufferForComposite(productUrl);
 
     if (!bgBuffer) {
       throw new Error('Scenery background image could not be loaded.');
@@ -13424,30 +13623,36 @@ async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath
     let canvas = sharp(bgBuffer).resize(canvasW, canvasH, { fit: 'cover' });
     const layers = [];
 
-    // 2. Persona layer (expected as an alpha cutout — caller runs background removal first)
-    if (personaBuffer) {
-      const personaResized = await sharp(personaBuffer)
-        .resize({ width: layout.persona.size, height: layout.persona.size, fit: 'inside' })
-        .toBuffer();
+    // 2. Persona layers (expected as an alpha cutout — caller runs background removal first)
+    for (let i = 0; i < persUrls.length; i++) {
+      const personaBuffer = await fetchImageBufferForComposite(persUrls[i]);
+      if (personaBuffer && layout.personas[i]) {
+        const personaResized = await sharp(personaBuffer)
+          .resize({ width: layout.personas[i].size, height: layout.personas[i].size, fit: 'inside' })
+          .toBuffer();
 
-      layers.push({
-        input: personaResized,
-        top: layout.persona.top,
-        left: layout.persona.left
-      });
+        layers.push({
+          input: personaResized,
+          top: layout.personas[i].top,
+          left: layout.personas[i].left
+        });
+      }
     }
 
-    // 3. Product layer (alpha-isolated) placed proportionally in the lower-right visual third
-    if (productBuffer) {
-      const productResized = await sharp(productBuffer)
-        .resize({ width: layout.product.size, height: layout.product.size, fit: 'inside' })
-        .toBuffer();
+    // 3. Product layers (alpha-isolated)
+    for (let i = 0; i < pUrls.length; i++) {
+      const productBuffer = await fetchImageBufferForComposite(pUrls[i]);
+      if (productBuffer && layout.products[i]) {
+        const productResized = await sharp(productBuffer)
+          .resize({ width: layout.products[i].size, height: layout.products[i].size, fit: 'inside' })
+          .toBuffer();
 
-      layers.push({
-        input: productResized,
-        top: layout.product.top,
-        left: layout.product.left
-      });
+        layers.push({
+          input: productResized,
+          top: layout.products[i].top,
+          left: layout.products[i].left
+        });
+      }
     }
 
     if (layers.length > 0) {
@@ -13764,23 +13969,13 @@ async function signAndWatermarkImage(imageBuffer, metadata = {}) {
 // Protective inpainting mask: WHITE = regenerate (scene, persona blending, shadows),
 // BLACK = preserve pixels (the product). Slightly eroded so product edges get re-rendered
 // by the inpainter and blend seamlessly instead of showing a cutout seam.
-async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canvasSize = null, cameraLens = '', composition = '') {
+async function generateProtectiveMaskLocal(productBuffers = [], uploadDir, seed, canvasSize = null, cameraLens = '', composition = '', numPersonas = 1) {
   try {
     const canvasW = (canvasSize && canvasSize.width) || 1152;
     const canvasH = (canvasSize && canvasSize.height) || 1152;
-    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition);
-
-    // Product silhouette (white shape on black tile), eroded ~2-3px via blur+high-threshold
-    const productShape = await sharp(productBuffer)
-      .ensureAlpha()
-      .extractChannel('alpha')
-      .resize({ width: layout.product.size, height: layout.product.size, fit: 'inside' })
-      .blur(3)
-      .threshold(220)
-      .toBuffer();
-
-    // Invert: black product silhouette on a white tile
-    const invertedTile = await sharp(productShape).negate().toBuffer();
+    const pBuffers = Array.isArray(productBuffers) ? productBuffers : [productBuffers].filter(Boolean);
+    
+    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition, pBuffers.length, numPersonas);
 
     const whiteBg = await sharp({
       create: {
@@ -13793,15 +13988,33 @@ async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canva
     .png()
     .toBuffer();
 
+    const compositeLayers = [];
+    
+    for (let i = 0; i < pBuffers.length; i++) {
+      // Product silhouette (white shape on black tile), eroded ~2-3px via blur+high-threshold
+      const productShape = await sharp(pBuffers[i])
+        .ensureAlpha()
+        .extractChannel('alpha')
+        .resize({ width: layout.products[i].size, height: layout.products[i].size, fit: 'inside' })
+        .blur(3)
+        .threshold(220)
+        .toBuffer();
+
+      // Invert: black product silhouette on a white tile
+      const invertedTile = await sharp(productShape).negate().toBuffer();
+      
+      compositeLayers.push({
+        input: invertedTile,
+        top: layout.products[i].top,
+        left: layout.products[i].left
+      });
+    }
+
     const maskFilename = `mask_local_${Date.now()}_${seed}.png`;
     const maskPath = path.join(uploadDir, maskFilename);
 
     await sharp(whiteBg)
-      .composite([{
-        input: invertedTile,
-        top: layout.product.top,
-        left: layout.product.left
-      }])
+      .composite(compositeLayers)
       .toFile(maskPath);
 
     return maskFilename;
@@ -13811,8 +14024,6 @@ async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canva
   }
 }
 
-// Helper to convert local/relative images to Base64 data URIs, allowing cloud AI engines to process
-// local files seamlessly without requiring public CDN uploads (perfect for localhost)
 async function resolveAndUploadLocalFileToFal(url, falKey) {
   if (!url) return null;
   if (url.startsWith('http') && !url.includes('localhost') && !url.includes('.local') && !url.includes('127.0.0.1') && !url.includes('postgres-db') && !url.includes('minio:9000')) {
@@ -13831,7 +14042,7 @@ async function resolveAndUploadLocalFileToFal(url, falKey) {
     const localPath = path.join('uploads', filename);
     if (fs.existsSync(localPath)) {
       try {
-        console.log(`[Local Base64 Converter] Converting local file to Base64: ${localPath}...`);
+        console.log(`[Local Base64 Converter] Reading local file: ${localPath}...`);
         const fileBuffer = await fs.promises.readFile(localPath);
         
         let ext = path.extname(filename).toLowerCase();
@@ -13840,31 +14051,17 @@ async function resolveAndUploadLocalFileToFal(url, falKey) {
         if (ext === '.webp') mime = 'image/webp';
         
         const fileBlob = new Blob([fileBuffer], { type: mime });
-        const formData = new FormData();
-        formData.append('file', fileBlob, filename);
-
-        console.log(`[Fal CDN Uploader] Uploading local file to Fal: ${localPath}...`);
-        const uploadRes = await fetch('https://queue.fal.run/files/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Key ${falKey}`
-          },
-          body: formData
+        
+        console.log(`[Fal CDN Uploader] Uploading local file to Fal via SDK: ${localPath}...`);
+        const { createFalClient } = await import('@fal-ai/client');
+        const client = createFalClient({
+          credentials: falKey
         });
-
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          const falUrl = uploadData.url;
+        const falUrl = await client.storage.upload(fileBlob);
+        
+        if (falUrl) {
           console.log(`[Fal CDN Uploader] Successfully uploaded to Fal CDN: ${falUrl}`);
           return falUrl;
-        } else {
-          const errText = await uploadRes.text();
-          console.error(`[Fal CDN Uploader] Failed to upload ${filename}: ${uploadRes.status} - ${errText}`);
-          // Fallback to Data URI if upload fails
-          const base64Str = fileBuffer.toString('base64');
-          const dataUri = `data:${mime};base64,${base64Str}`;
-          console.log(`[Local Base64 Converter] Falling back to Base64 URI (size: ${dataUri.length} chars)`);
-          return dataUri;
         }
       } catch (err) {
         console.error(`[Fal CDN Uploader Error] Failed to process/upload local file ${localPath}:`, err);
@@ -13894,16 +14091,30 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
     return null;
   };
 
-  const rawProduct = await resolvePublicUrl(productUrl);
-  let resolvedProduct = null;
-  if (rawProduct) {
-    resolvedProduct = await isolateProductBackground(rawProduct, falKey);
-    if (resolvedProduct !== rawProduct && brandId) {
-      await logAiUsage(brandId, 'AI Studio', 'Product Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
+  const resolvedProducts = [];
+  const rawProducts = Array.isArray(productUrl) ? productUrl : [productUrl].filter(Boolean);
+  for (const raw of rawProducts) {
+    const rawProd = await resolvePublicUrl(raw);
+    if (rawProd) {
+      const resolved = await isolateProductBackground(rawProd, falKey);
+      resolvedProducts.push(resolved);
+      if (resolved !== rawProd && brandId) {
+        await logAiUsage(brandId, 'AI Studio', 'Product Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
+      }
     }
   }
-  const resolvedScenery = await resolvePublicUrl(sceneryUrl);
-  const resolvedPersona = await resolvePublicUrl(personaUrl);
+
+  const rawSceneries = Array.isArray(sceneryUrl) ? sceneryUrl : [sceneryUrl].filter(Boolean);
+  const resolvedScenery = rawSceneries.length > 0 ? await resolvePublicUrl(rawSceneries[0]) : null;
+
+  const resolvedPersonas = [];
+  const rawPersonas = Array.isArray(personaUrl) ? personaUrl : [personaUrl].filter(Boolean);
+  for (const raw of rawPersonas) {
+    const rawPers = await resolvePublicUrl(raw);
+    if (rawPers) {
+      resolvedPersonas.push(rawPers);
+    }
+  }
 
   const resolvedSize = resolveGenerationSize(aspectRatio, { draft: false });
   const enableSafety = safetyTolerance === 'strict';
@@ -13911,9 +14122,9 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
 
   // FLUX.2 [max] multi-reference edit: the strongest compositor available — give it every
   // reference image at once and let the model fuse product + persona + scenery natively.
-  if (backend === 'flux-2-max' && resolvedProduct && (resolvedPersona || resolvedScenery)) {
+  if (backend === 'flux-2-max' && resolvedProducts.length > 0 && (resolvedPersonas.length > 0 || resolvedScenery)) {
     try {
-      const refUrls = [resolvedProduct, resolvedPersona, resolvedScenery].filter(Boolean);
+      const refUrls = [...resolvedProducts, ...resolvedPersonas, resolvedScenery].filter(Boolean);
       console.log(`[FLUX.2 Multi-Ref] Composing with ${refUrls.length} reference images via flux-2-max/edit...`);
       const multiRefUrl = await runFalQueueJob('fal-ai/flux-2-max/edit', {
         image_urls: refUrls,
@@ -13937,32 +14148,22 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
   // Advanced spatial masking pipeline (alpha cutouts -> aspect-true Sharp composite -> protected FLUX inpainting -> IC-Light relighting -> 4x upscale)
   // The mask PROTECTS the product pixels and regenerates everything around it, so the real
   // product survives untouched while scene, persona and shadows are re-rendered coherently.
-  if (resolvedProduct && resolvedScenery && uploadDir && apiBaseUrl) {
+  if (resolvedProducts.length > 0 && resolvedScenery && uploadDir && apiBaseUrl) {
     let localMaskFilename = null;
     let tempFilename = null;
     try {
-      console.log(`[Advanced Pipeline] Initiating Protected Masking + FLUX Inpainting workflow...`);
+      console.log(`[Advanced Pipeline] Initiating Protected Masking + FLUX Inpainting workflow for ${resolvedProducts.length} products...`);
 
-      // 1. Fetch isolated product buffer & build the protective mask aligned to the composite layout
-      let productBuffer = null;
-      if (resolvedProduct.startsWith('data:image')) {
-        const base64Data = resolvedProduct.split(',')[1];
-        if (base64Data) productBuffer = Buffer.from(base64Data, 'base64');
-      } else if (resolvedProduct.startsWith('http')) {
-        const fetchRes = await fetch(resolvedProduct);
-        if (fetchRes.ok) {
-          productBuffer = Buffer.from(await fetchRes.arrayBuffer());
-        }
-      } else if (resolvedProduct.startsWith('/uploads/')) {
-        const localPath = path.join('uploads', resolvedProduct.replace('/uploads/', ''));
-        if (fs.existsSync(localPath)) {
-          productBuffer = await fs.promises.readFile(localPath);
-        }
+      // 1. Fetch isolated product buffers & build the protective mask aligned to the composite layout
+      const productBuffers = [];
+      for (const resProd of resolvedProducts) {
+        const buf = await fetchImageBufferForComposite(resProd);
+        if (buf) productBuffers.push(buf);
       }
 
       let productMask = null;
-      if (productBuffer) {
-        localMaskFilename = await generateProtectiveMaskLocal(productBuffer, uploadDir, seed, resolvedSize, cameraLens, composition);
+      if (productBuffers.length > 0) {
+        localMaskFilename = await generateProtectiveMaskLocal(productBuffers, uploadDir, seed, resolvedSize, cameraLens, composition, resolvedPersonas.length);
         if (localMaskFilename) {
           const rawProductMask = `${apiBaseUrl}/uploads/${localMaskFilename}`;
           productMask = await resolveAndUploadLocalFileToFal(rawProductMask, falKey) || rawProductMask;
@@ -13971,11 +14172,12 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
       }
 
       if (productMask) {
-        // 2. Persona gets its own alpha cutout so no rectangular photo-in-photo collage survives
-        let personaCutout = resolvedPersona;
-        if (resolvedPersona) {
-          personaCutout = await isolateProductBackground(resolvedPersona, falKey);
-          if (personaCutout !== resolvedPersona && brandId) {
+        // 2. Personas get their own alpha cutouts so no rectangular photo-in-photo collage survives
+        const personaCutouts = [];
+        for (const resPers of resolvedPersonas) {
+          let cutout = await isolateProductBackground(resPers, falKey);
+          personaCutouts.push(cutout);
+          if (cutout !== resPers && brandId) {
             await logAiUsage(brandId, 'AI Studio', 'Persona Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
           }
         }
@@ -13983,7 +14185,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
         // 3. Sharp composite overlay at the exact generation resolution (mask stays pixel-aligned)
         tempFilename = `temp_comp_${Date.now()}_${seed}.png`;
         const tempPath = path.join(uploadDir, tempFilename);
-        const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutout, resolvedProduct, tempPath, resolvedSize, cameraLens, composition);
+        const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutouts, resolvedProducts, tempPath, resolvedSize, cameraLens, composition);
 
         if (hasComposited) {
           const rawCompositeUrl = `${apiBaseUrl}/uploads/${tempFilename}`;
@@ -14054,7 +14256,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
 
   // No usable product reference: generate from the brand prompt directly instead of
   // running img2img on an unrelated image.
-  if (!resolvedProduct) {
+  if (resolvedProducts.length === 0) {
     console.log('[Fal.ai Router] No public product reference resolved — using direct text-to-image generation.');
     const directUrl = await generateImageFal(prompt, seed, falKey, null, backend === 'flux-schnell' ? 'flux-schnell' : (backend || 'flux-pro'), aspectRatio, safetyTolerance);
     const upscaledDirect = await upscaleImageFal(directUrl, falKey, brandId, userId);
@@ -14070,7 +14272,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
   if (backend === 'flux-2-max') {
     endpointPath = 'fal-ai/flux-2-max/edit';
     console.log(`[Fal.ai Router] Selected model: FLUX.2 [max] /edit`);
-  } else if (resolvedPersona || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person')) {
+  } else if (resolvedPersonas.length > 0 || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person')) {
     // Scenario 1: Product Holding API (excellent for showing people holding/wearing the product)
     endpointPath = 'fal-ai/image-apps-v2/product-holding';
     console.log(`[Fal.ai Router] Selected model: Product Holding`);
@@ -14085,7 +14287,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
   }
 
   payload = {
-    image_url: resolvedProduct,
+    image_url: resolvedProducts[0],
     prompt: routedPrompt,
     seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
     enable_safety_checker: enableSafety,
@@ -14237,7 +14439,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
 
   try {
     const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
-    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance, productId, personaName, sceneryName, actionDescription, backend, productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
+    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance, productId, personaName, sceneryName, actionDescription, backend, productImageUrls, personaImageUrls, sceneryImageUrls } = req.body;
     if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
     const falKey = process.env.FAL_KEY;
 
@@ -14314,7 +14516,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
       selectedScenery = canvas.sceneries.find(s => s.name === sceneryName);
     }
 
-    const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
+    const isCompositeRequest = !!((productImageUrls && productImageUrls.length > 0) || (targetProduct ? targetProduct.image : null) || (personaImageUrls && personaImageUrls.length > 0) || (sceneryImageUrls && sceneryImageUrls.length > 0));
 
     // 3. Assemble State-of-the-Art Adaptive Brand Prompt
     let structuredPrompt = prompt || '';
@@ -14414,18 +14616,23 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
         const approvedList = (canvas.controlled_vocabulary && canvas.controlled_vocabulary.approved) || [];
         const visualDirection = canvas.visual_direction || '';
         
-        let optimizationSystemPrompt = `You are an expert AI prompt engineer for text-to-image models.
+        const segment = brand.business_segment || 'specialty coffee';
+        const niche = brand.business_niche || 'premium barista tools';
+        
+        let optimizationSystemPrompt = `You are an expert AI prompt engineer for text-to-image models, specializing in high-end E-commerce product lifestyle photography for the ${segment} segment (specifically: ${niche}).
 Modify and expand the user's raw input prompt into a highly detailed, visually evocative, and professional text-to-image prompt.
 
 Guidelines:
 1. Describe textures, physical materials, precise lighting (e.g. volumetric, chiaroscuro, natural side window light), camera optics, composition, and background details in depth.
-2. Adhere to these Brand Guidelines:
+2. Spatial & Action Logic (CRITICAL): Carefully analyze the interaction between the persona, the product, and other objects. If a persona is pouring something, explicitly state WHAT they are pouring INTO (e.g. pouring milk into a ceramic cup, NOT into the product itself). If there are multiple items in a product set, describe their logical placement on the surface without overlapping.
+3. Framing & Composition (CRITICAL): If a persona or a large background element (like an espresso machine) is mentioned in the prompt, ensure the camera framing (e.g., medium shot, wide shot, 35mm, or 50mm lens) allows ALL elements to be visible. DO NOT use extreme macro or 100mm shallow-depth lenses if it will crop out the persona or the background environment.
+4. Adhere to these Brand Guidelines:
    Visual Direction Guidelines: ${visualDirection}
    Primary Color theme: ${brand.primary_color || 'not specified'}
-3. Respect the Controlled Vocabulary:
+5. Respect the Controlled Vocabulary:
    - BANNED terms (DO NOT USE or mention any of these under any circumstance): ${bannedList.join(', ') || 'none'}
    - APPROVED terms (incorporate if relevant): ${approvedList.join(', ') || 'none'}
-4. Avoid generic buzzwords like "photorealistic", "hyperrealistic", "super details", "4K", or "rendering". Instead, specify realistic physical properties of the materials and lights.`;
+6. Avoid generic buzzwords like "photorealistic", "hyperrealistic", "super details", "4K", or "rendering". Instead, specify realistic physical properties of the materials and lights.`;
 
         if (backend === 'flux-2-flex') {
           optimizationSystemPrompt += `
@@ -14480,6 +14687,7 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       }
     }
 
+    const generationStartTime = Date.now();
     let mediaUrl = '';
     let itemTitle = '';
     let targetFolder = 'AI Studio';
@@ -14655,11 +14863,14 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       if (isCompositeRequest) {
         try {
           const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
+          let prodUrls = productImageUrls || [];
+          if (prodUrls.length === 0 && targetProduct && targetProduct.image) prodUrls.push(targetProduct.image);
+
           const result = await generateVisualAssetFal(
             structuredPrompt,
-            productImageUrl || (targetProduct ? targetProduct.image : null),
-            personaImageUrl,
-            sceneryImageUrl,
+            prodUrls,
+            personaImageUrls || [],
+            sceneryImageUrls || [],
             activeSeed,
             falKey,
             backend,
@@ -14688,11 +14899,11 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     }
 
     if ((action === 'generate' || action === 'image') && !isComposited && (!mediaUrl || !mediaUrl.startsWith('http'))) {
-      if (sceneryImageUrl || personaImageUrl || productImageUrl) {
+      if ((sceneryImageUrls && sceneryImageUrls.length > 0) || (personaImageUrls && personaImageUrls.length > 0) || (productImageUrls && productImageUrls.length > 0)) {
         isComposited = await compositeVisualAsset(
-          sceneryImageUrl,
-          personaImageUrl,
-          productImageUrl || (targetProduct ? targetProduct.image : null),
+          sceneryImageUrls,
+          personaImageUrls,
+          productImageUrls || (targetProduct ? [targetProduct.image] : []),
           destPath,
           resolveGenerationSize(aspectRatio),
           cameraLens,
@@ -14787,14 +14998,14 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     } else if (action === 'generate-persona' || action === 'generate-scenery' || action === 'generate-object') {
       loggedModel = isSimulatedAsset ? 'stock-placeholder' : 'flux-pro/v1.1';
     } else if ((action === 'generate' || action === 'image') && falKey) {
-      const resolvedProduct = productImageUrl || (targetProduct ? targetProduct.image : null);
+      const resolvedProduct = (productImageUrls && productImageUrls.length > 0) ? productImageUrls[0] : (targetProduct ? targetProduct.image : null);
       if (resolvedProduct) {
         if (backend === 'flux-2-max') {
           loggedModel = 'flux-2-max/edit';
         } else {
           const promptLower = (structuredPrompt || '').toLowerCase();
-          const hasPersona = !!personaImageUrl || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person');
-          const hasScenery = !!sceneryImageUrl || promptLower.includes('counter') || promptLower.includes('table') || promptLower.includes('background') || promptLower.includes('setting');
+          const hasPersona = (personaImageUrls && personaImageUrls.length > 0) || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person');
+          const hasScenery = (sceneryImageUrls && sceneryImageUrls.length > 0) || promptLower.includes('counter') || promptLower.includes('table') || promptLower.includes('background') || promptLower.includes('setting');
           
           if (hasPersona) {
             loggedModel = 'image-apps-v2/product-holding';
@@ -14810,7 +15021,7 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     // 2. Resolve image dimensions based on aspect ratio (base generation size before the 4x upscale pass)
     const { width, height } = resolveGenerationSize(aspectRatio);
 
-    const hasInputImage = !!productImageUrl || !!imageUrl || !!personaImageUrl || !!sceneryImageUrl;
+    const hasInputImage = !!(productImageUrls && productImageUrls.length > 0) || !!imageUrl || !!(personaImageUrls && personaImageUrls.length > 0) || !!(sceneryImageUrls && sceneryImageUrls.length > 0);
 
     const usageMeta = {
       promptTokenCount: 1000,
@@ -14820,8 +15031,10 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       hasInputImage
     };
 
+    const generationDurationMs = Date.now() - generationStartTime;
+
     if (!advancedPipelineExecuted) {
-      await logAiUsage(brandId, tool, operation, loggedModel, usageMeta, null, req.user?.id);
+      await logAiUsage(brandId, tool, operation, loggedModel, usageMeta, null, req.user?.id, generationDurationMs);
     }
 
     res.json({

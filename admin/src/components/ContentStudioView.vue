@@ -413,12 +413,15 @@
                         </div>
 
                         <!-- Generating Loader -->
-                        <div v-else-if="composerGenerating" class="skeleton-loader" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 5; border-radius: 12px;">
-                            <div style="width: 42px; height: 42px; border: 3px solid rgba(197, 160, 89, 0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <div style="text-align: center;">
-                                <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--accent);">Synthesizing Asset...</h4>
-                                <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">
-                                    Compiling visual parameters and generating canvas...
+                        <div v-else-if="composerGenerating" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 5; border-radius: 12px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+                            <div style="width: 42px; height: 42px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <div style="text-align: center; width: 60%;">
+                                <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Synthesizing Asset...</h4>
+                                <div style="margin: 12px auto 8px auto; width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                    <div :style="`height: 100%; width: ${composerEta.progress}%; background: var(--accent); transition: width 0.1s linear; box-shadow: 0 0 10px var(--accent);`"></div>
+                                </div>
+                                <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
+                                    ETA: {{ Math.round(composerEta.expectedDuration / 1000) }}s
                                 </p>
                             </div>
                         </div>
@@ -619,7 +622,15 @@
                             <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
                                 <!-- Persona Image Thumbnail / Placeholder -->
                                 <div style="position: relative; width: 64px; height: 64px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                                    <div v-if="generatingVisuals.personas[idx]" class="skeleton-loader" style="width: 100%; height: 100%;"></div>
+                                    <div v-if="generatingVisuals.personas[idx]" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; padding: 20px;">
+                                        <span class="spinner" style="margin-bottom: 12px; border-color: var(--accent); border-right-color: transparent;"></span>
+                                        <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
+                                            <div :style="`height: 100%; width: ${generationEta.personas[idx]?.progress || 0}%; background: var(--accent); transition: width 0.1s linear;`"></div>
+                                        </div>
+                                        <div style="font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">
+                                            ETA: {{ Math.round((generationEta.personas[idx]?.expectedDuration || 8500) / 1000) }}s
+                                        </div>
+                                    </div>
                                     <img v-else-if="p.image" :src="resolveImageUrl(p.image)" style="width: 100%; height: 100%; object-fit: cover;" />
                                     <template v-else>
                                         <span style="font-size: 1.5rem; opacity: 0.4;">👥</span>
@@ -707,7 +718,15 @@
                             <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
                                 <!-- Scenery Image Thumbnail / Placeholder -->
                                 <div style="position: relative; width: 64px; height: 64px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                                    <div v-if="generatingVisuals.sceneries[idx]" class="skeleton-loader" style="width: 100%; height: 100%;"></div>
+                                    <div v-if="generatingVisuals.sceneries[idx]" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; padding: 20px;">
+                                        <span class="spinner" style="margin-bottom: 12px; border-color: var(--accent); border-right-color: transparent;"></span>
+                                        <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
+                                            <div :style="`height: 100%; width: ${generationEta.sceneries[idx]?.progress || 0}%; background: var(--accent); transition: width 0.1s linear;`"></div>
+                                        </div>
+                                        <div style="font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">
+                                            ETA: {{ Math.round((generationEta.sceneries[idx]?.expectedDuration || 8500) / 1000) }}s
+                                        </div>
+                                    </div>
                                     <img v-else-if="s.image" :src="resolveImageUrl(s.image)" style="width: 100%; height: 100%; object-fit: cover;" />
                                     <template v-else>
                                         <span style="font-size: 1.5rem; opacity: 0.4;">🌄</span>
@@ -847,7 +866,15 @@
                             <div style="display: flex; gap: 12px; align-items: flex-start; flex: 1; min-width: 0;">
                                 <!-- Object Image Thumbnail / Placeholder -->
                                 <div style="position: relative; width: 64px; height: 64px; border-radius: 8px; border: 1px solid var(--border); background: var(--workspace-bg); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                                    <div v-if="generatingVisuals.objects[idx]" class="skeleton-loader" style="width: 100%; height: 100%;"></div>
+                                    <div v-if="generatingVisuals.objects[idx]" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; padding: 20px;">
+                                        <span class="spinner" style="margin-bottom: 12px; border-color: var(--accent); border-right-color: transparent;"></span>
+                                        <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-bottom: 8px;">
+                                            <div :style="`height: 100%; width: ${generationEta.objects[idx]?.progress || 0}%; background: var(--accent); transition: width 0.1s linear;`"></div>
+                                        </div>
+                                        <div style="font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">
+                                            ETA: {{ Math.round((generationEta.objects[idx]?.expectedDuration || 8500) / 1000) }}s
+                                        </div>
+                                    </div>
                                     <img v-else-if="obj.image" :src="resolveImageUrl(obj.image)" style="width: 100%; height: 100%; object-fit: cover;" />
                                     <template v-else>
                                         <span style="font-size: 1.5rem; opacity: 0.4;">⚙️</span>
@@ -1375,6 +1402,16 @@ export default {
                 personas: {},
                 sceneries: {},
                 objects: {}
+            },
+            generationEta: {
+                personas: {},
+                sceneries: {},
+                objects: {}
+            },
+            composerEta: {
+                start: 0,
+                expectedDuration: 11000,
+                progress: 0
             },
             loadingCanvas: false,
             savingCanvas: false,
@@ -2819,10 +2856,32 @@ export default {
             const brandId = this.app.activeShopFilter;
             if (!brandId) return;
 
-            this.generatingVisuals[type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries')][idx] = true;
+            const category = type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries');
+            this.generatingVisuals[category][idx] = true;
             this.generatingVisuals = { ...this.generatingVisuals };
             this.app.showNotification(`🎨 Generating base visual image for ${type}...`);
+            
+            let progressInterval = null;
             try {
+                let opName = type === 'persona' ? 'Persona Generation' : (type === 'scenery' ? 'Scenery Generation' : 'Object Generation');
+                let etaMs = 8500;
+                try {
+                    const est = await this.app.fetchAiEstimate(opName);
+                    if (est && est.estimated_duration_ms) etaMs = est.estimated_duration_ms;
+                    const latency = await this.app.measureNetworkLatency();
+                    etaMs += latency;
+                } catch(e) {}
+                
+                this.generationEta[category][idx] = { start: Date.now(), expectedDuration: etaMs, progress: 0 };
+                progressInterval = setInterval(() => {
+                    const etaData = this.generationEta[category][idx];
+                    if (!etaData) { clearInterval(progressInterval); return; }
+                    const elapsed = Date.now() - etaData.start;
+                    const p = Math.min((elapsed / etaData.expectedDuration) * 100, 95);
+                    this.generationEta[category][idx].progress = p;
+                    this.generationEta = { ...this.generationEta };
+                }, 100);
+
                 const activeSeed = Math.floor(Math.random() * 1000000);
                 let payload = {
                     action: type === 'persona' ? 'generate-persona' : (type === 'object' ? 'generate-object' : 'generate-scenery'),
@@ -2841,7 +2900,7 @@ export default {
                 } else {
                     const s = this.canvas.sceneries[idx];
                     payload.sceneryName = s.name;
-                    payload.prompt = `Set in a ${s.description || 'modern minimalist setting'}, lit with ${s.lighting || 'soft light'}, shot in ${s.photography_style || 'professional photography style'}`;
+                    payload.prompt = `Empty architectural and environmental scenery backdrop: ${s.description || 'modern minimalist setting'}. Lit with ${s.lighting || 'soft light'}, shot in ${s.photography_style || 'professional photography style'}. Wide angle room shot, no people, empty environment waiting for subjects.`;
                 }
 
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/media/ai-studio`, {
@@ -2902,8 +2961,12 @@ export default {
                 console.error(err);
                 alert(`Guideline visual generation failed: ${err.message}`);
             } finally {
-                delete this.generatingVisuals[type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries')][idx];
+                const category = type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries');
+                delete this.generatingVisuals[category][idx];
                 this.generatingVisuals = { ...this.generatingVisuals };
+                if (progressInterval) clearInterval(progressInterval);
+                delete this.generationEta[category][idx];
+                this.generationEta = { ...this.generationEta };
             }
         },
         async generateGuidelineVariant(type, idx) {
@@ -2911,10 +2974,32 @@ export default {
             const brandId = this.app.activeShopFilter;
             if (!brandId) return;
 
-            this.generatingVisuals[type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries')][idx] = true;
+            const category = type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries');
+            this.generatingVisuals[category][idx] = true;
             this.generatingVisuals = { ...this.generatingVisuals };
             this.app.showNotification(`🎨 Generating a new variation for ${type}...`);
+            
+            let progressInterval = null;
             try {
+                let opName = type === 'persona' ? 'Persona Generation' : (type === 'scenery' ? 'Scenery Generation' : 'Object Generation');
+                let etaMs = 8500;
+                try {
+                    const est = await this.app.fetchAiEstimate(opName);
+                    if (est && est.estimated_duration_ms) etaMs = est.estimated_duration_ms;
+                    const latency = await this.app.measureNetworkLatency();
+                    etaMs += latency;
+                } catch(e) {}
+                
+                this.generationEta[category][idx] = { start: Date.now(), expectedDuration: etaMs, progress: 0 };
+                progressInterval = setInterval(() => {
+                    const etaData = this.generationEta[category][idx];
+                    if (!etaData) { clearInterval(progressInterval); return; }
+                    const elapsed = Date.now() - etaData.start;
+                    const p = Math.min((elapsed / etaData.expectedDuration) * 100, 95);
+                    this.generationEta[category][idx].progress = p;
+                    this.generationEta = { ...this.generationEta };
+                }, 100);
+
                 const activeSeed = Math.floor(Math.random() * 1000000);
                 let payload = {
                     action: type === 'persona' ? 'generate-persona' : (type === 'object' ? 'generate-object' : 'generate-scenery'),
@@ -2939,7 +3024,7 @@ export default {
                     payload.sceneryName = s.name;
                     const lightings = ['warm morning sunlight', 'cinematic dark lighting', 'dramatic side-light', 'ambient soft studio glow'];
                     const randomLighting = lightings[Math.floor(Math.random() * lightings.length)];
-                    payload.prompt = `Set in a ${s.description || 'modern minimalist setting'}, lit with ${randomLighting}, shot in ${s.photography_style || 'professional photography style'}`;
+                    payload.prompt = `Empty architectural and environmental scenery backdrop: ${s.description || 'modern minimalist setting'}. Lit with ${randomLighting}, shot in ${s.photography_style || 'professional photography style'}. Wide angle room shot, no people, empty environment waiting for subjects.`;
                 }
 
                 const response = await fetch(`${this.app.apiBaseUrl}/api/global/media/ai-studio`, {
@@ -3038,8 +3123,12 @@ export default {
                 console.error(err);
                 alert(`Variant generation failed: ${err.message}`);
             } finally {
-                delete this.generatingVisuals[type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries')][idx];
+                const category = type === 'persona' ? 'personas' : (type === 'object' ? 'objects' : 'sceneries');
+                delete this.generatingVisuals[category][idx];
                 this.generatingVisuals = { ...this.generatingVisuals };
+                if (progressInterval) clearInterval(progressInterval);
+                delete this.generationEta[category][idx];
+                this.generationEta = { ...this.generationEta };
             }
         },
         selectGuidelineVariant(type, idx, variant) {
@@ -3134,44 +3223,55 @@ export default {
             this.composerGenerating = true;
             this.composerResultUrl = '';
             this.composerResultItem = null;
+            
+            let etaMs = 12000;
+            try {
+                const est = await this.app.fetchAiEstimate('Image Composition');
+                if (est && est.estimated_duration_ms) etaMs = est.estimated_duration_ms;
+                const latency = await this.app.measureNetworkLatency();
+                etaMs += latency;
+            } catch(e) {}
+            this.composerEta = { start: Date.now(), expectedDuration: etaMs, progress: 0 };
+            
+            const progressInterval = setInterval(() => {
+                if (!this.composerGenerating) { clearInterval(progressInterval); return; }
+                const elapsed = Date.now() - this.composerEta.start;
+                this.composerEta.progress = Math.min((elapsed / this.composerEta.expectedDuration) * 100, 95);
+            }, 100);
 
             // Handle seed logic: if lockSeed is false, generate a new random seed
             if (!this.composerParams.lockSeed || !this.composerParams.seed) {
                 this.composerParams.seed = Math.floor(Math.random() * 1000000);
             }
 
-            // Extract reference image URLs
-            let productImageUrl = null;
-            let personaImageUrl = null;
-            let sceneryImageUrl = null;
+            // Extract reference image URLs as arrays
+            let productImageUrls = [];
+            let personaImageUrls = [];
+            let sceneryImageUrls = [];
 
             if (this.composerParams.productId) {
                 const prod = (this.app.products || []).find(p => p && p.id === this.composerParams.productId);
-                if (prod) productImageUrl = prod.image;
+                if (prod && prod.image) productImageUrls.push(prod.image);
             }
             if (this.composerParams.personaName) {
                 const pers = (this.canvas.personas || []).find(p => p && p.name === this.composerParams.personaName);
-                if (pers) personaImageUrl = pers.image;
+                if (pers && pers.image) personaImageUrls.push(pers.image);
             }
             if (this.composerParams.sceneryName) {
                 const scen = (this.canvas.sceneries || []).find(s => s && s.name === this.composerParams.sceneryName);
-                if (scen) sceneryImageUrl = scen.image;
+                if (scen && scen.image) sceneryImageUrls.push(scen.image);
             }
 
-            // Fallback tags matching in prompt template
-            const templateText = this.composerParams.promptTemplate || '';
-            if (!productImageUrl) {
-                const prodMatch = (this.app.products || []).find(p => p && p.title && templateText.includes(p.title));
-                if (prodMatch) productImageUrl = prodMatch.image;
-            }
-            if (!personaImageUrl) {
-                const persMatch = (this.canvas.personas || []).find(p => p && p.name && templateText.includes(p.name));
-                if (persMatch) personaImageUrl = persMatch.image;
-            }
-            if (!sceneryImageUrl) {
-                const scenMatch = (this.canvas.sceneries || []).find(s => s && s.name && templateText.includes(s.name));
-                if (scenMatch) sceneryImageUrl = scenMatch.image;
-            }
+            // Fallback tags matching in prompt template (case-insensitive)
+            const templateText = (this.composerParams.promptTemplate || '').toLowerCase();
+            const prodMatches = (this.app.products || []).filter(p => p && p.title && templateText.includes(p.title.toLowerCase()) && p.image);
+            prodMatches.forEach(p => { if (!productImageUrls.includes(p.image)) productImageUrls.push(p.image) });
+
+            const persMatches = (this.canvas.personas || []).filter(p => p && p.name && templateText.includes(p.name.toLowerCase()) && p.image);
+            persMatches.forEach(p => { if (!personaImageUrls.includes(p.image)) personaImageUrls.push(p.image) });
+
+            const scenMatches = (this.canvas.sceneries || []).filter(s => s && s.name && templateText.includes(s.name.toLowerCase()) && s.image);
+            scenMatches.forEach(s => { if (!sceneryImageUrls.includes(s.image)) sceneryImageUrls.push(s.image) });
 
             try {
                 const token = localStorage.getItem('sc_admin_token');
@@ -3196,9 +3296,9 @@ export default {
                         composition: this.composerParams.composition,
                         optimizePrompt: this.composerParams.optimizePrompt,
                         bestOf: this.composerParams.bestOfTwo ? 2 : 1,
-                        productImageUrl,
-                        personaImageUrl,
-                        sceneryImageUrl,
+                        productImageUrls,
+                        personaImageUrls,
+                        sceneryImageUrls,
                         aspectRatio: this.composerParams.aspectRatio,
                         safetyTolerance: this.composerParams.safetyTolerance,
                         draft: true // generate as draft
@@ -3237,37 +3337,49 @@ export default {
             if (!this.composerResultUrl) return;
             this.composerGenerating = true;
             
-            // Extract reference image URLs
-            let productImageUrl = null;
-            let personaImageUrl = null;
-            let sceneryImageUrl = null;
+            let etaMs = 12000;
+            try {
+                const est = await this.app.fetchAiEstimate('Image Composition');
+                if (est && est.estimated_duration_ms) etaMs = est.estimated_duration_ms;
+                const latency = await this.app.measureNetworkLatency();
+                etaMs += latency;
+            } catch(e) {}
+            this.composerEta = { start: Date.now(), expectedDuration: etaMs, progress: 0 };
+            
+            const progressInterval = setInterval(() => {
+                if (!this.composerGenerating) { clearInterval(progressInterval); return; }
+                const elapsed = Date.now() - this.composerEta.start;
+                this.composerEta.progress = Math.min((elapsed / this.composerEta.expectedDuration) * 100, 95);
+            }, 100);
+            
+            // Extract reference image URLs as arrays
+            let productImageUrls = [];
+            let personaImageUrls = [];
+            let sceneryImageUrls = [];
 
             if (this.composerParams.productId) {
                 const prod = (this.app.products || []).find(p => p && p.id === this.composerParams.productId);
-                if (prod) productImageUrl = prod.image;
+                if (prod && prod.image) productImageUrls.push(prod.image);
             }
             if (this.composerParams.personaName) {
                 const pers = (this.canvas.personas || []).find(p => p && p.name === this.composerParams.personaName);
-                if (pers) personaImageUrl = pers.image;
+                if (pers && pers.image) personaImageUrls.push(pers.image);
             }
             if (this.composerParams.sceneryName) {
                 const scen = (this.canvas.sceneries || []).find(s => s && s.name === this.composerParams.sceneryName);
-                if (scen) sceneryImageUrl = scen.image;
+                if (scen && scen.image) sceneryImageUrls.push(scen.image);
             }
 
-            const templateText = this.composerParams.promptTemplate || '';
-            if (!productImageUrl) {
-                const prodMatch = (this.app.products || []).find(p => p && p.title && templateText.includes(p.title));
-                if (prodMatch) productImageUrl = prodMatch.image;
-            }
-            if (!personaImageUrl) {
-                const persMatch = (this.canvas.personas || []).find(p => p && p.name && templateText.includes(p.name));
-                if (persMatch) personaImageUrl = persMatch.image;
-            }
-            if (!sceneryImageUrl) {
-                const scenMatch = (this.canvas.sceneries || []).find(s => s && s.name && templateText.includes(s.name));
-                if (scenMatch) sceneryImageUrl = scenMatch.image;
-            }
+            // Fallback tags matching in prompt template (case-insensitive)
+            const templateText = (this.composerParams.promptTemplate || '').toLowerCase();
+            const prodMatches = (this.app.products || []).filter(p => p && p.title && templateText.includes(p.title.toLowerCase()) && p.image);
+            prodMatches.forEach(p => { if (!productImageUrls.includes(p.image)) productImageUrls.push(p.image) });
+
+            const persMatches = (this.canvas.personas || []).filter(p => p && p.name && templateText.includes(p.name.toLowerCase()) && p.image);
+            persMatches.forEach(p => { if (!personaImageUrls.includes(p.image)) personaImageUrls.push(p.image) });
+
+            const scenMatches = (this.canvas.sceneries || []).filter(s => s && s.name && templateText.includes(s.name.toLowerCase()) && s.image);
+            scenMatches.forEach(s => { if (!sceneryImageUrls.includes(s.image)) sceneryImageUrls.push(s.image) });
 
             try {
                 const token = localStorage.getItem('sc_admin_token');
@@ -3292,9 +3404,9 @@ export default {
                         composition: this.composerParams.composition,
                         optimizePrompt: this.composerParams.optimizePrompt,
                         bestOf: this.composerParams.bestOfTwo ? 2 : 1,
-                        productImageUrl,
-                        personaImageUrl,
-                        sceneryImageUrl,
+                        productImageUrls,
+                        personaImageUrls,
+                        sceneryImageUrls,
                         imageUrl: this.composerResultUrl,
                         aspectRatio: this.composerParams.aspectRatio,
                         safetyTolerance: this.composerParams.safetyTolerance,
@@ -3557,7 +3669,7 @@ export default {
         async loadDraftsHistory() {
             if (!this.isValidBrandSelected) return;
             try {
-                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media-library?brand_id=${this.app.activeShopFilter}&limit=30`, {
+                const response = await fetch(`${this.app.apiBaseUrl}/api/global/media?brand_id=${this.app.activeShopFilter}&limit=30`, {
                     headers: this.authHeaders
                 });
                 if (response.ok) {

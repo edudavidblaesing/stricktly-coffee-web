@@ -174,6 +174,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_name VARCHAR(255)`);
     await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_address TEXT`);
     await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS billing_vat VARCHAR(100)`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS subscription_share_ratio NUMERIC(5, 4) DEFAULT 0.0000`);
+    await client.query(`ALTER TABLE agencies ADD COLUMN IF NOT EXISTS onboarding_stopped BOOLEAN DEFAULT FALSE`);
 
     // Create Agency Payout Ledger Table
     await client.query(`
@@ -462,6 +464,8 @@ async function initializeDatabase() {
       )
     `);
 
+    await client.query(`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS raw_cost_usd NUMERIC(10, 6) DEFAULT 0.0`);
+
     // Create AI Model Pricing Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS ai_model_pricing (
@@ -508,6 +512,7 @@ async function initializeDatabase() {
         products_limit INTEGER DEFAULT 0,
         campaigns_limit INTEGER DEFAULT 0,
         visuals_limit INTEGER DEFAULT 0,
+        monthly_spend_limit NUMERIC(10, 2) DEFAULT 50.00,
         is_public BOOLEAN DEFAULT TRUE,
         allow_manuscript BOOLEAN DEFAULT TRUE,
         allow_copywriter BOOLEAN DEFAULT TRUE,
@@ -526,19 +531,20 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS products_limit INTEGER DEFAULT 0`);
     await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS campaigns_limit INTEGER DEFAULT 0`);
     await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS visuals_limit INTEGER DEFAULT 0`);
+    await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS monthly_spend_limit NUMERIC(10, 2) DEFAULT 50.00`);
     await client.query(`ALTER TABLE ai_tier_features ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE`);
 
     // Seed Defaults / Updates
     await client.query(`
       INSERT INTO ai_tier_features (
-        tier, display_name, monthly_price, yearly_price, products_limit, campaigns_limit, visuals_limit, is_public,
+        tier, display_name, monthly_price, yearly_price, products_limit, campaigns_limit, visuals_limit, monthly_spend_limit, is_public,
         allow_manuscript, allow_copywriter, allow_translator, allow_seo, allow_designer, allow_page_builder, allow_dynamic_optimization
       )
       VALUES 
-        ('none', 'Sandbox Trial', 0.00, 0.00, 0, 0, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
-        ('standard', 'Standard', 49.00, 468.00, 15, 5, 30, TRUE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
-        ('professional', 'Professional', 149.00, 1428.00, 100, 30, 150, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
-        ('enterprise', 'Enterprise', 499.00, 4788.00, 1000, 150, 600, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+        ('none', 'Sandbox Trial', 0.00, 0.00, 0, 0, 0, 0.00, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+        ('standard', 'Standard', 49.00, 468.00, 15, 5, 30, 10.00, TRUE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE),
+        ('professional', 'Professional', 149.00, 1428.00, 100, 30, 150, 50.00, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
+        ('enterprise', 'Enterprise', 499.00, 4788.00, 1000, 150, 600, 200.00, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
       ON CONFLICT (tier) DO UPDATE SET
         display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), ai_tier_features.display_name),
         monthly_price = EXCLUDED.monthly_price,
@@ -546,6 +552,7 @@ async function initializeDatabase() {
         products_limit = EXCLUDED.products_limit,
         campaigns_limit = EXCLUDED.campaigns_limit,
         visuals_limit = EXCLUDED.visuals_limit,
+        monthly_spend_limit = COALESCE(EXCLUDED.monthly_spend_limit, ai_tier_features.monthly_spend_limit),
         is_public = EXCLUDED.is_public
     `);
 

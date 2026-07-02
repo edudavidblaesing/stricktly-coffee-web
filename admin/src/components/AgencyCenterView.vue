@@ -61,13 +61,21 @@
                             <tbody>
                                 <tr v-for="agency in agencies" :key="agency.id" style="border-bottom: 1px solid var(--border);">
                                     <td style="padding: 16px 12px;">
-                                        <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem;">{{ agency.name }}</div>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-weight: 800; color: var(--text-main); font-size: 0.9rem;">{{ agency.name }}</span>
+                                            <span v-if="agency.onboarding_stopped" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">
+                                                🚫 Cap Active
+                                            </span>
+                                        </div>
                                         <div style="font-size: 0.72rem; color: var(--text-muted);">ID: {{ agency.id }}</div>
                                     </td>
                                     <td style="padding: 16px 12px; color: var(--text-main);">{{ agency.contact_email }}</td>
                                     <td style="padding: 16px 12px; text-align: center;">
-                                        <span style="background: rgba(197, 160, 89, 0.1); color: var(--accent); font-weight: 800; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;">
-                                            {{ (parseFloat(agency.margin_share_ratio) * 100).toFixed(1) }}% Split
+                                        <span style="background: rgba(197, 160, 89, 0.1); color: var(--accent); font-weight: 800; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; display: block; margin-bottom: 4px; width: fit-content; margin-left: auto; margin-right: auto;">
+                                            Sales: {{ (parseFloat(agency.margin_share_ratio) * 100).toFixed(1) }}%
+                                        </span>
+                                        <span style="background: rgba(16, 185, 129, 0.1); color: var(--success); font-weight: 800; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; display: block; width: fit-content; margin-left: auto; margin-right: auto;">
+                                            Sub: {{ (parseFloat(agency.subscription_share_ratio || 0) * 100).toFixed(1) }}%
                                         </span>
                                     </td>
                                     <td style="padding: 16px 12px; text-align: right; color: var(--success); font-weight: 800; font-size: 0.9rem;">
@@ -375,79 +383,97 @@
 
         <!-- Agency Form Modal (Superadmin Only) -->
         <div v-if="modalOpen" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;">
-            <div class="panel" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; padding: 25px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px;">
-                <h3 style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: var(--text-main); margin: 0;">
+            <div class="panel" style="width: 100%; max-width: 480px; max-height: 90vh; overflow: hidden; padding: 25px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px;">
+                <h3 style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: var(--text-main); margin: 0; flex-shrink: 0;">
                     {{ isEditing ? '✏️ Edit Partner Agency' : '✨ Create Partner Agency' }}
                 </h3>
                 
-                <form @submit.prevent="saveAgency" style="display: flex; flex-direction: column; gap: 15px;">
-                    <div class="form-group">
-                        <label>Agency Name <span class="info-tooltip-trigger" data-tooltip="The user-facing title or organization name of the partner agency.">i</span></label>
-                        <input type="text" v-model="form.name" required placeholder="Roasted Growth Media" style="margin: 0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Agency ID (Slug) <span class="info-tooltip-trigger" data-tooltip="A unique URL-safe identifier for routing and API calls. Must be lowercase alphanumeric and hyphens.">i</span></label>
-                        <input type="text" v-model="form.id" :disabled="isEditing" required placeholder="roasted-growth" style="margin: 0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Contact Email <span class="info-tooltip-trigger" data-tooltip="Primary administrative email address for commission payouts, support queries, and invoicing.">i</span></label>
-                        <input type="email" v-model="form.contact_email" required placeholder="billing@roastedgrowth.com" style="margin: 0;">
-                    </div>
-                    <div class="form-group">
-                        <label>Agency Margin Share (Percentage Agency Receives, 0.0 to 1.0) <span class="info-tooltip-trigger" data-tooltip="The share ratio (e.g. 0.60 = 60%) of platform commission routed to the agency. The remaining 40% goes to the platform.">i</span></label>
-                        <input type="number" step="0.01" min="0" max="1" v-model="form.margin_share_ratio" required placeholder="0.60" style="margin: 0;">
-                        <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 0 0;">
-                            Specifies the percentage of the platform take-rate commission routed to the Agency. The remaining percentage goes to the platform.
-                        </p>
-                    </div>
-                    <div class="form-group">
-                        <label>Stripe Connected Account ID (Optional) <span class="info-tooltip-trigger" data-tooltip="Stripe Connect Account reference to automate real-time split payouts of transaction commissions.">i</span></label>
-                        <input type="text" v-model="form.stripe_connect_account_id" placeholder="acct_1x2y3z..." style="margin: 0;">
-                    </div>
-                    
-                    <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
-                        <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--accent);">
-                            <input type="checkbox" v-model="form.is_platform_biller" style="margin: 0;">
-                            ⚙️ Act as Platform Biller for Brands <span class="info-tooltip-trigger" data-tooltip="Delegates all brand billing responsibilities to this agency, allowing them to collect platform transaction/subscription fees directly.">i</span>
-                        </label>
-                        <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 12px 0;">
-                            Enable to collect platform transaction/subscription fees directly into this agency's Stripe key.
-                        </p>
-                    </div>
+                <form @submit.prevent="saveAgency" style="display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 15px;">
+                    <div style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-right: 5px;">
+                        <div class="form-group">
+                            <label>Agency Name <span class="info-tooltip-trigger" data-tooltip="The user-facing title or organization name of the partner agency.">i</span></label>
+                            <input type="text" v-model="form.name" required placeholder="Roasted Growth Media" style="margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Agency ID (Slug) <span class="info-tooltip-trigger" data-tooltip="A unique URL-safe identifier for routing and API calls. Must be lowercase alphanumeric and hyphens.">i</span></label>
+                            <input type="text" v-model="form.id" :disabled="isEditing" required placeholder="roasted-growth" style="margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Email <span class="info-tooltip-trigger" data-tooltip="Primary administrative email address for commission payouts, support queries, and invoicing.">i</span></label>
+                            <input type="email" v-model="form.contact_email" required placeholder="billing@roastedgrowth.com" style="margin: 0;">
+                        </div>
+                        <div class="form-group">
+                            <label>Agency Margin Share (%) <span class="info-tooltip-trigger" data-tooltip="The percentage (e.g. 60%) of platform commission routed to the agency. The remaining goes to the platform.">i</span></label>
+                            <input type="number" step="0.1" min="0" max="100" v-model="form.margin_share_ratio" required placeholder="60" style="margin: 0;">
+                            <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 0 0;">
+                                Specifies the percentage of the platform take-rate commission routed to the Agency.
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label>Subscription Share (%) <span class="info-tooltip-trigger" data-tooltip="The percentage (e.g. 20%) of brand subscription fee payments routed to this agency. Set to 0 to disable subscription commission split.">i</span></label>
+                            <input type="number" step="0.1" min="0" max="100" v-model="form.subscription_share_ratio" required placeholder="20" style="margin: 0;">
+                            <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 0 0;">
+                                Specifies the percentage of the monthly subscription fee routed to the Agency. Never applies to pay-as-you-go/overage charges.
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label>Stripe Connected Account ID (Optional) <span class="info-tooltip-trigger" data-tooltip="Stripe Connect Account reference to automate real-time split payouts of transaction commissions.">i</span></label>
+                            <input type="text" v-model="form.stripe_connect_account_id" placeholder="acct_1x2y3z..." style="margin: 0;">
+                        </div>
+                        
+                        <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--accent);">
+                                <input type="checkbox" v-model="form.is_platform_biller" style="margin: 0;">
+                                ⚙️ Act as Platform Biller for Brands <span class="info-tooltip-trigger" data-tooltip="Delegates all brand billing responsibilities to this agency, allowing them to collect platform transaction/subscription fees directly.">i</span>
+                            </label>
+                            <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 12px 0;">
+                                Enable to collect platform transaction/subscription fees directly into this agency's Stripe key.
+                            </p>
+                        </div>
 
-                    <template v-if="form.is_platform_biller">
-                        <div class="form-group">
-                            <label>White-Label Brand Display Name <span class="info-tooltip-trigger" data-tooltip="The custom invoice builder brand name displayed to merchants on checkout invoices and billing panels.">i</span></label>
-                            <input type="text" v-model="form.billing_display_name" placeholder="Roasted Growth Invoicing" style="margin: 0;">
+                        <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: var(--warning);">
+                                <input type="checkbox" v-model="form.onboarding_stopped" style="margin: 0;">
+                                🚫 Stop New Brand Onboarding <span class="info-tooltip-trigger" data-tooltip="When enabled, no new store/brand accounts can be linked or associated to this agency. Their storefront access remains active for existing shops only.">i</span>
+                            </label>
+                            <p style="font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 12px 0;">
+                                Stop onboarding of new brands for this partner agency.
+                            </p>
                         </div>
-                        <div class="form-group">
-                            <label>White-Label Billing Support Email <span class="info-tooltip-trigger" data-tooltip="Email address shown to merchants for any billing questions, chargebacks, or support queries.">i</span></label>
-                            <input type="email" v-model="form.billing_support_email" placeholder="support@roastedgrowth.com" style="margin: 0;">
-                        </div>
-                        <div class="form-group">
-                            <label>Official Registered Billing Name <span class="info-tooltip-trigger" data-tooltip="Legally registered corporate entity name that will be displayed on official PDF invoice receipts.">i</span></label>
-                            <input type="text" v-model="form.billing_name" placeholder="Roasted Growth Media LTD" style="margin: 0;">
-                        </div>
-                        <div class="form-group">
-                            <label>Registered Billing Address <span class="info-tooltip-trigger" data-tooltip="Corporate mailing address printed on billing statements and tax records.">i</span></label>
-                            <textarea v-model="form.billing_address" placeholder="123 Growth Way, Suite 400, London, UK" style="margin: 0; min-height: 60px; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Registered VAT Number / Tax ID <span class="info-tooltip-trigger" data-tooltip="Tax registration number (e.g. VAT, EIN) printed on merchant invoicing statements.">i</span></label>
-                            <input type="text" v-model="form.billing_vat" placeholder="GB123456789" style="margin: 0;">
-                        </div>
-                        <div class="form-group">
-                            <label>Agency Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="The agency's own Stripe secret key (sk_live_...) used to directly capture custom subscription and transactions revenue.">i</span></label>
-                            <input type="password" v-model="form.stripe_secret_key" placeholder="sk_live_..." style="margin: 0;">
-                        </div>
-                        <div class="form-group">
-                            <label>Agency Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signature signing secret to safely verify transaction webhook notifications from Stripe to the platform.">i</span></label>
-                            <input type="password" v-model="form.stripe_webhook_secret" placeholder="whsec_..." style="margin: 0;">
-                        </div>
-                    </template>
+
+                        <template v-if="form.is_platform_biller">
+                            <div class="form-group">
+                                <label>White-Label Brand Display Name <span class="info-tooltip-trigger" data-tooltip="The custom invoice builder brand name displayed to merchants on checkout invoices and billing panels.">i</span></label>
+                                <input type="text" v-model="form.billing_display_name" placeholder="Roasted Growth Invoicing" style="margin: 0;">
+                            </div>
+                            <div class="form-group">
+                                <label>White-Label Billing Support Email <span class="info-tooltip-trigger" data-tooltip="Email address shown to merchants for any billing questions, chargebacks, or support queries.">i</span></label>
+                                <input type="email" v-model="form.billing_support_email" placeholder="support@roastedgrowth.com" style="margin: 0;">
+                            </div>
+                            <div class="form-group">
+                                <label>Official Registered Billing Name <span class="info-tooltip-trigger" data-tooltip="Legally registered corporate entity name that will be displayed on official PDF invoice receipts.">i</span></label>
+                                <input type="text" v-model="form.billing_name" placeholder="Roasted Growth Media LTD" style="margin: 0;">
+                            </div>
+                            <div class="form-group">
+                                <label>Registered Billing Address <span class="info-tooltip-trigger" data-tooltip="Corporate mailing address printed on billing statements and tax records.">i</span></label>
+                                <textarea v-model="form.billing_address" placeholder="123 Growth Way, Suite 400, London, UK" style="margin: 0; min-height: 60px; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Registered VAT Number / Tax ID <span class="info-tooltip-trigger" data-tooltip="Tax registration number (e.g. VAT, EIN) printed on merchant invoicing statements.">i</span></label>
+                                <input type="text" v-model="form.billing_vat" placeholder="GB123456789" style="margin: 0;">
+                            </div>
+                            <div class="form-group">
+                                <label>Agency Stripe Secret Key <span class="info-tooltip-trigger" data-tooltip="The agency's own Stripe secret key (sk_live_...) used to directly capture custom subscription and transactions revenue.">i</span></label>
+                                <input type="password" v-model="form.stripe_secret_key" placeholder="sk_live_..." style="margin: 0;">
+                            </div>
+                            <div class="form-group">
+                                <label>Agency Stripe Webhook Secret <span class="info-tooltip-trigger" data-tooltip="Webhook signature signing secret to safely verify transaction webhook notifications from Stripe to the platform.">i</span></label>
+                                <input type="password" v-model="form.stripe_webhook_secret" placeholder="whsec_..." style="margin: 0;">
+                            </div>
+                        </template>
+                    </div>
                     
-                    
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border); flex-shrink: 0;">
                         <button type="button" class="btn btn-secondary" @click="closeModal" style="margin: 0;">
                             Cancel
                         </button>
@@ -652,7 +678,8 @@ export default {
                 id: '',
                 name: '',
                 contact_email: '',
-                margin_share_ratio: 0.5000,
+                margin_share_ratio: 50.0,
+                subscription_share_ratio: 0.0,
                 stripe_connect_account_id: '',
                 is_platform_biller: false,
                 stripe_secret_key: '',
@@ -661,7 +688,8 @@ export default {
                 billing_support_email: '',
                 billing_name: '',
                 billing_address: '',
-                billing_vat: ''
+                billing_vat: '',
+                onboarding_stopped: false
             };
             this.isEditing = false;
             this.modalOpen = true;
@@ -671,7 +699,8 @@ export default {
                 id: agency.id,
                 name: agency.name,
                 contact_email: agency.contact_email,
-                margin_share_ratio: parseFloat(agency.margin_share_ratio),
+                margin_share_ratio: parseFloat((parseFloat(agency.margin_share_ratio || 0) * 100).toFixed(2)),
+                subscription_share_ratio: parseFloat((parseFloat(agency.subscription_share_ratio || 0) * 100).toFixed(2)),
                 stripe_connect_account_id: agency.stripe_connect_account_id || '',
                 is_platform_biller: !!agency.is_platform_biller,
                 stripe_secret_key: agency.stripe_secret_key || '',
@@ -680,7 +709,8 @@ export default {
                 billing_support_email: agency.billing_support_email || '',
                 billing_name: agency.billing_name || '',
                 billing_address: agency.billing_address || '',
-                billing_vat: agency.billing_vat || ''
+                billing_vat: agency.billing_vat || '',
+                onboarding_stopped: !!agency.onboarding_stopped
             };
             this.isEditing = true;
             this.modalOpen = true;
@@ -688,13 +718,21 @@ export default {
         async saveAgency() {
             try {
                 const token = localStorage.getItem('sc_admin_token');
+                
+                // Convert UI percentages back to DB decimal ratios (0 to 1)
+                const payload = {
+                    ...this.form,
+                    margin_share_ratio: parseFloat((parseFloat(this.form.margin_share_ratio || 0) / 100).toFixed(6)),
+                    subscription_share_ratio: parseFloat((parseFloat(this.form.subscription_share_ratio || 0) / 100).toFixed(6))
+                };
+
                 const res = await fetch(`${this.app.apiBaseUrl}/api/global/agencies`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify(this.form)
+                    body: JSON.stringify(payload)
                 });
                 if (res.ok) {
                     this.app.showNotification(this.isEditing ? 'Agency updated successfully.' : 'Partner agency registered successfully.');

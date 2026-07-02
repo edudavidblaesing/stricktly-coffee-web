@@ -689,6 +689,10 @@ export default {
                 this.planName = brand.ai_tier || 'Sandbox Trial';
                 this.planRecurringFee = '0.00';
             }
+
+            if (this.planName && typeof this.planName === 'string') {
+                this.planName = this.planName.charAt(0).toUpperCase() + this.planName.slice(1);
+            }
             
             try {
                 const headers = { 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}` };

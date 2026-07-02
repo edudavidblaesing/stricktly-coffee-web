@@ -684,17 +684,9 @@
                 </div>
             </header>
 
-            <div v-if="brands.length > 0 && activeView !== 'designer' && !isCampaignCreatorFullscreen && campaigns.length === 0" class="onboarding-walkthrough-bar" style="margin: 0 30px 20px 30px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 1.1rem;">🧭</span>
-                    <div>
-                        <strong style="font-size: 0.82rem; color: var(--accent); display: block; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2;">Brand Walkthrough Progress</strong>
-                        <span style="font-size: 0.76rem; color: var(--text-muted);">Complete these 4 configuration steps to launch your store campaigns.</span>
-                    </div>
-                </div>
-                
+            <div v-if="brands.length > 0 && activeView !== 'designer' && !isCampaignCreatorFullscreen && campaigns.length === 0" class="onboarding-walkthrough-bar" style="margin: 0 30px 15px 30px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                 <!-- Steps Indicators -->
-                <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
                     <!-- Step 1: Channel Setup -->
                     <div style="display: flex; align-items: center; gap: 6px; opacity: 1;">
                         <span style="background: #22c55e; color: #0d0e12; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">✓</span>
@@ -702,7 +694,7 @@
                     </div>
 
                     <!-- Line connector -->
-                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+                    <div style="width: 15px; height: 1px; background: var(--border);"></div>
 
                     <!-- Step 2: Brand Strategy -->
                     <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 2 ? 1 : 0.4 }">
@@ -713,7 +705,7 @@
                     </div>
 
                     <!-- Line connector -->
-                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+                    <div style="width: 15px; height: 1px; background: var(--border);"></div>
 
                     <!-- Step 3: Catalog Setup -->
                     <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 3 ? 1 : 0.4 }">
@@ -724,7 +716,7 @@
                     </div>
 
                     <!-- Line connector -->
-                    <div style="width: 20px; height: 1px; background: var(--border);"></div>
+                    <div style="width: 15px; height: 1px; background: var(--border);"></div>
 
                     <!-- Step 4: Ad Studio Campaign -->
                     <div style="display: flex; align-items: center; gap: 6px;" :style="{ opacity: onboardingStep >= 4 ? 1 : 0.4 }">
@@ -2472,19 +2464,29 @@ export default {
                         this.globalProtocolInterval = null;
                     }
                 },
+                async measureNetworkLatency() {
+                    try {
+                        const start = Date.now();
+                        await fetch(`${this.apiBaseUrl}/api/brand`);
+                        return Date.now() - start;
+                    } catch (e) {
+                        return 100; // fallback default
+                    }
+                },
                 async fetchAiEstimate(operation, inputText = '') {
                     try {
                         const res = await fetch(`${this.apiBaseUrl}/api/global/ai-estimator/predict`, {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${localStorage.getItem('sc_admin_token')}`,
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'x-brand-id': this.activeShopFilter
                             },
                             body: JSON.stringify({ operation, inputText })
                         });
                         if (res.ok) {
                             const data = await res.json();
-                            return data.estimates;
+                            return data; // returning full object to get estimated_duration_ms
                         }
                     } catch (e) {
                         console.error('[AI Estimator] Prediction failed:', e.message);
@@ -2862,7 +2864,12 @@ export default {
                     }
                     if (id === 'all') {
                         this.activeShopFilter = id;
-                        this.switchView('overview');
+                        const keepViews = ['settings', 'billing-subscription', 'agency-center', 'roles-permissions', 'help'];
+                        if (!keepViews.includes(this.activeView)) {
+                            this.switchView('overview');
+                        } else {
+                            this.updateURL();
+                        }
                         this.showNotification(`Workspace context switched.`);
                         return;
                     }
