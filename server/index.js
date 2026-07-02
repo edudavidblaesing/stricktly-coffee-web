@@ -14371,87 +14371,66 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       }
     } else if (action === 'generate-persona') {
       itemTitle = `Persona Portrait - ${req.body.personaName || 'Model'}`;
-      if (falKey) {
-        try {
-          const basePrompt = req.body.prompt || `Candid portrait photo of a model for persona: "${req.body.personaName || 'customer'}". Role: "${req.body.personaRole || ''}".`;
-          const genPrompt = `${basePrompt}, candid raw analog style portrait photo, detailed natural skin texture with visible pores, minor blemishes, natural skin details, subtle asymmetry, captured on 85mm portrait lens, f/1.8, warm film grain, soft natural side lighting, realistic catchlights in the eyes, lifelike relaxed expression, anatomically correct hands if visible, no airbrushing, no smooth CG skin, no beauty-filter look`;
-          // Canonical persona portraits are identity anchors for the whole campaign — render at
-          // maximum quality (flux-pro, full portrait resolution) and upscale for crisp faces.
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '3:4', safetyTolerance);
-          if (genUrl) {
-            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
-            console.log(`[AI Studio] Generated persona portrait via Fal.ai: ${mediaUrl}`);
-          }
-        } catch (falErr) {
-          console.error('[AI Studio] Fal.ai persona generation failed:', falErr);
-          throw falErr;
+      if (!falKey) {
+        throw new Error("Failed to generate persona portrait: Fal.ai API key is missing. Please configure your FAL_KEY environment variable.");
+      }
+      try {
+        const basePrompt = req.body.prompt || `Candid portrait photo of a model for persona: "${req.body.personaName || 'customer'}". Role: "${req.body.personaRole || ''}".`;
+        const genPrompt = `${basePrompt}, candid raw analog style portrait photo, detailed natural skin texture with visible pores, minor blemishes, natural skin details, subtle asymmetry, captured on 85mm portrait lens, f/1.8, warm film grain, soft natural side lighting, realistic catchlights in the eyes, lifelike relaxed expression, anatomically correct hands if visible, no airbrushing, no smooth CG skin, no beauty-filter look`;
+        const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '3:4', safetyTolerance);
+        if (!genUrl) {
+          throw new Error("Fal.ai backend returned an empty response.");
         }
-      } else {
-        const personaImages = [
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600',
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600',
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600',
-          'https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?q=80&w=600',
-          'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600'
-        ];
-        mediaUrl = personaImages[activeSeed % personaImages.length];
-        isSimulatedAsset = true;
-        itemTitle = `[Stock Placeholder] ${itemTitle}`;
+        mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
+        if (!mediaUrl) {
+          throw new Error("Fidelity Upscaler pass returned an empty response.");
+        }
+        console.log(`[AI Studio] Generated persona portrait via Fal.ai: ${mediaUrl}`);
+      } catch (falErr) {
+        console.error('[AI Studio] Fal.ai persona generation failed:', falErr);
+        throw new Error("Failed to generate persona portrait via Fal.ai: " + falErr.message);
       }
     } else if (action === 'generate-scenery') {
       itemTitle = `Scenery Backdrop - ${req.body.sceneryName || 'Setting'}`;
-      if (falKey) {
-        try {
-          const basePrompt = req.body.prompt || `Commercial background photography for setting: "${req.body.sceneryName || 'lifestyle room'}". Description: "${prompt || ''}". Realistic, high quality product backdrop, depth of field.`;
-          const genPrompt = `${basePrompt}, clean focus, architectural photography, shot on professional camera, detailed room background, realistic material textures, natural lighting, high dynamic range`;
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '16:9', safetyTolerance);
-          if (genUrl) {
-            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
-            console.log(`[AI Studio] Generated scenery backdrop via Fal.ai: ${mediaUrl}`);
-          }
-        } catch (falErr) {
-          console.error('[AI Studio] Fal.ai scenery generation failed:', falErr);
-          throw falErr;
+      if (!falKey) {
+        throw new Error("Failed to generate scenery backdrop: Fal.ai API key is missing. Please configure your FAL_KEY environment variable.");
+      }
+      try {
+        const basePrompt = req.body.prompt || `Commercial background photography for setting: "${req.body.sceneryName || 'lifestyle room'}". Description: "${prompt || ''}". Realistic, high quality product backdrop, depth of field.`;
+        const genPrompt = `${basePrompt}, clean focus, architectural photography, shot on professional camera, detailed room background, realistic material textures, natural lighting, high dynamic range`;
+        const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '16:9', safetyTolerance);
+        if (!genUrl) {
+          throw new Error("Fal.ai backend returned an empty response.");
         }
-      } else {
-        const sceneryImages = [
-          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600',
-          'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600',
-          'https://images.unsplash.com/photo-1581881067989-7e3eaf45f4f6?q=80&w=600',
-          'https://images.unsplash.com/photo-1498804103079-a6351b050096?q=80&w=600',
-          'https://images.unsplash.com/photo-1521017432531-fbd92d768814?q=80&w=600',
-          'https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=600'
-        ];
-        mediaUrl = sceneryImages[activeSeed % sceneryImages.length];
-        isSimulatedAsset = true;
-        itemTitle = `[Stock Placeholder] ${itemTitle}`;
+        mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
+        if (!mediaUrl) {
+          throw new Error("Fidelity Upscaler pass returned an empty response.");
+        }
+        console.log(`[AI Studio] Generated scenery backdrop via Fal.ai: ${mediaUrl}`);
+      } catch (falErr) {
+        console.error('[AI Studio] Fal.ai scenery generation failed:', falErr);
+        throw new Error("Failed to generate scenery backdrop via Fal.ai: " + falErr.message);
       }
     } else if (action === 'generate-object') {
       itemTitle = `Equipment/Object Asset - ${req.body.objectName || 'Asset'}`;
-      if (falKey) {
-        try {
-          const basePrompt = req.body.prompt || `Industrial design product shot of object: "${req.body.objectName || 'asset'}". Description: "${prompt || ''}".`;
-          const genPrompt = `${basePrompt}, clean studio background, studio soft lighting, commercial product catalog photography, shot on professional camera, crisp details, realistic material textures, high dynamic range`;
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '1:1', safetyTolerance);
-          if (genUrl) {
-            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
-            console.log(`[AI Studio] Generated object/equipment asset via Fal.ai: ${mediaUrl}`);
-          }
-        } catch (falErr) {
-          console.error('[AI Studio] Fal.ai object generation failed:', falErr);
-          throw falErr;
+      if (!falKey) {
+        throw new Error("Failed to generate equipment/object asset: Fal.ai API key is missing. Please configure your FAL_KEY environment variable.");
+      }
+      try {
+        const basePrompt = req.body.prompt || `Industrial design product shot of object: "${req.body.objectName || 'asset'}". Description: "${prompt || ''}".`;
+        const genPrompt = `${basePrompt}, clean studio background, studio soft lighting, commercial product catalog photography, shot on professional camera, crisp details, realistic material textures, high dynamic range`;
+        const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '1:1', safetyTolerance);
+        if (!genUrl) {
+          throw new Error("Fal.ai backend returned an empty response.");
         }
-      } else {
-        const objectImages = [
-          'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600',
-          'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600',
-          'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=600',
-          'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600'
-        ];
-        mediaUrl = objectImages[activeSeed % objectImages.length];
-        isSimulatedAsset = true;
-        itemTitle = `[Stock Placeholder] ${itemTitle}`;
+        mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
+        if (!mediaUrl) {
+          throw new Error("Fidelity Upscaler pass returned an empty response.");
+        }
+        console.log(`[AI Studio] Generated object/equipment asset via Fal.ai: ${mediaUrl}`);
+      } catch (falErr) {
+        console.error('[AI Studio] Fal.ai object generation failed:', falErr);
+        throw new Error("Failed to generate equipment/object asset via Fal.ai: " + falErr.message);
       }
     } else {
       // Image Actions (generate / refine)
@@ -14460,7 +14439,11 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       const { productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
       const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
 
-      if (falKey && !isCompositeRequest) {
+      if (!falKey) {
+        throw new Error("Failed to generate image: Fal.ai API key is missing. Please configure your FAL_KEY environment variable.");
+      }
+
+      if (!isCompositeRequest) {
         try {
           console.log(`[AI Studio] Generating main asset via Fal.ai with prompt: "${structuredPrompt}"`);
 
@@ -14507,67 +14490,15 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
 
           if (genUrl) {
             mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
+            if (!mediaUrl) {
+              throw new Error("Fidelity Upscaler pass returned an empty response.");
+            }
+          } else {
+            throw new Error("Fal.ai backend returned an empty response.");
           }
         } catch (falErr) {
           console.error('[AI Studio] Fal.ai main image generation failed:', falErr);
-          throw falErr;
-        }
-      } else {
-        // Unsplash Variation Pools
-        const beanImages = [
-          'https://images.unsplash.com/photo-1447933601403-0c6688de566e?q=80&w=600',
-          'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600',
-          'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?q=80&w=600',
-          'https://images.unsplash.com/photo-1580933187699-74d3d37e3d62?q=80&w=600'
-        ];
-        const latteImages = [
-          'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=600',
-          'https://images.unsplash.com/photo-1570968915860-54d5c301fc9f?q=80&w=600',
-          'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?q=80&w=600',
-          'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600'
-        ];
-        const cafeImages = [
-          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600',
-          'https://images.unsplash.com/photo-1498804103079-a6351b050096?q=80&w=600',
-          'https://images.unsplash.com/photo-1453614512568-c4024d13c247?q=80&w=600',
-          'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=600'
-        ];
-        const pourImages = [
-          'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600',
-          'https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=600',
-          'https://images.unsplash.com/photo-1506372023823-7424ac389471?q=80&w=600',
-          'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=600'
-        ];
-        const minimalistImages = [
-          'https://images.unsplash.com/photo-1507133750040-4a8f57021571?q=80&w=600',
-          'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?q=80&w=600',
-          'https://images.unsplash.com/photo-1512568400610-62da28bc8a13?q=80&w=600',
-          'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600'
-        ];
-        const defaultImages = [
-          'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=600',
-          'https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600',
-          'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=600',
-          'https://images.unsplash.com/photo-1508215885820-4585e56135c8?q=80&w=600'
-        ];
-
-        // Determine premium Unsplash image URL matching context using seed
-        if (lowercasePrompt.includes('bean') || lowercasePrompt.includes('roast') || lowercasePrompt.includes('ground')) {
-          mediaUrl = beanImages[activeSeed % beanImages.length];
-        } else if (lowercasePrompt.includes('latte') || lowercasePrompt.includes('milk') || lowercasePrompt.includes('art')) {
-          mediaUrl = latteImages[activeSeed % latteImages.length];
-        } else if (lowercasePrompt.includes('cafe') || lowercasePrompt.includes('shop') || lowercasePrompt.includes('store') || lowercasePrompt.includes('interior')) {
-          mediaUrl = cafeImages[activeSeed % cafeImages.length];
-        } else if (lowercasePrompt.includes('pour') || lowercasePrompt.includes('chemex') || lowercasePrompt.includes('filter')) {
-          mediaUrl = pourImages[activeSeed % pourImages.length];
-        } else if (lowercasePrompt.includes('minimalist') || lowercasePrompt.includes('cup') || lowercasePrompt.includes('clean')) {
-          mediaUrl = minimalistImages[activeSeed % minimalistImages.length];
-        } else {
-          mediaUrl = defaultImages[activeSeed % defaultImages.length];
-        }
-        if (!isCompositeRequest) {
-          isSimulatedAsset = true;
-          itemTitle = `[Stock Placeholder] ${itemTitle}`;
+          throw new Error("Failed to generate image via Fal.ai: " + falErr.message);
         }
       }
     }
@@ -14578,10 +14509,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
 
     let isComposited = false;
     let advancedPipelineExecuted = false;
-    const { productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
 
     if ((action === 'generate' || action === 'image') && falKey) {
-      const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
       if (isCompositeRequest) {
         try {
           const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
@@ -14605,9 +14534,12 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
             mediaUrl = result.url;
             advancedPipelineExecuted = result.advancedPipelineExecuted;
             console.log(`[AI Studio] Fal.ai generation succeeded: ${mediaUrl}`);
+          } else {
+            throw new Error("Fal.ai backend returned an empty response.");
           }
         } catch (falErr) {
-          console.error('[AI Studio] Fal.ai generation failed, falling back to Sharp/Unsplash:', falErr);
+          console.error('[AI Studio] Fal.ai generation failed:', falErr);
+          throw new Error("Failed to generate composite image via Fal.ai: " + falErr.message);
         }
       }
     }
@@ -14627,6 +14559,9 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     let complianceAudit = { passed: true, complianceScore: 1.0, violations: [], agentLogs: 'Compliance validation skipped.' };
 
     if (!isComposited) {
+      if (!mediaUrl || !mediaUrl.startsWith('http')) {
+        throw new Error("Failed to generate image: No valid media URL generated from backend.");
+      }
       try {
         const fetchRes = await fetch(mediaUrl);
         if (!fetchRes.ok) throw new Error(`Fetch error: ${fetchRes.statusText}`);
@@ -14638,14 +14573,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         }
         await fs.promises.writeFile(destPath, buffer);
       } catch (e) {
-        console.error('[AI Studio Fetch Error, falling back to local simulation]', e);
-        // Write a tiny 1x1 pixel black JPEG buffer to destPath to ensure a valid file exists and prevent S3 crash
-        const tinyJpg = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
-        try {
-          await fs.promises.writeFile(destPath, tinyJpg);
-        } catch (writeErr) {
-          console.error('[AI Studio Fallback Write Failure]', writeErr);
-        }
+        console.error('[AI Studio Fetch Error]', e);
+        throw new Error("Failed to download or process generated asset: " + e.message);
       }
     }
 
