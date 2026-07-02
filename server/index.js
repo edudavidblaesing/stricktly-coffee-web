@@ -14216,7 +14216,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
 
   try {
     const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
-    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance } = req.body;
+    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance, productId, personaName, sceneryName, actionDescription, backend, productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
     if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
     const falKey = process.env.FAL_KEY;
 
@@ -14262,7 +14262,6 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     }
 
     // 2. Resolve Product Visual DNA (if product mentioned in prompt or fallback to main product)
-    const { productId, personaName, sceneryName, actionDescription, backend } = req.body;
     const lowercasePrompt = (prompt || '').toLowerCase();
     
     let targetProduct = null;
@@ -14293,6 +14292,8 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     if (sceneryName && canvas.sceneries) {
       selectedScenery = canvas.sceneries.find(s => s.name === sceneryName);
     }
+
+    const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
 
     // 3. Assemble State-of-the-Art Adaptive Brand Prompt
     let structuredPrompt = prompt || '';
@@ -14558,9 +14559,6 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     } else {
       // Image Actions (generate / refine)
       itemTitle = targetProduct ? `AI Creative - ${targetProduct.title}` : 'AI Generated Creative';
-
-      const { productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
-      const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
 
       if (!falKey) {
         throw new Error("Failed to generate image: Fal.ai API key is missing. Please configure your FAL_KEY environment variable.");
