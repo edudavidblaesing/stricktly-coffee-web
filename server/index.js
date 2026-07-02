@@ -13750,8 +13750,13 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
   // rather than substituting an unrelated stock image (which put wrong products into ads).
   const resolvePublicUrl = (url) => {
     if (!url) return null;
-    if (url.startsWith('http') && !url.includes('localhost') && !url.includes('.local') && !url.includes('127.0.0.1') && !url.includes('postgres-db') && !url.includes('minio:9000')) {
-      return url;
+    let targetUrl = url;
+    if (targetUrl.startsWith('/') && apiBaseUrl) {
+      const base = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+      targetUrl = base + targetUrl;
+    }
+    if (targetUrl.startsWith('http') && !targetUrl.includes('localhost') && !targetUrl.includes('.local') && !targetUrl.includes('127.0.0.1') && !targetUrl.includes('postgres-db') && !targetUrl.includes('minio:9000')) {
+      return targetUrl;
     }
     return null;
   };
@@ -14093,6 +14098,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
   }
 
   try {
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`;
     const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance } = req.body;
     if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
     const falKey = process.env.FAL_KEY;
@@ -14447,8 +14453,19 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         try {
           console.log(`[AI Studio] Generating main asset via Fal.ai with prompt: "${structuredPrompt}"`);
 
-          const isPublicRef = (u) => !!(u && u.startsWith('http') && !u.includes('localhost') && !u.includes('127.0.0.1'));
-          const personaFaceRef = selectedPersona && isPublicRef(selectedPersona.image) ? selectedPersona.image : null;
+          const isPublicRef = (u) => {
+            if (!u) return null;
+            let target = u;
+            if (target.startsWith('/') && apiBaseUrl) {
+              const base = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+              target = base + target;
+            }
+            if (target.startsWith('http') && !target.includes('localhost') && !target.includes('127.0.0.1')) {
+              return target;
+            }
+            return null;
+          };
+          const personaFaceRef = selectedPersona ? isPublicRef(selectedPersona.image) : null;
           const brandContext = `${brand.name} — ${canvas.visual_direction || canvas.brand_voice || 'premium DTC brand'}`;
           const bestOf = Math.min(Math.max(parseInt(req.body.bestOf) || 1, 1), 3);
 
