@@ -3839,6 +3839,26 @@ async function verifyAdminToken(req, res, next) {
   }
 }
 
+// Helper to check if a user has access to a specific brand shop
+async function checkBrandAccess(user, brandId) {
+  if (!user) return false;
+  const role = user.role ? user.role.toLowerCase() : '';
+  if (role === 'superadmin' || role === 'admin') {
+    return true;
+  }
+  if (role === 'agency' && user.agency_id) {
+    try {
+      const brand = await getQuery('SELECT agency_id FROM brands WHERE id = $1', [brandId]);
+      if (brand && brand.agency_id === user.agency_id) {
+        return true;
+      }
+    } catch (e) {
+      console.error('[checkBrandAccess] Error checking brand agency:', e);
+    }
+  }
+  return user.brand_id === brandId;
+}
+
 // Retrieve orders for the active tenant brand (Warehouse dashboard context)
 app.get('/api/admin/orders', verifyAdminToken, async (req, res) => {
   const brandId = resolveBrandId(req);
@@ -5161,7 +5181,7 @@ app.post('/api/global/brands/:id/subscription/calculate-change', verifyAdminToke
   const brandId = req.params.id;
   const { target_tier, target_interval } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -5248,7 +5268,7 @@ app.post('/api/global/brands/:id/subscription/apply-change', verifyAdminToken, a
   const brandId = req.params.id;
   const { target_tier, target_interval } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -5611,15 +5631,8 @@ app.get('/api/global/billing/setup-complete', verifyAdminToken, async (req, res)
 // GET list of invoices for a brand
 app.get('/api/global/brands/:brandId/invoices', verifyAdminToken, async (req, res) => {
   const brandId = req.params.brandId;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
-    if (req.user.role === 'agency') {
-      const hasAccess = await getQuery('SELECT 1 FROM brands WHERE id = $1 AND agency_id = $2', [brandId, req.user.agency_id]);
-      if (!hasAccess) {
-        return res.status(403).json({ error: 'Permission denied. Agency does not manage this brand.' });
-      }
-    } else {
-      return res.status(403).json({ error: 'Permission denied.' });
-    }
+  if (!(await checkBrandAccess(req.user, brandId))) {
+    return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
   try {
@@ -5661,7 +5674,7 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
   const brandId = req.params.id;
   const { url, competitors, auto_find_competitors } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -6059,7 +6072,7 @@ Output the complete Markdown document directly. Write all ad copy and email temp
 app.post('/api/global/brands/:id/cancel-protocol', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -6084,7 +6097,7 @@ app.get('/api/global/ai-models', verifyAdminToken, (req, res) => {
 // GET Retrieve all manuscripts for a brand (metadata/thumbnails)
 app.get('/api/global/brands/:id/manuscripts', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   try {
@@ -6099,7 +6112,7 @@ app.get('/api/global/brands/:id/manuscripts', verifyAdminToken, async (req, res)
 app.get('/api/global/brands/:id/manuscripts/:manuscriptId', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const manuscriptId = req.params.manuscriptId;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   try {
@@ -6115,7 +6128,7 @@ app.get('/api/global/brands/:id/manuscripts/:manuscriptId', verifyAdminToken, as
 app.post('/api/global/brands/:id/manuscripts/:manuscriptId/activate', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const manuscriptId = req.params.manuscriptId;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   try {
@@ -6138,7 +6151,7 @@ app.post('/api/global/brands/:id/manuscripts/:manuscriptId/activate', verifyAdmi
 app.delete('/api/global/brands/:id/manuscripts/:manuscriptId', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const manuscriptId = req.params.manuscriptId;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   try {
@@ -6364,7 +6377,7 @@ Output ONLY a JSON object in the following format:
 // GET Brand Canvas
 app.get('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -6467,7 +6480,7 @@ app.get('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => {
 // POST Distill canvas from active strategy playbook manuscript
 app.post('/api/global/brands/:id/distill-canvas', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -6495,7 +6508,7 @@ app.post('/api/global/brands/:id/distill-canvas', verifyAdminToken, async (req, 
 app.post('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const { canvas } = req.body;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   try {
@@ -6510,7 +6523,7 @@ app.post('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => 
 app.post('/api/global/brands/:id/harvest-dna', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const { url } = req.body;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   if (!url) {
@@ -6650,7 +6663,7 @@ Ensure the output is 100% valid JSON. Do not return any other text or markdown w
 // POST Sync Guidelines Canvas back to Playbook Manuscript
 app.post('/api/global/brands/:id/sync-canvas-to-manuscript', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -6805,7 +6818,7 @@ CRITICAL RULES:
 app.post('/api/global/brands/:id/refine-canvas', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const { prompt } = req.body;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   if (!prompt) return res.status(400).json({ error: 'Refinement prompt is required.' });
@@ -6882,7 +6895,7 @@ Format:
 app.post('/api/global/brands/:id/generate-guideline-asset', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
   const { type, prompt, reference_assets } = req.body;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
   if (type !== 'persona' && type !== 'scenery' && type !== 'scene' && type !== 'audience' && type !== 'object') {
@@ -7120,7 +7133,7 @@ app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, 
   const brandId = req.params.id;
   const { url, competitors } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7347,7 +7360,7 @@ app.post('/api/global/brands/:id/ai-rewrite', verifyAdminToken, async (req, res)
   const brandId = req.params.id;
   const { text, field, tone } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7393,7 +7406,7 @@ app.post('/api/global/brands/:id/ai-generate-campaign', verifyAdminToken, async 
   const brandId = req.params.id;
   const { goal, selectedModel } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7459,7 +7472,7 @@ app.post('/api/global/brands/:id/ai-generate-creative-section', verifyAdminToken
   const brandId = req.params.id;
   const { direction, formatPreference, stylePreference } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7520,7 +7533,7 @@ app.post('/api/global/brands/:id/ai-translate', verifyAdminToken, async (req, re
   const brandId = req.params.id;
   const { text, targetLang, field } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7556,7 +7569,7 @@ app.post('/api/global/brands/:id/ai-translate-all', verifyAdminToken, async (req
   const brandId = req.params.id;
   const { targetLang } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7755,7 +7768,7 @@ const parseAtTags = parsePromptTags;
 app.post('/api/global/brands/:id/generate-ai-layout', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -7852,7 +7865,7 @@ app.post('/api/global/brands/:id/generate-ai-page', verifyAdminToken, async (req
   const brandId = req.params.id;
   const { prompt: userTopic, productId, selectedModel } = req.body;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -8036,7 +8049,7 @@ Return ONLY a JSON object representing the page structure and copy content:
 app.get('/api/global/brands/:id/ai-usage', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
 
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -12824,7 +12837,7 @@ app.delete('/api/global/marketing-campaigns/:id', verifyAdminToken, async (req, 
 // GET marketing audiences for a brand
 app.get('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -12967,7 +12980,7 @@ app.get('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) =
 // POST create/update marketing audience
 app.post('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
@@ -13000,7 +13013,7 @@ app.post('/api/global/brands/:id/audiences', verifyAdminToken, async (req, res) 
 // DELETE marketing audience
 app.delete('/api/global/brands/:id/audiences/:audienceId', verifyAdminToken, async (req, res) => {
   const brandId = req.params.id;
-  if (req.user.role !== 'superadmin' && req.user.brand_id !== brandId) {
+  if (!(await checkBrandAccess(req.user, brandId))) {
     return res.status(403).json({ error: 'Permission denied. Unauthorized brand operator.' });
   }
 
