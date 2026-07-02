@@ -13303,20 +13303,81 @@ Return ONLY JSON: {"score": 0.87, "reason": "one sentence"}`;
 }
 
 // Shared proportional layout so the composite overlay and the protective inpainting mask stay pixel-aligned
-function computeCompositeLayout(canvasW, canvasH) {
+function computeCompositeLayout(canvasW, canvasH, cameraLens = '', composition = '') {
+  const lens = (cameraLens || '').toLowerCase();
+  const comp = (composition || '').toLowerCase();
+
   const minDim = Math.min(canvasW, canvasH);
-  const productSize = Math.round(minDim * 0.42);
-  const personaSize = Math.round(minDim * 0.62);
+  let productSize = Math.round(minDim * 0.42);
+  let productLeft = Math.round(canvasW * 0.60);
+  let productTop = Math.round(canvasH * 0.52);
+
+  let personaSize = Math.round(minDim * 0.62);
+  let personaLeft = Math.round(canvasW * 0.06);
+  let personaTop = Math.round(canvasH * 0.16);
+
+  // 1. Adjust sizes based on Camera Lens (Optics/Scale)
+  if (lens.includes('macro') || comp.includes('macro') || comp.includes('close-up')) {
+    // Extreme close-up / Macro: Product is hero, very large
+    productSize = Math.round(minDim * 0.70);
+    productLeft = Math.round((canvasW - productSize) / 2);
+    productTop = Math.round((canvasH - productSize) / 2);
+
+    // Persona is zoomed in/out of focus
+    personaSize = Math.round(minDim * 0.85);
+    personaLeft = Math.round(canvasW * -0.10);
+    personaTop = Math.round(canvasH * 0.05);
+  } else if (lens.includes('wide-angle') || lens.includes('wide angle') || comp.includes('wide') || comp.includes('spacious')) {
+    // Wide-angle: spacious layout, elements are smaller to show environment
+    productSize = Math.round(minDim * 0.28);
+    productLeft = Math.round(canvasW * 0.65);
+    productTop = Math.round(canvasH * 0.60);
+
+    personaSize = Math.round(minDim * 0.45);
+    personaLeft = Math.round(canvasW * 0.10);
+    personaTop = Math.round(canvasH * 0.25);
+  }
+
+  // 2. Adjust placement/layout based on Composition
+  if (comp.includes('flat lay') || comp.includes('top-down')) {
+    // Top-down flat lay: product is centered, persona/hands coming from side
+    productSize = Math.round(minDim * 0.45);
+    productLeft = Math.round((canvasW - productSize) / 2);
+    productTop = Math.round((canvasH - productSize) / 2);
+
+    personaSize = Math.round(minDim * 0.55);
+    personaLeft = Math.round(canvasW * 0.02);
+    personaTop = Math.round(canvasH * 0.02);
+  } else if (comp.includes('low-angle') || comp.includes('heroic')) {
+    // Heroic low angle: product is low in frame and larger
+    productSize = Math.round(minDim * 0.52);
+    productLeft = Math.round((canvasW - productSize) / 2);
+    productTop = Math.round(canvasH * 0.40);
+
+    personaSize = Math.round(minDim * 0.65);
+    personaLeft = Math.round(canvasW * 0.05);
+    personaTop = Math.round(canvasH * 0.10);
+  } else if (comp.includes('three-quarter') || comp.includes('portrait')) {
+    // Standard three-quarter portrait
+    productSize = Math.round(minDim * 0.42);
+    productLeft = Math.round(canvasW * 0.58);
+    productTop = Math.round(canvasH * 0.50);
+
+    personaSize = Math.round(minDim * 0.62);
+    personaLeft = Math.round(canvasW * 0.08);
+    personaTop = Math.round(canvasH * 0.15);
+  }
+
   return {
     product: {
       size: productSize,
-      left: Math.round(canvasW * 0.60),
-      top: Math.round(canvasH * 0.52)
+      left: productLeft,
+      top: productTop
     },
     persona: {
       size: personaSize,
-      left: Math.round(canvasW * 0.06),
-      top: Math.round(canvasH * 0.16)
+      left: personaLeft,
+      top: personaTop
     }
   };
 }
@@ -13340,11 +13401,11 @@ async function fetchImageBufferForComposite(urlOrPath) {
   return null;
 }
 
-async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath, canvasSize = null) {
+async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath, canvasSize = null, cameraLens = '', composition = '') {
   try {
     const canvasW = (canvasSize && canvasSize.width) || 1152;
     const canvasH = (canvasSize && canvasSize.height) || 1152;
-    const layout = computeCompositeLayout(canvasW, canvasH);
+    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition);
 
     const bgBuffer = await fetchImageBufferForComposite(sceneryUrl);
     const personaBuffer = await fetchImageBufferForComposite(personaUrl);
@@ -13698,11 +13759,11 @@ async function signAndWatermarkImage(imageBuffer, metadata = {}) {
 // Protective inpainting mask: WHITE = regenerate (scene, persona blending, shadows),
 // BLACK = preserve pixels (the product). Slightly eroded so product edges get re-rendered
 // by the inpainter and blend seamlessly instead of showing a cutout seam.
-async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canvasSize = null) {
+async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canvasSize = null, cameraLens = '', composition = '') {
   try {
     const canvasW = (canvasSize && canvasSize.width) || 1152;
     const canvasH = (canvasSize && canvasSize.height) || 1152;
-    const layout = computeCompositeLayout(canvasW, canvasH);
+    const layout = computeCompositeLayout(canvasW, canvasH, cameraLens, composition);
 
     // Product silhouette (white shape on black tile), eroded ~2-3px via blur+high-threshold
     const productShape = await sharp(productBuffer)
@@ -13745,7 +13806,7 @@ async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canva
   }
 }
 
-async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl, seed, falKey, backend = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate', uploadDir = null, apiBaseUrl = null, brandId = null, userId = null, productSubject = null) {
+async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl, seed, falKey, backend = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate', uploadDir = null, apiBaseUrl = null, brandId = null, userId = null, productSubject = null, cameraLens = '', composition = '') {
   // Only publicly reachable URLs can be sent to Fal. If a reference is local-only we drop it
   // rather than substituting an unrelated stock image (which put wrong products into ads).
   const resolvePublicUrl = (url) => {
@@ -13826,7 +13887,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
 
       let productMask = null;
       if (productBuffer) {
-        localMaskFilename = await generateProtectiveMaskLocal(productBuffer, uploadDir, seed, resolvedSize);
+        localMaskFilename = await generateProtectiveMaskLocal(productBuffer, uploadDir, seed, resolvedSize, cameraLens, composition);
         if (localMaskFilename) {
           productMask = `${apiBaseUrl}/uploads/${localMaskFilename}`;
           console.log(`[Advanced Pipeline] Protective mask generated at: ${productMask}`);
@@ -13846,7 +13907,7 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
         // 3. Sharp composite overlay at the exact generation resolution (mask stays pixel-aligned)
         tempFilename = `temp_comp_${Date.now()}_${seed}.png`;
         const tempPath = path.join(uploadDir, tempFilename);
-        const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutout, resolvedProduct, tempPath, resolvedSize);
+        const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutout, resolvedProduct, tempPath, resolvedSize, cameraLens, composition);
 
         if (hasComposited) {
           const compositeUrl = `${apiBaseUrl}/uploads/${tempFilename}`;
@@ -14545,7 +14606,9 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
             apiBaseUrl,
             brandId,
             req.user?.id,
-            subjectDesc
+            subjectDesc,
+            cameraLens,
+            composition
           );
           if (result && result.url) {
             mediaUrl = result.url;
@@ -14568,7 +14631,9 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
           personaImageUrl,
           productImageUrl || (targetProduct ? targetProduct.image : null),
           destPath,
-          resolveGenerationSize(aspectRatio)
+          resolveGenerationSize(aspectRatio),
+          cameraLens,
+          composition
         );
       }
     }
