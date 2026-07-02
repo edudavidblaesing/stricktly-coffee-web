@@ -413,11 +413,11 @@
                         </div>
 
                         <!-- Generating Loader -->
-                        <div v-else-if="composerGenerating" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                        <div v-else-if="composerGenerating" class="skeleton-loader" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; z-index: 5; border-radius: 12px;">
                             <div style="width: 42px; height: 42px; border: 3px solid rgba(197, 160, 89, 0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <div>
+                            <div style="text-align: center;">
                                 <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--accent);">Synthesizing Asset...</h4>
-                                <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">
+                                <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">
                                     Compiling visual parameters and generating canvas...
                                 </p>
                             </div>
@@ -4214,5 +4214,18 @@ Fields based on type:
 #composerRichEditor:empty:before {
     content: attr(placeholder);
     color: var(--text-muted);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 </style>
