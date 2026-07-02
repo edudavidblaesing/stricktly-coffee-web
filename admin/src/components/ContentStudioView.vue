@@ -497,6 +497,23 @@
                         </label>
                     </div>
 
+                    <div style="margin: 0 0 15px 0; background: rgba(212, 178, 111, 0.05); border: 1px solid rgba(212, 178, 111, 0.25); border-radius: 6px; padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                            <span style="font-size: 0.76rem; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 4px;">
+                                🏆 Best-of-2 Quality Duel
+                            </span>
+                            <span style="font-size: 0.66rem; color: var(--text-muted); line-height: 1.3;">
+                                Renders 2 candidates with different seeds and an AI art director keeps the more realistic one. Doubles the generation cost.
+                            </span>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 44px; height: 22px; cursor: pointer; user-select: none;">
+                            <input type="checkbox" v-model="composerParams.bestOfTwo" style="opacity: 0; width: 0; height: 0;">
+                            <span :style="composerParams.bestOfTwo ? 'background-color: var(--accent);' : 'background-color: var(--border);'" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; transition: .3s; border-radius: 34px; display: flex; align-items: center; padding: 2px;">
+                                <span :style="composerParams.bestOfTwo ? 'transform: translateX(22px);' : 'transform: translateX(0);'" style="height: 18px; width: 18px; background-color: white; border-radius: 50%; transition: .3s; display: inline-block;"></span>
+                            </span>
+                        </label>
+                    </div>
+
                     <!-- Generation Controls -->
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button type="button" @click="generateComposerAsset" :disabled="composerGenerating" class="btn btn-accent" 
@@ -1301,7 +1318,7 @@ export default {
             composerParams: {
                 promptTemplate: 'Commercial advertising photography showcasing $Dusk & Haze Clump Crusher (WDT tool) in focus. Used by a @The Technical Enthusiast / Extraction Scientist. Set in a #The Logical Aesthetic.',
                 promptHtml: '',
-                backend: 'imagen',
+                backend: 'flux-pro',
                 format: 'image',
                 seed: '',
                 lockSeed: false,
@@ -1311,7 +1328,8 @@ export default {
                 aspectRatio: '1:1',
                 safetyTolerance: 'moderate',
                 previewLanguage: 'en',
-                optimizePrompt: false
+                optimizePrompt: true,
+                bestOfTwo: true
             },
             presetAnchors: [
                 { name: 'Warm Sunlit Wood', seed: 489218 },
@@ -1522,7 +1540,7 @@ export default {
                 if (propVal === 'expression') return persona.expression || '';
                 if (propVal === 'description') return persona.description || '';
                 
-                let pDesc = `Used by a ${persona.age || '25-35'} year old ${persona.role || 'barista'} model with ${persona.expression || 'focused'} expression, wearing ${persona.apparel || 'casual attire'}`;
+                let pDesc = `Used by a ${persona.age || '25-35'} year old ${persona.role || 'customer'} model with ${persona.expression || 'natural relaxed'} expression, wearing ${persona.apparel || 'brand-appropriate attire'}`;
                 if (persona.description) {
                     pDesc += ` (who embodies: "${persona.description}")`;
                 }
@@ -3179,6 +3197,7 @@ export default {
                         lightingStyle: this.composerParams.lightingStyle,
                         composition: this.composerParams.composition,
                         optimizePrompt: this.composerParams.optimizePrompt,
+                        bestOf: this.composerParams.bestOfTwo ? 2 : 1,
                         productImageUrl,
                         personaImageUrl,
                         sceneryImageUrl,
@@ -3274,6 +3293,7 @@ export default {
                         lightingStyle: this.composerParams.lightingStyle,
                         composition: this.composerParams.composition,
                         optimizePrompt: this.composerParams.optimizePrompt,
+                        bestOf: this.composerParams.bestOfTwo ? 2 : 1,
                         productImageUrl,
                         personaImageUrl,
                         sceneryImageUrl,

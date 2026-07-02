@@ -2972,7 +2972,7 @@ export default {
                 personaName: '',
                 sceneryName: '',
                 actionDescription: 'showcasing the product',
-                backend: 'imagen',
+                backend: 'flux-pro',
                 format: 'image'
             },
             composerGenerating: false,
@@ -4593,7 +4593,8 @@ export default {
                     body: JSON.stringify({
                         action: 'generate',
                         prompt: '', // Backend resolves everything adaptively from Brand Guidelines Canvas!
-                        backend: 'flux'
+                        backend: 'flux-pro',
+                        optimizePrompt: true
                     })
                 });
 
@@ -4648,7 +4649,8 @@ export default {
                         action: 'generate',
                         prompt: card.title || '',
                         productId: productId,
-                        backend: 'flux'
+                        backend: 'flux-pro',
+                        optimizePrompt: true
                     })
                 });
 

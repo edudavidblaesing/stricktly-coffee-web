@@ -62,6 +62,9 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - BRAND_STYLED_DASHBOARD_ENABLED=${BRAND_STYLED_DASHBOARD_ENABLED:-true}
       - FAL_KEY=${FAL_KEY}
+      - FAL_UPSCALE_ENDPOINT=${FAL_UPSCALE_ENDPOINT}
+      - FAL_IDENTITY_ENDPOINT=${FAL_IDENTITY_ENDPOINT}
+      - FAL_VIDEO_ENDPOINT=${FAL_VIDEO_ENDPOINT}
     volumes:
       - uploads_data:/app/uploads
     networks:

@@ -707,7 +707,7 @@ async function analyzeImageWithAi(filePath, mimeType) {
 
     const prompt = `Inspect this e-commerce image. Analyze the visual elements and provide:
 1. A clean, short, descriptive title.
-2. A detailed description of what is in the image (context, objects, baristas, environment, mood, etc.).
+2. A detailed description of what is in the image (context, objects, people, environment, mood, etc.).
 3. A list of 4-6 relevant descriptive keyword tags.
 4. Any text/OCR overlays detected in the image.
 
@@ -1047,6 +1047,98 @@ function extractCleanText(html) {
   }
 
   return metaDesc + textBlocks.join('\n').substring(0, 20000);
+}
+
+// Vision pass over the brand's ACTUAL imagery: extracts hero/lifestyle photos from the scraped
+// HTML and derives visual identity guidelines from pixels instead of guessing them from copywriting.
+async function analyzeBrandImageryFromHtml(html, origin) {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey || !html) return null;
+
+    const candidates = [];
+    const seen = new Set();
+    const pushCandidate = (rawUrl) => {
+      if (!rawUrl) return;
+      let u = rawUrl.trim();
+      if (u.startsWith('//')) u = `https:${u}`;
+      else if (u.startsWith('/')) u = `${origin}${u}`;
+      if (!u.startsWith('http')) return;
+      const lower = u.toLowerCase();
+      if (/\.(svg|ico|gif)(\?|$)/.test(lower)) return;
+      if (/(sprite|icon|favicon|logo|badge|flag|payment|pixel|tracking)/.test(lower)) return;
+      const key = u.split('?')[0];
+      if (seen.has(key)) return;
+      seen.add(key);
+      candidates.push(u);
+    };
+
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogMatch) pushCandidate(ogMatch[1]);
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+    let m;
+    while ((m = imgRegex.exec(html)) !== null && candidates.length < 8) {
+      pushCandidate(m[1]);
+    }
+
+    const imageParts = [];
+    for (const url of candidates) {
+      if (imageParts.length >= 3) break;
+      try {
+        const imgRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!imgRes.ok) continue;
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        if (buf.length < 8000 || buf.length > 4000000) continue; // skip icons and oversized files
+        const mime = url.toLowerCase().includes('.png') ? 'image/png' : (url.toLowerCase().includes('.webp') ? 'image/webp' : 'image/jpeg');
+        imageParts.push({ inlineData: { mimeType: mime, data: buf.toString('base64') } });
+      } catch (e) {}
+    }
+
+    if (imageParts.length === 0) return null;
+
+    console.log(`[Brand Imagery Vision] Analyzing ${imageParts.length} real brand images for visual identity...`);
+    const visionPrompt = `These are real photographs from a brand's own website. Derive the brand's visual identity from what you actually SEE — lighting, environments, photography style, and dominant colors.
+Return ONLY a JSON object:
+{
+  "lighting": "The lighting style visible in these photos (direction, softness, warmth)",
+  "environment_style": "The environments/settings visible in these photos",
+  "photography_style": "Camera/lens/grading style visible (focal impression, depth of field, color grading, film vs digital look)",
+  "color_themes": ["#hex1", "#hex2", "#hex3"],
+  "sceneries": [
+    {
+      "name": "Short name for a recurring setting seen in the photos",
+      "description": "The physical backdrop as observed",
+      "lighting": "Observed lighting for this setting",
+      "environment_style": "Observed environment style",
+      "photography_style": "Observed camera/optics style"
+    }
+  ],
+  "imagery_observations": "2-3 sentences on the overall visual language of these photos"
+}`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [...imageParts, { text: visionPrompt }] }],
+        generationConfig: { response_mime_type: 'application/json' }
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const parsed = parseRobustJson(data.candidates?.[0]?.content?.parts?.[0]?.text || '');
+      if (parsed && (parsed.lighting || parsed.photography_style)) {
+        console.log('[Brand Imagery Vision] Successfully derived visual identity from real brand photos.');
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('[Brand Imagery Vision] Vision analysis failed:', err.message);
+  }
+  return null;
 }
 
 // Scrape styles, favicon, and logo from a public Shopify store URL
@@ -1445,18 +1537,18 @@ async function scrapeShopifyBranding(shopUrl) {
           "brand_voice_copy": "A 2-3 paragraph detailed summary of the brand's story, tone of voice, values, and aesthetic direction.",
           "target_audience_demographics": {
             "age": "e.g. 25-45",
-            "role": "e.g. Specialty coffee hobbyists, home baristas",
+            "role": "The customer roles/hobbies THIS brand actually serves (derive from the website copy)",
             "expression": "e.g. focused, passionate, minimalist",
-            "apparel": "e.g. casual linen aprons, modern home wear",
+            "apparel": "Apparel styles fitting this brand's actual customers",
             "demographic_profile": "Detailed text describing target customer segments",
             "personas": [
               {
                 "name": "e.g. Sophia the Connoisseur",
                 "age": "28-35",
-                "role": "Third-wave specialty coffee enthusiast",
+                "role": "A category-specific enthusiast role derived from this brand's actual products",
                 "expression": "thoughtful, satisfied smile",
                 "apparel": "casual linen shirt",
-                "description": "Appreciates organic single-origin roasts and precise brewing ratios."
+                "description": "Their motivations and product affinity, grounded in this brand's actual category."
               }
             ]
           },
@@ -1490,6 +1582,26 @@ async function scrapeShopifyBranding(shopUrl) {
         }
       } catch (aiErr) {
         console.warn('[Branding Scraper AI Error]', aiErr.message);
+      }
+
+      // Ground the visual identity in the brand's REAL photography: the vision pass observes
+      // actual site imagery and overrides the text-guessed visual fields wherever it succeeds.
+      try {
+        const visionIdentity = await analyzeBrandImageryFromHtml(html, parsedUrl.origin);
+        if (visionIdentity) {
+          visualGuidelines = {
+            ...visualGuidelines,
+            lighting: visionIdentity.lighting || visualGuidelines.lighting,
+            environment_style: visionIdentity.environment_style || visualGuidelines.environment_style,
+            photography_style: visionIdentity.photography_style || visualGuidelines.photography_style,
+            color_themes: (visionIdentity.color_themes && visionIdentity.color_themes.length > 0) ? visionIdentity.color_themes : visualGuidelines.color_themes,
+            sceneries: (visionIdentity.sceneries && visionIdentity.sceneries.length > 0) ? visionIdentity.sceneries : visualGuidelines.sceneries,
+            imagery_observations: visionIdentity.imagery_observations || undefined,
+            derived_from_real_imagery: true
+          };
+        }
+      } catch (visionErr) {
+        console.warn('[Branding Scraper Vision Error]', visionErr.message);
       }
     }
 
@@ -1608,8 +1720,8 @@ async function scrapeShopifyBranding(shopUrl) {
 function extractProductDetailsFromHtml(html) {
   if (!html) {
     return {
-      short_desc: 'Premium coffee accessory.',
-      long_desc: 'Premium coffee accessory.',
+      short_desc: 'Premium quality product.',
+      long_desc: 'Premium quality product.',
       features: [],
       compatibility: []
     };
@@ -1685,8 +1797,8 @@ function extractProductDetailsFromHtml(html) {
     });
   }
 
-  const short_desc = paragraphs.slice(0, 2).join(' ').substring(0, 300) || 'Premium coffee accessory.';
-  const long_desc = paragraphs.join('\n\n') || 'Premium coffee accessory.';
+  const short_desc = paragraphs.slice(0, 2).join(' ').substring(0, 300) || 'Premium quality product.';
+  const long_desc = paragraphs.join('\n\n') || 'Premium quality product.';
 
   return {
     short_desc,
@@ -2739,7 +2851,7 @@ app.get('/api/brand', async (req, res) => {
 Optimize the following landing page headline and subheadline for a visitor coming from a marketing campaign.
 
 Brand Book guidelines:
-${req.brand.marketing_protocol || 'Default premium coffee brand.'}
+${req.brand.marketing_protocol || 'No brand book available — infer a premium, category-appropriate voice from the campaign context.'}
 
 Campaign Target Persona: ${campaign.target_persona || 'General audience'}
 Campaign Ad Copy context: ${campaign.ad_copy || ''}
@@ -2749,8 +2861,8 @@ Headline: ${campaign.headline || ''}
 Subheadline: ${campaign.subheadline || ''}
 
 Tailor the Headline and Subheadline to match the campaign's target persona:
-- If persona is @barista, use precise, scientific, temperature/extraction-oriented, technical language.
-- If persona is @curator, use design-oriented, aesthetic, minimalist, clean, tactile language.
+- If the persona is technically minded, use precise, data-oriented, specification-driven language.
+- If the persona is design-oriented, use aesthetic, minimalist, clean, tactile language.
 - Otherwise, keep it highly compelling and relevant to the campaign's ad copy.
 
 Return ONLY a JSON object matching this structure:
@@ -4805,7 +4917,7 @@ app.post('/api/global/brands', verifyAdminToken, async (req, res) => {
     const finalStatus = req.body.status || (existing ? existing.status : 'draft');
 
     const finalSegment = business_segment || (existing ? existing.business_segment : 'Food & Beverage');
-    const finalNiche = business_niche || (existing ? existing.business_niche : 'Specialty Coffee');
+    const finalNiche = business_niche || (existing ? existing.business_niche : 'Premium Retail');
     const finalSharing = share_performance_data !== undefined ? (share_performance_data === true || share_performance_data === 'true') : (existing ? existing.share_performance_data : true);
     const finalMetaPixelId = req.body.meta_pixel_id !== undefined ? req.body.meta_pixel_id : (existing && existing.meta_pixel_id ? existing.meta_pixel_id : `mock_pixel_${brandId}`);
     const finalGoogleAnalyticsId = req.body.google_analytics_id !== undefined ? req.body.google_analytics_id : (existing && existing.google_analytics_id ? existing.google_analytics_id : `mock_ga4_${brandId}`);
@@ -5590,8 +5702,33 @@ app.post('/api/global/brands/:id/generate-protocol', verifyAdminToken, async (re
           }
         }
 
-        const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
+        const products = await allQuery('SELECT title, description, price, image FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
         const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+
+        // Derive the real price segment from the catalog instead of assuming one
+        const catalogPrices = products.map(p => parseFloat(p.price)).filter(n => !isNaN(n) && n > 0);
+        const priceSegmentContext = catalogPrices.length
+          ? `€${Math.min(...catalogPrices).toFixed(0)} – €${Math.max(...catalogPrices).toFixed(0)} (derived from ${catalogPrices.length} catalog items)`
+          : 'Not derivable from catalog — infer from positioning';
+
+        // Feed the onboarding analysis forward instead of dropping it
+        const onboardingSections = [];
+        if (brand.brand_voice_copy) {
+          onboardingSections.push(`Onboarding Brand Voice Analysis:\n${brand.brand_voice_copy}`);
+        }
+        try {
+          const onboardingDemo = typeof brand.target_audience_demographics === 'string' ? JSON.parse(brand.target_audience_demographics) : brand.target_audience_demographics;
+          if (onboardingDemo && Object.keys(onboardingDemo).length > 0) {
+            onboardingSections.push(`Onboarding Audience Analysis (JSON):\n${JSON.stringify(onboardingDemo, null, 2)}`);
+          }
+        } catch (e) {}
+        try {
+          const onboardingVisual = typeof brand.visual_identity_guidelines === 'string' ? JSON.parse(brand.visual_identity_guidelines) : brand.visual_identity_guidelines;
+          if (onboardingVisual && Object.keys(onboardingVisual).length > 0) {
+            onboardingSections.push(`Onboarding Visual Identity Analysis (JSON):\n${JSON.stringify(onboardingVisual, null, 2)}`);
+          }
+        } catch (e) {}
+        const onboardingContext = onboardingSections.length > 0 ? onboardingSections.join('\n\n') : 'No onboarding analysis stored.';
 
         const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
 
@@ -5730,58 +5867,59 @@ Provide a step-by-step structural blueprint for a high-converting landing page. 
 [EXECUTION RULE]
 Output the complete Markdown document directly. Write all ad copy and email templates in ready-to-use, professional English. Do not explain your process, provide meta-commentary, or write conversational filler. Start directly with the first section header.`;
           } else {
-            prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist specializing in high-end consumer hardware, luxury lifestyle products, and precision-engineered gear.
-Your task is to analyze the raw storefront data, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
-To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on physical engineering, material integrity, and aesthetic value.
+            prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist. You adapt fully to the brand's actual industry and product category — never assume a vertical that the data does not support.
+Your task is to analyze the raw storefront data, onboarding analysis, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
+To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on craft, material integrity, and aesthetic value appropriate to this brand's actual category.
+CRITICAL GROUNDING RULE: Every claim, specification, persona trait, and competitor reference in your output must be grounded in the input data below or clearly framed as a strategic recommendation. Never invent product specifications, measurements, certifications, or collaborations that are not present in the data.
 
 [INPUT DATA]
 1. Brand Profile & Core Web Data
 •	Brand Name: ${brand.name}
 •	Website URL: ${targetUrl || 'Not available'}
-•	Primary Value Prop / Meta Description: Precision coffee tools for all barista levels, premium accessories.
-•	Scraped Web Content / Core Claims:
+•	Scraped Web Content / Core Claims (includes the site's own meta description when available):
 ${homepageText}
 
-2. Competitor Context & Market Positioning
-•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'Pullman, Normcore, Saint Anthony Industries'}
-•	Target Price Segment: Premium, high-end ($50 - $200+ USD accessories)
-•	Core Market Pain Points: Uneven extraction, channeling, cheap plastic tools, lack of setup aesthetic cohesion
+2. Prior Onboarding Analysis
+${onboardingContext}
+
+3. Competitor Context & Market Positioning
+•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'None identified — infer 2-3 likely competitor archetypes for this category and clearly mark them as inferred'}
+•	Observed Price Segment: ${priceSegmentContext}
+•	Core Market Pain Points: Derive these from the catalog, web claims and competitor context — do not assume a category.
 ${competitorTexts.length > 0 ? '\nCompetitor Scraping Context:\n' + competitorTexts.join('\n\n') : ''}
 
-3. Core Product Catalog Samples
+4. Core Product Catalog Samples
 ${catalogContext || 'No catalog items registered.'}
 
 [GENERATION INSTRUCTIONS & OUTLINES]
 Generate a thorough, structured, and complete manuscript in Markdown. You must execute every single section below in full detail, without shortcuts or placeholders.
 SECTION 1: Strategic Market Position & Product Architecture
-	1.	The Technical Narrative: Detail the technical position of the brand. Explain why the physical engineering details matter (e.g., how 1.1mm rigid steel prevents base flexing under 9 bar pressure, or how specific tolerances reduce flow channeling).
-	2.	Fluid Dynamics / Physical Modeling: Include a mathematical representation of the problem the product solves. Use a relevant scientific or physical formula in clean LaTeX format (e.g., Darcy's Law for fluid flow through porous media: $Q = \\frac{-k A \\Delta P}{\\mu L}$ to describe hydraulic flow uniformity, or Extraction Yield % equations).
-	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their exact physical specs, raw materials (e.g., 316-grade stainless steel, POM, vacuum-dyed birch), and price points.
+	1.	The Technical Narrative: Detail the technical/craft position of the brand. Explain why the physical product details matter for this category (materials, construction, formulation, fit, performance — whichever genuinely apply to these products).
+	2.	Physical / Scientific Modeling: If (and only if) the category has a genuine physical or scientific dimension, include one relevant formula in clean LaTeX format that models the problem the product solves. If the category has no honest scientific angle, replace this with a rigorous quality-and-craft framework instead — never force pseudo-science.
+	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their specs/attributes as evidenced in the catalog data, materials, and price points. Only list attributes present in the input data.
 SECTION 2: Multi-Segment Customer Personas
-Build 2 highly distinct consumer profiles based on buying psychological motivations:
-	1.	Persona A (The Technical Enthusiast): Focuses heavily on data, micro-tolerances, physical science, and repeatability. Detail their demographics, psychological triggers, and core friction points.
-	2.	Persona B (The Design Curator): Focuses heavily on kitchen aesthetics, tactile materials (wood, resin), and visual alignment with their living space. Detail their demographics, aesthetic triggers, and core friction points.
+Build 2-3 highly distinct consumer profiles based on buying psychological motivations grounded in the onboarding audience analysis and catalog. For each: demographics, psychological triggers, core friction points, and the product(s) they enter through. If the onboarding analysis already defines personas, refine and deepen those instead of replacing them.
 SECTION 3: Brand Voice Guidelines & Vocabulary Protocol
-	1.	Adjectives & Application: Define 4 voice adjectives that represent a premium, expert tone. Provide a copy example for each.
+	1.	Adjectives & Application: Define 4 voice adjectives that represent this brand's tone (grounded in the scraped copy and onboarding voice analysis). Provide a copy example for each.
 	2.	Controlled Vocabulary Matrix: Provide a clear table of:
-•	Approved Terminology (e.g., hydraulic uniformity, zero-compromise engineering, structural rigidity).
-•	Banned Terminology (e.g., cheap, budget-friendly, morning routine hack, game-changing, world's best).
+•	Approved Terminology (drawn from this brand's actual language and category).
+•	Banned Terminology (generic hype words plus any terms that clash with this brand's register).
 SECTION 4: Performance Ads Copywriting Framework
 Develop ad variations based on three psychological angles:
-	1.	Emotional (Tactile & Aesthetic Satisfaction): Focuses on materials, weight, and visual ritual.
-	2.	Logical (Data & Science): Focuses on eliminating channeling, extraction yield, and math.
-	3.	Utility (Workflow & Durability): Focuses on compatibility, cleaning, and long-term use.
+	1.	Emotional (Sensory & Aesthetic Satisfaction): Focuses on materials, feel, and the visual ritual of using the product.
+	2.	Logical (Data & Craft): Focuses on measurable quality, construction, and performance claims present in the data.
+	3.	Utility (Workflow & Durability): Focuses on compatibility, ease of use, care, and long-term value.
 For each angle, provide:
 •	One Cold Prospecting (TOFU) ad copy variation (Primary Text, Headline, Description).
 •	One Retargeting (MOFU/BOFU) ad copy variation (Primary Text, Headline, Description).
 •	Strict Copy Rule: Write descriptions and primary texts from an objective, premium third-person perspective using strong imperative calls-to-action. Do not use cheesy, spammy emojis.
 SECTION 5: Video & Image Creative Briefs (AI Generation Ready)
-	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues (e.g., the physical click of a calibrated tamper or metal locking).
-	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a marble countertop, warm side lighting, shallow depth of field, 85mm lens, high-end architectural digest aesthetic\").
+	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts featuring THIS brand's actual products. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues that fit this product category (material sounds, textures, satisfying product interactions).
+	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography of this brand's actual products. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a [category-appropriate surface], warm side lighting, shallow depth of field, 85mm lens, high-end editorial aesthetic\").
 SECTION 6: High-Converting Email Flows
 Provide raw, copy-pasteable email copy for:
-	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and precision. Step 2: The physical science behind a key product feature. Step 3: Elite collaboration or design standards. Include subject lines, preheaders, and button CTA text.
-	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving performance hesitation. Step 2: Technical sizing and machine compatibility checklist. Step 3: Upgrading setup visual styling.
+	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and craft. Step 2: The substance behind a key product feature (material, process, or science — whichever is honest for this category). Step 3: Design standards, provenance, or partnerships evidenced in the data. Include subject lines, preheaders, and button CTA text.
+	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving quality hesitation. Step 2: Fit/compatibility/usage validation checklist appropriate to this category. Step 3: Elevating the customer's lifestyle or setup with the product.
 SECTION 7: Landing Page Visual Architecture
 Provide a step-by-step structural blueprint for a high-converting landing page. Map out the exact visual containers, value statements, functional modules (e.g., an interactive compatibility sizing engine), and social proof blocks required to maximize conversion rates.
 [EXECUTION RULE]
@@ -5820,32 +5958,34 @@ Output the complete Markdown document directly. Write all ad copy and email temp
           console.warn('[AI Protocol Generator] Using default fallback template');
           generatedProtocol = `# Brand & Performance Marketing Manuscript for ${brand.name}
 
+> NOTE: This is a placeholder template generated without AI (no API key configured). Re-run strategy generation with an AI provider configured to produce a real, brand-grounded manuscript.
+
 ## 1. Brand Identity & Position
-* **Mission**: To deliver high-quality custom coffee products to home baristas and commercial operators.
-* **Value Proposition**: Premium workmanship, precise dimensions, and custom storefront experiences.
-* **USPs**: Modular builds, ergonomic styling, and seamless integration.
+* **Mission**: To deliver high-quality products to ${brand.name}'s core customers.
+* **Value Proposition**: Premium workmanship and a curated customer experience.
+* **USPs**: ${catalogContext ? 'Derived from catalog: ' + products.slice(0, 3).map(p => p.title).join(', ') : 'Define based on the product catalog.'}
 
 ## 2. Target Audience Profile
-* **Persona 1 (Home Barista Enthusiast)**: Demographics: 25-45, tech-savvy. Values quality extraction.
-* **Persona 2 (Commercial Barista/Cafe Owner)**: Demographics: 30-55. Values durability and flow consistency.
+* **Persona 1 (The Quality Seeker)**: Demographics: 25-45. Values craftsmanship and measurable quality.
+* **Persona 2 (The Design Curator)**: Demographics: 30-55. Values aesthetics and premium materials.
 
 ## 3. Marketing Voice & Tone Guidelines
-* **Tone**: Professional, technical, premium, passionate.
-* **Approved Terms**: "Precision extraction", "ergonomic control", "micro-lot grade".
+* **Tone**: Professional, premium, confident.
+* **Approved Terms**: "Craftsmanship", "precision", "premium materials".
 * **Banned Terms**: "Cheap", "average", "bargain".
 
 ## 4. Competitor & Market Positioning
-* **Competitors**: Barista Hustle, Pullman, Saint Anthony Industries.
-* **Differentiators**: Unified merchant tooling, customizable storefront branding, direct-to-consumer simulator options.
+* **Competitors**: ${compUrls.length > 0 ? compUrls.join(', ') : 'To be researched.'}
+* **Differentiators**: Unified merchant tooling, customizable storefront branding, direct-to-consumer experience.
 
 ## 5. Performance Ads Framework
-* **Logical Hook**: "Upgrade your shower screen to achieve 22% higher extraction consistency in every single shot."
-* **Emotional Hook**: "Serve coffee exactly the way you intended it. Clean, precise, and beautiful."
+* **Logical Hook**: Lead with a measurable quality claim from the catalog.
+* **Emotional Hook**: Lead with the sensory and aesthetic experience of owning the product.
 
 ## 6. Marketing Campaign Manuscripts
 ### Welcome Email (Step 1)
-* **Subject**: Welcome to the ${brand.name} Family! ☕
-* **Body**: Thank you for choosing premium brewing gears. Use code WELCOME10 for 10% off your first order!`;
+* **Subject**: Welcome to the ${brand.name} Family!
+* **Body**: Thank you for choosing ${brand.name}. Use code WELCOME10 for 10% off your first order!`;
         }
 
         let summary = '';
@@ -6042,31 +6182,31 @@ Return ONLY a JSON object in this format:
       "description": "Core psychological values and motivations",
       "hooks": ["Targeted campaign hook/copy brief"],
       "age": "e.g. 25-35",
-      "role": "e.g. home barista, technical roaster",
+      "role": "A role/hobby grounded in THIS brand's actual category (from the manuscript)",
       "expression": "e.g. welcoming smile, focused",
-      "apparel": "e.g. casual linen shirt, denim apron"
+      "apparel": "e.g. casual linen shirt, tailored workwear"
     }
   ],
   "sceneries": [
     {
       "name": "Scenery Setting Name",
-      "description": "Photographic scene backdrop description",
+      "description": "Photographic scene backdrop description matching this brand's world",
       "lighting": "e.g. natural soft side light, golden hour sunbeams",
-      "environment_style": "e.g. modern concrete countertop, minimal cafe shop",
+      "environment_style": "e.g. modern concrete countertop, bright retail studio",
       "photography_style": "e.g. 35mm film style, warm color palette, soft bokeh, f/1.8 aperture"
     }
   ],
   "scenes": [
     {
-      "name": "Action Name (e.g. Crema Extraction)",
-      "description": "Specific action/doing happening (e.g. rich espresso crema extracting uniformly from a bottomless portafilter)",
+      "name": "Action Name describing a signature product moment for this brand",
+      "description": "Specific action/doing happening with this brand's actual product in use",
       "composition": "Focus or composition layout (e.g. macro close-up, rule of thirds)"
     }
   ],
   "objects": [
     {
-      "name": "Object/Equipment Name (e.g. Matte-Black Espresso Machine)",
-      "description": "Physical properties, material, and visual details of the object/prop (e.g. double-boiler commercial espresso machine, matte-black powder coated steel, dual wood-accented paddles)",
+      "name": "Object/Equipment Name (a hero prop from this brand's actual category)",
+      "description": "Physical properties, material, and visual details of the object/prop",
       "branding": "Branding style (e.g. debossed minimalist brand logo on the side panel)"
     }
   ],
@@ -6089,6 +6229,7 @@ async function generateBrandThemeSettings(brandId, brandName, canvas, products, 
   const targetModel = getTargetModel(aiTier || 'professional');
 
   const catalogContext = (products || []).map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
+  const productImageList = (products || []).filter(p => p.image && String(p.image).startsWith('http')).slice(0, 8).map(p => `- ${p.title}: ${p.image}`).join('\n');
 
   const prompt = `You are a professional web designer and UX copywriter. Based on the following Brand Identity Canvas and Product Catalog, generate the complete, high-quality, and high-converting storefront layout sections, landing pages, and styling options.
 
@@ -6099,16 +6240,14 @@ ${JSON.stringify(canvas, null, 2)}
 Product Catalog:
 ${catalogContext}
 
+Real Brand Product Images (PREFER these for hero and landing page imagery — they are the brand's own photography):
+${productImageList || 'None available.'}
+
 IMPORTANT INSTRUCTIONS:
-1. Ensure the generated design is tailored to the brand's niche (specialty coffee, premium homeware, luxury accessories, etc.) based on its products and canvas.
-2. Select appropriate, high-quality Unsplash image URLs for the hero section and landing pages from the following curated list (or similar high-quality ones that exist):
-   - Espresso/Barista: https://images.unsplash.com/photo-1507133750040-4a8f57021571?q=80&w=1200
-   - Modern Coffee Shop: https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1200
-   - Coffee Brewing Equipment: https://images.unsplash.com/photo-1442512595331-e89e73853f31?q=80&w=1200
-   - Pour-over Coffee: https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1200
-   - Coffee beans roasting: https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=1200
-   - Kitchen counter: https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=1200
+1. Ensure the generated design is tailored to the brand's actual niche based on its products and canvas — never assume a vertical the data does not support.
+2. For hero_img and landing page imagery, ALWAYS prefer the real brand product image URLs listed above. Only if none are available, fall back to a generic premium lifestyle image:
    - Premium lifestyle: https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1200
+   - Kitchen counter: https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=1200
 3. Ensure the colors (primary_color, secondary_color, bg_color, text_color, button_text_color, header_bg_color) are CONTRAST-SAFE and match the brand's aesthetic:
    - For dark themes, ensure text_color is very light (e.g. #f3f4f3) and bg_color is dark (e.g. #0b0d0c).
    - For light themes, ensure text_color is dark (e.g. #111111) and bg_color is white/light (e.g. #ffffff).
@@ -6130,8 +6269,8 @@ Output ONLY a JSON object in the following format:
   "text_hero_headline": "Headline for primary static layout",
   "text_hero_subheadline": "Subheadline for primary static layout",
   "text_hero_cta": "SHOP NOW",
-  "text_404_headline": "Lost in the grind?",
-  "text_404_subheadline": "The page you are looking for has evaporated. Let's get you back to fresh coffee.",
+  "text_404_headline": "A 404 headline in this brand's voice",
+  "text_404_subheadline": "A witty on-brand 404 subheadline guiding the visitor back to the catalog",
   "text_404_cta": "Back to Shop",
   "sections": [
     {
@@ -6177,7 +6316,7 @@ Output ONLY a JSON object in the following format:
       "active": true,
       "settings": {
         "title": "Video section title",
-        "video_url": "https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4",
+        "video_url": "A stock video URL genuinely matching this brand's niche (omit this section if none fits)",
         "autoplay": true,
         "loop": true
       }
@@ -6256,56 +6395,56 @@ app.get('/api/global/brands/:id/canvas', verifyAdminToken, async (req, res) => {
       };
     }
 
-    // Seed default personas if empty
+    // Seed neutral default personas if empty (category-agnostic — replaced once strategy generation runs)
     if (!canvas.personas || canvas.personas.length === 0) {
       canvas.personas = [
         {
-          name: "Sophia the Barista",
+          name: "Sophia the Quality Seeker",
           age: "26",
-          role: "Professional Barista / Specialty Coffee Roaster",
+          role: "Discerning Premium Customer",
           expression: "friendly welcoming smile",
-          apparel: "dark denim apron over a white tee",
-          description: "Passionate about uniform extraction, pouring latte art, and organic single-origin coffee beans."
+          apparel: "clean smart-casual outfit",
+          description: "Researches products carefully and values measurable quality, craftsmanship, and honest materials."
         },
         {
-          name: "Alex the Tech Developer",
+          name: "Alex the Everyday Professional",
           age: "32",
-          role: "Software Developer & Home Brew Enthusiast",
+          role: "Busy Professional & Enthusiast Customer",
           expression: "focused and productive",
           apparel: "casual neutral knit sweater",
-          description: "Enjoys drinking clean pour-over coffee while working at a modern wood desk next to a bright window."
+          description: "Integrates well-designed products into a productive daily routine at home and at work."
         },
         {
-          name: "Marcus the Design Architect",
+          name: "Marcus the Design Curator",
           age: "45",
           role: "Aesthetic Connoisseur & Design Architect",
           expression: "sophisticated and relaxed",
           apparel: "dark gray linen shirt",
-          description: "Demands premium materials, precise mechanical design, and high-fidelity espresso gear."
+          description: "Demands premium materials, precise design, and products that elevate a curated living space."
         }
       ];
     }
 
-    // Seed default sceneries if empty
+    // Seed neutral default sceneries if empty
     if (!canvas.sceneries || canvas.sceneries.length === 0) {
       canvas.sceneries = [
         {
-          name: "Morning Sunlit Kitchen Counter",
-          description: "Modern minimalist white marble kitchen counter with morning sunbeams casting soft diagonal window shadows.",
+          name: "Morning Sunlit Counter",
+          description: "Modern minimalist white marble counter with morning sunbeams casting soft diagonal window shadows.",
           lighting: "natural soft warm morning side-light",
-          environment_style: "minimalist high-end kitchen",
+          environment_style: "minimalist high-end interior",
           photography_style: "35mm camera, warm color tones, soft bokeh"
         },
         {
-          name: "Cozy Concrete Cafe Loft",
-          description: "Industrial concrete coffee bar corner with a high-end chrome espresso machine in the soft background.",
+          name: "Industrial Concrete Studio",
+          description: "Clean industrial concrete surface and wall corner with soft architectural background depth.",
           lighting: "diffused cool window daylight",
-          environment_style: "urban concrete loft cafe",
+          environment_style: "urban concrete loft studio",
           photography_style: "50mm lens, sharp details, medium contrast"
         },
         {
           name: "Moody Rustic Wooden Desk",
-          description: "Dark rustic oak wooden table backdrop with espresso beans scattered artfully around the surface.",
+          description: "Dark rustic oak wooden table backdrop with subtle styled props matching the brand's category.",
           lighting: "warm glowing side lamp light with deep shadows",
           environment_style: "cozy dim study, moody atmosphere",
           photography_style: "macro lens style, rich deep colors, high contrast, dramatic shadows"
@@ -6422,7 +6561,7 @@ Return ONLY a valid JSON object matching the following structure:
   "corporateName": "Extracted corporate name",
   "industrySector": "Niche/Industry",
   "palette": {
-    "primaryHex": "Preferred brand hex color matching palette (default to dark/coffee color if not clear, e.g. #2C3E50)",
+    "primaryHex": "Preferred brand hex color matching palette (default to a neutral dark tone if not clear, e.g. #2C3E50)",
     "secondaryHex": "Preferred secondary brand hex",
     "accentHex": "Accent brand hex",
     "allowedGradients": [{"start": "#XXXXXX", "end": "#YYYYYY"}]
@@ -6762,7 +6901,7 @@ app.post('/api/global/brands/:id/generate-guideline-asset', verifyAdminToken, as
       geminiPrompt = `You are a DTC brand strategist. Generate a new high-conversion target audience buyer persona for this brand in JSON format.
 The brand guidelines parameters are:
 Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
-Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Product Architecture: ${canvas.product_architecture || "The brand's core premium products"}
 Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
 
       if (prompt) {
@@ -6778,7 +6917,7 @@ JSON Format:
   "name": "A catchy descriptive name for this archetype (e.g. The Extraction Scientist)",
   "age": "Target age range (e.g. 28-45)",
   "gender": "Their gender (e.g. female, male, non-binary)",
-  "role": "Their occupation or hobby role (e.g. data-driven home barista)",
+  "role": "Their occupation or hobby role, grounded in this brand's actual category",
   "apparel": "What they typically wear in photos (e.g. clean linen shirt)",
   "expression": "Their facial expression (e.g. focused expression)",
   "description": "Short description of their lifestyle, motivations, and details (2-3 sentences)."
@@ -6787,7 +6926,7 @@ JSON Format:
       geminiPrompt = `You are a DTC photographic director. Generate a new high-conversion photographic setting / scenery backdrop for this brand in JSON format.
 The brand guidelines parameters are:
 Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
-Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Product Architecture: ${canvas.product_architecture || "The brand's core premium products"}
 Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
 
       if (prompt) {
@@ -6809,7 +6948,7 @@ JSON Format:
       geminiPrompt = `You are a DTC photographic director. Generate a new high-conversion standard creative scene (action/doing/composition) for this brand in JSON format.
 The brand guidelines parameters are:
 Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
-Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Product Architecture: ${canvas.product_architecture || "The brand's core premium products"}
 Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
 
       if (prompt) {
@@ -6822,15 +6961,15 @@ Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest 
       geminiPrompt += `\nReturn ONLY a JSON object representing the scene with the following keys. Do NOT wrap in markdown code blocks.
 JSON Format:
 {
-  "name": "A short catchy name for the scene (e.g. Crema Flow or WDT Fluffing)",
-  "description": "The visual action / doing description (e.g. A barista pouring thick, rich espresso crema into a ceramic cup)",
+  "name": "A short catchy name for a signature product moment in this brand's category",
+  "description": "The visual action / doing description featuring this brand's actual product in use",
   "composition": "The photographic framing and focus style (e.g. Extreme close-up macro, shallow depth of field)"
 }`;
     } else if (type === 'object') {
       geminiPrompt = `You are a DTC brand strategist. Generate a brand asset / object / equipment item for this brand in JSON format.
 The brand guidelines parameters are:
 Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
-Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Product Architecture: ${canvas.product_architecture || "The brand's core premium products"}
 Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
 
       if (prompt) {
@@ -6843,15 +6982,15 @@ Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest 
       geminiPrompt += `\nReturn ONLY a JSON object representing the object/equipment with the following keys. Do NOT wrap in markdown code blocks.
 JSON Format:
 {
-  "name": "A catchy descriptive name for this machine/prop (e.g. Matte-Black Precision Espresso Machine)",
-  "description": "Details of materials, colors, texture, shape, and parts (e.g. Premium double-boiler espresso machine with wood trim, matte-black steel finish, dual pressure dials)",
+  "name": "A catchy descriptive name for this machine/prop from this brand's actual category",
+  "description": "Details of materials, colors, texture, shape, and parts",
   "branding": "Branding style on the machine (e.g. debossed minimalist brand logo on the side panel)"
 }`;
     } else {
       geminiPrompt = `You are a DTC brand strategist. Generate a new target audience customer segment for this brand in JSON format.
 The brand guidelines parameters are:
 Brand Voice: ${canvas.brand_voice || 'Premium clinical style'}
-Product Architecture: ${canvas.product_architecture || 'High-end designer coffee accessories'}
+Product Architecture: ${canvas.product_architecture || "The brand's core premium products"}
 Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest photography'}\n\n`;
 
       if (prompt) {
@@ -6864,11 +7003,11 @@ Visual Direction: ${canvas.visual_direction || 'Minimalist architectural digest 
       geminiPrompt += `\nReturn ONLY a JSON object representing the target audience segment with the following keys. Do NOT wrap in markdown code blocks.
 JSON Format:
 {
-  "name": "A descriptive segment name (e.g. Third-Wave Connoisseurs)",
-  "description": "2-3 sentences explaining their buying behaviors, coffee affinity, and demographic preferences.",
+  "name": "A descriptive segment name grounded in this brand's actual category",
+  "description": "2-3 sentences explaining their buying behaviors, category affinity, and demographic preferences.",
   "rules": {
     "total_spent_min": 100,
-    "coffee_frequency": "daily",
+    "purchase_frequency": "monthly",
     "design_preference": "minimalist"
   }
 }`;
@@ -6890,8 +7029,8 @@ JSON Format:
     if (type === 'persona') {
       const firstNames = ['Ethan', 'Sophia', 'Marcus', 'Olivia', 'Julian', 'Clara', 'Adrian', 'Elena', 'Lucas', 'Nora'];
       const lastNames = ['Vance', 'Sterling', 'Gale', 'Rowe', 'Cove', 'Hale', 'Thorne', 'Beck', 'Devereux', 'Aris'];
-      const roles = ['Gourmet home barista', 'Design-conscious professional', 'Specialty coffee roaster', 'Minimalist lifestyle enthusiast', 'Tech-industry creative'];
-      const apparels = ['Structured cotton shirt', 'Clean linen overshirt', 'Monochromatic wool sweater', 'Minimalist apron over tee', 'Cozy cashmere knitwear'];
+      const roles = ['Discerning quality seeker', 'Design-conscious professional', 'Dedicated category enthusiast', 'Minimalist lifestyle enthusiast', 'Tech-industry creative'];
+      const apparels = ['Structured cotton shirt', 'Clean linen overshirt', 'Monochromatic wool sweater', 'Smart-casual layered outfit', 'Cozy cashmere knitwear'];
       const expressions = ['focused', 'serene', 'contemplative', 'warm welcoming smile', 'curious observation'];
 
       const randomName = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
@@ -6900,7 +7039,7 @@ JSON Format:
       const randomApparel = apparels[Math.floor(Math.random() * apparels.length)];
       const randomExpression = expressions[Math.floor(Math.random() * expressions.length)];
 
-      let description = `A detail-oriented individual focused on aesthetics and precision. Enjoys integrating specialty coffee rituals into a clean, modern daily routine.`;
+      let description = `A detail-oriented individual focused on aesthetics and precision. Enjoys integrating premium products into a clean, modern daily routine.`;
 
       // If user prompted for a specific name/feature, parse it in description!
       if (prompt) {
@@ -6920,8 +7059,8 @@ JSON Format:
         description: description
       };
     } else if (type === 'scenery') {
-      const settings = ['Minimalist Kitchen Loft', 'Bright Scandinavian Cafe Corner', 'Industrial Concrete Countertop', 'Mid-Century Wooden Credenza', 'Sunlit Modern Glasshouse Studio'];
-      const decors = ['white marble kitchen surface with warm sunlight', 'textured gray stucco wall with soft window shadow', 'warm sunlit oak breakfast bar with micro-pottery', 'matte black slate counter with brass details', 'cozy brick hearth background with concrete pour-over station'];
+      const settings = ['Minimalist Interior Loft', 'Bright Scandinavian Studio Corner', 'Industrial Concrete Countertop', 'Mid-Century Wooden Credenza', 'Sunlit Modern Glasshouse Studio'];
+      const decors = ['white marble surface with warm sunlight', 'textured gray stucco wall with soft window shadow', 'warm sunlit oak sideboard with subtle styled props', 'matte black slate counter with brass details', 'cozy brick hearth background with soft styled staging'];
       const lightings = ['warm morning side-light', 'soft diffused golden hour glow', 'direct moody window slit light', 'bright airy natural ambient lighting', 'cinematic warm rim-lighting'];
       const photogs = ['35mm cinematic medium lens, f/1.8 soft background blur', '50mm prime lens focus, high contrast, clean angles', 'analog film texture, warm muted color palette', 'macro lens close-up with shallow depth-of-field'];
 
@@ -6941,13 +7080,13 @@ JSON Format:
         photography_style: photogs[Math.floor(Math.random() * photogs.length)]
       };
     } else {
-      const names = ['Third-Wave Connoisseurs', 'Office Espresso Geeks', 'Weekend Latte Artisans', 'Eco-Minded Beans Buyers', 'Design-Driven Coffee Lovers'];
+      const names = ['Premium Connoisseurs', 'Busy Professionals', 'Weekend Hobbyists', 'Eco-Minded Buyers', 'Design-Driven Shoppers'];
       const descriptions = [
-        'Premium customer segment focusing on origin traceabilities, single-origin roasts, and precision brew gears.',
-        'High-volume corporate operators and home-office remote workers prioritizing convenience, speed, and premium taste.',
-        'Hobbyists focusing on aesthetic latte arts, milk texturings, and displaying visual cafe setups on social media.',
-        'Sustainability focused demographic looking for compostable packaging, fair-trade roasts, and organic origins.',
-        'Design-first demographic purchasing visually striking coffee gear to display in high-end architect-designed kitchens.'
+        'Premium customer segment focusing on provenance, craftsmanship, and top-grade materials.',
+        'High-volume professionals and home-office remote workers prioritizing convenience, speed, and premium quality.',
+        'Hobbyists focusing on aesthetics, technique, and sharing their visually curated setups on social media.',
+        'Sustainability focused demographic looking for eco-friendly packaging, fair-trade sourcing, and organic origins.',
+        'Design-first demographic purchasing visually striking products to display in high-end architect-designed homes.'
       ];
       const rIdx = Math.floor(Math.random() * names.length);
       
@@ -7034,6 +7173,29 @@ app.post('/api/global/brands/:id/compile-prompt', verifyAdminToken, async (req, 
     const products = await allQuery('SELECT title, description, price FROM products WHERE brand_id = $1 LIMIT 20', [brandId]);
     const catalogContext = products.map(p => `- ${p.title} (€${parseFloat(p.price).toFixed(2)}): ${p.description || ''}`).join('\n');
 
+    const catalogPrices = products.map(p => parseFloat(p.price)).filter(n => !isNaN(n) && n > 0);
+    const priceSegmentContext = catalogPrices.length
+      ? `€${Math.min(...catalogPrices).toFixed(0)} – €${Math.max(...catalogPrices).toFixed(0)} (derived from ${catalogPrices.length} catalog items)`
+      : 'Not derivable from catalog — infer from positioning';
+
+    const onboardingSections = [];
+    if (brand.brand_voice_copy) {
+      onboardingSections.push(`Onboarding Brand Voice Analysis:\n${brand.brand_voice_copy}`);
+    }
+    try {
+      const onboardingDemo = typeof brand.target_audience_demographics === 'string' ? JSON.parse(brand.target_audience_demographics) : brand.target_audience_demographics;
+      if (onboardingDemo && Object.keys(onboardingDemo).length > 0) {
+        onboardingSections.push(`Onboarding Audience Analysis (JSON):\n${JSON.stringify(onboardingDemo, null, 2)}`);
+      }
+    } catch (e) {}
+    try {
+      const onboardingVisual = typeof brand.visual_identity_guidelines === 'string' ? JSON.parse(brand.visual_identity_guidelines) : brand.visual_identity_guidelines;
+      if (onboardingVisual && Object.keys(onboardingVisual).length > 0) {
+        onboardingSections.push(`Onboarding Visual Identity Analysis (JSON):\n${JSON.stringify(onboardingVisual, null, 2)}`);
+      }
+    } catch (e) {}
+    const onboardingContext = onboardingSections.length > 0 ? onboardingSections.join('\n\n') : 'No onboarding analysis stored.';
+
     let prompt = '';
     const isPesado = brand.name.toLowerCase().includes('pesado');
     if (isPesado) {
@@ -7108,58 +7270,59 @@ Provide a step-by-step structural blueprint for a high-converting landing page. 
 [EXECUTION RULE]
 Output the complete Markdown document directly. Write all ad copy and email templates in ready-to-use, professional English. Do not explain your process, provide meta-commentary, or write conversational filler. Start directly with the first section header.`;
     } else {
-      prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist specializing in high-end consumer hardware, luxury lifestyle products, and precision-engineered gear.
-Your task is to analyze the raw storefront data, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
-To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on physical engineering, material integrity, and aesthetic value.
+      prompt = `You are an elite, premium DTC Performance Marketing Director and Brand Strategist. You adapt fully to the brand's actual industry and product category — never assume a vertical that the data does not support.
+Your task is to analyze the raw storefront data, onboarding analysis, catalog samples, and competitor context provided below to generate a comprehensive, highly tactical Brand Performance Marketing Protocol and Strategic Manuscript.
+To maintain a luxury and professional standard, avoid typical DTC clichés (e.g., "we founded this brand to change the world," "revolutionary," "game-changer," "ultimate hack"). Write with quiet, clinical confidence, focusing on craft, material integrity, and aesthetic value appropriate to this brand's actual category.
+CRITICAL GROUNDING RULE: Every claim, specification, persona trait, and competitor reference in your output must be grounded in the input data below or clearly framed as a strategic recommendation. Never invent product specifications, measurements, certifications, or collaborations that are not present in the data.
 
 [INPUT DATA]
 1. Brand Profile & Core Web Data
 •	Brand Name: ${brand.name}
 •	Website URL: ${targetUrl || 'Not available'}
-•	Primary Value Prop / Meta Description: Precision coffee tools for all barista levels, premium accessories.
-•	Scraped Web Content / Core Claims:
+•	Scraped Web Content / Core Claims (includes the site's own meta description when available):
 ${homepageText}
 
-2. Competitor Context & Market Positioning
-•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'Pullman, Normcore, Saint Anthony Industries'}
-•	Target Price Segment: Premium, high-end ($50 - $200+ USD accessories)
-•	Core Market Pain Points: Uneven extraction, channeling, cheap plastic tools, lack of setup aesthetic cohesion
+2. Prior Onboarding Analysis
+${onboardingContext}
+
+3. Competitor Context & Market Positioning
+•	Primary Direct Competitors: ${compUrls.length > 0 ? compUrls.join(', ') : 'None identified — infer 2-3 likely competitor archetypes for this category and clearly mark them as inferred'}
+•	Observed Price Segment: ${priceSegmentContext}
+•	Core Market Pain Points: Derive these from the catalog, web claims and competitor context — do not assume a category.
 ${competitorTexts.length > 0 ? '\nCompetitor Scraping Context:\n' + competitorTexts.join('\n\n') : ''}
 
-3. Core Product Catalog Samples
+4. Core Product Catalog Samples
 ${catalogContext || 'No catalog items registered.'}
 
 [GENERATION INSTRUCTIONS & OUTLINES]
 Generate a thorough, structured, and complete manuscript in Markdown. You must execute every single section below in full detail, without shortcuts or placeholders.
 SECTION 1: Strategic Market Position & Product Architecture
-	1.	The Technical Narrative: Detail the technical position of the brand. Explain why the physical engineering details matter (e.g., how 1.1mm rigid steel prevents base flexing under 9 bar pressure, or how specific tolerances reduce flow channeling).
-	2.	Fluid Dynamics / Physical Modeling: Include a mathematical representation of the problem the product solves. Use a relevant scientific or physical formula in clean LaTeX format (e.g., Darcy's Law for fluid flow through porous media: $Q = \\frac{-k A \\Delta P}{\\mu L}$ to describe hydraulic flow uniformity, or Extraction Yield % equations).
-	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their exact physical specs, raw materials (e.g., 316-grade stainless steel, POM, vacuum-dyed birch), and price points.
+	1.	The Technical Narrative: Detail the technical/craft position of the brand. Explain why the physical product details matter for this category (materials, construction, formulation, fit, performance — whichever genuinely apply to these products).
+	2.	Physical / Scientific Modeling: If (and only if) the category has a genuine physical or scientific dimension, include one relevant formula in clean LaTeX format that models the problem the product solves. If the category has no honest scientific angle, replace this with a rigorous quality-and-craft framework instead — never force pseudo-science.
+	3.	Product Catalog Matrix: Create a clean Markdown table mapping the core products to their specs/attributes as evidenced in the catalog data, materials, and price points. Only list attributes present in the input data.
 SECTION 2: Multi-Segment Customer Personas
-Build 2 highly distinct consumer profiles based on buying psychological motivations:
-	1.	Persona A (The Technical Enthusiast): Focuses heavily on data, micro-tolerances, physical science, and repeatability. Detail their demographics, psychological triggers, and core friction points.
-	2.	Persona B (The Design Curator): Focuses heavily on kitchen aesthetics, tactile materials (wood, resin), and visual alignment with their living space. Detail their demographics, aesthetic triggers, and core friction points.
+Build 2-3 highly distinct consumer profiles based on buying psychological motivations grounded in the onboarding audience analysis and catalog. For each: demographics, psychological triggers, core friction points, and the product(s) they enter through. If the onboarding analysis already defines personas, refine and deepen those instead of replacing them.
 SECTION 3: Brand Voice Guidelines & Vocabulary Protocol
-	1.	Adjectives & Application: Define 4 voice adjectives that represent a premium, expert tone. Provide a copy example for each.
+	1.	Adjectives & Application: Define 4 voice adjectives that represent this brand's tone (grounded in the scraped copy and onboarding voice analysis). Provide a copy example for each.
 	2.	Controlled Vocabulary Matrix: Provide a clear table of:
-•	Approved Terminology (e.g., hydraulic uniformity, zero-compromise engineering, structural rigidity).
-•	Banned Terminology (e.g., cheap, budget-friendly, morning routine hack, game-changing, world's best).
+•	Approved Terminology (drawn from this brand's actual language and category).
+•	Banned Terminology (generic hype words plus any terms that clash with this brand's register).
 SECTION 4: Performance Ads Copywriting Framework
 Develop ad variations based on three psychological angles:
-	1.	Emotional (Tactile & Aesthetic Satisfaction): Focuses on materials, weight, and visual ritual.
-	2.	Logical (Data & Science): Focuses on eliminating channeling, extraction yield, and math.
-	3.	Utility (Workflow & Durability): Focuses on compatibility, cleaning, and long-term use.
+	1.	Emotional (Sensory & Aesthetic Satisfaction): Focuses on materials, feel, and the visual ritual of using the product.
+	2.	Logical (Data & Craft): Focuses on measurable quality, construction, and performance claims present in the data.
+	3.	Utility (Workflow & Durability): Focuses on compatibility, ease of use, care, and long-term value.
 For each angle, provide:
 •	One Cold Prospecting (TOFU) ad copy variation (Primary Text, Headline, Description).
 •	One Retargeting (MOFU/BOFU) ad copy variation (Primary Text, Headline, Description).
 •	Strict Copy Rule: Write descriptions and primary texts from an objective, premium third-person perspective using strong imperative calls-to-action. Do not use cheesy, spammy emojis.
 SECTION 5: Video & Image Creative Briefs (AI Generation Ready)
-	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues (e.g., the physical click of a calibrated tamper or metal locking).
-	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a marble countertop, warm side lighting, shallow depth of field, 85mm lens, high-end architectural digest aesthetic\").
+	1.	Vertical Video Scripts (TikTok/Reels - 9:16): Provide 2 highly detailed, multi-scene video scripts featuring THIS brand's actual products. Each must include time stamps, specific visual directions, text overlays, and audio/ASMR cues that fit this product category (material sounds, textures, satisfying product interactions).
+	2.	Text-to-Image Prompts (Midjourney/DALL-E style): Provide 3 highly descriptive, photorealistic text prompts for product photography of this brand's actual products. Structure them with Scene, Subject, Motion, Camera Angle/Lens, and Atmosphere/Lighting (e.g., \"Premium product shot of [Product Name] on a [category-appropriate surface], warm side lighting, shallow depth of field, 85mm lens, high-end editorial aesthetic\").
 SECTION 6: High-Converting Email Flows
 Provide raw, copy-pasteable email copy for:
-	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and precision. Step 2: The physical science behind a key product feature. Step 3: Elite collaboration or design standards. Include subject lines, preheaders, and button CTA text.
-	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving performance hesitation. Step 2: Technical sizing and machine compatibility checklist. Step 3: Upgrading setup visual styling.
+	1.	Onboarding / Welcome Sequence (3 Steps): Step 1: Brand ethos and craft. Step 2: The substance behind a key product feature (material, process, or science — whichever is honest for this category). Step 3: Design standards, provenance, or partnerships evidenced in the data. Include subject lines, preheaders, and button CTA text.
+	2.	Cart Abandonment Sequence (3 Steps): Step 1: Resolving quality hesitation. Step 2: Fit/compatibility/usage validation checklist appropriate to this category. Step 3: Elevating the customer's lifestyle or setup with the product.
 SECTION 7: Landing Page Visual Architecture
 Provide a step-by-step structural blueprint for a high-converting landing page. Map out the exact visual containers, value statements, functional modules (e.g., an interactive compatibility sizing engine), and social proof blocks required to maximize conversion rates.
 [EXECUTION RULE]
@@ -7249,7 +7412,7 @@ Generate a structured, cohesive ad campaign and matching landing page content ba
 
 Brand Name: "${brandName}"
 Brand Voice & Guidelines:
-${brand ? brand.marketing_protocol : 'Default premium coffee brand.'}
+${brand && brand.marketing_protocol ? brand.marketing_protocol : 'No strategy manuscript available — write in a premium, category-appropriate voice grounded in the campaign goal.'}
 
 Campaign Goal / Topic: "${goal}"
 
@@ -7270,7 +7433,7 @@ Expected JSON structure:
   "landing_page_subheadline": "A supporting subheadline matching the brand voice",
   "landing_page_cta": "Call to action button text",
   "landing_page_coupon_code": "Coupon code matching this campaign, e.g. FRESH15",
-  "landing_page_features": "A newline-separated list of 3 premium product features/USPs formatted exactly with bullet emoji hooks, e.g. ⚡ Rich Aroma\\n☕ Perfect Crema\\n🌱 Responsibly Sourced"
+  "landing_page_features": "A newline-separated list of 3 premium product features/USPs for THIS brand's actual category, formatted exactly with bullet emoji hooks, e.g. ⚡ Feature One\\n✨ Feature Two\\n🌱 Feature Three"
 }`;
 
     const apiResult = await callAiModelWithUsage(targetModel, systemPrompt, true);
@@ -11746,7 +11909,7 @@ app.get('/api/global/marketing-campaigns/:id/serve-creative', async (req, res) =
         
       return res.json({
         headline: selected.headline || campaign.headline,
-        ad_copy: selected.headline ? 'Taste the premium selection' : campaign.ad_copy,
+        ad_copy: campaign.ad_copy,
         media_url: selected.asset_url || campaign.media_url,
         variant_index: stats.indexOf(selected)
       });
@@ -12498,7 +12661,7 @@ app.post('/api/global/marketing-campaigns/generate-copy', verifyAdminToken, asyn
       product = await getQuery('SELECT title, price, description FROM products WHERE id = $1', [productId]);
     }
     
-    const prodName = product ? product.title : 'Premium Specialty Roasts';
+    const prodName = product ? product.title : 'our premium collection';
     const prodPrice = product ? `€${parseFloat(product.price).toFixed(2)}` : '€14.90';
     
     // Try AI generation using the marketing protocol
@@ -12572,64 +12735,64 @@ Do not wrap response in markdown blocks other than standard raw text.`;
     let benefits = [];
     
     if (segmentation === 'Repeat Customers') {
-      benefits = ['Exclusive loyalty rewards', 'Early access to new roasts', 'Free shipping on orders > €30'];
+      benefits = ['Exclusive loyalty rewards', 'Early access to new releases', 'Free shipping on orders > €30'];
       if (tone === 'bold') {
         headline = `🔥 Loyalty Special: 20% Off Your Favorite ${prodName}!`;
-        adCopy = `Welcome back! We appreciate your support. For the next 48 hours only, enjoy 20% off our signature ${prodName} series. Tap to apply discount!`;
+        adCopy = `Welcome back! We appreciate your support. For the next 48 hours only, enjoy 20% off our signature ${prodName}. Tap to apply discount!`;
       } else if (tone === 'friendly') {
-        headline = `☕ A Small Thank You: Get 20% Off ${prodName}`;
-        adCopy = `We love having you in our coffee family! As a sweet thank you, here is 20% off your next order of ${prodName}. Roasted fresh, just for you.`;
+        headline = `💛 A Small Thank You: Get 20% Off ${prodName}`;
+        adCopy = `We love having you with us! As a thank you, here is 20% off your next order of ${prodName}. Prepared with care, just for you.`;
       } else if (tone === 'creative') {
-        headline = `✨ Your Coffee Cup Missed You! Save 20% On ${prodName}`;
-        adCopy = `Let's refill that mug with something magical. Get your hands on fresh ${prodName} starting at just ${prodPrice} with our exclusive customer bonus.`;
+        headline = `✨ We Saved Something For You: 20% Off ${prodName}`;
+        adCopy = `Treat yourself to something special. Get your hands on ${prodName} starting at just ${prodPrice} with our exclusive customer bonus.`;
       } else {
         headline = `Customer Appreciation: Premium Savings on ${prodName}`;
-        adCopy = `Enjoy exclusive member privileges. Relish our freshly roasted ${prodName} at special rates. Freshness guaranteed directly to your door.`;
+        adCopy = `Enjoy exclusive member privileges. Experience our ${prodName} at special rates. Quality guaranteed, delivered directly to your door.`;
       }
     } else if (segmentation === 'High Spenders') {
-      benefits = ['Limited single-origin beans', 'Custom grind profile selections', 'Priority roasted-to-order fulfillment'];
+      benefits = ['Limited premium editions', 'Personalized selections', 'Priority made-to-order fulfillment'];
       if (tone === 'bold') {
         headline = `👑 The Connoisseur Selection: Ultimate ${prodName}`;
-        adCopy = `Uncompromising quality for true coffee aficionados. Treat yourself to the exquisite taste of micro-lot ${prodName}. Exceptional grades only.`;
+        adCopy = `Uncompromising quality for those who know the difference. Treat yourself to the finest ${prodName}. Exceptional grades only.`;
       } else if (tone === 'friendly') {
         headline = `🌱 Crafting Perfection: Experience Premium ${prodName}`;
-        adCopy = `For those who appreciate the finer details in every brew. Our single-origin ${prodName} brings out delicate floral and chocolate notes.`;
+        adCopy = `For those who appreciate the finer details. Our ${prodName} delivers craftsmanship you can see and feel.`;
       } else if (tone === 'creative') {
-        headline = `🔮 Elevate Your Coffee Ritual: Micro-Lot ${prodName}`;
-        adCopy = `Step into a world of sophisticated sensory discovery. Hand-selected, small-batch ${prodName} crafted for the ultimate morning experience.`;
+        headline = `🔮 Elevate Your Ritual: Signature ${prodName}`;
+        adCopy = `Step into a world of refined quality. Hand-selected, small-batch ${prodName} crafted for an exceptional everyday experience.`;
       } else {
         headline = `Premium Grade Reserve: Hand-Selected ${prodName}`;
-        adCopy = `Presenting our highest-rated specialty batches. Exquisite profile notes, roasted fresh under expert supervision. Order your reserve package.`;
+        adCopy = `Presenting our highest-rated selection. Exquisite quality, finished under expert supervision. Order your reserve today.`;
       }
     } else if (segmentation === 'Dormant Shoppers') {
-      benefits = ['€10 Welcome back voucher code', 'Freshly roasted-to-order', '100% satisfaction taste guarantee'];
+      benefits = ['€10 Welcome back voucher code', 'Made fresh to order', '100% satisfaction guarantee'];
       if (tone === 'bold') {
         headline = `⚡ We Miss You! Here is €10 off ${prodName}`;
-        adCopy = `It's been too long since your last brew! Come back today and take €10 off your order of fresh ${prodName}. Code: WELCOMEBACK.`;
+        adCopy = `It's been too long! Come back today and take €10 off your order of ${prodName}. Code: WELCOMEBACK.`;
       } else if (tone === 'friendly') {
-        headline = `☕ Let's Catch Up! Enjoy €10 Off ${prodName}`;
-        adCopy = `We miss having you around! Let's get you back to brewing the best. Save €10 on your next batch of freshly roasted ${prodName}.`;
+        headline = `💌 Let's Catch Up! Enjoy €10 Off ${prodName}`;
+        adCopy = `We miss having you around! Let's get you back to the good stuff. Save €10 on your next order of ${prodName}.`;
       } else if (tone === 'creative') {
-        headline = `✨ Brewing Again? Save €10 on fresh ${prodName}`;
-        adCopy = `Ready to fall in love with your morning coffee all over again? Wake up to premium ${prodName} with €10 off. Code: WELCOMEBACK.`;
+        headline = `✨ Ready For Round Two? Save €10 on ${prodName}`;
+        adCopy = `Ready to fall in love all over again? Rediscover premium ${prodName} with €10 off. Code: WELCOMEBACK.`;
       } else {
         headline = `Welcome Back Voucher: €10 Saving on ${prodName}`;
-        adCopy = `Reconnect with premium coffee craft. Apply your exclusive €10 coupon toward our freshly curated ${prodName} batches. Code: WELCOMEBACK.`;
+        adCopy = `Reconnect with premium craft. Apply your exclusive €10 coupon toward our freshly curated ${prodName}. Code: WELCOMEBACK.`;
       }
     } else {
-      benefits = ['Sourced directly from organic farms', 'Eco-friendly sustainable packaging', 'Roasted to order in small batches'];
+      benefits = ['Responsibly sourced materials', 'Eco-friendly sustainable packaging', 'Made to order in small batches'];
       if (tone === 'bold') {
-        headline = `🔥 Taste the Difference: Try Our Fresh ${prodName} Now!`;
-        adCopy = `Stop drinking stale, mass-produced coffee. Experience rich, bold flavors with our premium ${prodName}, starting at only ${prodPrice}.`;
+        headline = `🔥 Feel the Difference: Try ${prodName} Now!`;
+        adCopy = `Stop settling for mass-produced. Experience the premium quality of ${prodName}, starting at only ${prodPrice}.`;
       } else if (tone === 'friendly') {
-        headline = `☕ Meet Your New Favorite Morning Brew: ${prodName}`;
-        adCopy = `Welcome to strictly better coffee. Hand-picked beans, roasted to perfection, delivered right to your kitchen. Try it today starting at ${prodPrice}.`;
+        headline = `💫 Meet Your New Favorite: ${prodName}`;
+        adCopy = `Welcome to strictly better quality. Carefully crafted and delivered right to your home. Try it today starting at ${prodPrice}.`;
       } else if (tone === 'creative') {
-        headline = `🌱 The Secret to a Perfect Morning: ${prodName}`;
-        adCopy = `Your mornings deserve better. Discover the smooth, clean finish of our hand-roasted ${prodName} specialty blend. Satisfaction guaranteed!`;
+        headline = `🌱 The Secret to a Better Everyday: ${prodName}`;
+        adCopy = `You deserve better. Discover the refined quality of our ${prodName}. Satisfaction guaranteed!`;
       } else {
-        headline = `Premium Specialty Coffee: Order ${prodName} Online`;
-        adCopy = `Sustainably sourced, meticulously roasted, and delivered within days of roasting. Elevate your coffee standard with our signature series.`;
+        headline = `Premium Quality: Order ${prodName} Online`;
+        adCopy = `Responsibly sourced, meticulously crafted, and delivered fresh. Elevate your standard with our signature series.`;
       }
     }
     
@@ -12989,67 +13152,221 @@ app.post('/api/global/media', verifyAdminToken, upload.single('file'), async (re
   }
 });
 
-async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath) {
-  try {
-    const getImageBuffer = async (urlOrPath) => {
-      if (!urlOrPath) return null;
-      if (urlOrPath.startsWith('/uploads/')) {
-        const localPath = path.join('uploads', urlOrPath.replace('/uploads/', ''));
-        if (fs.existsSync(localPath)) {
-          return await fs.promises.readFile(localPath);
-        }
-      }
-      try {
-        const res = await fetch(urlOrPath);
-        if (res.ok) {
-          return Buffer.from(await res.arrayBuffer());
-        }
-      } catch (e) {
-        console.error(`Error fetching buffer for ${urlOrPath}:`, e);
-      }
-      return null;
-    };
+// Resolve generation dimensions per aspect ratio at the highest resolution FLUX handles reliably.
+// Final assets are upscaled 4x afterwards, so every output clears ad-platform native sizes (1080x1920 etc).
+function resolveGenerationSize(aspectRatio, options = {}) {
+  const sizes = {
+    '1:1': { width: 1152, height: 1152 },
+    '16:9': { width: 1344, height: 768 },
+    '9:16': { width: 768, height: 1344 },
+    '4:3': { width: 1216, height: 912 },
+    '3:4': { width: 912, height: 1216 }
+  };
+  let size = sizes[aspectRatio] || sizes['1:1'];
+  if (options.draft) {
+    size = { width: Math.floor(size.width / 2 / 16) * 16, height: Math.floor(size.height / 2 / 16) * 16 };
+  }
+  return size;
+}
 
-    const bgBuffer = await getImageBuffer(sceneryUrl);
-    const personaBuffer = await getImageBuffer(personaUrl);
-    const productBuffer = await getImageBuffer(productUrl);
+// Generic Fal.ai queue dispatcher with tolerant result parsing shared by all pipeline stages
+async function runFalQueueJob(endpointPath, payload, falKey, { maxAttempts = 60, pollMs = 2000 } = {}) {
+  const response = await fetch(`https://queue.fal.run/${endpointPath}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Key ${falKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Fal.ai API error (${endpointPath}): ${response.status} - ${errText}`);
+  }
+  const result = await response.json();
+  const queueId = result.request_id;
+  if (!queueId) throw new Error(`Fal.ai queue request_id not returned for ${endpointPath}.`);
+
+  const checkUrl = `https://queue.fal.run/${endpointPath}/requests/${queueId}`;
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    const statusRes = await fetch(checkUrl, { headers: { 'Authorization': `Key ${falKey}` } });
+    if (statusRes.ok) {
+      const statusData = await statusRes.json();
+      if (statusData.status === 'COMPLETED') {
+        const mediaUrl = statusData.images?.[0]?.url || statusData.image?.url || statusData.video?.url || statusData.videos?.[0]?.url;
+        if (mediaUrl) return mediaUrl;
+        throw new Error(`Fal.ai job completed without media output (${endpointPath}).`);
+      } else if (statusData.status === 'FAILED') {
+        throw new Error(`Fal.ai job failed (${endpointPath}): ${statusData.error || 'unknown error'}`);
+      }
+    }
+    await new Promise(r => setTimeout(r, pollMs));
+    attempts++;
+  }
+  throw new Error(`Fal.ai polling timed out (${endpointPath}).`);
+}
+
+// Fidelity upscale pass (AuraSR 4x GAN — faithful, non-hallucinating) applied to every final asset
+async function upscaleImageFal(imageUrl, falKey, brandId = null, userId = null) {
+  if (!imageUrl || !imageUrl.startsWith('http') || !falKey) return imageUrl;
+  const endpointPath = process.env.FAL_UPSCALE_ENDPOINT || 'fal-ai/aura-sr';
+  try {
+    console.log(`[Fidelity Upscaler] Running 4x super-resolution pass via ${endpointPath}...`);
+    const upscaledUrl = await runFalQueueJob(endpointPath, { image_url: imageUrl }, falKey, { maxAttempts: 45 });
+    if (upscaledUrl) {
+      if (brandId) {
+        await logAiUsage(brandId, 'AI Studio', 'Fidelity Upscale 4x', endpointPath.replace('fal-ai/', ''), { width: 1024, height: 1024 }, 'IMAGE', userId);
+      }
+      return upscaledUrl;
+    }
+  } catch (err) {
+    console.warn('[Fidelity Upscaler] Upscale pass failed, keeping base resolution:', err.message);
+  }
+  return imageUrl;
+}
+
+// Identity-locked persona generation (PuLID-FLUX): conditions on the persona's canonical portrait
+// so the same persona keeps the same face across every campaign asset.
+async function generateIdentityLockedImageFal(prompt, referenceFaceUrl, seed, falKey, imageSize) {
+  const endpointPath = process.env.FAL_IDENTITY_ENDPOINT || 'fal-ai/flux-pulid';
+  console.log(`[Identity Lock] Generating persona-consistent image via ${endpointPath}...`);
+  return await runFalQueueJob(endpointPath, {
+    prompt: prompt,
+    reference_image_url: referenceFaceUrl,
+    image_size: imageSize,
+    num_inference_steps: 28,
+    seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
+    enable_safety_checker: false
+  }, falKey);
+}
+
+// Real text-to-video generation with honest stock fallback (previously this path served stock silently)
+async function generateVideoFal(prompt, aspectRatio, falKey) {
+  const endpointPath = process.env.FAL_VIDEO_ENDPOINT || 'fal-ai/luma-dream-machine';
+  const videoUrl = await runFalQueueJob(endpointPath, {
+    prompt: prompt,
+    aspect_ratio: aspectRatio || '16:9'
+  }, falKey, { maxAttempts: 150, pollMs: 4000 });
+  return videoUrl;
+}
+
+// Vision judge for best-of-N candidate selection: scores commercial quality, realism and brand fit
+async function scoreImageCandidate(imageUrl, brandContext) {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY_GENERAL || process.env.GEMINI_API_KEY;
+    if (!apiKey) return 0.5;
+    const imgResponse = await fetch(imageUrl);
+    if (!imgResponse.ok) return 0.5;
+    const base64Data = Buffer.from(await imgResponse.arrayBuffer()).toString('base64');
+    const prompt = `You are a senior art director scoring an AI-generated commercial advertising photo candidate.
+Score 0.00-1.00 weighting: photographic realism (skin texture, hands, eyes, anatomy if people are present; material physics, reflections, shadows), commercial polish, composition strength, and brand fit.
+Brand context: ${brandContext || 'premium DTC brand'}
+Penalize heavily: plastic/airbrushed skin, warped hands or logos, garbled text, uncanny faces, collage seams, distorted products.
+Return ONLY JSON: {"score": 0.87, "reason": "one sentence"}`;
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Data } }, { text: prompt }] }],
+        generationConfig: { response_mime_type: 'application/json' }
+      })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const parsed = parseRobustJson(data.candidates?.[0]?.content?.parts?.[0]?.text || '');
+      if (parsed && typeof parsed.score === 'number') {
+        console.log(`[Candidate Judge] ${imageUrl.slice(-24)} scored ${parsed.score}: ${parsed.reason || ''}`);
+        return parsed.score;
+      }
+    }
+  } catch (err) {
+    console.warn('[Candidate Judge] Scoring failed:', err.message);
+  }
+  return 0.5;
+}
+
+// Shared proportional layout so the composite overlay and the protective inpainting mask stay pixel-aligned
+function computeCompositeLayout(canvasW, canvasH) {
+  const minDim = Math.min(canvasW, canvasH);
+  const productSize = Math.round(minDim * 0.42);
+  const personaSize = Math.round(minDim * 0.62);
+  return {
+    product: {
+      size: productSize,
+      left: Math.round(canvasW * 0.60),
+      top: Math.round(canvasH * 0.52)
+    },
+    persona: {
+      size: personaSize,
+      left: Math.round(canvasW * 0.06),
+      top: Math.round(canvasH * 0.16)
+    }
+  };
+}
+
+async function fetchImageBufferForComposite(urlOrPath) {
+  if (!urlOrPath) return null;
+  if (urlOrPath.startsWith('/uploads/')) {
+    const localPath = path.join('uploads', urlOrPath.replace('/uploads/', ''));
+    if (fs.existsSync(localPath)) {
+      return await fs.promises.readFile(localPath);
+    }
+  }
+  try {
+    const res = await fetch(urlOrPath);
+    if (res.ok) {
+      return Buffer.from(await res.arrayBuffer());
+    }
+  } catch (e) {
+    console.error(`Error fetching buffer for ${urlOrPath}:`, e);
+  }
+  return null;
+}
+
+async function compositeVisualAsset(sceneryUrl, personaUrl, productUrl, destPath, canvasSize = null) {
+  try {
+    const canvasW = (canvasSize && canvasSize.width) || 1152;
+    const canvasH = (canvasSize && canvasSize.height) || 1152;
+    const layout = computeCompositeLayout(canvasW, canvasH);
+
+    const bgBuffer = await fetchImageBufferForComposite(sceneryUrl);
+    const personaBuffer = await fetchImageBufferForComposite(personaUrl);
+    const productBuffer = await fetchImageBufferForComposite(productUrl);
 
     if (!bgBuffer) {
       throw new Error('Scenery background image could not be loaded.');
     }
 
-    // 1. Base backdrop scenery resized to 800x600
-    let canvas = sharp(bgBuffer).resize(800, 600, { fit: 'cover' });
+    // 1. Base backdrop scenery at the exact target generation resolution (no aspect distortion downstream)
+    let canvas = sharp(bgBuffer).resize(canvasW, canvasH, { fit: 'cover' });
     const layers = [];
 
-    // 2. Persona model layer overlay in the center-left
+    // 2. Persona layer (expected as an alpha cutout — caller runs background removal first)
     if (personaBuffer) {
       const personaResized = await sharp(personaBuffer)
-        .resize({ width: 500, height: 500, fit: 'inside' })
+        .resize({ width: layout.persona.size, height: layout.persona.size, fit: 'inside' })
         .toBuffer();
-      
+
       layers.push({
         input: personaResized,
-        top: 100,
-        left: 50
+        top: layout.persona.top,
+        left: layout.persona.left
       });
     }
 
-    // 3. Product layer overlay in the bottom right
+    // 3. Product layer (alpha-isolated) placed proportionally in the lower-right visual third
     if (productBuffer) {
       const productResized = await sharp(productBuffer)
-        .resize({ width: 280, height: 280, fit: 'inside' })
+        .resize({ width: layout.product.size, height: layout.product.size, fit: 'inside' })
         .toBuffer();
 
       layers.push({
         input: productResized,
-        top: 280,
-        left: 480
+        top: layout.product.top,
+        left: layout.product.left
       });
     }
 
     if (layers.length > 0) {
-      await canvas.composite(layers).toFile(destPath);
+      await canvas.composite(layers).png().toFile(destPath);
       return true;
     }
   } catch (err) {
@@ -13172,7 +13489,7 @@ async function generateSam3Mask(imageUrl, textPrompt, falKey) {
   return null;
 }
 
-async function applyIclightRelighting(imageUrl, lightingPrompt, lightingDirection, falKey) {
+async function applyIclightRelighting(imageUrl, lightingPrompt, lightingDirection, falKey, productSubject = null) {
   if (!imageUrl || !imageUrl.startsWith('http')) return imageUrl;
   try {
     const directionMap = {
@@ -13186,6 +13503,7 @@ async function applyIclightRelighting(imageUrl, lightingPrompt, lightingDirectio
     const normDir = (lightingDirection || '').toLowerCase();
     const resolvedDirection = directionMap[normDir] || (['Left', 'Right', 'Top', 'Bottom', 'None'].includes(lightingDirection) ? lightingDirection : 'None');
 
+    const relightSubject = productSubject || 'The product';
     console.log(`[IC-Light V2 Relighter] Applying lighting harmonization. Target Direction: ${resolvedDirection}`);
     const response = await fetch('https://queue.fal.run/fal-ai/iclight-v2', {
       method: 'POST',
@@ -13195,7 +13513,7 @@ async function applyIclightRelighting(imageUrl, lightingPrompt, lightingDirectio
       },
       body: JSON.stringify({
         image_url: imageUrl,
-        prompt: `Sleek coffee product packaging positioned on background scene, lit under ${lightingPrompt || 'natural cinematic lighting'}, soft shadows, seamless reflection integration, depth of field`,
+        prompt: `${relightSubject} positioned in the scene, lit under ${lightingPrompt || 'natural cinematic lighting'}, physically accurate soft contact shadows, seamless reflection integration, preserved surface details and label legibility, depth of field`,
         initial_latent: resolvedDirection,
         guidance_scale: 6.5,
         num_inference_steps: 25,
@@ -13328,73 +13646,63 @@ Return ONLY a valid JSON object in this format:
   return { passed: true, complianceScore: 0.9, violations: [], agentLogs: 'Compliance verification finished with fallback clearance.' };
 }
 
+// Embeds honest AI-provenance metadata (IPTC digital source type) into EXIF.
+// Note: this is disclosure metadata, NOT a cryptographic C2PA signature — do not present it as one.
 async function signAndWatermarkImage(imageBuffer, metadata = {}) {
   try {
-    const metadataInfo = await sharp(imageBuffer).metadata();
-    const w = metadataInfo.width || 1024;
-    const h = metadataInfo.height || 1024;
-    
-    // Embed C2PA manifest and metadata into EXIF
-    const c2paAssertion = {
+    const provenance = {
       digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-      assertions: {
-        device: "Strictly Coffee Enterprise Brand Studio",
-        time: new Date().toISOString(),
-        creativeTool: "Stricktly Coffee AI Engine v2",
-        signature: "X.509 Cryptographic digital signature verified - SHA256"
-      }
+      generator: "SC Brand Studio AI Engine",
+      time: new Date().toISOString(),
+      disclosure: "AI-generated marketing asset. Unsigned provenance metadata (no C2PA certificate)."
     };
 
-    const svgWatermark = `
-      <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="synthid" width="32" height="32" patternUnits="userSpaceOnUse">
-            <rect width="32" height="32" fill="none"/>
-            <circle cx="16" cy="16" r="2" fill="#8b5cf6" opacity="0.012"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#synthid)" />
-      </svg>
-    `;
-
-    const watermarkedBuffer = await sharp(imageBuffer)
-      .composite([{
-        input: Buffer.from(svgWatermark),
-        blend: 'over'
-      }])
+    const taggedBuffer = await sharp(imageBuffer)
       .withMetadata({
         exif: {
           IFD0: {
-            ImageDescription: JSON.stringify(c2paAssertion),
-            Software: "Stricktly Coffee AI Engine v2"
+            ImageDescription: JSON.stringify(provenance),
+            Software: "SC Brand Studio AI Engine"
           }
         }
       })
       .toBuffer();
 
-    console.log('[C2PA & SynthID Signer] Embedded tamper-evident metadata manifest and pixel watermark pattern.');
-    return watermarkedBuffer;
+    console.log('[AI Provenance Tagger] Embedded AI-disclosure metadata into EXIF.');
+    return taggedBuffer;
   } catch (err) {
-    console.error('[C2PA & SynthID Signer Error] Failed to watermark:', err);
+    console.error('[AI Provenance Tagger Error] Failed to tag image:', err);
     return imageBuffer;
   }
 }
 
-async function generateProductMaskLocal(productBuffer, uploadDir, seed) {
+// Protective inpainting mask: WHITE = regenerate (scene, persona blending, shadows),
+// BLACK = preserve pixels (the product). Slightly eroded so product edges get re-rendered
+// by the inpainter and blend seamlessly instead of showing a cutout seam.
+async function generateProtectiveMaskLocal(productBuffer, uploadDir, seed, canvasSize = null) {
   try {
-    const productAlpha = await sharp(productBuffer)
+    const canvasW = (canvasSize && canvasSize.width) || 1152;
+    const canvasH = (canvasSize && canvasSize.height) || 1152;
+    const layout = computeCompositeLayout(canvasW, canvasH);
+
+    // Product silhouette (white shape on black tile), eroded ~2-3px via blur+high-threshold
+    const productShape = await sharp(productBuffer)
       .ensureAlpha()
       .extractChannel('alpha')
-      .threshold(1)
-      .resize({ width: 280, height: 280, fit: 'inside' })
+      .resize({ width: layout.product.size, height: layout.product.size, fit: 'inside' })
+      .blur(3)
+      .threshold(220)
       .toBuffer();
 
-    const blackBg = await sharp({
+    // Invert: black product silhouette on a white tile
+    const invertedTile = await sharp(productShape).negate().toBuffer();
+
+    const whiteBg = await sharp({
       create: {
-        width: 800,
-        height: 600,
+        width: canvasW,
+        height: canvasH,
         channels: 3,
-        background: { r: 0, g: 0, b: 0 }
+        background: { r: 255, g: 255, b: 255 }
       }
     })
     .png()
@@ -13402,12 +13710,12 @@ async function generateProductMaskLocal(productBuffer, uploadDir, seed) {
 
     const maskFilename = `mask_local_${Date.now()}_${seed}.png`;
     const maskPath = path.join(uploadDir, maskFilename);
-    
-    await sharp(blackBg)
+
+    await sharp(whiteBg)
       .composite([{
-        input: productAlpha,
-        top: 280,
-        left: 480
+        input: invertedTile,
+        top: layout.product.top,
+        left: layout.product.left
       }])
       .toFile(maskPath);
 
@@ -13418,54 +13726,67 @@ async function generateProductMaskLocal(productBuffer, uploadDir, seed) {
   }
 }
 
-async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl, seed, falKey, backend = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate', uploadDir = null, apiBaseUrl = null, brandId = null, userId = null) {
-  const resolvePublicUrl = (url, fallback) => {
-    if (!url) return fallback;
+async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl, seed, falKey, backend = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate', uploadDir = null, apiBaseUrl = null, brandId = null, userId = null, productSubject = null) {
+  // Only publicly reachable URLs can be sent to Fal. If a reference is local-only we drop it
+  // rather than substituting an unrelated stock image (which put wrong products into ads).
+  const resolvePublicUrl = (url) => {
+    if (!url) return null;
     if (url.startsWith('http') && !url.includes('localhost') && !url.includes('.local') && !url.includes('127.0.0.1') && !url.includes('postgres-db') && !url.includes('minio:9000')) {
       return url;
     }
-    return fallback;
+    return null;
   };
 
-  const rawProduct = resolvePublicUrl(productUrl, 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600');
-  const resolvedProduct = await isolateProductBackground(rawProduct, falKey);
-  if (resolvedProduct !== rawProduct && brandId) {
-    await logAiUsage(brandId, 'AI Studio', 'Product Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
+  const rawProduct = resolvePublicUrl(productUrl);
+  let resolvedProduct = null;
+  if (rawProduct) {
+    resolvedProduct = await isolateProductBackground(rawProduct, falKey);
+    if (resolvedProduct !== rawProduct && brandId) {
+      await logAiUsage(brandId, 'AI Studio', 'Product Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
+    }
   }
-  const resolvedScenery = resolvePublicUrl(sceneryUrl, 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600');
+  const resolvedScenery = resolvePublicUrl(sceneryUrl);
+  const resolvedPersona = resolvePublicUrl(personaUrl);
 
-  let width = 1024;
-  let height = 1024;
-  if (aspectRatio === '16:9') {
-    width = 1024;
-    height = 576;
-  } else if (aspectRatio === '9:16') {
-    width = 576;
-    height = 1024;
-  } else if (aspectRatio === '4:3') {
-    width = 1024;
-    height = 768;
-  } else if (aspectRatio === '3:4') {
-    width = 768;
-    height = 1024;
-  }
-
-  if (backend === 'flux-schnell') {
-    width = Math.floor(width / 2);
-    height = Math.floor(height / 2);
-  }
-
-  const resolvedSize = { width, height };
+  const resolvedSize = resolveGenerationSize(aspectRatio, { draft: false });
   const enableSafety = safetyTolerance === 'strict';
+  const subjectHint = productSubject ? `The hero product is: ${productSubject}. Its shape, materials, label and branding must remain exactly as shown. ` : '';
 
-  // Advanced spatial masking pipeline (Local alpha masking -> Sharp overlay composition -> FLUX inpainting -> IC-Light relighting)
+  // FLUX.2 [max] multi-reference edit: the strongest compositor available — give it every
+  // reference image at once and let the model fuse product + persona + scenery natively.
+  if (backend === 'flux-2-max' && resolvedProduct && (resolvedPersona || resolvedScenery)) {
+    try {
+      const refUrls = [resolvedProduct, resolvedPersona, resolvedScenery].filter(Boolean);
+      console.log(`[FLUX.2 Multi-Ref] Composing with ${refUrls.length} reference images via flux-2-max/edit...`);
+      const multiRefUrl = await runFalQueueJob('fal-ai/flux-2-max/edit', {
+        image_urls: refUrls,
+        prompt: `${subjectHint}${prompt}`,
+        seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
+        enable_safety_checker: enableSafety,
+        image_size: resolvedSize
+      }, falKey);
+      if (multiRefUrl) {
+        if (brandId) {
+          await logAiUsage(brandId, 'AI Studio', 'Multi-Reference Composition', 'flux-2-max/edit', { width: resolvedSize.width, height: resolvedSize.height }, 'IMAGE', userId);
+        }
+        const upscaledMultiRef = await upscaleImageFal(multiRefUrl, falKey, brandId, userId);
+        return { url: upscaledMultiRef, advancedPipelineExecuted: true };
+      }
+    } catch (multiRefErr) {
+      console.warn('[FLUX.2 Multi-Ref] Multi-reference edit failed, falling back to masking pipeline:', multiRefErr.message);
+    }
+  }
+
+  // Advanced spatial masking pipeline (alpha cutouts -> aspect-true Sharp composite -> protected FLUX inpainting -> IC-Light relighting -> 4x upscale)
+  // The mask PROTECTS the product pixels and regenerates everything around it, so the real
+  // product survives untouched while scene, persona and shadows are re-rendered coherently.
   if (resolvedProduct && resolvedScenery && uploadDir && apiBaseUrl) {
     let localMaskFilename = null;
     let tempFilename = null;
     try {
-      console.log(`[Advanced Pipeline] Initiating Local Masking + FLUX Inpainting workflow...`);
-      
-      // 1. Fetch isolated product buffer & generate local mask aligned to composite
+      console.log(`[Advanced Pipeline] Initiating Protected Masking + FLUX Inpainting workflow...`);
+
+      // 1. Fetch isolated product buffer & build the protective mask aligned to the composite layout
       let productBuffer = null;
       if (resolvedProduct.startsWith('http')) {
         const fetchRes = await fetch(resolvedProduct);
@@ -13481,94 +13802,75 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
 
       let productMask = null;
       if (productBuffer) {
-        localMaskFilename = await generateProductMaskLocal(productBuffer, uploadDir, seed);
+        localMaskFilename = await generateProtectiveMaskLocal(productBuffer, uploadDir, seed, resolvedSize);
         if (localMaskFilename) {
           productMask = `${apiBaseUrl}/uploads/${localMaskFilename}`;
-          console.log(`[Advanced Pipeline] Local mask generated at: ${productMask}`);
+          console.log(`[Advanced Pipeline] Protective mask generated at: ${productMask}`);
         }
       }
-      
+
       if (productMask) {
-        // 2. Perform Sharp composite overlay
+        // 2. Persona gets its own alpha cutout so no rectangular photo-in-photo collage survives
+        let personaCutout = resolvedPersona;
+        if (resolvedPersona) {
+          personaCutout = await isolateProductBackground(resolvedPersona, falKey);
+          if (personaCutout !== resolvedPersona && brandId) {
+            await logAiUsage(brandId, 'AI Studio', 'Persona Background Isolation', 'bria/background/remove', { width: 512, height: 512 }, 'IMAGE', userId);
+          }
+        }
+
+        // 3. Sharp composite overlay at the exact generation resolution (mask stays pixel-aligned)
         tempFilename = `temp_comp_${Date.now()}_${seed}.png`;
         const tempPath = path.join(uploadDir, tempFilename);
-        const hasComposited = await compositeVisualAsset(resolvedScenery, personaUrl, resolvedProduct, tempPath);
-        
+        const hasComposited = await compositeVisualAsset(resolvedScenery, personaCutout, resolvedProduct, tempPath, resolvedSize);
+
         if (hasComposited) {
           const compositeUrl = `${apiBaseUrl}/uploads/${tempFilename}`;
-          console.log(`[Advanced Pipeline] Composited overlay layer: ${compositeUrl}. Requesting FLUX Inpainting...`);
-          
-          // 3. Call inpainting
-          const inpaintEndpoint = 'https://queue.fal.run/fal-ai/flux-general/inpainting';
-          const inpaintResponse = await fetch(inpaintEndpoint, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Key ${falKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
+          console.log(`[Advanced Pipeline] Composited overlay layer: ${compositeUrl}. Requesting protected FLUX Inpainting...`);
+
+          // 4. Regenerate everything around the protected product with the full brand prompt
+          const inpaintPrompt = `${subjectHint}${prompt} Seamless photographic integration, physically accurate contact shadows and reflections around the product, no collage seams, no cut-out edges.`;
+          let inpaintedUrl = null;
+          try {
+            inpaintedUrl = await runFalQueueJob('fal-ai/flux-general/inpainting', {
               image_url: compositeUrl,
               mask_url: productMask,
-              prompt: prompt,
+              prompt: inpaintPrompt,
               seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
               enable_safety_checker: enableSafety,
               image_size: resolvedSize,
-              num_inference_steps: 28
-            })
-          });
+              num_inference_steps: 32
+            }, falKey);
+          } catch (inpaintErr) {
+            console.warn('[Advanced Pipeline] Inpainting failed:', inpaintErr.message);
+          }
 
-          if (inpaintResponse.ok) {
-            const inpaintResult = await inpaintResponse.json();
-            const queueId = inpaintResult.request_id;
-            if (queueId) {
-              const checkUrl = `https://queue.fal.run/fal-ai/flux-general/inpainting/requests/${queueId}`;
-              let attempts = 0;
-              let inpaintedUrl = null;
-              while (attempts < 60) {
-                const statusRes = await fetch(checkUrl, {
-                  headers: { 'Authorization': `Key ${falKey}` }
-                });
-                if (statusRes.ok) {
-                  const statusData = await statusRes.json();
-                  if (statusData.status === 'COMPLETED') {
-                    if (statusData.images && statusData.images.length > 0) {
-                      inpaintedUrl = statusData.images[0].url;
-                      break;
-                    }
-                  } else if (statusData.status === 'FAILED') {
-                    break;
-                  }
-                }
-                await new Promise(r => setTimeout(r, 2000));
-                attempts++;
-              }
-
-              if (inpaintedUrl) {
-                console.log(`[Advanced Pipeline] Inpainted image successfully: ${inpaintedUrl}`);
-                if (brandId) {
-                  await logAiUsage(brandId, 'AI Studio', 'Product-Scenery Inpainting Integration', 'flux-general/inpainting', { width: resolvedSize.width, height: resolvedSize.height }, 'IMAGE', userId);
-                }
-                
-                // 4. Run IC-Light relighting pass for physical illumination & contact shadows
-                const lightDirection = prompt.toLowerCase().includes('left') ? 'Left' : (prompt.toLowerCase().includes('right') ? 'Right' : 'ambient');
-                const relitUrl = await applyIclightRelighting(inpaintedUrl, prompt, lightDirection, falKey);
-                if (relitUrl && relitUrl !== inpaintedUrl && brandId) {
-                  await logAiUsage(brandId, 'AI Studio', 'Lighting Harmonization', 'iclight-v2', { width: resolvedSize.width, height: resolvedSize.height }, 'IMAGE', userId);
-                }
-                
-                // Clean up temporary files
-                try {
-                  const tempPath = path.join(uploadDir, tempFilename);
-                  if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                  if (localMaskFilename) {
-                    const maskPath = path.join(uploadDir, localMaskFilename);
-                    if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
-                  }
-                } catch (e) {}
-                
-                return { url: relitUrl || inpaintedUrl, advancedPipelineExecuted: true };
-              }
+          if (inpaintedUrl) {
+            console.log(`[Advanced Pipeline] Inpainted image successfully: ${inpaintedUrl}`);
+            if (brandId) {
+              await logAiUsage(brandId, 'AI Studio', 'Product-Scenery Inpainting Integration', 'flux-general/inpainting', { width: resolvedSize.width, height: resolvedSize.height }, 'IMAGE', userId);
             }
+
+            // 5. IC-Light relighting pass for physical illumination & contact shadows
+            const lightDirection = prompt.toLowerCase().includes('left') ? 'Left' : (prompt.toLowerCase().includes('right') ? 'Right' : 'ambient');
+            const relitUrl = await applyIclightRelighting(inpaintedUrl, prompt, lightDirection, falKey, productSubject);
+            if (relitUrl && relitUrl !== inpaintedUrl && brandId) {
+              await logAiUsage(brandId, 'AI Studio', 'Lighting Harmonization', 'iclight-v2', { width: resolvedSize.width, height: resolvedSize.height }, 'IMAGE', userId);
+            }
+
+            // Clean up temporary files
+            try {
+              const tempPath = path.join(uploadDir, tempFilename);
+              if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+              if (localMaskFilename) {
+                const maskPath = path.join(uploadDir, localMaskFilename);
+                if (fs.existsSync(maskPath)) fs.unlinkSync(maskPath);
+              }
+            } catch (e) {}
+
+            // 6. Fidelity upscale to ad-native resolution
+            const finalUrl = await upscaleImageFal(relitUrl || inpaintedUrl, falKey, brandId, userId);
+            return { url: finalUrl, advancedPipelineExecuted: true };
           }
         }
       }
@@ -13588,153 +13890,64 @@ async function generateVisualAssetFal(prompt, productUrl, personaUrl, sceneryUrl
     }
   }
 
+  // No usable product reference: generate from the brand prompt directly instead of
+  // running img2img on an unrelated image.
+  if (!resolvedProduct) {
+    console.log('[Fal.ai Router] No public product reference resolved — using direct text-to-image generation.');
+    const directUrl = await generateImageFal(prompt, seed, falKey, null, backend === 'flux-schnell' ? 'flux-schnell' : (backend || 'flux-pro'), aspectRatio, safetyTolerance);
+    const upscaledDirect = await upscaleImageFal(directUrl, falKey, brandId, userId);
+    return { url: upscaledDirect, advancedPipelineExecuted: false };
+  }
+
   // Determine the best specialized Fal.ai model based on input references and prompt keywords
-  let endpoint = 'https://queue.fal.run/fal-ai/flux/dev/image-to-image';
-  let payload = {
-    prompt: prompt,
+  const promptLower = (prompt || '').toLowerCase();
+  const routedPrompt = `${subjectHint}${prompt}`;
+  let endpointPath;
+  let payload;
+
+  if (backend === 'flux-2-max') {
+    endpointPath = 'fal-ai/flux-2-max/edit';
+    console.log(`[Fal.ai Router] Selected model: FLUX.2 [max] /edit`);
+  } else if (resolvedPersona || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person')) {
+    // Scenario 1: Product Holding API (excellent for showing people holding/wearing the product)
+    endpointPath = 'fal-ai/image-apps-v2/product-holding';
+    console.log(`[Fal.ai Router] Selected model: Product Holding`);
+  } else if (resolvedScenery || promptLower.includes('counter') || promptLower.includes('table') || promptLower.includes('background') || promptLower.includes('setting')) {
+    // Scenario 2: Bria Product Shot API (perfect for placing products in scenery backdrops with aligned light/shadows)
+    endpointPath = 'fal-ai/bria/product-shot';
+    console.log(`[Fal.ai Router] Selected model: Bria Product-Shot`);
+  } else {
+    // Scenario 3: Product Photography API (studio photos, professional light)
+    endpointPath = 'fal-ai/image-apps-v2/product-photography';
+    console.log(`[Fal.ai Router] Selected model: Product Photography`);
+  }
+
+  payload = {
     image_url: resolvedProduct,
-    strength: 0.8,
+    prompt: routedPrompt,
     seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
     enable_safety_checker: enableSafety,
     image_size: resolvedSize
   };
 
-  if (backend === 'flux-schnell') {
-    payload.num_inference_steps = 12; // Fast draft step reduction for dev/image-to-image
-  }
-
-  const promptLower = (prompt || '').toLowerCase();
-  
-  if (resolvedProduct) {
-    if (backend === 'flux-2-max') {
-      endpoint = 'https://queue.fal.run/fal-ai/flux-2-max/edit';
-      payload = {
-        image_url: resolvedProduct,
-        prompt: prompt,
-        seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
-        enable_safety_checker: enableSafety,
-        image_size: resolvedSize
-      };
-      console.log(`[Fal.ai Router] Selected model: FLUX.2 [max] /edit`);
-    } else if (personaUrl || promptLower.includes('hand') || promptLower.includes('hold') || promptLower.includes('held') || promptLower.includes('wear') || promptLower.includes('model') || promptLower.includes('person')) {
-      // Scenario 1: Product Holding API (excellent for showing people holding/wearing the product)
-      endpoint = 'https://queue.fal.run/fal-ai/image-apps-v2/product-holding';
-      payload = {
-        image_url: resolvedProduct,
-        prompt: prompt,
-        seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
-        enable_safety_checker: enableSafety,
-        image_size: resolvedSize
-      };
-      console.log(`[Fal.ai Router] Selected model: Product Holding`);
-    } else if (sceneryUrl || promptLower.includes('counter') || promptLower.includes('table') || promptLower.includes('background') || promptLower.includes('setting')) {
-      // Scenario 2: Bria Product Shot API (perfect for placing products in scenery backdrops with aligned light/shadows)
-      endpoint = 'https://queue.fal.run/fal-ai/bria/product-shot';
-      payload = {
-        image_url: resolvedProduct,
-        prompt: prompt,
-        seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
-        enable_safety_checker: enableSafety,
-        image_size: resolvedSize
-      };
-      console.log(`[Fal.ai Router] Selected model: Bria Product-Shot`);
-    } else {
-      // Scenario 3: Product Photography API (studio photos, professional light)
-      endpoint = 'https://queue.fal.run/fal-ai/image-apps-v2/product-photography';
-      payload = {
-        image_url: resolvedProduct,
-        prompt: prompt,
-        seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
-        enable_safety_checker: enableSafety,
-        image_size: resolvedSize
-      };
-      console.log(`[Fal.ai Router] Selected model: Product Photography`);
-    }
-  }
-
-  // Get the base queue url for polling
-  const pathParts = endpoint.replace('https://queue.fal.run/', '').split('/');
-  const modelName = endpoint.endsWith('/image-to-image')
-    ? pathParts.slice(0, -1).join('/')
-    : pathParts.join('/');
-
-  console.log(`[Fal.ai] Dispatched request to endpoint: ${endpoint} for model ${modelName}`);
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${falKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Fal.ai API error: ${response.status} - ${errText}`);
-  }
-
-  const result = await response.json();
-  const queueId = result.request_id;
-  if (!queueId) {
-    throw new Error('Fal.ai queue request_id not returned.');
-  }
-
-  // Poll queue status
-  const checkUrl = `https://queue.fal.run/${modelName}/requests/${queueId}`;
-  let attempts = 0;
-  while (attempts < 60) {
-    const statusRes = await fetch(checkUrl, {
-      headers: { 'Authorization': `Key ${falKey}` }
-    });
-    if (statusRes.ok) {
-      const statusData = await statusRes.json();
-      console.log(`[Fal.ai Router Polling] Request ${queueId} status: ${statusData.status} (attempt ${attempts + 1}/60)`);
-      if (statusData.status === 'COMPLETED') {
-        if (statusData.images && statusData.images.length > 0) {
-          return { url: statusData.images[0].url, advancedPipelineExecuted: false };
-        }
-        throw new Error('No images returned by Fal.ai');
-      } else if (statusData.status === 'FAILED') {
-        throw new Error(`Fal.ai generation failed: ${statusData.error || 'unknown error'}`);
-      }
-    }
-    await new Promise(r => setTimeout(r, 2000));
-    attempts++;
-  }
-  throw new Error('Fal.ai polling timed out.');
+  console.log(`[Fal.ai] Dispatched request to endpoint: ${endpointPath}`);
+  const routedUrl = await runFalQueueJob(endpointPath, payload, falKey);
+  const upscaledRouted = await upscaleImageFal(routedUrl, falKey, brandId, userId);
+  return { url: upscaledRouted, advancedPipelineExecuted: false };
 }
 
 async function generateImageFal(prompt, seed, falKey, imageUrl = null, modelType = 'flux-pro', aspectRatio = '1:1', safetyTolerance = 'moderate') {
   const isImg2Img = !!imageUrl;
-  
+
   const payload = {
     prompt: prompt,
     seed: parseInt(seed) || Math.floor(Math.random() * 1000000),
     enable_safety_checker: safetyTolerance === 'strict'
   };
 
-  let width = 1024;
-  let height = 1024;
-  if (aspectRatio === '16:9') {
-    width = 1024;
-    height = 576;
-  } else if (aspectRatio === '9:16') {
-    width = 576;
-    height = 1024;
-  } else if (aspectRatio === '4:3') {
-    width = 1024;
-    height = 768;
-  } else if (aspectRatio === '3:4') {
-    width = 768;
-    height = 1024;
-  }
-
-  if (modelType === 'flux-schnell') {
-    width = Math.floor(width / 2);
-    height = Math.floor(height / 2);
-  }
-
-  payload.image_size = { width, height };
+  // schnell is the explicit draft engine and renders at half resolution; every other model
+  // generates at the full ad-grade base resolution (upscaled 4x afterwards by the callers).
+  payload.image_size = resolveGenerationSize(aspectRatio, { draft: modelType === 'flux-schnell' });
 
   if (isImg2Img) {
     payload.image_url = imageUrl;
@@ -13861,14 +14074,14 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
   }
 
   try {
-    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft } = req.body;
+    const { action, prompt, imageUrl, aspectRatio, motionIntensity, duration, seed, cameraLens, lightingStyle, composition, draft, safetyTolerance } = req.body;
     if (!action) return res.status(400).json({ error: 'Action parameter is required.' });
     const falKey = process.env.FAL_KEY;
 
     if (action === 'generate_text') {
       try {
-        const textResult = await callAiModel('gemini-1.5-flash', prompt, true);
-        await logAiUsage(brandId, 'AI Studio', 'Text Generation', 'gemini-1.5-flash', {
+        const textResult = await callAiModelWithUsage('gemini-2.5-flash', prompt, true);
+        await logAiUsage(brandId, 'AI Studio', 'Text Generation', 'gemini-2.5-flash', {
           promptTokenCount: textResult.usage?.promptTokenCount || 100,
           candidatesTokenCount: textResult.usage?.candidatesTokenCount || 100
         }, null, req.user?.id);
@@ -13883,7 +14096,7 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     }
 
     // 1. Fetch brand center details: canvas, manuscript, and Visual DNA profiles
-    const brand = await getQuery('SELECT name, brand_canvas, marketing_protocol, target_audience_demographics, visual_identity_guidelines FROM brands WHERE id = $1', [brandId]);
+    const brand = await getQuery('SELECT name, brand_canvas, marketing_protocol, target_audience_demographics, visual_identity_guidelines, primary_color, ai_tier FROM brands WHERE id = $1', [brandId]);
     if (!brand) return res.status(404).json({ error: 'Brand not found.' });
 
     let canvas = {};
@@ -13942,32 +14155,32 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
     // 3. Assemble State-of-the-Art Adaptive Brand Prompt
     let structuredPrompt = prompt || '';
     const isPrecompiled = prompt && (prompt.startsWith('[Engine:') || prompt.trim().startsWith('{'));
+    const subjectDesc = productDna ? productDna.subject : (targetProduct ? targetProduct.title : `${brand.name} hero product`);
     if ((action === 'image' || action === 'generate') && !isPrecompiled) {
-      const subjectDesc = productDna ? productDna.subject : (targetProduct ? targetProduct.title : 'premium coffee accessories');
-      
       const lighting = lightingStyle || (selectedScenery ? selectedScenery.lighting : (visualGuidelines.lighting || 'natural soft side light'));
       const bgStyle = selectedScenery ? selectedScenery.description : (visualGuidelines.environment_style || 'modern minimalist setting');
-      
+
       let customPhotoStyle = '';
       if (cameraLens) customPhotoStyle += `${cameraLens}, `;
       if (composition) customPhotoStyle += `${composition}, `;
       customPhotoStyle += selectedScenery ? selectedScenery.photography_style : (visualGuidelines.photography_style || '35mm film style, warm color palette, soft bokeh, f/1.8 aperture');
-      
+
       let demographicsDesc = '';
       if (selectedPersona) {
-        demographicsDesc = `Used by a ${selectedPersona.age || '25-35'} year old ${selectedPersona.role || 'barista'} model with ${selectedPersona.expression || 'focused'} expression, wearing ${selectedPersona.apparel || 'casual attire'}. `;
+        demographicsDesc = `Used by a ${selectedPersona.age || '25-35'} year old ${selectedPersona.role || 'customer'} model with ${selectedPersona.expression || 'natural relaxed'} expression, wearing ${selectedPersona.apparel || 'brand-appropriate attire'}. `;
         if (selectedPersona.description) {
           demographicsDesc += `The model embodies this persona: "${selectedPersona.description}". `;
         }
+        demographicsDesc += 'Natural skin texture with visible pores and minor imperfections, anatomically correct hands, lifelike eyes, no airbrushing, no smooth CG skin. ';
       } else {
         // Fallback to general demographics if present
         const hasPerson = /(person|model|man|woman|girl|guy|people|barista|hands|holding|drinking|face|smile)/i.test(prompt || '');
         if (hasPerson) {
           const age = demographics.age || '25-35';
-          const role = demographics.role || 'barista enthusiast';
-          const expression = demographics.expression || 'focused';
-          const apparel = demographics.apparel || 'casual linen apron';
-          demographicsDesc = `Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. `;
+          const role = demographics.role || 'customer';
+          const expression = demographics.expression || 'natural relaxed';
+          const apparel = demographics.apparel || 'brand-appropriate attire';
+          demographicsDesc = `Used by a ${age} year old ${role} model with ${expression} expression, wearing ${apparel}. Natural skin texture, anatomically correct hands, lifelike eyes, no airbrushing. `;
         }
       }
 
@@ -13978,14 +14191,14 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
           scene: bgStyle,
           subjects: [
             {
-              type: targetProduct ? 'product' : 'accessories',
+              type: targetProduct ? 'product' : 'brand subject',
               description: subjectDesc,
               pose: actDesc,
               position: 'foreground'
             }
           ],
           style: 'commercial advertising photography',
-          color_palette: [brand.primary_color || '#c5a059'],
+          color_palette: [brand.primary_color].filter(Boolean),
           lighting: lighting,
           mood: 'premium, modern',
           composition: composition || 'centered',
@@ -13998,8 +14211,8 @@ app.post('/api/global/media/ai-studio', verifyAdminToken, async (req, res) => {
         if (selectedPersona) {
           jsonPrompt.subjects.push({
             type: 'persona model',
-            description: `${selectedPersona.age || '25-35'} year old ${selectedPersona.role || 'barista'} model wearing ${selectedPersona.apparel || 'casual attire'}. ${selectedPersona.description || ''}`,
-            pose: selectedPersona.expression || 'focused',
+            description: `${selectedPersona.age || '25-35'} year old ${selectedPersona.role || 'customer'} model wearing ${selectedPersona.apparel || 'brand-appropriate attire'}, natural skin texture, lifelike features. ${selectedPersona.description || ''}`,
+            pose: selectedPersona.expression || 'natural relaxed',
             position: 'midground'
           });
         }
@@ -14044,7 +14257,7 @@ Guidelines:
 1. Describe textures, physical materials, precise lighting (e.g. volumetric, chiaroscuro, natural side window light), camera optics, composition, and background details in depth.
 2. Adhere to these Brand Guidelines:
    Visual Direction Guidelines: ${visualDirection}
-   Primary Color theme: ${brand.primary_color || '#c5a059'}
+   Primary Color theme: ${brand.primary_color || 'not specified'}
 3. Respect the Controlled Vocabulary:
    - BANNED terms (DO NOT USE or mention any of these under any circumstance): ${bannedList.join(', ') || 'none'}
    - APPROVED terms (incorporate if relevant): ${approvedList.join(', ') || 'none'}
@@ -14108,6 +14321,7 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     let targetFolder = 'AI Studio';
     let fileExtension = 'jpg';
     let isVideo = false;
+    let isSimulatedAsset = false;
 
     const activeSeed = parseInt(seed) || Math.floor(Math.random() * 1000000);
 
@@ -14116,21 +14330,37 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       fileExtension = 'mp4';
       const detailStr = [aspectRatio, motionIntensity, duration].filter(Boolean).join(', ');
       itemTitle = prompt ? `AI Video (${detailStr}) - ${prompt.slice(0, 20)}` : `AI Video Animation (${detailStr})`;
-      // Pick premium stock video matching prompt
-      if (lowercasePrompt.includes('pour') || lowercasePrompt.includes('stream')) {
-        mediaUrl = 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4';
+      if (falKey) {
+        try {
+          const videoPrompt = `${structuredPrompt || prompt || subjectDesc}. Cinematic commercial product film, ${motionIntensity || 'smooth subtle'} camera motion, photorealistic materials and lighting.`;
+          mediaUrl = await generateVideoFal(videoPrompt, aspectRatio, falKey);
+          console.log(`[AI Studio] Generated real video asset via Fal.ai: ${mediaUrl}`);
+        } catch (videoErr) {
+          console.error('[AI Studio] Real video generation failed, honestly falling back to stock placeholder:', videoErr.message);
+          isSimulatedAsset = true;
+          itemTitle = `[Stock Placeholder] ${itemTitle}`;
+          mediaUrl = (lowercasePrompt.includes('pour') || lowercasePrompt.includes('stream'))
+            ? 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4'
+            : 'https://assets.mixkit.co/videos/preview/mixkit-steam-rising-from-a-cup-of-coffee-42469-large.mp4';
+        }
       } else {
-        mediaUrl = 'https://assets.mixkit.co/videos/preview/mixkit-steam-rising-from-a-cup-of-coffee-42469-large.mp4';
+        isSimulatedAsset = true;
+        itemTitle = `[Stock Placeholder] ${itemTitle}`;
+        mediaUrl = (lowercasePrompt.includes('pour') || lowercasePrompt.includes('stream'))
+          ? 'https://assets.mixkit.co/videos/preview/mixkit-pouring-hot-coffee-into-a-cup-42283-large.mp4'
+          : 'https://assets.mixkit.co/videos/preview/mixkit-steam-rising-from-a-cup-of-coffee-42469-large.mp4';
       }
     } else if (action === 'generate-persona') {
       itemTitle = `Persona Portrait - ${req.body.personaName || 'Model'}`;
       if (falKey) {
         try {
           const basePrompt = req.body.prompt || `Candid portrait photo of a model for persona: "${req.body.personaName || 'customer'}". Role: "${req.body.personaRole || ''}".`;
-          const genPrompt = `${basePrompt}, candid raw analog style portrait photo, detailed natural skin texture, minor blemishes, natural skin details, captured on 35mm lens, f/1.8, warm film grain, soft natural side lighting, realistic eyes, lifelike expression, no airbrushing, no smooth CG skin`;
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-schnell');
+          const genPrompt = `${basePrompt}, candid raw analog style portrait photo, detailed natural skin texture with visible pores, minor blemishes, natural skin details, subtle asymmetry, captured on 85mm portrait lens, f/1.8, warm film grain, soft natural side lighting, realistic catchlights in the eyes, lifelike relaxed expression, anatomically correct hands if visible, no airbrushing, no smooth CG skin, no beauty-filter look`;
+          // Canonical persona portraits are identity anchors for the whole campaign — render at
+          // maximum quality (flux-pro, full portrait resolution) and upscale for crisp faces.
+          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '3:4', safetyTolerance);
           if (genUrl) {
-            mediaUrl = genUrl;
+            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
             console.log(`[AI Studio] Generated persona portrait via Fal.ai: ${mediaUrl}`);
           }
         } catch (falErr) {
@@ -14147,16 +14377,18 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
           'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600'
         ];
         mediaUrl = personaImages[activeSeed % personaImages.length];
+        isSimulatedAsset = true;
+        itemTitle = `[Stock Placeholder] ${itemTitle}`;
       }
     } else if (action === 'generate-scenery') {
       itemTitle = `Scenery Backdrop - ${req.body.sceneryName || 'Setting'}`;
       if (falKey) {
         try {
           const basePrompt = req.body.prompt || `Commercial background photography for setting: "${req.body.sceneryName || 'lifestyle room'}". Description: "${prompt || ''}". Realistic, high quality product backdrop, depth of field.`;
-          const genPrompt = `${basePrompt}, clean focus, architectural photography, shot on professional camera, detailed room background, realistic textures, natural lighting, high dynamic range`;
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-schnell');
+          const genPrompt = `${basePrompt}, clean focus, architectural photography, shot on professional camera, detailed room background, realistic material textures, natural lighting, high dynamic range`;
+          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '16:9', safetyTolerance);
           if (genUrl) {
-            mediaUrl = genUrl;
+            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
             console.log(`[AI Studio] Generated scenery backdrop via Fal.ai: ${mediaUrl}`);
           }
         } catch (falErr) {
@@ -14173,16 +14405,18 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
           'https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=600'
         ];
         mediaUrl = sceneryImages[activeSeed % sceneryImages.length];
+        isSimulatedAsset = true;
+        itemTitle = `[Stock Placeholder] ${itemTitle}`;
       }
     } else if (action === 'generate-object') {
       itemTitle = `Equipment/Object Asset - ${req.body.objectName || 'Asset'}`;
       if (falKey) {
         try {
           const basePrompt = req.body.prompt || `Industrial design product shot of object: "${req.body.objectName || 'asset'}". Description: "${prompt || ''}".`;
-          const genPrompt = `${basePrompt}, clean studio background, studio soft lighting, commercial product catalog photography, shot on professional camera, crisp details, realistic textures, high dynamic range`;
-          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-schnell');
+          const genPrompt = `${basePrompt}, clean studio background, studio soft lighting, commercial product catalog photography, shot on professional camera, crisp details, realistic material textures, high dynamic range`;
+          const genUrl = await generateImageFal(genPrompt, activeSeed, falKey, null, 'flux-pro', '1:1', safetyTolerance);
           if (genUrl) {
-            mediaUrl = genUrl;
+            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
             console.log(`[AI Studio] Generated object/equipment asset via Fal.ai: ${mediaUrl}`);
           }
         } catch (falErr) {
@@ -14197,20 +14431,63 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
           'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600'
         ];
         mediaUrl = objectImages[activeSeed % objectImages.length];
+        isSimulatedAsset = true;
+        itemTitle = `[Stock Placeholder] ${itemTitle}`;
       }
     } else {
       // Image Actions (generate / refine)
       itemTitle = targetProduct ? `AI Creative - ${targetProduct.title}` : 'AI Generated Creative';
-      
+
       const { productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
       const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
 
       if (falKey && !isCompositeRequest) {
         try {
           console.log(`[AI Studio] Generating main asset via Fal.ai with prompt: "${structuredPrompt}"`);
-          const genUrl = await generateImageFal(structuredPrompt, activeSeed, falKey, imageUrl, backend);
+
+          const isPublicRef = (u) => !!(u && u.startsWith('http') && !u.includes('localhost') && !u.includes('127.0.0.1'));
+          const personaFaceRef = selectedPersona && isPublicRef(selectedPersona.image) ? selectedPersona.image : null;
+          const brandContext = `${brand.name} — ${canvas.visual_direction || canvas.brand_voice || 'premium DTC brand'}`;
+          const bestOf = Math.min(Math.max(parseInt(req.body.bestOf) || 1, 1), 3);
+
+          const generateOneCandidate = async (candidateSeed) => {
+            // Identity lock: when a persona with a canonical portrait is selected, condition the
+            // generation on that face so the persona stays the same human across all assets.
+            // (Requires a plain-text prompt — FLUX.2 [flex] JSON prompts are not PuLID-compatible.)
+            if (personaFaceRef && !imageUrl && !structuredPrompt.trim().startsWith('{')) {
+              try {
+                const lockedUrl = await generateIdentityLockedImageFal(structuredPrompt, personaFaceRef, candidateSeed, falKey, resolveGenerationSize(aspectRatio));
+                if (lockedUrl) {
+                  await logAiUsage(brandId, 'AI Studio', 'Identity-Locked Persona Generation', 'flux-pulid', { width: 1024, height: 1024 }, 'IMAGE', req.user?.id);
+                  return lockedUrl;
+                }
+              } catch (pulidErr) {
+                console.warn('[AI Studio] Identity-locked generation failed, using standard engine:', pulidErr.message);
+              }
+            }
+            return await generateImageFal(structuredPrompt, candidateSeed, falKey, imageUrl, backend, aspectRatio, safetyTolerance);
+          };
+
+          let genUrl = null;
+          if (bestOf > 1) {
+            // Best-of-N: render candidates with distinct seeds in parallel, keep the strongest per the vision judge
+            console.log(`[AI Studio] Best-of-${bestOf} candidate generation enabled.`);
+            const candidateSeeds = Array.from({ length: bestOf }, (_, i) => (activeSeed + i * 7919) % 1000000);
+            const candidates = (await Promise.all(candidateSeeds.map(s => generateOneCandidate(s).catch(err => {
+              console.warn('[AI Studio] Candidate generation failed:', err.message);
+              return null;
+            })))).filter(Boolean);
+            if (candidates.length === 0) throw new Error('All candidate generations failed.');
+            const scored = await Promise.all(candidates.map(async (url) => ({ url, score: await scoreImageCandidate(url, brandContext) })));
+            scored.sort((a, b) => b.score - a.score);
+            genUrl = scored[0].url;
+            console.log(`[AI Studio] Best-of-${bestOf} winner scored ${scored[0].score}.`);
+          } else {
+            genUrl = await generateOneCandidate(activeSeed);
+          }
+
           if (genUrl) {
-            mediaUrl = genUrl;
+            mediaUrl = await upscaleImageFal(genUrl, falKey, brandId, req.user?.id);
           }
         } catch (falErr) {
           console.error('[AI Studio] Fal.ai main image generation failed:', falErr);
@@ -14269,6 +14546,10 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         } else {
           mediaUrl = defaultImages[activeSeed % defaultImages.length];
         }
+        if (!isCompositeRequest) {
+          isSimulatedAsset = true;
+          itemTitle = `[Stock Placeholder] ${itemTitle}`;
+        }
       }
     }
 
@@ -14278,7 +14559,7 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
 
     let isComposited = false;
     let advancedPipelineExecuted = false;
-    const { productImageUrl, personaImageUrl, sceneryImageUrl, safetyTolerance } = req.body;
+    const { productImageUrl, personaImageUrl, sceneryImageUrl } = req.body;
 
     if ((action === 'generate' || action === 'image') && falKey) {
       const isCompositeRequest = !!(productImageUrl || (targetProduct ? targetProduct.image : null) || personaImageUrl || sceneryImageUrl);
@@ -14298,7 +14579,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
             uploadDir,
             apiBaseUrl,
             brandId,
-            req.user?.id
+            req.user?.id,
+            subjectDesc
           );
           if (result && result.url) {
             mediaUrl = result.url;
@@ -14317,7 +14599,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
           sceneryImageUrl,
           personaImageUrl,
           productImageUrl || (targetProduct ? targetProduct.image : null),
-          destPath
+          destPath,
+          resolveGenerationSize(aspectRatio)
         );
       }
     }
@@ -14330,8 +14613,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         if (!fetchRes.ok) throw new Error(`Fetch error: ${fetchRes.statusText}`);
         let buffer = Buffer.from(await fetchRes.arrayBuffer());
         
-        // Execute C2PA sign & SynthID watermark
-        if (!isVideo) {
+        // Embed AI-provenance metadata (only for genuinely AI-generated media, never stock placeholders)
+        if (!isVideo && !isSimulatedAsset) {
           buffer = await signAndWatermarkImage(buffer);
         }
         await fs.promises.writeFile(destPath, buffer);
@@ -14354,6 +14637,9 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     let analysis = null;
     if (!isVideo) {
       analysis = await analyzeImageWithAi(destPath, 'image/jpeg');
+    }
+    if (isSimulatedAsset) {
+      analysis = { ...(analysis || {}), simulated: true, note: 'Stock placeholder — not AI-generated (no generation backend available or generation failed).' };
     }
     const metadataStr = analysis ? JSON.stringify(analysis) : null;
 
@@ -14397,9 +14683,9 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
     // 1. Resolve actual routed model
     let loggedModel = backend || (isVideo ? 'luma' : 'flux');
     if (isVideo) {
-      loggedModel = 'luma';
+      loggedModel = isSimulatedAsset ? 'stock-placeholder' : (process.env.FAL_VIDEO_ENDPOINT || 'luma-dream-machine').replace('fal-ai/', '');
     } else if (action === 'generate-persona' || action === 'generate-scenery' || action === 'generate-object') {
-      loggedModel = 'flux-schnell';
+      loggedModel = isSimulatedAsset ? 'stock-placeholder' : 'flux-pro/v1.1';
     } else if ((action === 'generate' || action === 'image') && falKey) {
       const resolvedProduct = productImageUrl || (targetProduct ? targetProduct.image : null);
       if (resolvedProduct) {
@@ -14421,22 +14707,8 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
       }
     }
 
-    // 2. Resolve image dimensions based on aspect ratio
-    let width = 1024;
-    let height = 1024;
-    if (aspectRatio === '16:9') {
-      width = 1024;
-      height = 576;
-    } else if (aspectRatio === '9:16') {
-      width = 576;
-      height = 1024;
-    } else if (aspectRatio === '4:3') {
-      width = 1024;
-      height = 768;
-    } else if (aspectRatio === '3:4') {
-      width = 768;
-      height = 1024;
-    }
+    // 2. Resolve image dimensions based on aspect ratio (base generation size before the 4x upscale pass)
+    const { width, height } = resolveGenerationSize(aspectRatio);
 
     const hasInputImage = !!productImageUrl || !!imageUrl || !!personaImageUrl || !!sceneryImageUrl;
 
