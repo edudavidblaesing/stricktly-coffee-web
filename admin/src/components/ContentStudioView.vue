@@ -285,6 +285,7 @@
                         <div class="form-group" style="margin: 0;">
                             <label style="font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: block;">5. AI Generation Engine</label>
                             <select v-model="composerParams.backend" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 0.82rem; padding: 0 10px; cursor: pointer; text-transform: uppercase;">
+                                <option value="auto">Auto-Select Best (Recommended)</option>
                                 <option value="imagen">Imagen 3</option>
                                 <option value="flux-schnell">FLUX.1 [schnell] (Draft Mode - $0.0003)</option>
                                 <option value="flux">FLUX.1 [dev] (Balanced - $0.01)</option>
@@ -1318,7 +1319,7 @@ export default {
             composerParams: {
                 promptTemplate: 'Commercial advertising photography showcasing $Dusk & Haze Clump Crusher (WDT tool) in focus. Used by a @The Technical Enthusiast / Extraction Scientist. Set in a #The Logical Aesthetic.',
                 promptHtml: '',
-                backend: 'flux-pro',
+                backend: 'auto',
                 format: 'image',
                 seed: '',
                 lockSeed: false,
@@ -1436,13 +1437,6 @@ export default {
                     this.loadDraftsHistory();
                 }
             }
-        },
-        'recommendedEngine.name': {
-            handler(newVal) {
-                if (newVal) {
-                    this.composerParams.backend = newVal;
-                }
-            }
         }
     },
     mounted() {
@@ -1486,13 +1480,17 @@ export default {
             if (format === 'video') {
                 return { name: 'luma', reason: 'Best for motion fluid dynamics and 4s cinemagraph video loops' };
             }
+            // Multi-reference composites (product + persona or scenery)
+            if (template.includes('$') && (template.includes('@') || template.includes('#'))) {
+                return { name: 'flux-2-max', reason: 'FLUX.2 [max] provides native multi-reference composition fusing products, personas and environments' };
+            }
             if (template.includes('@')) {
                 return { name: 'flux', reason: 'Flux excels at human anatomy, detailed expressions & model clothing styling accuracy' };
             }
-            if (template.includes('$') && template.includes('#')) {
-                return { name: 'imagen', reason: 'Imagen 3 is optimized for razor-sharp micro-textures and metallic coffee hardware reflections' };
+            if (template.includes('$')) {
+                return { name: 'flux-pro', reason: 'Flux 1.1 [pro] offers premium micro-textures and precise product shape reproduction' };
             }
-            return { name: 'imagen', reason: 'High-speed standard model' };
+            return { name: 'imagen', reason: 'Imagen 3 is optimized for high-speed standard coffee layouts' };
         },
         liveAssembledPrompt() {
             if (!this.composerParams.promptTemplate) return '';
@@ -2310,7 +2308,7 @@ export default {
             this.composerParams.cameraLens = lenses[Math.floor(Math.random() * lenses.length)];
             this.composerParams.lightingStyle = lightings[Math.floor(Math.random() * lightings.length)];
             this.composerParams.composition = compositions[Math.floor(Math.random() * compositions.length)];
-            this.composerParams.backend = this.recommendedEngine.name;
+            this.composerParams.backend = 'auto';
             this.composerParams.seed = Math.floor(Math.random() * 1000000);
             
             this.app.showNotification("🎲 Random combination compiled successfully!");
@@ -3191,7 +3189,7 @@ export default {
                         personaName: this.composerParams.personaName,
                         sceneryName: this.composerParams.sceneryName,
                         actionDescription: this.composerParams.actionDescription,
-                        backend: this.composerParams.backend,
+                        backend: this.composerParams.backend === 'auto' ? this.recommendedEngine.name : this.composerParams.backend,
                         seed: this.composerParams.seed,
                         cameraLens: this.composerParams.cameraLens,
                         lightingStyle: this.composerParams.lightingStyle,
@@ -3287,7 +3285,7 @@ export default {
                         personaName: this.composerParams.personaName,
                         sceneryName: this.composerParams.sceneryName,
                         actionDescription: this.composerParams.actionDescription,
-                        backend: this.composerParams.backend,
+                        backend: this.composerParams.backend === 'auto' ? this.recommendedEngine.name : this.composerParams.backend,
                         seed: this.composerParams.seed,
                         cameraLens: this.composerParams.cameraLens,
                         lightingStyle: this.composerParams.lightingStyle,
