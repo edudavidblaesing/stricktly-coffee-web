@@ -2617,7 +2617,13 @@ app.post('/api/global/users/update-profile', verifyAdminToken, async (req, res) 
 
 // Upload local file to S3 media bucket
 async function uploadFileToS3(filePath, key, mimeType) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Local file does not exist for S3 upload: ${filePath}`);
+  }
   const fileStream = fs.createReadStream(filePath);
+  fileStream.on('error', (err) => {
+    console.error(`[S3 Upload Stream Error] Failed to read file ${filePath}:`, err.message);
+  });
   await s3Client.send(new PutObjectCommand({
     Bucket: s3BucketMedia,
     Key: key,
@@ -14620,6 +14626,13 @@ Return ONLY the optimized prompt string. Do not wrap in markdown or include conv
         await fs.promises.writeFile(destPath, buffer);
       } catch (e) {
         console.error('[AI Studio Fetch Error, falling back to local simulation]', e);
+        // Write a tiny 1x1 pixel black JPEG buffer to destPath to ensure a valid file exists and prevent S3 crash
+        const tinyJpg = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
+        try {
+          await fs.promises.writeFile(destPath, tinyJpg);
+        } catch (writeErr) {
+          console.error('[AI Studio Fallback Write Failure]', writeErr);
+        }
       }
     }
 
